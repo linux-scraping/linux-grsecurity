@@ -1772,7 +1772,7 @@ static int __cpuinit timer_cpu_notify(struct notifier_block *self,
 	return NOTIFY_OK;
 }
 
-static struct notifier_block __cpuinitdata timers_nb = {
+static struct notifier_block __cpuinitconst timers_nb = {
 	.notifier_call	= timer_cpu_notify,
 };
 

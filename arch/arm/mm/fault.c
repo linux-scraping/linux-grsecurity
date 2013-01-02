@@ -609,8 +609,15 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 	const struct fsr_info *inf = ifsr_info + fsr_fs(ifsr);
 	struct siginfo info;
 
+#ifdef CONFIG_PAX_KERNEXEC
+	if (is_pxn_fault(ifsr) && !user_mode(regs)) {
+		printk(KERN_ALERT "PAX: Kernel attempted to execute userland memory at %08lx! ifsr=%08x\n", addr, ifsr);
+		goto die;
+	}
+#endif
+
 #ifdef CONFIG_PAX_REFCOUNT
-	if (fsr_fs(ifsr) == 2) {
+	if (fsr_fs(ifsr) == FAULT_CODE_DEBUG) {
 		unsigned int bkpt;
 
 		if (!probe_kernel_address((unsigned int *)addr, bkpt) && bkpt == 0xe12f1073) {
@@ -629,6 +636,7 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 	printk(KERN_ALERT "Unhandled prefetch abort: %s (0x%03x) at 0x%08lx\n",
 		inf->name, ifsr, addr);
 
+die:
 	info.si_signo = inf->sig;
 	info.si_errno = 0;
 	info.si_code  = inf->code;

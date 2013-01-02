@@ -227,16 +227,16 @@ static struct mem_type mem_types[] = {
 	[MT_UNCACHED] = {
 		.prot_pte	= PROT_PTE_DEVICE,
 		.prot_l1	= PMD_TYPE_TABLE,
-		.prot_sect	= PMD_TYPE_SECT | PMD_SECT_XN,
+		.prot_sect	= PROT_SECT_DEVICE | PMD_SECT_XN,
 		.domain		= DOMAIN_IO,
 	},
 	[MT_CACHECLEAN] = {
-		.prot_sect = PMD_TYPE_SECT | PMD_SECT_XN,
+		.prot_sect = PMD_TYPE_SECT | PMD_SECT_XN | PMD_SECT_AP_RDONLY,
 		.domain    = DOMAIN_KERNEL,
 	},
 #ifndef CONFIG_ARM_LPAE
 	[MT_MINICLEAN] = {
-		.prot_sect = PMD_TYPE_SECT | PMD_SECT_XN | PMD_SECT_MINICACHE,
+		.prot_sect = PMD_TYPE_SECT | PMD_SECT_XN | PMD_SECT_MINICACHE | PMD_SECT_AP_RDONLY,
 		.domain    = DOMAIN_KERNEL,
 	},
 #endif
@@ -258,8 +258,26 @@ static struct mem_type mem_types[] = {
 		.prot_sect = PMD_TYPE_SECT | PMD_SECT_AP_WRITE,
 		.domain    = DOMAIN_KERNEL,
 	},
+	[MT_MEMORY_R] = {
+		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_RDONLY | L_PTE_XN,
+		.prot_l1   = PMD_TYPE_TABLE,
+		.prot_sect = PMD_TYPE_SECT | PMD_SECT_AP_RDONLY | PMD_SECT_XN,
+		.domain	   = DOMAIN_KERNEL,
+	},
+	[MT_MEMORY_RW] = {
+		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY | L_PTE_XN,
+		.prot_l1   = PMD_TYPE_TABLE,
+		.prot_sect = PMD_TYPE_SECT | PMD_SECT_AP_WRITE | PMD_SECT_XN,
+		.domain	   = DOMAIN_KERNEL,
+	},
+	[MT_MEMORY_RX] = {
+		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_RDONLY,
+		.prot_l1   = PMD_TYPE_TABLE,
+		.prot_sect = PMD_TYPE_SECT | PMD_SECT_AP_RDONLY,
+		.domain	   = DOMAIN_KERNEL,
+	},
 	[MT_ROM] = {
-		.prot_sect = PMD_TYPE_SECT,
+		.prot_sect = PMD_TYPE_SECT | PMD_SECT_AP_RDONLY,
 		.domain    = DOMAIN_KERNEL,
 	},
 	[MT_MEMORY_NONCACHED] = {
@@ -273,7 +291,7 @@ static struct mem_type mem_types[] = {
 		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY |
 				L_PTE_XN,
 		.prot_l1   = PMD_TYPE_TABLE,
-		.prot_sect = PMD_TYPE_SECT | PMD_SECT_XN,
+		.prot_sect = PMD_TYPE_SECT | PMD_SECT_XN | PMD_SECT_AP_RDONLY,
 		.domain    = DOMAIN_KERNEL,
 	},
 	[MT_MEMORY_ITCM] = {
@@ -432,6 +450,8 @@ static void __init build_mem_type_table(void)
 		 * from SVC mode and no access from userspace.
 		 */
 		mem_types[MT_ROM].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
+		mem_types[MT_MEMORY_RX].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
+		mem_types[MT_MEMORY_R].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
 		mem_types[MT_MINICLEAN].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
 		mem_types[MT_CACHECLEAN].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
 #endif
@@ -450,6 +470,12 @@ static void __init build_mem_type_table(void)
 			mem_types[MT_DEVICE_CACHED].prot_pte |= L_PTE_SHARED;
 			mem_types[MT_MEMORY].prot_sect |= PMD_SECT_S;
 			mem_types[MT_MEMORY].prot_pte |= L_PTE_SHARED;
+			mem_types[MT_MEMORY_R].prot_sect |= PMD_SECT_S;
+			mem_types[MT_MEMORY_R].prot_pte |= L_PTE_SHARED;
+			mem_types[MT_MEMORY_RW].prot_sect |= PMD_SECT_S;
+			mem_types[MT_MEMORY_RW].prot_pte |= L_PTE_SHARED;
+			mem_types[MT_MEMORY_RX].prot_sect |= PMD_SECT_S;
+			mem_types[MT_MEMORY_RX].prot_pte |= L_PTE_SHARED;
 			mem_types[MT_MEMORY_DMA_READY].prot_pte |= L_PTE_SHARED;
 			mem_types[MT_MEMORY_NONCACHED].prot_sect |= PMD_SECT_S;
 			mem_types[MT_MEMORY_NONCACHED].prot_pte |= L_PTE_SHARED;
@@ -503,6 +529,12 @@ static void __init build_mem_type_table(void)
 	mem_types[MT_HIGH_VECTORS].prot_l1 |= ecc_mask;
 	mem_types[MT_MEMORY].prot_sect |= ecc_mask | cp->pmd;
 	mem_types[MT_MEMORY].prot_pte |= kern_pgprot;
+	mem_types[MT_MEMORY_R].prot_sect |= ecc_mask | cp->pmd;
+	mem_types[MT_MEMORY_R].prot_pte |= kern_pgprot;
+	mem_types[MT_MEMORY_RW].prot_sect |= ecc_mask | cp->pmd;
+	mem_types[MT_MEMORY_RW].prot_pte |= kern_pgprot;
+	mem_types[MT_MEMORY_RX].prot_sect |= ecc_mask | cp->pmd;
+	mem_types[MT_MEMORY_RX].prot_pte |= kern_pgprot;
 	mem_types[MT_MEMORY_DMA_READY].prot_pte |= kern_pgprot;
 	mem_types[MT_MEMORY_NONCACHED].prot_sect |= ecc_mask;
 	mem_types[MT_ROM].prot_sect |= cp->pmd;
@@ -1198,8 +1230,37 @@ static void __init map_lowmem(void)
 		map.pfn = __phys_to_pfn(start);
 		map.virtual = __phys_to_virt(start);
 		map.length = end - start;
-		map.type = MT_MEMORY;
 
+		if (map.virtual <= (unsigned long)_stext && ((unsigned long)_end < (map.virtual + map.length))) {
+			struct map_desc kernel;
+			struct map_desc initmap;
+
+			/* when freeing initmem we will make this RW */
+			initmap.pfn = __phys_to_pfn(__pa(__init_begin));
+			initmap.virtual = (unsigned long)__init_begin;
+			initmap.length = _sdata - __init_begin;
+			initmap.type = MT_MEMORY;
+			create_mapping(&initmap);
+
+			/* when freeing initmem we will make this RX */
+			kernel.pfn = __phys_to_pfn(__pa(_stext));
+			kernel.virtual = (unsigned long)_stext;
+			kernel.length = __init_begin - _stext;
+			kernel.type = MT_MEMORY;
+			create_mapping(&kernel);
+
+			if (map.virtual < (unsigned long)_stext) {
+				map.length = (unsigned long)_stext - map.virtual;
+				map.type = MT_MEMORY;
+				create_mapping(&map);
+			}
+
+			map.pfn = __phys_to_pfn(__pa(_sdata));
+			map.virtual = (unsigned long)_sdata;
+			map.length = end - __pa(_sdata);
+		}
+
+		map.type = MT_MEMORY_RW;
 		create_mapping(&map);
 	}
 }

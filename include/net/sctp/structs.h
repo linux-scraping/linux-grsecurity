@@ -496,7 +496,7 @@ struct sctp_af {
 	int		sockaddr_len;
 	sa_family_t	sa_family;
 	struct list_head list;
-};
+} __do_const;
 
 struct sctp_af *sctp_get_af_specific(sa_family_t);
 int sctp_register_af(struct sctp_af *);
@@ -516,7 +516,7 @@ struct sctp_pf {
 					  struct sctp_association *asoc);
 	void (*addr_v4map) (struct sctp_sock *, union sctp_addr *);
 	struct sctp_af *af;
-};
+} __do_const;
 
 
 /* Structure to track chunk fragments that have been acked, but peer

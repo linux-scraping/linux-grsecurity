@@ -72,7 +72,7 @@ struct wm8996_priv {
 	u16 hpout_pending;
 
 	struct regulator_bulk_data supplies[WM8996_NUM_SUPPLIES];
-	struct notifier_block disable_nb[WM8996_NUM_SUPPLIES];
+	notifier_block_no_const disable_nb[WM8996_NUM_SUPPLIES];
 	int bg_ena;
 
 	struct wm8996_pdata pdata;

@@ -238,7 +238,7 @@ struct mtd_info {
 	 */
 	struct backing_dev_info *backing_dev_info;
 
-	struct notifier_block reboot_notifier;  /* default mode before reboot */
+	notifier_block_no_const reboot_notifier;  /* default mode before reboot */
 
 	/* ECC status information */
 	struct mtd_ecc_stats ecc_stats;

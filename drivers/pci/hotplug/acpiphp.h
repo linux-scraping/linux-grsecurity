@@ -123,7 +123,7 @@ struct acpiphp_func {
 	struct acpiphp_bridge *bridge;	/* Ejectable PCI-to-PCI bridge */
 
 	struct list_head sibling;
-	struct notifier_block nb;
+	notifier_block_no_const nb;
 	acpi_handle	handle;
 
 	u8		function;	/* pci function# */

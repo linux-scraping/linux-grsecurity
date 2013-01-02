@@ -834,8 +834,10 @@ int sctp_register_af(struct sctp_af *af)
 		return 0;
 	}
 
-	INIT_LIST_HEAD(&af->list);
-	list_add_tail(&af->list, &sctp_address_families);
+	pax_open_kernel();
+	INIT_LIST_HEAD((struct list_head *)&af->list);
+	list_add_tail((struct list_head *)&af->list, &sctp_address_families);
+	pax_close_kernel();
 	return 1;
 }
 
@@ -1122,7 +1124,9 @@ static void sctp_v4_pf_init(void)
 
 static void sctp_v4_pf_exit(void)
 {
-	list_del(&sctp_af_inet.list);
+	pax_open_kernel();
+	list_del((struct list_head *)&sctp_af_inet.list);
+	pax_close_kernel();
 }
 
 static int sctp_v4_protosw_init(void)

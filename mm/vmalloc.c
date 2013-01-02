@@ -2637,7 +2637,11 @@ static int s_show(struct seq_file *m, void *p)
 		v->addr, v->addr + v->size, v->size);
 
 	if (v->caller)
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+		seq_printf(m, " %pK", v->caller);
+#else
 		seq_printf(m, " %pS", v->caller);
+#endif
 
 	if (v->nr_pages)
 		seq_printf(m, " pages=%d", v->nr_pages);

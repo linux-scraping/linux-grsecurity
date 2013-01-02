@@ -22,7 +22,7 @@
 
 #ifdef CONFIG_MMU
 
-#define _PAGE_USER_TABLE	(PMD_TYPE_TABLE | PMD_BIT4 | PMD_DOMAIN(DOMAIN_USER))
+#define _PAGE_USER_TABLE	(PMD_TYPE_TABLE | PMD_PXNTABLE | PMD_BIT4 | PMD_DOMAIN(DOMAIN_USER))
 #define _PAGE_KERNEL_TABLE	(PMD_TYPE_TABLE | PMD_BIT4 | PMD_DOMAIN(DOMAIN_KERNEL))
 
 #ifdef CONFIG_ARM_LPAE
@@ -130,6 +130,16 @@ static inline void pte_free(struct mm_struct *mm, pgtable_t pte)
 {
 	pgtable_page_dtor(pte);
 	__free_page(pte);
+}
+
+static inline void __pmd_update(pmd_t *pmdp, pmdval_t prot)
+{
+	pmdval_t pmdval = pmd_val(*pmdp) | prot;
+	pmdp[0] = __pmd(pmdval);
+#ifndef CONFIG_ARM_LPAE
+	pmdp[1] = __pmd(pmdval + 256 * sizeof(pte_t));
+#endif
+	flush_pmd_entry(pmdp);
 }
 
 static inline void __pmd_populate(pmd_t *pmdp, phys_addr_t pte,

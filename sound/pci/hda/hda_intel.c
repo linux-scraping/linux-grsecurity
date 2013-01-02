@@ -512,7 +512,7 @@ struct azx {
 	struct work_struct irq_pending_work;
 
 	/* reboot notifier (for mysterious hangup problem at power-down) */
-	struct notifier_block reboot_notifier;
+	notifier_block_no_const reboot_notifier;
 
 	/* card list (for power_save trigger) */
 	struct list_head list;

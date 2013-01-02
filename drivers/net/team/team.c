@@ -2601,7 +2601,7 @@ static int team_device_event(struct notifier_block *unused,
 	return NOTIFY_DONE;
 }
 
-static struct notifier_block team_notifier_block __read_mostly = {
+static struct notifier_block team_notifier_block = {
 	.notifier_call = team_device_event,
 };
 

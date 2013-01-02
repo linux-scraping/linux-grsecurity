@@ -13,7 +13,7 @@
 #include <linux/notifier.h>
 
 struct pm_clk_notifier_block {
-	struct notifier_block nb;
+	notifier_block_no_const nb;
 	struct dev_pm_domain *pm_domain;
 	char *con_ids[];
 };

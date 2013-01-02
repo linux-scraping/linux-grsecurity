@@ -1100,7 +1100,7 @@ static int macvtap_device_event(struct notifier_block *unused,
 	return NOTIFY_DONE;
 }
 
-static struct notifier_block macvtap_notifier_block __read_mostly = {
+static struct notifier_block macvtap_notifier_block = {
 	.notifier_call	= macvtap_device_event,
 };
 

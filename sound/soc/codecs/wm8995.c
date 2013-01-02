@@ -384,7 +384,7 @@ struct wm8995_priv {
 	int aifclk[2];
 	struct fll_config fll[2], fll_suspend[2];
 	struct regulator_bulk_data supplies[WM8995_NUM_SUPPLIES];
-	struct notifier_block disable_nb[WM8995_NUM_SUPPLIES];
+	notifier_block_no_const disable_nb[WM8995_NUM_SUPPLIES];
 	struct snd_soc_codec *codec;
 };
 

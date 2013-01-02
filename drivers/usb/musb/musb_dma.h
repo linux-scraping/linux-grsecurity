@@ -172,7 +172,7 @@ struct dma_controller {
 	int			(*is_compatible)(struct dma_channel *channel,
 							u16 maxpacket,
 							void *buf, u32 length);
-};
+} __no_const;
 
 /* called after channel_program(), may indicate a fault */
 extern void musb_dma_completion(struct musb *musb, u8 epnum, u8 transmit);

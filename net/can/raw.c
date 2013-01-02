@@ -79,7 +79,7 @@ struct raw_sock {
 	struct sock sk;
 	int bound;
 	int ifindex;
-	struct notifier_block notifier;
+	notifier_block_no_const notifier;
 	int loopback;
 	int recv_own_msgs;
 	int fd_frames;

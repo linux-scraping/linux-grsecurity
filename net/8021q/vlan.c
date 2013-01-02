@@ -484,7 +484,7 @@ out:
 	return NOTIFY_DONE;
 }
 
-static struct notifier_block vlan_notifier_block __read_mostly = {
+static struct notifier_block vlan_notifier_block = {
 	.notifier_call = vlan_device_event,
 };
 

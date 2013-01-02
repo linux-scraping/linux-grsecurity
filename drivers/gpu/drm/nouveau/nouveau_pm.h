@@ -168,7 +168,7 @@ struct nouveau_pm {
 	struct nouveau_pm_level *cur;
 
 	struct device *hwmon;
-	struct notifier_block acpi_nb;
+	notifier_block_no_const acpi_nb;
 
 	int  (*clocks_get)(struct drm_device *, struct nouveau_pm_level *);
 	void *(*clocks_pre)(struct drm_device *, struct nouveau_pm_level *);

@@ -1048,8 +1048,8 @@ struct ieee80211_local {
 	struct work_struct dynamic_ps_enable_work;
 	struct work_struct dynamic_ps_disable_work;
 	struct timer_list dynamic_ps_timer;
-	struct notifier_block network_latency_notifier;
-	struct notifier_block ifa_notifier;
+	notifier_block_no_const network_latency_notifier;
+	notifier_block_no_const ifa_notifier;
 
 	/*
 	 * The dynamic ps timeout configured from user space via WEXT -

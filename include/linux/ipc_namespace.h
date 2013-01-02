@@ -50,7 +50,7 @@ struct ipc_namespace {
 	 */
 	int		shm_rmid_forced;
 
-	struct notifier_block ipcns_nb;
+	notifier_block_no_const ipcns_nb;
 
 	/* The kern_mount of the mqueuefs sb.  We take a ref on it */
 	struct vfsmount	*mq_mnt;

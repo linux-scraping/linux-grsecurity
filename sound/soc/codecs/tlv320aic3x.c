@@ -65,7 +65,7 @@ static LIST_HEAD(reset_list);
 struct aic3x_priv;
 
 struct aic3x_disable_nb {
-	struct notifier_block nb;
+	notifier_block_no_const nb;
 	struct aic3x_priv *aic3x;
 };
 

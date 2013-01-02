@@ -196,7 +196,7 @@ void * __must_check krealloc(const void *, size_t, gfp_t);
 void kfree(const void *);
 void kzfree(const void *);
 size_t ksize(const void *);
-const char *check_heap_object(const void *ptr, unsigned long n, bool to);
+const char *check_heap_object(const void *ptr, unsigned long n);
 bool is_usercopy_object(const void *ptr);
 
 /*

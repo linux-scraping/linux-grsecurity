@@ -812,17 +812,6 @@ void add_disk_randomness(struct gendisk *disk)
 }
 #endif
 
-#ifdef CONFIG_PAX_LATENT_ENTROPY
-u64 latent_entropy;
-
-__init void transfer_latent_entropy(void)
-{
-	mix_pool_bytes(&input_pool, &latent_entropy, sizeof(latent_entropy), NULL);
-	mix_pool_bytes(&nonblocking_pool, &latent_entropy, sizeof(latent_entropy), NULL);
-//	printk(KERN_INFO "PAX: transferring latent entropy: %16llx\n", latent_entropy);
-}
-#endif
-
 /*********************************************************************
  *
  * Entropy extraction routines

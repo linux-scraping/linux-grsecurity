@@ -323,7 +323,7 @@ struct omap_dss_board_info {
 	int (*dsi_enable_pads)(int dsi_id, unsigned lane_mask);
 	void (*dsi_disable_pads)(int dsi_id, unsigned lane_mask);
 	int (*set_min_bus_tput)(struct device *dev, unsigned long r);
-};
+} __do_const;
 
 /* Init with the board info */
 extern int omap_display_init(struct omap_dss_board_info *board_data);

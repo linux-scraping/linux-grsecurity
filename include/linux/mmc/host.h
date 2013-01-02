@@ -188,7 +188,7 @@ struct mmc_host {
 	u32			ocr_avail_sdio;	/* SDIO-specific OCR */
 	u32			ocr_avail_sd;	/* SD-specific OCR */
 	u32			ocr_avail_mmc;	/* MMC-specific OCR */
-	struct notifier_block	pm_notify;
+	notifier_block_no_const	pm_notify;
 	u32			max_current_330;
 	u32			max_current_300;
 	u32			max_current_180;

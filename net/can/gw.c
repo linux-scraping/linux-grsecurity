@@ -67,7 +67,6 @@ MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
 MODULE_ALIAS("can-gw");
 
 static HLIST_HEAD(cgw_list);
-static struct notifier_block notifier;
 
 static struct kmem_cache *cgw_cache __read_mostly;
 
@@ -887,6 +886,10 @@ static int cgw_remove_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 	return err;
 }
 
+static struct notifier_block notifier = {
+	.notifier_call = cgw_notifier
+};
+
 static __init int cgw_module_init(void)
 {
 	printk(banner);
@@ -898,7 +901,6 @@ static __init int cgw_module_init(void)
 		return -ENOMEM;
 
 	/* set notifier */
-	notifier.notifier_call = cgw_notifier;
 	register_netdevice_notifier(&notifier);
 
 	if (__rtnl_register(PF_CAN, RTM_GETROUTE, NULL, cgw_dump_jobs, NULL)) {

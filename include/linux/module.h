@@ -21,6 +21,7 @@
 
 #include <linux/percpu.h>
 #include <asm/module.h>
+#include <asm/pgtable.h>
 
 /* In stripped ARM and x86-64 modules, ~ is surprisingly rare. */
 #define MODULE_SIG_STRING "~Module signature appended~\n"

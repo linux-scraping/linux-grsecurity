@@ -31,7 +31,7 @@
 #endif
 
 struct xt_tee_priv {
-	struct notifier_block	notifier;
+	notifier_block_no_const	notifier;
 	struct xt_tee_tginfo	*tginfo;
 	int			oif;
 };

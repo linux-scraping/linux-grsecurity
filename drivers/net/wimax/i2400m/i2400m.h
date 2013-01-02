@@ -643,7 +643,7 @@ struct i2400m {
 	struct i2400m_fw *fw_cached;	/* protected by rx_lock */
 	struct i2400m_barker_db *barker;
 
-	struct notifier_block pm_notifier;
+	notifier_block_no_const pm_notifier;
 
 	/* counting bus reset retries in this boot */
 	atomic_t bus_reset_retries;

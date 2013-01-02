@@ -51,7 +51,7 @@
 #define CON_BUF_SIZE (CONFIG_BASE_SMALL ? 256 : PAGE_SIZE)
 
 struct vcs_poll_data {
-	struct notifier_block notifier;
+	notifier_block_no_const notifier;
 	unsigned int cons_num;
 	bool seen_last_update;
 	wait_queue_head_t waitq;

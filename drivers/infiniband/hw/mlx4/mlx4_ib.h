@@ -416,7 +416,7 @@ struct mlx4_ib_sriov {
 struct mlx4_ib_iboe {
 	spinlock_t		lock;
 	struct net_device      *netdevs[MLX4_MAX_PORTS];
-	struct notifier_block 	nb;
+	notifier_block_no_const nb;
 	union ib_gid		gid_table[MLX4_MAX_PORTS][128];
 };
 

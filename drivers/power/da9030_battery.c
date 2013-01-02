@@ -110,7 +110,7 @@ struct da9030_charger {
 	int mV;
 	bool is_on;
 
-	struct notifier_block nb;
+	notifier_block_no_const nb;
 
 	/* platform callbacks for battery low and critical events */
 	void (*battery_low)(void);

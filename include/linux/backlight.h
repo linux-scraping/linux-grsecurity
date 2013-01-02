@@ -98,7 +98,7 @@ struct backlight_device {
 	const struct backlight_ops *ops;
 
 	/* The framebuffer notifier block */
-	struct notifier_block fb_notif;
+	notifier_block_no_const fb_notif;
 
 	struct device dev;
 };

@@ -49,7 +49,7 @@ static const u16 wm8770_reg_defs[WM8770_CACHEREGNUM] = {
 struct wm8770_priv {
 	enum snd_soc_control_type control_type;
 	struct regulator_bulk_data supplies[WM8770_NUM_SUPPLIES];
-	struct notifier_block disable_nb[WM8770_NUM_SUPPLIES];
+	notifier_block_no_const disable_nb[WM8770_NUM_SUPPLIES];
 	struct snd_soc_codec *codec;
 	int sysclk;
 };

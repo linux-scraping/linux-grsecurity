@@ -28,11 +28,13 @@
 /*
  * Default to the loop-based delay implementation.
  */
-struct arm_delay_ops arm_delay_ops = {
+static struct arm_delay_ops arm_loop_delay_ops = {
 	.delay		= __loop_delay,
 	.const_udelay	= __loop_const_udelay,
 	.udelay		= __loop_udelay,
 };
+
+struct arm_delay_ops *arm_delay_ops __read_only = &arm_loop_delay_ops;
 
 static const struct delay_timer *delay_timer;
 static bool delay_calibrated;
@@ -67,6 +69,12 @@ static void __timer_udelay(unsigned long usecs)
 	__timer_const_udelay(usecs * UDELAY_MULT);
 }
 
+static struct arm_delay_ops arm_timer_delay_ops = {
+	.delay		= __timer_delay,
+	.const_udelay	= __timer_const_udelay,
+	.udelay		= __timer_udelay,
+};
+
 void __init register_current_timer_delay(const struct delay_timer *timer)
 {
 	if (!delay_calibrated) {
@@ -74,9 +82,7 @@ void __init register_current_timer_delay(const struct delay_timer *timer)
 		delay_timer			= timer;
 		lpj_fine			= timer->freq / HZ;
 		loops_per_jiffy			= lpj_fine;
-		arm_delay_ops.delay		= __timer_delay;
-		arm_delay_ops.const_udelay	= __timer_const_udelay;
-		arm_delay_ops.udelay		= __timer_udelay;
+		arm_delay_ops			= &arm_timer_delay_ops;
 		delay_calibrated		= true;
 	} else {
 		pr_info("Ignoring duplicate/late registration of read_current_timer delay\n");

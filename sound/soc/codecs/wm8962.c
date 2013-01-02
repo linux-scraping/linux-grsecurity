@@ -71,7 +71,7 @@ struct wm8962_priv {
 	struct snd_soc_jack *jack;
 
 	struct regulator_bulk_data supplies[WM8962_NUM_SUPPLIES];
-	struct notifier_block disable_nb[WM8962_NUM_SUPPLIES];
+	notifier_block_no_const disable_nb[WM8962_NUM_SUPPLIES];
 
 #if defined(CONFIG_INPUT) || defined(CONFIG_INPUT_MODULE)
 	struct input_dev *beep;

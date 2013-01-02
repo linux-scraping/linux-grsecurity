@@ -152,7 +152,7 @@ struct devfreq {
 	struct device dev;
 	struct devfreq_dev_profile *profile;
 	const struct devfreq_governor *governor;
-	struct notifier_block nb;
+	notifier_block_no_const nb;
 
 	unsigned long polling_jiffies;
 	unsigned long previous_freq;

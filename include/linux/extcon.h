@@ -165,7 +165,7 @@ struct extcon_cable {
  * @previous_value	the saved previous event value.
  */
 struct extcon_specific_cable_nb {
-	struct notifier_block internal_nb;
+	notifier_block_no_const internal_nb;
 	struct notifier_block *user_nb;
 	int cable_index;
 	struct extcon_dev *edev;

@@ -24,9 +24,9 @@ extern struct arm_delay_ops {
 	void (*delay)(unsigned long);
 	void (*const_udelay)(unsigned long);
 	void (*udelay)(unsigned long);
-} arm_delay_ops;
+} *arm_delay_ops;
 
-#define __delay(n)		arm_delay_ops.delay(n)
+#define __delay(n)		arm_delay_ops->delay(n)
 
 /*
  * This function intentionally does not exist; if you see references to
@@ -47,8 +47,8 @@ extern void __bad_udelay(void);
  * first constant multiplications gets optimized away if the delay is
  * a constant)
  */
-#define __udelay(n)		arm_delay_ops.udelay(n)
-#define __const_udelay(n)	arm_delay_ops.const_udelay(n)
+#define __udelay(n)		arm_delay_ops->udelay(n)
+#define __const_udelay(n)	arm_delay_ops->const_udelay(n)
 
 #define udelay(n)							\
 	(__builtin_constant_p(n) ?					\

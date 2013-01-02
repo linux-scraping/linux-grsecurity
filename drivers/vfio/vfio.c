@@ -71,7 +71,7 @@ struct vfio_group {
 	struct list_head		device_list;
 	struct mutex			device_lock;
 	struct device			*dev;
-	struct notifier_block		nb;
+	notifier_block_no_const		nb;
 	struct list_head		vfio_next;
 	struct list_head		container_next;
 };

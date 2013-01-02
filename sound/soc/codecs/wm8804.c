@@ -62,7 +62,7 @@ static const struct reg_default wm8804_reg_defaults[] = {
 struct wm8804_priv {
 	struct regmap *regmap;
 	struct regulator_bulk_data supplies[WM8804_NUM_SUPPLIES];
-	struct notifier_block disable_nb[WM8804_NUM_SUPPLIES];
+	notifier_block_no_const disable_nb[WM8804_NUM_SUPPLIES];
 };
 
 static int txsrc_get(struct snd_kcontrol *kcontrol,

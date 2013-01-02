@@ -55,7 +55,7 @@ struct flow_flush_info {
 struct flow_cache {
 	u32				hash_shift;
 	struct flow_cache_percpu __percpu *percpu;
-	struct notifier_block		hotcpu_notifier;
+	notifier_block_no_const		hotcpu_notifier;
 	int				low_watermark;
 	int				high_watermark;
 	struct timer_list		rnd_timer;

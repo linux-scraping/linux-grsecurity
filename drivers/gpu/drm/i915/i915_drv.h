@@ -500,7 +500,7 @@ typedef struct drm_i915_private {
 	} edp;
 	bool no_aux_handshake;
 
-	struct notifier_block lid_notifier;
+	notifier_block_no_const lid_notifier;
 
 	int crt_ddc_pin;
 	struct drm_i915_fence_reg fence_regs[I915_MAX_NUM_FENCES]; /* assume 965 */

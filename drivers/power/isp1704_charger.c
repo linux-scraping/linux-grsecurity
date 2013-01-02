@@ -57,7 +57,7 @@ struct isp1704_charger {
 	struct device		*dev;
 	struct power_supply	psy;
 	struct usb_phy		*phy;
-	struct notifier_block	nb;
+	notifier_block_no_const	nb;
 	struct work_struct	work;
 
 	/* properties */

@@ -734,9 +734,43 @@ void __init mem_init(void)
 
 void free_initmem(void)
 {
+
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long addr;
+	pgd_t *pgd;
+	pud_t *pud;
+	pmd_t *pmd;
+#endif
+
 #ifdef CONFIG_HAVE_TCM
 	extern char __tcm_start, __tcm_end;
+#endif
 
+#ifdef CONFIG_PAX_KERNEXEC
+	/* make pages tables, etc before .text NX */
+	for (addr = PAGE_OFFSET; addr < (unsigned long)_stext; addr += PMD_SIZE) {
+		pgd = pgd_offset_k(addr);
+		pud = pud_offset(pgd, addr);
+		pmd = pmd_offset(pud, addr);
+		__pmd_update(pmd, PMD_SECT_XN);
+	}
+	/* make init NX */
+	for (addr = (unsigned long)__init_begin; addr < (unsigned long)_sdata; addr += PMD_SIZE) {
+		pgd = pgd_offset_k(addr);
+		pud = pud_offset(pgd, addr);
+		pmd = pmd_offset(pud, addr);
+		__pmd_update(pmd, PMD_SECT_XN);
+	}
+	/* make kernel code/rodata read-only */
+	for (addr = (unsigned long)_stext; addr < (unsigned long)__init_begin; addr += PMD_SIZE) {
+		pgd = pgd_offset_k(addr);
+		pud = pud_offset(pgd, addr);
+		pmd = pmd_offset(pud, addr);
+		__pmd_update(pmd, PMD_SECT_AP_RDONLY);
+	}
+#endif
+
+#ifdef CONFIG_HAVE_TCM
 	poison_init_mem(&__tcm_start, &__tcm_end - &__tcm_start);
 	totalram_pages += free_area(__phys_to_pfn(__pa(&__tcm_start)),
 				    __phys_to_pfn(__pa(&__tcm_end)),

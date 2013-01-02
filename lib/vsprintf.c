@@ -1139,7 +1139,7 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 	   Also ignore 'K' pointers, since we force their NULLing for non-root users
 	   above
 	*/
-	if (ptr > TASK_SIZE && *fmt != 'P' && *fmt != 'K' && is_usercopy_object(buf)) {
+	if ((unsigned long)ptr > TASK_SIZE && *fmt != 'P' && *fmt != 'K' && is_usercopy_object(buf)) {
 		printk(KERN_ALERT "grsec: kernel infoleak detected!  Please report this log to spender@grsecurity.net.\n");
 		dump_stack();
 		ptr = NULL;

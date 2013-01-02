@@ -983,6 +983,22 @@ static struct attribute *default_attrs[] = {
 };
 
 #ifdef CONFIG_AMD_NB
+static struct attribute *default_attrs_amd_nb[] = {
+	&type.attr,
+	&level.attr,
+	&coherency_line_size.attr,
+	&physical_line_partition.attr,
+	&ways_of_associativity.attr,
+	&number_of_sets.attr,
+	&size.attr,
+	&shared_cpu_map.attr,
+	&shared_cpu_list.attr,
+	NULL,
+	NULL,
+	NULL,
+	NULL
+};
+
 static struct attribute ** __cpuinit amd_l3_attrs(void)
 {
 	static struct attribute **attrs;
@@ -993,18 +1009,7 @@ static struct attribute ** __cpuinit amd_l3_attrs(void)
 
 	n = ARRAY_SIZE(default_attrs);
 
-	if (amd_nb_has_feature(AMD_NB_L3_INDEX_DISABLE))
-		n += 2;
-
-	if (amd_nb_has_feature(AMD_NB_L3_PARTITIONING))
-		n += 1;
-
-	attrs = kzalloc(n * sizeof (struct attribute *), GFP_KERNEL);
-	if (attrs == NULL)
-		return attrs = default_attrs;
-
-	for (n = 0; default_attrs[n]; n++)
-		attrs[n] = default_attrs[n];
+	attrs = default_attrs_amd_nb;
 
 	if (amd_nb_has_feature(AMD_NB_L3_INDEX_DISABLE)) {
 		attrs[n++] = &cache_disable_0.attr;
@@ -1054,6 +1059,13 @@ static struct kobj_type ktype_cache = {
 	.sysfs_ops	= &sysfs_ops,
 	.default_attrs	= default_attrs,
 };
+
+#ifdef CONFIG_AMD_NB
+static struct kobj_type ktype_cache_amd_nb = {
+	.sysfs_ops	= &sysfs_ops,
+	.default_attrs	= default_attrs_amd_nb,
+};
+#endif
 
 static struct kobj_type ktype_percpu_entry = {
 	.sysfs_ops	= &sysfs_ops,
@@ -1120,20 +1132,26 @@ static int __cpuinit cache_add_dev(struct device *dev)
 		return retval;
 	}
 
+#ifdef CONFIG_AMD_NB
+	amd_l3_attrs();
+#endif
+
 	for (i = 0; i < num_cache_leaves; i++) {
+		struct kobj_type *ktype;
+
 		this_object = INDEX_KOBJECT_PTR(cpu, i);
 		this_object->cpu = cpu;
 		this_object->index = i;
 
 		this_leaf = CPUID4_INFO_IDX(cpu, i);
 
-		ktype_cache.default_attrs = default_attrs;
+		ktype = &ktype_cache;
 #ifdef CONFIG_AMD_NB
 		if (this_leaf->base.nb)
-			ktype_cache.default_attrs = amd_l3_attrs();
+			ktype = &ktype_cache_amd_nb;
 #endif
 		retval = kobject_init_and_add(&(this_object->kobj),
-					      &ktype_cache,
+					      ktype,
 					      per_cpu(ici_cache_kobject, cpu),
 					      "index%1lu", i);
 		if (unlikely(retval)) {
