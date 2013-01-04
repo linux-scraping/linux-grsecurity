@@ -25,6 +25,7 @@
 #include <asm/system_misc.h>
 #include <asm/system_info.h>
 #include <asm/tlbflush.h>
+#include <asm/sections.h>
 
 #include "fault.h"
 
@@ -137,6 +138,19 @@ __do_kernel_fault(struct mm_struct *mm, unsigned long addr, unsigned int fsr,
 	 */
 	if (fixup_exception(regs))
 		return;
+
+#ifdef CONFIG_PAX_KERNEXEC
+	if (fsr & FSR_WRITE) {
+		if (((unsigned long)_stext <= addr && addr < init_mm.end_code) || (MODULES_VADDR <= addr && addr < MODULES_END)) {
+			if (current->signal->curr_ip)
+				printk(KERN_ERR "PAX: From %pI4: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n",
+						 &current->signal->curr_ip, current->comm, task_pid_nr(current), current_uid(), current_euid());
+			else
+				printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n",
+						 current->comm, task_pid_nr(current), current_uid(), current_euid());
+		}
+	}
+#endif
 
 	/*
 	 * No handler, we'll have to terminate things with extreme prejudice.
@@ -610,8 +624,15 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 	struct siginfo info;
 
 #ifdef CONFIG_PAX_KERNEXEC
-	if (is_pxn_fault(ifsr) && !user_mode(regs)) {
-		printk(KERN_ALERT "PAX: Kernel attempted to execute userland memory at %08lx! ifsr=%08x\n", addr, ifsr);
+	if (!user_mode(regs) && is_xn_fault(ifsr)) {
+		if (current->signal->curr_ip)
+			printk(KERN_ERR "PAX: From %pI4: %s:%d, uid/euid: %u/%u, attempted to execute %s memory at %08lx\n",
+					 &current->signal->curr_ip, current->comm, task_pid_nr(current), current_uid(), current_euid(),
+					 addr >= TASK_SIZE ? "non-executable kernel" : "userland", addr);
+		else
+			printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to execute %s memory at %08lx\n",
+					 current->comm, task_pid_nr(current), current_uid(), current_euid(),
+					 addr >= TASK_SIZE ? "non-executable kernel" : "userland", addr);
 		goto die;
 	}
 #endif

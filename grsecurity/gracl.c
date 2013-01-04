@@ -1178,14 +1178,6 @@ count_user_subjs(struct acl_subject_label *userp)
 			break;
 
 		userp = s_tmp.prev;
-		/* do not count nested subjects against this count, since
-		   they are not included in the hash table, but are
-		   attached to objects.  We have already counted
-		   the subjects in userspace for the allocation 
-		   stack
-		*/
-		if (!(s_tmp.mode & GR_NESTED))
-			num++;
 	}
 
 	return num;
@@ -1463,15 +1455,6 @@ copy_user_subjs(struct acl_subject_label *userp, struct acl_role_label *role)
 				   sizeof (struct acl_subject_label)))
 			return -EFAULT;
 		
-		/* do not add nested subjects here, add
-		   while parsing objects
-		*/
-
-		if (s_pre.mode & GR_NESTED) {
-			userp = s_pre.prev;
-			continue;
-		}
-
 		ret = do_copy_user_subj(userp, role, NULL);
 
 		err = PTR_ERR(ret);

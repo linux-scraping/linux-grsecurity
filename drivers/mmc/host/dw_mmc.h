@@ -205,5 +205,5 @@ struct dw_mci_drv_data {
 	int		(*parse_dt)(struct dw_mci *host);
 	int		(*setup_bus)(struct dw_mci *host,
 				struct device_node *slot_np, u8 bus_width);
-};
+} __do_const;
 #endif /* _DW_MMC_H_ */

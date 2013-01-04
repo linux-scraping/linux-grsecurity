@@ -24,7 +24,7 @@ static inline int fsr_fs(unsigned int fsr)
 #endif
 
 /* valid for LPAE and !LPAE */
-static inline int is_pxn_fault(unsigned int fsr)
+static inline int is_xn_fault(unsigned int fsr)
 {
 	return ((fsr_fs(fsr) & 0x3c) == 0xc);
 }
