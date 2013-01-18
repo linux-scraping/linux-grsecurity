@@ -804,6 +804,24 @@ config GRKERNSEC_BLACKHOLE
 	  prevents a socket from lasting more than 45 seconds in LAST_ACK
 	  state.
 
+config GRKERNSEC_NO_SIMULT_CONNECT
+	bool "Disable TCP Simultaneous Connect"
+	default y if GRKERNSEC_CONFIG_AUTO
+	depends on NET
+	help
+	  If you say Y here, a feature by Willy Tarreau will be enabled that
+	  removes a weakness in Linux's strict implementation of TCP that
+	  allows two clients to connect to each other without either entering
+	  a listening state.  The weakness allows an attacker to easily prevent
+	  a client from connecting to a known server provided the source port
+	  for the connection is guessed correctly.
+
+	  As the weakness could be used to prevent an antivirus or IPS from
+	  fetching updates, or prevent an SSL gateway from fetching a CRL,
+	  it should be eliminated by enabling this option.  Though Linux is
+	  one of few operating systems supporting simultaneous connect, it
+	  has no legitimate use in practice and is rarely supported by firewalls.
+	
 config GRKERNSEC_SOCKET
 	bool "Socket restrictions"
 	depends on NET
