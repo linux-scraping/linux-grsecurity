@@ -52,7 +52,7 @@ struct padata_pcrypt {
 	struct pcrypt_cpumask {
 		cpumask_var_t mask;
 	} *cb_cpumask;
-	notifier_block_no_const nblock;
+	struct notifier_block nblock;
 };
 
 static struct padata_pcrypt pencrypt;

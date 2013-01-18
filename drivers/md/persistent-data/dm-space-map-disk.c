@@ -22,7 +22,7 @@
  * Space map interface.
  */
 struct sm_disk {
-	dm_space_map_no_const sm;
+	struct dm_space_map sm;
 
 	struct ll_disk ll;
 	struct ll_disk old_ll;

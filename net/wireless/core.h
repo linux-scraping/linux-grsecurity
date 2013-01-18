@@ -28,7 +28,7 @@ struct cfg80211_registered_device {
 	struct mutex mtx;
 
 	/* rfkill support */
-	rfkill_ops_no_const rfkill_ops;
+	struct rfkill_ops rfkill_ops;
 	struct rfkill *rfkill;
 	struct work_struct rfkill_sync;
 

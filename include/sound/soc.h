@@ -1031,7 +1031,7 @@ struct snd_soc_pcm_runtime {
 	struct snd_soc_dai_link *dai_link;
 	struct mutex pcm_mutex;
 	enum snd_soc_pcm_subclass pcm_subclass;
-	snd_pcm_ops_no_const ops;
+	struct snd_pcm_ops ops;
 
 	unsigned int dev_registered:1;
 

@@ -1461,7 +1461,7 @@ int __init detect_calgary(void)
 		printk(KERN_INFO "PCI-DMA: Calgary TCE table spec is %d\n",
 		       specified_table_size);
 
-		x86_init.iommu.iommu_init = calgary_iommu_init;
+		*(void **)&x86_init.iommu.iommu_init = calgary_iommu_init;
 	}
 	return calgary_found;
 

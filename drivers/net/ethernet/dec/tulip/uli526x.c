@@ -129,7 +129,7 @@ struct uli526x_board_info {
 	struct uli_phy_ops {
 		void (*write)(struct uli526x_board_info *, u8, u8, u16);
 		u16 (*read)(struct uli526x_board_info *, u8, u8);
-	} __no_const phy;
+	} phy;
 	struct net_device *next_dev;	/* next device */
 	struct pci_dev *pdev;		/* PCI device */
 	spinlock_t lock;

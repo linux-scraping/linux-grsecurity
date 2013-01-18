@@ -898,7 +898,7 @@ struct uf_sdio_mmc_pm_notifier
     struct list_head list;
 
     CsrSdioFunction *sdio_ctx;
-    notifier_block_no_const pm_notifier;
+    struct notifier_block pm_notifier;
 };
 
 /* PM notifier list head */

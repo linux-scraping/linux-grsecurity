@@ -114,7 +114,7 @@ static void __init set_vsmp_pv_ops(void)
 		pv_irq_ops.irq_enable  = PV_CALLEE_SAVE(vsmp_irq_enable);
 		pv_irq_ops.save_fl  = PV_CALLEE_SAVE(vsmp_save_fl);
 		pv_irq_ops.restore_fl  = PV_CALLEE_SAVE(vsmp_restore_fl);
-		pv_init_ops.patch = vsmp_patch;
+		*(void **)&pv_init_ops.patch = vsmp_patch;
 		ctl &= ~(1 << 4);
 	}
 	writel(ctl, address + 4);
@@ -227,7 +227,7 @@ void __init vsmp_init(void)
 	if (!is_vsmp_box())
 		return;
 
-	x86_platform.apic_post_init = vsmp_apic_post_init;
+	*(void **)&x86_platform.apic_post_init = vsmp_apic_post_init;
 
 	vsmp_cap_cpus();
 

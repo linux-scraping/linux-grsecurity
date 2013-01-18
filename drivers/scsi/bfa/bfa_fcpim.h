@@ -36,8 +36,7 @@ struct bfa_iotag_s {
 
 struct bfa_itn_s {
 	bfa_isr_func_t isr;
-};
-typedef struct bfa_itn_s __no_const bfa_itn_s_no_const;
+} __no_const;
 
 void bfa_itn_create(struct bfa_s *bfa, struct bfa_rport_s *rport,
 		void (*isr)(struct bfa_s *bfa, struct bfi_msg_s *m));
@@ -150,7 +149,7 @@ struct bfa_fcp_mod_s {
 	struct list_head	iotag_tio_free_q;	/* free IO resources */
 	struct list_head	iotag_unused_q;	/* unused IO resources*/
 	struct bfa_iotag_s	*iotag_arr;
-	bfa_itn_s_no_const	*itn_arr;
+	struct bfa_itn_s	*itn_arr;
 	int			max_ioim_reqs;
 	int			num_ioim_reqs;
 	int			num_fwtio_reqs;

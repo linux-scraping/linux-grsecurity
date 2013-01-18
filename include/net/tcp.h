@@ -1563,7 +1563,7 @@ struct tcp_seq_afinfo {
 	char				*name;
 	sa_family_t			family;
 	const struct file_operations	*seq_fops;
-	seq_operations_no_const		seq_ops;
+	struct seq_operations		seq_ops;
 };
 
 struct tcp_iter_state {

@@ -439,7 +439,7 @@ struct r5conf {
 					       * cpu hotplug while reshaping
 					       */
 #ifdef CONFIG_HOTPLUG_CPU
-	notifier_block_no_const	cpu_notify;
+	struct notifier_block	cpu_notify;
 #endif
 
 	/*

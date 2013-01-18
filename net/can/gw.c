@@ -95,7 +95,7 @@ struct cf_mod {
 	struct {
 		void (*xor)(struct can_frame *cf, struct cgw_csum_xor *xor);
 		void (*crc8)(struct can_frame *cf, struct cgw_csum_crc8 *crc8);
-	} __no_const csumfunc;
+	} csumfunc;
 };
 
 

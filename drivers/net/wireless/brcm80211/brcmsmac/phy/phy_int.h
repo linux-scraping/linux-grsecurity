@@ -545,7 +545,7 @@ struct phy_func_ptr {
 	void (*carrsuppr)(struct brcms_phy *);
 	s32 (*rxsigpwr)(struct brcms_phy *, s32);
 	void (*detach)(struct brcms_phy *);
-} __no_const;
+};
 
 struct brcms_phy {
 	struct brcms_phy_pub pubpi_ro;

@@ -257,14 +257,14 @@ static __init void early_check_numaq(void)
 		early_get_smp_config();
 
 	if (found_numaq) {
-		x86_init.mpparse.mpc_record = numaq_mpc_record;
-		x86_init.mpparse.setup_ioapic_ids = x86_init_noop;
-		x86_init.mpparse.mpc_apic_id = mpc_apic_id;
-		x86_init.mpparse.smp_read_mpc_oem = smp_read_mpc_oem;
-		x86_init.mpparse.mpc_oem_pci_bus = mpc_oem_pci_bus;
-		x86_init.mpparse.mpc_oem_bus_info = mpc_oem_bus_info;
-		x86_init.timers.tsc_pre_init = numaq_tsc_init;
-		x86_init.pci.init = pci_numaq_init;
+		*(void **)&x86_init.mpparse.mpc_record = numaq_mpc_record;
+		*(void **)&x86_init.mpparse.setup_ioapic_ids = x86_init_noop;
+		*(void **)&x86_init.mpparse.mpc_apic_id = mpc_apic_id;
+		*(void **)&x86_init.mpparse.smp_read_mpc_oem = smp_read_mpc_oem;
+		*(void **)&x86_init.mpparse.mpc_oem_pci_bus = mpc_oem_pci_bus;
+		*(void **)&x86_init.mpparse.mpc_oem_bus_info = mpc_oem_bus_info;
+		*(void **)&x86_init.timers.tsc_pre_init = numaq_tsc_init;
+		*(void **)&x86_init.pci.init = pci_numaq_init;
 	}
 }
 

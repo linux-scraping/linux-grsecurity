@@ -395,7 +395,7 @@ static int __init olpc_init(void)
 	 * XO-1 only. */
 	if (olpc_platform_info.boardrev < olpc_board_pre(0xd0) &&
 			!cs5535_has_vsa2())
-		x86_init.pci.arch_init = pci_olpc_init;
+		*(void **)&x86_init.pci.arch_init = pci_olpc_init;
 #endif
 
 	if (olpc_platform_info.boardrev < olpc_board_pre(0xd0)) { /* XO-1 */

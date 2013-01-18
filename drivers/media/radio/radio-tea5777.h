@@ -63,7 +63,7 @@ struct radio_tea5777_ops {
 
 struct radio_tea5777 {
 	struct v4l2_device *v4l2_dev;
-	v4l2_file_operations_no_const fops;
+	struct v4l2_file_operations fops;
 	struct video_device vd;		/* video device */
 	bool has_am;			/* Device can tune to AM freqs */
 	bool write_before_read;		/* must write before read quirk */

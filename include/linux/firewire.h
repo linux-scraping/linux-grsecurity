@@ -438,7 +438,7 @@ struct fw_iso_context {
 	union {
 		fw_iso_callback_t sc;
 		fw_iso_mc_callback_t mc;
-	} __no_const callback;
+	} callback;
 	void *callback_data;
 };
 

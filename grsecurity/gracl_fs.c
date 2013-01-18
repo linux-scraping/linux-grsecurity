@@ -405,7 +405,6 @@ gr_acl_handle_exit(void)
 {
 	u16 id;
 	char *rolename;
-	struct file *exec_file;
 
 	if (unlikely(current->acl_sp_role && gr_acl_is_enabled() &&
 	    !(current->role->roletype & GR_ROLE_PERSIST))) {
@@ -415,13 +414,8 @@ gr_acl_handle_exit(void)
 		gr_log_str_int(GR_DONT_AUDIT_GOOD, GR_SPROLEL_ACL_MSG, rolename, id);
 	}
 
-	write_lock(&grsec_exec_file_lock);
-	exec_file = current->exec_file;
-	current->exec_file = NULL;
-	write_unlock(&grsec_exec_file_lock);
-
-	if (exec_file)
-		fput(exec_file);
+	gr_put_exec_file(current);
+	return;
 }
 
 int

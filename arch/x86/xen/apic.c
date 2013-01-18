@@ -30,5 +30,5 @@ static unsigned int xen_io_apic_read(unsigned apic, unsigned reg)
 
 void __init xen_init_apic(void)
 {
-	x86_io_apic_ops.read = xen_io_apic_read;
+	*(void **)&x86_io_apic_ops.read = xen_io_apic_read;
 }

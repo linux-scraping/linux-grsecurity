@@ -555,7 +555,7 @@ int __init detect_intel_iommu(void)
 
 #ifdef CONFIG_X86
 		if (ret)
-			x86_init.iommu.iommu_init = intel_iommu_init;
+			*(void **)&x86_init.iommu.iommu_init = intel_iommu_init;
 #endif
 	}
 	early_acpi_os_unmap_memory(dmar_tbl, dmar_tbl_size);

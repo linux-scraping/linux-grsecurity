@@ -1462,8 +1462,10 @@ qla2x00_config_dma_addressing(struct qla_hw_data *ha)
 		    !pci_set_consistent_dma_mask(ha->pdev, DMA_BIT_MASK(64))) {
 			/* Ok, a 64bit DMA mask is applicable. */
 			ha->flags.enable_64bit_addressing = 1;
-			ha->isp_ops->calc_req_entries = qla2x00_calc_iocbs_64;
-			ha->isp_ops->build_iocbs = qla2x00_build_scsi_iocbs_64;
+			pax_open_kernel();
+			*(void **)&ha->isp_ops->calc_req_entries = qla2x00_calc_iocbs_64;
+			*(void **)&ha->isp_ops->build_iocbs = qla2x00_build_scsi_iocbs_64;
+			pax_close_kernel();
 			return;
 		}
 	}
@@ -2755,6 +2757,7 @@ qla2x00_remove_one(struct pci_dev *pdev)
 
 	ha->flags.host_shutting_down = 1;
 
+	set_bit(UNLOADING, &base_vha->dpc_flags);
 	mutex_lock(&ha->vport_lock);
 	while (ha->cur_vport_count) {
 		struct Scsi_Host *scsi_host;
@@ -2783,8 +2786,6 @@ qla2x00_remove_one(struct pci_dev *pdev)
 			ql_dbg(ql_dbg_p3p, base_vha, 0xb079,
 			    "Error while clearing DRV-Presence.\n");
 	}
-
-	set_bit(UNLOADING, &base_vha->dpc_flags);
 
 	qla2x00_abort_all_cmds(base_vha, DID_NO_CONNECT << 16);
 
@@ -4505,9 +4506,9 @@ qla2x00_do_dpc(void *data)
 			    "ISP abort end.\n");
 		}
 
-		if (test_bit(FCPORT_UPDATE_NEEDED, &base_vha->dpc_flags)) {
+		if (test_and_clear_bit(FCPORT_UPDATE_NEEDED,
+		    &base_vha->dpc_flags)) {
 			qla2x00_update_fcports(base_vha);
-			clear_bit(FCPORT_UPDATE_NEEDED, &base_vha->dpc_flags);
 		}
 
 		if (test_bit(SCR_PENDING, &base_vha->dpc_flags)) {

@@ -55,7 +55,7 @@ struct da9034_touch {
 	struct input_dev	*input_dev;
 
 	struct delayed_work	tsi_work;
-	notifier_block_no_const	notifier;
+	struct notifier_block	notifier;
 
 	int	state;
 

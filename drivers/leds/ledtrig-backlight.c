@@ -25,7 +25,7 @@ struct bl_trig_notifier {
 	struct led_classdev *led;
 	int brightness;
 	int old_status;
-	notifier_block_no_const notifier;
+	struct notifier_block notifier;
 	unsigned invert;
 };
 

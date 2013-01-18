@@ -165,7 +165,7 @@ struct sht15_data {
 	struct device			*dev;
 	struct device			*hwmon_dev;
 	struct regulator		*reg;
-	notifier_block_no_const		nb;
+	struct notifier_block		nb;
 	int				supply_uV;
 	bool				supply_uV_valid;
 	struct work_struct		update_supply_work;

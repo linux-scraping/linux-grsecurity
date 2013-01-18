@@ -77,7 +77,6 @@ struct v4l2_file_operations {
 	int (*open) (struct file *);
 	int (*release) (struct file *);
 } __do_const;
-typedef struct v4l2_file_operations __no_const v4l2_file_operations_no_const;
 
 /*
  * Newer version of video_device, handled by videodev2.c

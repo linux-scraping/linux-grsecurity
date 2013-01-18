@@ -1888,7 +1888,7 @@ static int __init state_next(void)
 	case IOMMU_ACPI_FINISHED:
 		early_enable_iommus();
 		register_syscore_ops(&amd_iommu_syscore_ops);
-		x86_platform.iommu_shutdown = disable_iommus;
+		*(void **)&x86_platform.iommu_shutdown = disable_iommus;
 		init_state = IOMMU_ENABLED;
 		break;
 	case IOMMU_ENABLED:
@@ -2030,7 +2030,7 @@ int __init amd_iommu_detect(void)
 
 	amd_iommu_detected = true;
 	iommu_detected = 1;
-	x86_init.iommu.iommu_init = amd_iommu_init;
+	*(void **)&x86_init.iommu.iommu_init = amd_iommu_init;
 
 	return 0;
 }

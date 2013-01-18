@@ -74,7 +74,7 @@ struct lcd_device {
 	/* Serialise access to set_power method */
 	struct mutex update_lock;
 	/* The framebuffer notifier block */
-	notifier_block_no_const fb_notif;
+	struct notifier_block fb_notif;
 
 	struct device dev;
 };

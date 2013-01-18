@@ -81,7 +81,7 @@ struct drm_crtc_helper_funcs {
 
 	/* disable crtc when not in use - more explicit than dpms off */
 	void (*disable)(struct drm_crtc *crtc);
-} __no_const;
+};
 
 /**
  * drm_encoder_helper_funcs - helper operations for encoders

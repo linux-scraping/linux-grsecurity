@@ -132,7 +132,7 @@ struct hsi_client {
 	/* private: */
 	void			(*ehandler)(struct hsi_client *, unsigned long);
 	unsigned int		pclaimed:1;
-	notifier_block_no_const	nb;
+	struct notifier_block	nb;
 };
 
 #define to_hsi_client(dev) container_of(dev, struct hsi_client, device)

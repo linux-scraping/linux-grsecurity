@@ -1576,7 +1576,7 @@ int __init acpi_boot_init(void)
 	acpi_table_parse(ACPI_SIG_HPET, acpi_parse_hpet);
 
 	if (!acpi_noirq)
-		x86_init.pci.init = pci_acpi_init;
+		*(void **)&x86_init.pci.init = pci_acpi_init;
 
 	return 0;
 }

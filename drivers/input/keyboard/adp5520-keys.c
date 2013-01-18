@@ -16,7 +16,7 @@
 
 struct adp5520_keys {
 	struct input_dev *input;
-	notifier_block_no_const notifier;
+	struct notifier_block notifier;
 	struct device *master;
 	unsigned short keycode[ADP5520_KEYMAPSIZE];
 };

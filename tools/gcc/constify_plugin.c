@@ -1,6 +1,6 @@
 /*
  * Copyright 2011 by Emese Revfy <re.emese@gmail.com>
- * Copyright 2011 by PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2013 by PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2, or (at your option) v3
  *
  * This gcc plugin constifies all structures which contain only function pointers or are explicitly marked for constification.
@@ -38,10 +38,16 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info const_plugin_info = {
-	.version	= "201205300030",
+	.version	= "201301150230",
 	.help		= "no-constify\tturn off constification\n",
 };
 
+static tree get_field_type(tree field)
+{
+	return strip_array_types(TREE_TYPE(field));
+}
+
+static bool walk_struct(tree node);
 static void deconstify_tree(tree node);
 
 static void deconstify_type(tree type)
@@ -49,14 +55,17 @@ static void deconstify_type(tree type)
 	tree field;
 
 	for (field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field)) {
-		tree type = TREE_TYPE(field);
+		tree fieldtype = get_field_type(field);
 
-		if (TREE_CODE(type) != RECORD_TYPE && TREE_CODE(type) != UNION_TYPE)
+		if (TREE_CODE(fieldtype) != RECORD_TYPE && TREE_CODE(fieldtype) != UNION_TYPE)
 			continue;
-		if (!TYPE_READONLY(type))
+		if (!TYPE_READONLY(fieldtype))
+			continue;
+		if (!walk_struct(fieldtype))
 			continue;
 
 		deconstify_tree(field);
+		TREE_READONLY(field) = 0;
 	}
 	TYPE_READONLY(type) = 0;
 	C_TYPE_FIELDS_READONLY(type) = 0;
@@ -66,8 +75,14 @@ static void deconstify_tree(tree node)
 {
 	tree old_type, new_type, field;
 
+//	TREE_READONLY(node) = 0;
 	old_type = TREE_TYPE(node);
+	while (TREE_CODE(old_type) == ARRAY_TYPE && TREE_CODE(TREE_TYPE(old_type)) != ARRAY_TYPE) {
+		node = old_type;
+		old_type = TREE_TYPE(old_type);
+	}
 
+	gcc_assert(TREE_CODE(old_type) == RECORD_TYPE || TREE_CODE(old_type) == UNION_TYPE);
 	gcc_assert(TYPE_READONLY(old_type) && (TYPE_QUALS(old_type) & TYPE_QUAL_CONST));
 
 	new_type = build_qualified_type(old_type, TYPE_QUALS(old_type) & ~TYPE_QUAL_CONST);
@@ -77,7 +92,6 @@ static void deconstify_tree(tree node)
 
 	deconstify_type(new_type);
 
-	TREE_READONLY(node) = 0;
 	TREE_TYPE(node) = new_type;
 }
 
@@ -187,7 +201,7 @@ static void register_attributes(void *event_data, void *data)
 
 static bool is_fptr(tree field)
 {
-	tree ptr = TREE_TYPE(field);
+	tree ptr = get_field_type(field);
 
 	if (TREE_CODE(ptr) != POINTER_TYPE)
 		return false;
@@ -202,6 +216,9 @@ static bool walk_struct(tree node)
 	if (TYPE_FIELDS(node) == NULL_TREE)
 		return false;
 
+	if (lookup_attribute("do_const", TYPE_ATTRIBUTES(node)))
+		return true;
+
 	if (lookup_attribute("no_const", TYPE_ATTRIBUTES(node))) {
 		gcc_assert(!TYPE_READONLY(node));
 		deconstify_type(node);
@@ -209,7 +226,7 @@ static bool walk_struct(tree node)
 	}
 
 	for (field = TYPE_FIELDS(node); field; field = TREE_CHAIN(field)) {
-		tree type = TREE_TYPE(field);
+		tree type = get_field_type(field);
 		enum tree_code code = TREE_CODE(type);
 
 		if (node == type)
@@ -235,30 +252,13 @@ static void finish_type(void *event_data, void *data)
 
 	if (walk_struct(type))
 		constify_type(type);
+	else
+		deconstify_type(type);
 }
-
-static unsigned int check_local_variables(void);
-
-struct gimple_opt_pass pass_local_variable = {
-	{
-		.type			= GIMPLE_PASS,
-		.name			= "check_local_variables",
-		.gate			= NULL,
-		.execute		= check_local_variables,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-		.tv_id			= TV_NONE,
-		.properties_required	= 0,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0,
-		.todo_flags_finish	= 0
-	}
-};
 
 static unsigned int check_local_variables(void)
 {
+	unsigned int ret = 0;
 	tree var;
 	referenced_var_iterator rvi;
 
@@ -286,11 +286,29 @@ static unsigned int check_local_variables(void)
 
 		if (walk_struct(type)) {
 			error_at(DECL_SOURCE_LOCATION(var), "constified variable %qE cannot be local", var);
-			return 1;
+			ret = 1;
 		}
 	}
-	return 0;
+	return ret;
 }
+
+struct gimple_opt_pass pass_local_variable = {
+	{
+		.type			= GIMPLE_PASS,
+		.name			= "check_local_variables",
+		.gate			= NULL,
+		.execute		= check_local_variables,
+		.sub			= NULL,
+		.next			= NULL,
+		.static_pass_number	= 0,
+		.tv_id			= TV_NONE,
+		.properties_required	= 0,
+		.properties_provided	= 0,
+		.properties_destroyed	= 0,
+		.todo_flags_start	= 0,
+		.todo_flags_finish	= 0
+	}
+};
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
@@ -302,9 +320,9 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 
 	struct register_pass_info local_variable_pass_info = {
 		.pass				= &pass_local_variable.pass,
-		.reference_pass_name		= "*referenced_vars",
+		.reference_pass_name		= "ssa",
 		.ref_pass_instance_number	= 1,
-		.pos_op				= PASS_POS_INSERT_AFTER
+		.pos_op				= PASS_POS_INSERT_BEFORE
 	};
 
 	if (!plugin_default_version_check(version, &gcc_version)) {

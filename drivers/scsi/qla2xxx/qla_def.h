@@ -2385,7 +2385,7 @@ struct isp_operations {
 	int (*start_scsi) (srb_t *);
 	int (*abort_isp) (struct scsi_qla_host *);
 	int (*iospace_config)(struct qla_hw_data*);
-} __no_const;
+};
 
 /* MSI-X Support *************************************************************/
 

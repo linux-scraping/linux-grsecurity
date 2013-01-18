@@ -434,6 +434,7 @@ void daemonize(const char *name, ...)
 	vsnprintf(current->comm, sizeof(current->comm), name, args);
 	va_end(args);
 
+	gr_put_exec_file(current);
 	gr_set_kernel_label(current);
 
 	/*

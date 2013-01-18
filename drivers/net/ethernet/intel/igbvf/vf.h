@@ -189,10 +189,9 @@ struct e1000_mac_operations {
 	s32  (*read_mac_addr)(struct e1000_hw *);
 	s32  (*set_vfta)(struct e1000_hw *, u16, bool);
 };
-typedef struct e1000_mac_operations __no_const e1000_mac_operations_no_const;
 
 struct e1000_mac_info {
-	e1000_mac_operations_no_const ops;
+	struct e1000_mac_operations ops;
 	u8 addr[6];
 	u8 perm_addr[6];
 
@@ -214,7 +213,6 @@ struct e1000_mbx_operations {
 	s32 (*check_for_ack)(struct e1000_hw *);
 	s32 (*check_for_rst)(struct e1000_hw *);
 };
-typedef struct e1000_mbx_operations __no_const e1000_mbx_operations_no_const;
 
 struct e1000_mbx_stats {
 	u32 msgs_tx;
@@ -226,7 +224,7 @@ struct e1000_mbx_stats {
 };
 
 struct e1000_mbx_info {
-	e1000_mbx_operations_no_const ops;
+	struct e1000_mbx_operations ops;
 	struct e1000_mbx_stats stats;
 	u32 timeout;
 	u32 usec_delay;

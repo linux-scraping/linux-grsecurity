@@ -220,12 +220,13 @@ struct radeon_fence {
 int radeon_fence_driver_start_ring(struct radeon_device *rdev, int ring);
 int radeon_fence_driver_init(struct radeon_device *rdev);
 void radeon_fence_driver_fini(struct radeon_device *rdev);
+void radeon_fence_driver_force_completion(struct radeon_device *rdev);
 int radeon_fence_emit(struct radeon_device *rdev, struct radeon_fence **fence, int ring);
 void radeon_fence_process(struct radeon_device *rdev, int ring);
 bool radeon_fence_signaled(struct radeon_fence *fence);
 int radeon_fence_wait(struct radeon_fence *fence, bool interruptible);
 int radeon_fence_wait_next_locked(struct radeon_device *rdev, int ring);
-void radeon_fence_wait_empty_locked(struct radeon_device *rdev, int ring);
+int radeon_fence_wait_empty_locked(struct radeon_device *rdev, int ring);
 int radeon_fence_wait_any(struct radeon_device *rdev,
 			  struct radeon_fence **fences,
 			  bool intr);
@@ -728,7 +729,7 @@ struct r600_blit_cp_primitives {
 			     int x2, int y2);
 	void (*draw_auto)(struct radeon_device *rdev);
 	void (*set_default_state)(struct radeon_device *rdev);
-} __no_const;
+};
 
 struct r600_blit {
 	struct radeon_bo	*shader_obj;
@@ -1248,7 +1249,7 @@ struct radeon_asic {
 		u32 (*page_flip)(struct radeon_device *rdev, int crtc, u64 crtc_base);
 		void (*post_page_flip)(struct radeon_device *rdev, int crtc);
 	} pflip;
-} __no_const;
+};
 
 /*
  * Asic structures
@@ -1590,7 +1591,7 @@ struct radeon_device {
 	struct mutex dc_hw_i2c_mutex; /* display controller hw i2c mutex */
 	bool audio_enabled;
 	struct r600_audio audio_status; /* audio stuff */
-	notifier_block_no_const acpi_nb;
+	struct notifier_block acpi_nb;
 	/* only one userspace can use Hyperz features or CMASK at a time */
 	struct drm_file *hyperz_filp;
 	struct drm_file *cmask_filp;

@@ -184,7 +184,7 @@ struct brcmf_cfg80211_event_loop {
 				     struct net_device *ndev,
 				     const struct brcmf_event_msg *e,
 				     void *data);
-};
+} __no_const;
 
 /* basic structure of scan request */
 struct brcmf_cfg80211_scan_req {
@@ -239,7 +239,7 @@ struct brcmf_cfg80211_profile {
 struct brcmf_cfg80211_iscan_eloop {
 	s32 (*handler[WL_SCAN_ERSULTS_LAST])
 		(struct brcmf_cfg80211_info *cfg);
-};
+} __no_const;
 
 /* dongle iscan controller */
 struct brcmf_cfg80211_iscan_ctrl {

@@ -512,7 +512,7 @@ struct azx {
 	struct work_struct irq_pending_work;
 
 	/* reboot notifier (for mysterious hangup problem at power-down) */
-	notifier_block_no_const reboot_notifier;
+	struct notifier_block reboot_notifier;
 
 	/* card list (for power_save trigger) */
 	struct list_head list;
@@ -559,9 +559,12 @@ enum {
 #define AZX_DCAPS_PM_RUNTIME	(1 << 26)	/* runtime PM support */
 
 /* quirks for Intel PCH */
-#define AZX_DCAPS_INTEL_PCH \
+#define AZX_DCAPS_INTEL_PCH_NOPM \
 	(AZX_DCAPS_SCH_SNOOP | AZX_DCAPS_BUFSIZE | \
-	 AZX_DCAPS_COUNT_LPIB_DELAY | AZX_DCAPS_PM_RUNTIME)
+	 AZX_DCAPS_COUNT_LPIB_DELAY)
+
+#define AZX_DCAPS_INTEL_PCH \
+	(AZX_DCAPS_INTEL_PCH_NOPM | AZX_DCAPS_PM_RUNTIME)
 
 /* quirks for ATI SB / AMD Hudson */
 #define AZX_DCAPS_PRESET_ATI_SB \
@@ -2557,10 +2560,6 @@ static int azx_runtime_suspend(struct device *dev)
 	struct snd_card *card = dev_get_drvdata(dev);
 	struct azx *chip = card->private_data;
 
-	if (!power_save_controller ||
-	    !(chip->driver_caps & AZX_DCAPS_PM_RUNTIME))
-		return -EAGAIN;
-
 	azx_stop_chip(chip);
 	azx_clear_irq_pending(chip);
 	return 0;
@@ -2575,12 +2574,25 @@ static int azx_runtime_resume(struct device *dev)
 	azx_init_chip(chip, 1);
 	return 0;
 }
+
+static int azx_runtime_idle(struct device *dev)
+{
+	struct snd_card *card = dev_get_drvdata(dev);
+	struct azx *chip = card->private_data;
+
+	if (!power_save_controller ||
+	    !(chip->driver_caps & AZX_DCAPS_PM_RUNTIME))
+		return -EBUSY;
+
+	return 0;
+}
+
 #endif /* CONFIG_PM_RUNTIME */
 
 #ifdef CONFIG_PM
 static const struct dev_pm_ops azx_pm = {
 	SET_SYSTEM_SLEEP_PM_OPS(azx_suspend, azx_resume)
-	SET_RUNTIME_PM_OPS(azx_runtime_suspend, azx_runtime_resume, NULL)
+	SET_RUNTIME_PM_OPS(azx_runtime_suspend, azx_runtime_resume, azx_runtime_idle)
 };
 
 #define AZX_PM_OPS	&azx_pm
@@ -3439,13 +3451,13 @@ static void __devexit azx_remove(struct pci_dev *pci)
 static DEFINE_PCI_DEVICE_TABLE(azx_ids) = {
 	/* CPT */
 	{ PCI_DEVICE(0x8086, 0x1c20),
-	  .driver_data = AZX_DRIVER_PCH | AZX_DCAPS_INTEL_PCH },
+	  .driver_data = AZX_DRIVER_PCH | AZX_DCAPS_INTEL_PCH_NOPM },
 	/* PBG */
 	{ PCI_DEVICE(0x8086, 0x1d20),
-	  .driver_data = AZX_DRIVER_PCH | AZX_DCAPS_INTEL_PCH },
+	  .driver_data = AZX_DRIVER_PCH | AZX_DCAPS_INTEL_PCH_NOPM },
 	/* Panther Point */
 	{ PCI_DEVICE(0x8086, 0x1e20),
-	  .driver_data = AZX_DRIVER_PCH | AZX_DCAPS_INTEL_PCH },
+	  .driver_data = AZX_DRIVER_PCH | AZX_DCAPS_INTEL_PCH_NOPM },
 	/* Lynx Point */
 	{ PCI_DEVICE(0x8086, 0x8c20),
 	  .driver_data = AZX_DRIVER_PCH | AZX_DCAPS_INTEL_PCH },

@@ -170,7 +170,7 @@ static u32 const vc_tbl[3][68][2] = {
 struct da9052_battery {
 	struct da9052 *da9052;
 	struct power_supply psy;
-	notifier_block_no_const nb;
+	struct notifier_block nb;
 	int charger_type;
 	int status;
 	int health;

@@ -80,7 +80,7 @@
 struct bq27x00_device_info;
 struct bq27x00_access_methods {
 	int (*read)(struct bq27x00_device_info *di, u8 reg, bool single);
-} __no_const;
+};
 
 enum bq27x00_chip { BQ27000, BQ27500, BQ27425};
 

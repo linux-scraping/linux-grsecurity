@@ -115,7 +115,7 @@ struct acpi_battery {
 	struct mutex sysfs_lock;
 	struct power_supply bat;
 	struct acpi_device *device;
-	notifier_block_no_const pm_nb;
+	struct notifier_block pm_nb;
 	unsigned long update_time;
 	int rate_now;
 	int capacity_now;

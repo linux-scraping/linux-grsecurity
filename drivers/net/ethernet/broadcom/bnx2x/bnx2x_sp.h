@@ -486,7 +486,7 @@ struct bnx2x_rx_mode_obj {
 
 	int (*wait_comp)(struct bnx2x *bp,
 			 struct bnx2x_rx_mode_ramrod_params *p);
-} __no_const;
+};
 
 /********************** Set multicast group ***********************************/
 
@@ -1281,8 +1281,7 @@ int bnx2x_vlan_mac_move(struct bnx2x *bp,
 
 /********************* RX MODE ****************/
 
-void bnx2x_init_rx_mode_obj(struct bnx2x *bp,
-			    struct bnx2x_rx_mode_obj *o);
+void bnx2x_init_rx_mode_obj(struct bnx2x *bp);
 
 /**
  * bnx2x_config_rx_mode - Send and RX_MODE ramrod according to the provided parameters.

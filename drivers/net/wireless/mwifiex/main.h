@@ -603,7 +603,7 @@ struct mwifiex_if_ops {
 	int (*event_complete) (struct mwifiex_adapter *, struct sk_buff *);
 	int (*data_complete) (struct mwifiex_adapter *, struct sk_buff *);
 	int (*dnld_fw) (struct mwifiex_adapter *, struct mwifiex_fw_image *);
-} __no_const;
+};
 
 struct mwifiex_adapter {
 	u8 iface_type;

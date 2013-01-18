@@ -1489,8 +1489,10 @@ static int wl18xx_setup(struct wl1271 *wl)
 	}
 
 	if (!checksum_param) {
-		wl18xx_ops.set_rx_csum = NULL;
-		wl18xx_ops.init_vif = NULL;
+		pax_open_kernel();
+		*(void **)&wl18xx_ops.set_rx_csum = NULL;
+		*(void **)&wl18xx_ops.init_vif = NULL;
+		pax_close_kernel();
 	}
 
 	/* Enable 11a Band only if we have 5G antennas */

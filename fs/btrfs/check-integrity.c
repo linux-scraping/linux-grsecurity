@@ -156,7 +156,7 @@ struct btrfsic_block {
 	union {
 		bio_end_io_t *bio;
 		bh_end_io_t *bh;
-	} __no_const orig_bio_bh_end_io;
+	} orig_bio_bh_end_io;
 	int submit_bio_bh_rw;
 	u64 flush_gen; /* only valid if !never_written */
 };

@@ -49,7 +49,7 @@ struct snd_tea575x_ops {
 
 struct snd_tea575x {
 	struct v4l2_device *v4l2_dev;
-	v4l2_file_operations_no_const fops;
+	struct v4l2_file_operations fops;
 	struct video_device vd;		/* video device */
 	int radio_nr;			/* radio_nr */
 	bool tea5759;			/* 5759 chip is present */

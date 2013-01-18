@@ -80,7 +80,12 @@ static atomic_unchecked_t hardware_enable_failed;
 struct kmem_cache *kvm_vcpu_cache;
 EXPORT_SYMBOL_GPL(kvm_vcpu_cache);
 
-static __read_mostly struct preempt_ops kvm_preempt_ops;
+static void kvm_sched_in(struct preempt_notifier *pn, int cpu);
+static void kvm_sched_out(struct preempt_notifier *pn, struct task_struct *next);
+static struct preempt_ops kvm_preempt_ops = {
+	.sched_in = kvm_sched_in,
+	.sched_out = kvm_sched_out,
+};
 
 struct dentry *kvm_debugfs_dir;
 
@@ -709,8 +714,7 @@ int __kvm_set_memory_region(struct kvm *kvm,
 	int r;
 	gfn_t base_gfn;
 	unsigned long npages;
-	unsigned long i;
-	struct kvm_memory_slot *memslot;
+	struct kvm_memory_slot *memslot, *slot;
 	struct kvm_memory_slot old, new;
 	struct kvm_memslots *slots, *old_memslots;
 
@@ -761,13 +765,11 @@ int __kvm_set_memory_region(struct kvm *kvm,
 
 	/* Check for overlaps */
 	r = -EEXIST;
-	for (i = 0; i < KVM_MEMORY_SLOTS; ++i) {
-		struct kvm_memory_slot *s = &kvm->memslots->memslots[i];
-
-		if (s == memslot || !s->npages)
+	kvm_for_each_memslot(slot, kvm->memslots) {
+		if (slot->id >= KVM_MEMORY_SLOTS || slot == memslot)
 			continue;
-		if (!((base_gfn + npages <= s->base_gfn) ||
-		      (base_gfn >= s->base_gfn + s->npages)))
+		if (!((base_gfn + npages <= slot->base_gfn) ||
+		      (base_gfn >= slot->base_gfn + slot->npages)))
 			goto out_free;
 	}
 
@@ -2927,9 +2929,6 @@ int kvm_init(const void *opaque, unsigned vcpu_size, unsigned vcpu_align,
 	}
 
 	register_syscore_ops(&kvm_syscore_ops);
-
-	kvm_preempt_ops.sched_in = kvm_sched_in;
-	kvm_preempt_ops.sched_out = kvm_sched_out;
 
 	r = kvm_init_debug();
 	if (r) {

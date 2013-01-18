@@ -157,7 +157,7 @@ struct acpi_video_bus {
 	struct mutex device_list_lock;	/* protects video_device_list */
 	struct input_dev *input;
 	char phys[32];	/* for input device */
-	notifier_block_no_const pm_nb;
+	struct notifier_block pm_nb;
 };
 
 struct acpi_video_device_flags {

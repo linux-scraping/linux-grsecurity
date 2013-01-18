@@ -150,7 +150,16 @@ static void clk_gate_fn_disable(struct clk_hw *hw)
 	clk_gate_ops.disable(hw);
 }
 
-static clk_ops_no_const clk_gate_fn_ops;
+static int clk_gate_fn_is_enabled(struct clk_hw *hw)
+{
+	return clk_gate_ops.is_enabled(hw);
+}
+
+static struct clk_ops clk_gate_fn_ops = {
+	.enable = clk_gate_fn_enable,
+	.disable = clk_gate_fn_disable,
+	.is_enabled = clk_gate_fn_is_enabled,
+};
 
 static struct clk __init *clk_register_gate_fn(struct device *dev,
 		const char *name,
@@ -183,14 +192,6 @@ static struct clk __init *clk_register_gate_fn(struct device *dev,
 	gate_fn->gate.hw.init = &init;
 	gate_fn->fn_en = fn_en;
 	gate_fn->fn_dis = fn_dis;
-
-	/* ops is the gate ops, but with our enable/disable functions */
-	if (clk_gate_fn_ops.enable != clk_gate_fn_enable ||
-	    clk_gate_fn_ops.disable != clk_gate_fn_disable) {
-		clk_gate_fn_ops = clk_gate_ops;
-		clk_gate_fn_ops.enable = clk_gate_fn_enable;
-		clk_gate_fn_ops.disable = clk_gate_fn_disable;
-	}
 
 	clk = clk_register(dev, &gate_fn->gate.hw);
 

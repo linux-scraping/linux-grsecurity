@@ -98,7 +98,7 @@ struct cfhsi_cb_ops {
 	void (*rx_done_cb) (struct cfhsi_cb_ops *drv);
 	void (*wake_up_cb) (struct cfhsi_cb_ops *drv);
 	void (*wake_down_cb) (struct cfhsi_cb_ops *drv);
-} __no_const;
+};
 
 /* Structure implemented by HSI device. */
 struct cfhsi_ops {

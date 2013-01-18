@@ -161,8 +161,8 @@ struct saa7146_ext_vv
 	int (*std_callback)(struct saa7146_dev*, struct saa7146_standard *);
 
 	/* the extension can override this */
-	v4l2_ioctl_ops_no_const vid_ops;
-	v4l2_ioctl_ops_no_const vbi_ops;
+	struct v4l2_ioctl_ops vid_ops;
+	struct v4l2_ioctl_ops vbi_ops;
 	/* pointer to the saa7146 core ops */
 	const struct v4l2_ioctl_ops *core_ops;
 

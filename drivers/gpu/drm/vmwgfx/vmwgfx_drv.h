@@ -306,7 +306,7 @@ struct vmw_private {
 
 	struct vmw_master *active_master;
 	struct vmw_master fbdev_master;
-	notifier_block_no_const pm_nb;
+	struct notifier_block pm_nb;
 	bool suspended;
 
 	struct mutex release_mutex;

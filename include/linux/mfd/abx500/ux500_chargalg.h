@@ -19,7 +19,7 @@ struct ux500_charger_ops {
 	int (*enable) (struct ux500_charger *, int, int, int);
 	int (*kick_wd) (struct ux500_charger *);
 	int (*update_curr) (struct ux500_charger *, int);
-} __no_const;
+};
 
 /**
  * struct ux500_charger - power supply ux500 charger sub class

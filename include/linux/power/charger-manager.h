@@ -88,7 +88,7 @@ struct charger_cable {
 	/* The charger-manager use Exton framework*/
 	struct extcon_specific_cable_nb extcon_dev;
 	struct work_struct wq;
-	notifier_block_no_const nb;
+	struct notifier_block nb;
 
 	/* The state of charger cable */
 	bool attached;
