@@ -872,9 +872,11 @@ static int ax_probe(struct platform_device *pdev)
 	if (ax->plat->reg_offsets)
 		ei_local->reg_offset = ax->plat->reg_offsets;
 	else {
+		resource_size_t _mem_size = mem_size;
+		do_div(_mem_size, 0x18);
 		ei_local->reg_offset = ax->reg_offsets;
 		for (ret = 0; ret < 0x18; ret++)
-			ax->reg_offsets[ret] = (mem_size / 0x18) * ret;
+			ax->reg_offsets[ret] = _mem_size * ret;
 	}
 
 	if (!request_mem_region(mem->start, mem_size, pdev->name)) {

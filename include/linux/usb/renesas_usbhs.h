@@ -89,7 +89,7 @@ struct renesas_usbhs_platform_callback {
 	 * VBUS control is needed for Host
 	 */
 	int (*set_vbus)(struct platform_device *pdev, int enable);
-} __no_const;
+};
 
 /*
  * parameters for renesas usbhs

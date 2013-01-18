@@ -73,7 +73,7 @@ struct dvb_demux_feed {
 	union {
 		dmx_ts_cb ts;
 		dmx_section_cb sec;
-	} __no_const cb;
+	} cb;
 
 	struct dvb_demux *demux;
 	void *priv;

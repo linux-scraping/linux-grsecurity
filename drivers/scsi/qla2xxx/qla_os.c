@@ -1429,8 +1429,10 @@ qla2x00_config_dma_addressing(struct qla_hw_data *ha)
 		    !pci_set_consistent_dma_mask(ha->pdev, DMA_BIT_MASK(64))) {
 			/* Ok, a 64bit DMA mask is applicable. */
 			ha->flags.enable_64bit_addressing = 1;
-			ha->isp_ops->calc_req_entries = qla2x00_calc_iocbs_64;
-			ha->isp_ops->build_iocbs = qla2x00_build_scsi_iocbs_64;
+			pax_open_kernel();
+			*(void **)&ha->isp_ops->calc_req_entries = qla2x00_calc_iocbs_64;
+			*(void **)&ha->isp_ops->build_iocbs = qla2x00_build_scsi_iocbs_64;
+			pax_close_kernel();
 			return;
 		}
 	}

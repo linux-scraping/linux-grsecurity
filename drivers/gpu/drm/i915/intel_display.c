@@ -7477,11 +7477,15 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	if (HAS_PCH_SPLIT(dev)) {
 		if (pipe == 2 && IS_IVYBRIDGE(dev))
 			intel_crtc->no_pll = true;
-		intel_helper_funcs.prepare = ironlake_crtc_prepare;
-		intel_helper_funcs.commit = ironlake_crtc_commit;
+		pax_open_kernel();
+		*(void **)&intel_helper_funcs.prepare = ironlake_crtc_prepare;
+		*(void **)&intel_helper_funcs.commit = ironlake_crtc_commit;
+		pax_close_kernel();
 	} else {
-		intel_helper_funcs.prepare = i9xx_crtc_prepare;
-		intel_helper_funcs.commit = i9xx_crtc_commit;
+		pax_open_kernel();
+		*(void **)&intel_helper_funcs.prepare = i9xx_crtc_prepare;
+		*(void **)&intel_helper_funcs.commit = i9xx_crtc_commit;
+		pax_close_kernel();
 	}
 
 	drm_crtc_helper_add(&intel_crtc->base, &intel_helper_funcs);
@@ -8901,6 +8905,23 @@ static void i915_disable_vga(struct drm_device *dev)
 
 	I915_WRITE(vga_reg, VGA_DISP_DISABLE);
 	POSTING_READ(vga_reg);
+}
+
+void i915_redisable_vga(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 vga_reg;
+
+	if (HAS_PCH_SPLIT(dev))
+		vga_reg = CPU_VGACNTRL;
+	else
+		vga_reg = VGACNTRL;
+
+	if (I915_READ(vga_reg) != VGA_DISP_DISABLE) {
+		DRM_DEBUG_KMS("Something enabled VGA plane, disabling it\n");
+		I915_WRITE(vga_reg, VGA_DISP_DISABLE);
+		POSTING_READ(vga_reg);
+	}
 }
 
 void intel_modeset_init(struct drm_device *dev)

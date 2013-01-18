@@ -347,7 +347,7 @@ struct t10_reservation_ops {
 	int (*t10_seq_non_holder)(struct se_cmd *, unsigned char *, u32);
 	int (*t10_pr_register)(struct se_cmd *);
 	int (*t10_pr_clear)(struct se_cmd *);
-} __no_const;
+};
 
 struct t10_reservation {
 	/* Reservation effects all target ports */

@@ -821,7 +821,7 @@ config PAX_REFCOUNT
 config PAX_USERCOPY
 	bool "Harden heap object copies between kernel and userland"
 	default y if GRKERNSEC_CONFIG_AUTO
-	depends on X86 || PPC || SPARC || ARM
+	depends on ARM || IA64 || PPC || SPARC || X86
 	depends on GRKERNSEC && (SLAB || SLUB || SLOB)
 	select PAX_USERCOPY_SLABS
 	help

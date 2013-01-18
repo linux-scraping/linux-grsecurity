@@ -290,7 +290,7 @@ void mmiotrace_ioremap(resource_size_t offset, unsigned long size,
 	ioremap_trace_core(offset, size, addr);
 }
 
-static void iounmap_trace_core(volatile void __iomem *addr)
+static void iounmap_trace_core(const volatile void __iomem *addr)
 {
 	struct mmiotrace_map map = {
 		.phys = 0,
@@ -328,7 +328,7 @@ not_enabled:
 	}
 }
 
-void mmiotrace_iounmap(volatile void __iomem *addr)
+void mmiotrace_iounmap(const volatile void __iomem *addr)
 {
 	might_sleep();
 	if (is_enabled()) /* recheck and proper locking in *_core() */

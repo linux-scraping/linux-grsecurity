@@ -79,7 +79,7 @@ static void __init vmware_platform_setup(void)
 	VMWARE_PORT(GETHZ, eax, ebx, ecx, edx);
 
 	if (ebx != UINT_MAX)
-		x86_platform.calibrate_tsc = vmware_get_tsc_khz;
+		*(void **)&x86_platform.calibrate_tsc = vmware_get_tsc_khz;
 	else
 		printk(KERN_WARNING
 		       "Failed to get TSC freq from the hypervisor\n");

@@ -36,7 +36,7 @@ struct sysrq_key_op {
 	char *help_msg;
 	char *action_msg;
 	int enable_mask;
-};
+} __do_const;
 
 #ifdef CONFIG_MAGIC_SYSRQ
 

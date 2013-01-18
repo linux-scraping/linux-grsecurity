@@ -45,7 +45,9 @@ static struct notifier_block err_inject_cpu_notifier = {
 
 static int err_inject_init(void)
 {
-	err_inject_cpu_notifier.priority = priority;
+	pax_open_kernel();
+	*(int *)&err_inject_cpu_notifier.priority = priority;
+	pax_close_kernel();
 
 	return register_hotcpu_notifier(&err_inject_cpu_notifier);
 }

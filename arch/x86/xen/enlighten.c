@@ -1123,14 +1123,14 @@ static const struct machine_ops xen_machine_ops __initconst = {
  */
 static void __init xen_setup_stackprotector(void)
 {
-	pv_cpu_ops.write_gdt_entry = xen_write_gdt_entry_boot;
-	pv_cpu_ops.load_gdt = xen_load_gdt_boot;
+	*(void **)&pv_cpu_ops.write_gdt_entry = xen_write_gdt_entry_boot;
+	*(void **)&pv_cpu_ops.load_gdt = xen_load_gdt_boot;
 
 	setup_stack_canary_segment(0);
 	switch_to_new_gdt(0);
 
-	pv_cpu_ops.write_gdt_entry = xen_write_gdt_entry;
-	pv_cpu_ops.load_gdt = xen_load_gdt;
+	*(void **)&pv_cpu_ops.write_gdt_entry = xen_write_gdt_entry;
+	*(void **)&pv_cpu_ops.load_gdt = xen_load_gdt;
 }
 
 /* First C function to be called on Xen boot */
@@ -1149,13 +1149,13 @@ asmlinkage void __init xen_start_kernel(void)
 
 	/* Install Xen paravirt ops */
 	pv_info = xen_info;
-	pv_init_ops = xen_init_ops;
-	pv_cpu_ops = xen_cpu_ops;
-	pv_apic_ops = xen_apic_ops;
+	memcpy((void *)&pv_init_ops, &xen_init_ops, sizeof pv_init_ops);
+	memcpy((void *)&pv_cpu_ops, &xen_cpu_ops, sizeof pv_cpu_ops);
+	memcpy((void *)&pv_apic_ops, &xen_apic_ops, sizeof pv_apic_ops);
 
-	x86_init.resources.memory_setup = xen_memory_setup;
-	x86_init.oem.arch_setup = xen_arch_setup;
-	x86_init.oem.banner = xen_banner;
+	*(void **)&x86_init.resources.memory_setup = xen_memory_setup;
+	*(void **)&x86_init.oem.arch_setup = xen_arch_setup;
+	*(void **)&x86_init.oem.banner = xen_banner;
 
 	xen_init_time_ops();
 
@@ -1218,7 +1218,7 @@ asmlinkage void __init xen_start_kernel(void)
 		pv_mmu_ops.ptep_modify_prot_commit = xen_ptep_modify_prot_commit;
 	}
 
-	machine_ops = xen_machine_ops;
+	memcpy((void *)&machine_ops, &xen_machine_ops, sizeof machine_ops);
 
 	xen_smp_init();
 
@@ -1294,7 +1294,7 @@ asmlinkage void __init xen_start_kernel(void)
 		add_preferred_console("tty", 0, NULL);
 		add_preferred_console("hvc", 0, NULL);
 		if (pci_xen)
-			x86_init.pci.arch_init = pci_xen_init;
+			*(void **)&x86_init.pci.arch_init = pci_xen_init;
 	} else {
 		const struct dom0_vga_console_info *info =
 			(void *)((char *)xen_start_info +
@@ -1308,8 +1308,8 @@ asmlinkage void __init xen_start_kernel(void)
 		pci_request_acs();
 
 		/* Avoid searching for BIOS MP tables */
-		x86_init.mpparse.find_smp_config = x86_init_noop;
-		x86_init.mpparse.get_smp_config = x86_init_uint_noop;
+		*(void **)&x86_init.mpparse.find_smp_config = x86_init_noop;
+		*(void **)&x86_init.mpparse.get_smp_config = x86_init_uint_noop;
 	}
 #ifdef CONFIG_PCI
 	/* PCI BIOS service won't work from a PV guest. */
@@ -1421,7 +1421,7 @@ static void __init xen_hvm_guest_init(void)
 	xen_hvm_smp_init();
 	register_cpu_notifier(&xen_hvm_cpu_notifier);
 	xen_unplug_emulated_devices();
-	x86_init.irqs.intr_init = xen_init_IRQ;
+	*(void **)&x86_init.irqs.intr_init = xen_init_IRQ;
 	xen_hvm_init_time_ops();
 	xen_hvm_init_mmu_ops();
 }

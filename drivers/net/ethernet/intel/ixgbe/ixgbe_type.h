@@ -2710,7 +2710,6 @@ struct ixgbe_eeprom_operations {
 	s32 (*update_checksum)(struct ixgbe_hw *);
 	u16 (*calc_checksum)(struct ixgbe_hw *);
 };
-typedef struct ixgbe_eeprom_operations __no_const ixgbe_eeprom_operations_no_const;
 
 struct ixgbe_mac_operations {
 	s32 (*init_hw)(struct ixgbe_hw *);
@@ -2772,7 +2771,6 @@ struct ixgbe_mac_operations {
 	/* Manageability interface */
 	s32 (*set_fw_drv_ver)(struct ixgbe_hw *, u8, u8, u8, u8);
 };
-typedef struct ixgbe_mac_operations __no_const ixgbe_mac_operations_no_const;
 
 struct ixgbe_phy_operations {
 	s32 (*identify)(struct ixgbe_hw *);
@@ -2792,10 +2790,9 @@ struct ixgbe_phy_operations {
 	s32 (*write_i2c_eeprom)(struct ixgbe_hw *, u8, u8);
 	s32 (*check_overtemp)(struct ixgbe_hw *);
 };
-typedef struct ixgbe_phy_operations __no_const ixgbe_phy_operations_no_const;
 
 struct ixgbe_eeprom_info {
-	ixgbe_eeprom_operations_no_const ops;
+	struct ixgbe_eeprom_operations  ops;
 	enum ixgbe_eeprom_type          type;
 	u32                             semaphore_delay;
 	u16                             word_size;
@@ -2805,7 +2802,7 @@ struct ixgbe_eeprom_info {
 
 #define IXGBE_FLAGS_DOUBLE_RESET_REQUIRED	0x01
 struct ixgbe_mac_info {
-	ixgbe_mac_operations_no_const   ops;
+	struct ixgbe_mac_operations     ops;
 	enum ixgbe_mac_type             type;
 	u8                              addr[IXGBE_ETH_LENGTH_OF_ADDRESS];
 	u8                              perm_addr[IXGBE_ETH_LENGTH_OF_ADDRESS];
@@ -2833,7 +2830,7 @@ struct ixgbe_mac_info {
 };
 
 struct ixgbe_phy_info {
-	ixgbe_phy_operations_no_const   ops;
+	struct ixgbe_phy_operations     ops;
 	struct mdio_if_info		mdio;
 	enum ixgbe_phy_type             type;
 	u32                             id;
@@ -2861,7 +2858,6 @@ struct ixgbe_mbx_operations {
 	s32 (*check_for_ack)(struct ixgbe_hw *, u16);
 	s32 (*check_for_rst)(struct ixgbe_hw *, u16);
 };
-typedef struct ixgbe_mbx_operations __no_const ixgbe_mbx_operations_no_const;
 
 struct ixgbe_mbx_stats {
 	u32 msgs_tx;
@@ -2873,7 +2869,7 @@ struct ixgbe_mbx_stats {
 };
 
 struct ixgbe_mbx_info {
-	ixgbe_mbx_operations_no_const ops;
+	struct ixgbe_mbx_operations ops;
 	struct ixgbe_mbx_stats stats;
 	u32 timeout;
 	u32 usec_delay;

@@ -422,7 +422,7 @@ static void __init paravirt_ops_setup(void)
 	pv_info.paravirt_enabled = 1;
 
 	if (kvm_para_has_feature(KVM_FEATURE_NOP_IO_DELAY))
-		pv_cpu_ops.io_delay = kvm_io_delay;
+		*(void **)&pv_cpu_ops.io_delay = kvm_io_delay;
 
 	if (kvm_para_has_feature(KVM_FEATURE_MMU_OP)) {
 		pv_mmu_ops.set_pte = kvm_set_pte;
@@ -602,15 +602,15 @@ void __init kvm_guest_init(void)
 	for (i = 0; i < KVM_TASK_SLEEP_HASHSIZE; i++)
 		spin_lock_init(&async_pf_sleepers[i].lock);
 	if (kvm_para_has_feature(KVM_FEATURE_ASYNC_PF))
-		x86_init.irqs.trap_init = kvm_apf_trap_init;
+		*(void **)&x86_init.irqs.trap_init = kvm_apf_trap_init;
 
 	if (kvm_para_has_feature(KVM_FEATURE_STEAL_TIME)) {
 		has_steal_clock = 1;
-		pv_time_ops.steal_clock = kvm_steal_clock;
+		*(void **)&pv_time_ops.steal_clock = kvm_steal_clock;
 	}
 
 #ifdef CONFIG_SMP
-	smp_ops.smp_prepare_boot_cpu = kvm_smp_prepare_boot_cpu;
+	*(void **)&smp_ops.smp_prepare_boot_cpu = kvm_smp_prepare_boot_cpu;
 	register_cpu_notifier(&kvm_cpu_notifier);
 #else
 	kvm_guest_cpu_init();

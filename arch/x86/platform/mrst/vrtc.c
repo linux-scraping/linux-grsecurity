@@ -120,8 +120,8 @@ void __init mrst_rtc_init(void)
 
 	vrtc_virt_base = (void __iomem *)set_fixmap_offset_nocache(FIX_LNW_VRTC,
 								vrtc_paddr);
-	x86_platform.get_wallclock = vrtc_get_time;
-	x86_platform.set_wallclock = vrtc_set_mmss;
+	*(void **)&x86_platform.get_wallclock = vrtc_get_time;
+	*(void **)&x86_platform.set_wallclock = vrtc_set_mmss;
 }
 
 /*

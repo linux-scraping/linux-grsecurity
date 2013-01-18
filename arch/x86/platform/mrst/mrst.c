@@ -244,14 +244,14 @@ static void __init mrst_time_init(void)
 	case MRST_TIMER_APBT_ONLY:
 		break;
 	case MRST_TIMER_LAPIC_APBT:
-		x86_init.timers.setup_percpu_clockev = setup_boot_APIC_clock;
-		x86_cpuinit.setup_percpu_clockev = setup_secondary_APIC_clock;
+		*(void **)&x86_init.timers.setup_percpu_clockev = setup_boot_APIC_clock;
+		*(void **)&x86_cpuinit.setup_percpu_clockev = setup_secondary_APIC_clock;
 		break;
 	default:
 		if (!boot_cpu_has(X86_FEATURE_ARAT))
 			break;
-		x86_init.timers.setup_percpu_clockev = setup_boot_APIC_clock;
-		x86_cpuinit.setup_percpu_clockev = setup_secondary_APIC_clock;
+		*(void **)&x86_init.timers.setup_percpu_clockev = setup_boot_APIC_clock;
+		*(void **)&x86_cpuinit.setup_percpu_clockev = setup_secondary_APIC_clock;
 		return;
 	}
 	/* we need at least one APB timer */
@@ -298,35 +298,35 @@ static unsigned char mrst_get_nmi_reason(void)
  */
 void __init x86_mrst_early_setup(void)
 {
-	x86_init.resources.probe_roms = x86_init_noop;
-	x86_init.resources.reserve_resources = x86_init_noop;
+	*(void **)&x86_init.resources.probe_roms = x86_init_noop;
+	*(void **)&x86_init.resources.reserve_resources = x86_init_noop;
 
-	x86_init.timers.timer_init = mrst_time_init;
-	x86_init.timers.setup_percpu_clockev = x86_init_noop;
+	*(void **)&x86_init.timers.timer_init = mrst_time_init;
+	*(void **)&x86_init.timers.setup_percpu_clockev = x86_init_noop;
 
-	x86_init.irqs.pre_vector_init = x86_init_noop;
+	*(void **)&x86_init.irqs.pre_vector_init = x86_init_noop;
 
-	x86_init.oem.arch_setup = mrst_arch_setup;
+	*(void **)&x86_init.oem.arch_setup = mrst_arch_setup;
 
-	x86_cpuinit.setup_percpu_clockev = apbt_setup_secondary_clock;
+	*(void **)&x86_cpuinit.setup_percpu_clockev = apbt_setup_secondary_clock;
 
-	x86_platform.calibrate_tsc = mrst_calibrate_tsc;
-	x86_platform.i8042_detect = mrst_i8042_detect;
-	x86_init.timers.wallclock_init = mrst_rtc_init;
-	x86_platform.get_nmi_reason = mrst_get_nmi_reason;
+	*(void **)&x86_platform.calibrate_tsc = mrst_calibrate_tsc;
+	*(void **)&x86_platform.i8042_detect = mrst_i8042_detect;
+	*(void **)&x86_init.timers.wallclock_init = mrst_rtc_init;
+	*(void **)&x86_platform.get_nmi_reason = mrst_get_nmi_reason;
 
-	x86_init.pci.init = pci_mrst_init;
-	x86_init.pci.fixup_irqs = x86_init_noop;
+	*(void **)&x86_init.pci.init = pci_mrst_init;
+	*(void **)&x86_init.pci.fixup_irqs = x86_init_noop;
 
 	legacy_pic = &null_legacy_pic;
 
 	/* Moorestown specific power_off/restart method */
 	pm_power_off = mrst_power_off;
-	machine_ops.emergency_restart  = mrst_reboot;
+	*(void **)&machine_ops.emergency_restart  = mrst_reboot;
 
 	/* Avoid searching for BIOS MP tables */
-	x86_init.mpparse.find_smp_config = x86_init_noop;
-	x86_init.mpparse.get_smp_config = x86_init_uint_noop;
+	*(void **)&x86_init.mpparse.find_smp_config = x86_init_noop;
+	*(void **)&x86_init.mpparse.get_smp_config = x86_init_uint_noop;
 	set_bit(MP_BUS_ISA, mp_bus_not_pci);
 }
 

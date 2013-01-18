@@ -105,8 +105,10 @@ int rv370_pcie_gart_init(struct radeon_device *rdev)
 	if (r)
 		DRM_ERROR("Failed to register debugfs file for PCIE gart !\n");
 	rdev->gart.table_size = rdev->gart.num_gpu_pages * 4;
-	rdev->asic->gart_tlb_flush = &rv370_pcie_gart_tlb_flush;
-	rdev->asic->gart_set_page = &rv370_pcie_gart_set_page;
+	pax_open_kernel();
+	*(void **)&rdev->asic->gart_tlb_flush = &rv370_pcie_gart_tlb_flush;
+	*(void **)&rdev->asic->gart_set_page = &rv370_pcie_gart_set_page;
+	pax_close_kernel();
 	return radeon_gart_table_vram_alloc(rdev);
 }
 

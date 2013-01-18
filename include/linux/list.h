@@ -112,6 +112,9 @@ extern void __list_del_entry(struct list_head *entry);
 extern void list_del(struct list_head *entry);
 #endif
 
+extern void pax_list_add_tail(struct list_head *new, struct list_head *head);
+extern void pax_list_del(struct list_head *entry);
+
 /**
  * list_replace - replace old entry by new one
  * @old : the element to be replaced

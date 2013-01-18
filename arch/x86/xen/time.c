@@ -481,15 +481,15 @@ static void __init xen_time_init(void)
 
 void __init xen_init_time_ops(void)
 {
-	pv_time_ops = xen_time_ops;
+	memcpy((void *)&pv_time_ops, &xen_time_ops, sizeof pv_time_ops);
 
-	x86_init.timers.timer_init = xen_time_init;
-	x86_init.timers.setup_percpu_clockev = x86_init_noop;
-	x86_cpuinit.setup_percpu_clockev = x86_init_noop;
+	*(void **)&x86_init.timers.timer_init = xen_time_init;
+	*(void **)&x86_init.timers.setup_percpu_clockev = x86_init_noop;
+	*(void **)&x86_cpuinit.setup_percpu_clockev = x86_init_noop;
 
-	x86_platform.calibrate_tsc = xen_tsc_khz;
-	x86_platform.get_wallclock = xen_get_wallclock;
-	x86_platform.set_wallclock = xen_set_wallclock;
+	*(void **)&x86_platform.calibrate_tsc = xen_tsc_khz;
+	*(void **)&x86_platform.get_wallclock = xen_get_wallclock;
+	*(void **)&x86_platform.set_wallclock = xen_set_wallclock;
 }
 
 #ifdef CONFIG_XEN_PVHVM
@@ -514,12 +514,12 @@ void __init xen_hvm_init_time_ops(void)
 		return;
 	}
 
-	pv_time_ops = xen_time_ops;
-	x86_init.timers.setup_percpu_clockev = xen_time_init;
-	x86_cpuinit.setup_percpu_clockev = xen_hvm_setup_cpu_clockevents;
+	memcpy((void *)&pv_time_ops, &xen_time_ops, sizeof pv_time_ops);
+	*(void **)&x86_init.timers.setup_percpu_clockev = xen_time_init;
+	*(void **)&x86_cpuinit.setup_percpu_clockev = xen_hvm_setup_cpu_clockevents;
 
-	x86_platform.calibrate_tsc = xen_tsc_khz;
-	x86_platform.get_wallclock = xen_get_wallclock;
-	x86_platform.set_wallclock = xen_set_wallclock;
+	*(void **)&x86_platform.calibrate_tsc = xen_tsc_khz;
+	*(void **)&x86_platform.get_wallclock = xen_get_wallclock;
+	*(void **)&x86_platform.set_wallclock = xen_set_wallclock;
 }
 #endif

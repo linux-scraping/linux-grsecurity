@@ -44,7 +44,7 @@ struct net_protocol {
 	int			(*gro_complete)(struct sk_buff *skb);
 	unsigned int		no_policy:1,
 				netns_ok:1;
-};
+} __do_const;
 
 #if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
 struct inet6_protocol {
@@ -63,7 +63,7 @@ struct inet6_protocol {
 	int	(*gro_complete)(struct sk_buff *skb);
 
 	unsigned int	flags;	/* INET6_PROTO_xxx */
-};
+} __do_const;
 
 #define INET6_PROTO_NOPOLICY	0x1
 #define INET6_PROTO_FINAL	0x2

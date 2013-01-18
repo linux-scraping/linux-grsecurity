@@ -184,7 +184,7 @@ static inline void __iomem *ioremap(resource_size_t offset, unsigned long size)
 	return ioremap_nocache(offset, size);
 }
 
-extern void iounmap(volatile void __iomem *addr);
+extern void iounmap(const volatile void __iomem *addr);
 
 extern void set_iounmap_nonlazy(void);
 

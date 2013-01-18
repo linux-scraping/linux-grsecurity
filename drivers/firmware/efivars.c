@@ -1232,9 +1232,9 @@ efivars_init(void)
 		return -ENOMEM;
 	}
 
-	ops.get_variable = efi.get_variable;
-	ops.set_variable = efi.set_variable;
-	ops.get_next_variable = efi.get_next_variable;
+	*(void **)&ops.get_variable = efi.get_variable;
+	*(void **)&ops.set_variable = efi.set_variable;
+	*(void **)&ops.get_next_variable = efi.get_next_variable;
 	error = register_efivars(&__efivars, &ops, efi_kobj);
 	if (error)
 		goto err_put;

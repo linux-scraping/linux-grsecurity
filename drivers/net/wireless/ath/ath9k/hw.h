@@ -656,7 +656,7 @@ enum ath_cal_list {
 #define AH_FASTCC       0x4
 
 struct ath_hw {
-	ath_ops_no_const reg_ops;
+	struct ath_ops reg_ops;
 
 	struct ieee80211_hw *hw;
 	struct ath_common common;

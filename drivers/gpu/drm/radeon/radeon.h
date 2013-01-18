@@ -515,7 +515,7 @@ struct r600_blit_cp_primitives {
 			     int x2, int y2);
 	void (*draw_auto)(struct radeon_device *rdev);
 	void (*set_default_state)(struct radeon_device *rdev);
-} __no_const;
+};
 
 struct r600_blit {
 	struct mutex		mutex;
@@ -939,7 +939,7 @@ struct radeon_asic {
 	void (*pre_page_flip)(struct radeon_device *rdev, int crtc);
 	u32 (*page_flip)(struct radeon_device *rdev, int crtc, u64 crtc_base);
 	void (*post_page_flip)(struct radeon_device *rdev, int crtc);
-} __no_const;
+};
 
 /*
  * Asic structures

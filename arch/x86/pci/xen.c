@@ -369,9 +369,9 @@ int __init pci_xen_init(void)
 #endif
 
 #ifdef CONFIG_PCI_MSI
-	x86_msi.setup_msi_irqs = xen_setup_msi_irqs;
-	x86_msi.teardown_msi_irq = xen_teardown_msi_irq;
-	x86_msi.teardown_msi_irqs = xen_teardown_msi_irqs;
+	*(void **)&x86_msi.setup_msi_irqs = xen_setup_msi_irqs;
+	*(void **)&x86_msi.teardown_msi_irq = xen_teardown_msi_irq;
+	*(void **)&x86_msi.teardown_msi_irqs = xen_teardown_msi_irqs;
 #endif
 	return 0;
 }
@@ -390,8 +390,8 @@ int __init pci_xen_hvm_init(void)
 #endif
 
 #ifdef CONFIG_PCI_MSI
-	x86_msi.setup_msi_irqs = xen_hvm_setup_msi_irqs;
-	x86_msi.teardown_msi_irq = xen_teardown_msi_irq;
+	*(void **)&x86_msi.setup_msi_irqs = xen_hvm_setup_msi_irqs;
+	*(void **)&x86_msi.teardown_msi_irq = xen_teardown_msi_irq;
 #endif
 	return 0;
 }
@@ -448,8 +448,8 @@ int __init pci_xen_initial_domain(void)
 	int irq;
 
 #ifdef CONFIG_PCI_MSI
-	x86_msi.setup_msi_irqs = xen_initdom_setup_msi_irqs;
-	x86_msi.teardown_msi_irq = xen_teardown_msi_irq;
+	*(void **)&x86_msi.setup_msi_irqs = xen_initdom_setup_msi_irqs;
+	*(void **)&x86_msi.teardown_msi_irq = xen_teardown_msi_irq;
 #endif
 	xen_setup_acpi_sci();
 	__acpi_register_gsi = acpi_register_gsi_xen;

@@ -175,7 +175,7 @@ struct brcmf_cfg80211_event_loop {
 				     struct net_device *ndev,
 				     const struct brcmf_event_msg *e,
 				     void *data);
-};
+} __no_const;
 
 /* representing interface of cfg80211 plane */
 struct brcmf_cfg80211_iface {
@@ -239,7 +239,7 @@ struct brcmf_cfg80211_profile {
 struct brcmf_cfg80211_iscan_eloop {
 	s32 (*handler[WL_SCAN_ERSULTS_LAST])
 		(struct brcmf_cfg80211_priv *cfg_priv);
-};
+} __no_const;
 
 /* dongle iscan controller */
 struct brcmf_cfg80211_iscan_ctrl {

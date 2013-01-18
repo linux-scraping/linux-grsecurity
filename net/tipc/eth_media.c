@@ -57,7 +57,6 @@ struct eth_bearer {
 
 static struct eth_bearer eth_bearers[MAX_ETH_BEARERS];
 static int eth_started;
-static struct notifier_block notifier;
 
 /**
  * send_msg - send a TIPC message out over an Ethernet interface
@@ -264,6 +263,11 @@ static char *eth_addr2str(struct tipc_media_addr *a, char *str_buf, int str_size
  * with OS for notifications about device state changes.
  */
 
+static struct notifier_block notifier = {
+	.notifier_call = &recv_notification,
+	.priority = 0,
+};
+
 int tipc_eth_media_start(void)
 {
 	struct tipc_media_addr bcast_addr;
@@ -284,8 +288,6 @@ int tipc_eth_media_start(void)
 	if (res)
 		return res;
 
-	notifier.notifier_call = &recv_notification;
-	notifier.priority = 0;
 	res = register_netdevice_notifier(&notifier);
 	if (!res)
 		eth_started = 1;

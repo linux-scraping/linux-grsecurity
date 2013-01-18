@@ -1034,7 +1034,7 @@ void sctp_v6_pf_init(void)
 
 void sctp_v6_pf_exit(void)
 {
-	list_del(&sctp_af_inet6.list);
+	pax_list_del((struct list_head *)&sctp_af_inet6.list);
 }
 
 /* Initialize IPv6 support and register with socket layer.  */

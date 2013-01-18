@@ -4121,7 +4121,7 @@ bfa_fcp_attach(struct bfa_s *bfa, void *bfad, struct bfa_iocfc_cfg_s *cfg,
 
 	bfa_iotag_attach(fcp);
 
-	fcp->itn_arr = (bfa_itn_s_no_const *) bfa_mem_kva_curp(fcp);
+	fcp->itn_arr = (struct bfa_itn_s *) bfa_mem_kva_curp(fcp);
 	bfa_mem_kva_curp(fcp) = (u8 *)fcp->itn_arr +
 			(fcp->num_itns * sizeof(struct bfa_itn_s));
 	memset(fcp->itn_arr, 0,
@@ -4179,7 +4179,7 @@ bfa_itn_create(struct bfa_s *bfa, struct bfa_rport_s *rport,
 		void (*isr)(struct bfa_s *bfa, struct bfi_msg_s *m))
 {
 	struct bfa_fcp_mod_s *fcp = BFA_FCP_MOD(bfa);
-	bfa_itn_s_no_const *itn;
+	struct bfa_itn_s *itn;
 
 	itn =  BFA_ITN_FROM_TAG(fcp, rport->rport_tag);
 	itn->isr = isr;

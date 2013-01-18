@@ -237,7 +237,7 @@ struct udp_seq_afinfo {
 	sa_family_t			family;
 	struct udp_table		*udp_table;
 	const struct file_operations	*seq_fops;
-	seq_operations_no_const		seq_ops;
+	struct seq_operations		seq_ops;
 };
 
 struct udp_iter_state {

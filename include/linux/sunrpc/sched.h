@@ -105,7 +105,6 @@ struct rpc_call_ops {
 	void (*rpc_call_done)(struct rpc_task *, void *);
 	void (*rpc_release)(void *);
 };
-typedef struct rpc_call_ops __no_const rpc_call_ops_no_const;
 
 struct rpc_task_setup {
 	struct rpc_task *task;

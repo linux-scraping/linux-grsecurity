@@ -469,8 +469,9 @@ static int count(struct user_arg_ptr argv, int max)
 			if (IS_ERR((const char __force_kernel *)p))
 				return -EFAULT;
 
-			if (i++ >= max)
+			if (i >= max)
 				return -E2BIG;
+			++i;
 
 			if (fatal_signal_pending(current))
 				return -ERESTARTNOHAND;
@@ -2174,7 +2175,7 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 	if (!n)
 		return;
 
-	type = check_heap_object(ptr, n, to);
+	type = check_heap_object(ptr, n);
 	if (!type) {
 		if (check_stack_object(ptr, n) != -1)
 			return;

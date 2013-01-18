@@ -114,13 +114,17 @@ void radeon_agp_disable(struct radeon_device *rdev)
 			rdev->family == CHIP_R423) {
 		DRM_INFO("Forcing AGP to PCIE mode\n");
 		rdev->flags |= RADEON_IS_PCIE;
-		rdev->asic->gart_tlb_flush = &rv370_pcie_gart_tlb_flush;
-		rdev->asic->gart_set_page = &rv370_pcie_gart_set_page;
+		pax_open_kernel();
+		*(void **)&rdev->asic->gart_tlb_flush = &rv370_pcie_gart_tlb_flush;
+		*(void **)&rdev->asic->gart_set_page = &rv370_pcie_gart_set_page;
+		pax_close_kernel();
 	} else {
 		DRM_INFO("Forcing AGP to PCI mode\n");
 		rdev->flags |= RADEON_IS_PCI;
-		rdev->asic->gart_tlb_flush = &r100_pci_gart_tlb_flush;
-		rdev->asic->gart_set_page = &r100_pci_gart_set_page;
+		pax_open_kernel();
+		*(void **)&rdev->asic->gart_tlb_flush = &r100_pci_gart_tlb_flush;
+		*(void **)&rdev->asic->gart_set_page = &r100_pci_gart_set_page;
+		pax_close_kernel();
 	}
 	rdev->mc.gtt_size = radeon_gart_size * 1024 * 1024;
 }
@@ -974,10 +978,12 @@ int radeon_asic_init(struct radeon_device *rdev)
 		rdev->asic = &r420_asic;
 		/* handle macs */
 		if (rdev->bios == NULL) {
-			rdev->asic->get_engine_clock = &radeon_legacy_get_engine_clock;
-			rdev->asic->set_engine_clock = &radeon_legacy_set_engine_clock;
-			rdev->asic->get_memory_clock = &radeon_legacy_get_memory_clock;
-			rdev->asic->set_memory_clock = NULL;
+			pax_open_kernel();
+			*(void **)&rdev->asic->get_engine_clock = &radeon_legacy_get_engine_clock;
+			*(void **)&rdev->asic->set_engine_clock = &radeon_legacy_set_engine_clock;
+			*(void **)&rdev->asic->get_memory_clock = &radeon_legacy_get_memory_clock;
+			*(void **)&rdev->asic->set_memory_clock = NULL;
+			pax_close_kernel();
 		}
 		break;
 	case CHIP_RS400:
@@ -1057,8 +1063,10 @@ int radeon_asic_init(struct radeon_device *rdev)
 	}
 
 	if (rdev->flags & RADEON_IS_IGP) {
-		rdev->asic->get_memory_clock = NULL;
-		rdev->asic->set_memory_clock = NULL;
+		pax_open_kernel();
+		*(void **)&rdev->asic->get_memory_clock = NULL;
+		*(void **)&rdev->asic->set_memory_clock = NULL;
+		pax_close_kernel();
 	}
 
 	return 0;

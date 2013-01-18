@@ -2095,9 +2095,9 @@ static const struct pv_mmu_ops xen_mmu_ops __initconst = {
 
 void __init xen_init_mmu_ops(void)
 {
-	x86_init.mapping.pagetable_reserve = xen_mapping_pagetable_reserve;
-	x86_init.paging.pagetable_setup_start = xen_pagetable_setup_start;
-	x86_init.paging.pagetable_setup_done = xen_pagetable_setup_done;
+	*(void **)&x86_init.mapping.pagetable_reserve = xen_mapping_pagetable_reserve;
+	*(void **)&x86_init.paging.pagetable_setup_start = xen_pagetable_setup_start;
+	*(void **)&x86_init.paging.pagetable_setup_done = xen_pagetable_setup_done;
 	pv_mmu_ops = xen_mmu_ops;
 
 	memset(dummy_mapping, 0xff, PAGE_SIZE);

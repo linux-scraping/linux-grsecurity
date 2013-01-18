@@ -92,7 +92,7 @@ static int is_writable(struct pnfs_block_extent *be, sector_t isect)
  */
 struct parallel_io {
 	struct kref refcnt;
-	rpc_call_ops_no_const call_ops;
+	struct rpc_call_ops call_ops;
 	void (*pnfs_callback) (void *data);
 	void *data;
 };

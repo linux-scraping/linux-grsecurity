@@ -111,7 +111,7 @@ struct kobj_type {
 	struct attribute **default_attrs;
 	const struct kobj_ns_type_operations *(*child_ns_type)(struct kobject *kobj);
 	const void *(*namespace)(struct kobject *kobj);
-};
+} __do_const;
 
 struct kobj_uevent_env {
 	char *envp[UEVENT_NUM_ENVP];

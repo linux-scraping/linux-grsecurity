@@ -583,7 +583,7 @@ static snd_pcm_uframes_t soc_pcm_pointer(struct snd_pcm_substream *substream)
 }
 
 /* ASoC PCM operations */
-static snd_pcm_ops_no_const soc_pcm_ops = {
+static struct snd_pcm_ops soc_pcm_ops = {
 	.open		= soc_pcm_open,
 	.close		= soc_pcm_close,
 	.hw_params	= soc_pcm_hw_params,
@@ -627,13 +627,15 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 	rtd->pcm = pcm;
 	pcm->private_data = rtd;
 	if (platform->driver->ops) {
-		soc_pcm_ops.mmap = platform->driver->ops->mmap;
-		soc_pcm_ops.pointer = platform->driver->ops->pointer;
-		soc_pcm_ops.ioctl = platform->driver->ops->ioctl;
-		soc_pcm_ops.copy = platform->driver->ops->copy;
-		soc_pcm_ops.silence = platform->driver->ops->silence;
-		soc_pcm_ops.ack = platform->driver->ops->ack;
-		soc_pcm_ops.page = platform->driver->ops->page;
+		pax_open_kernel();
+		*(void **)&soc_pcm_ops.mmap = platform->driver->ops->mmap;
+		*(void **)&soc_pcm_ops.pointer = platform->driver->ops->pointer;
+		*(void **)&soc_pcm_ops.ioctl = platform->driver->ops->ioctl;
+		*(void **)&soc_pcm_ops.copy = platform->driver->ops->copy;
+		*(void **)&soc_pcm_ops.silence = platform->driver->ops->silence;
+		*(void **)&soc_pcm_ops.ack = platform->driver->ops->ack;
+		*(void **)&soc_pcm_ops.page = platform->driver->ops->page;
+		pax_close_kernel();
 	}
 
 	if (playback)

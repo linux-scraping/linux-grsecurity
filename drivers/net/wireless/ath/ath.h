@@ -119,7 +119,6 @@ struct ath_ops {
 	void (*write_flush) (void *);
 	u32 (*rmw)(void *, u32 reg_offset, u32 set, u32 clr);
 };
-typedef struct ath_ops __no_const ath_ops_no_const;
 
 struct ath_common;
 struct ath_bus_ops;

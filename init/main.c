@@ -765,6 +765,10 @@ int __init_or_module do_one_initcall(initcall_t fn)
 
 extern initcall_t __initcall_start[], __initcall_end[], __early_initcall_end[];
 
+#ifdef CONFIG_PAX_LATENT_ENTROPY
+u64 latent_entropy;
+#endif
+
 static void __init do_initcalls(void)
 {
 	initcall_t *fn;
@@ -773,7 +777,7 @@ static void __init do_initcalls(void)
 		do_one_initcall(*fn);
 
 #ifdef CONFIG_PAX_LATENT_ENTROPY
-		transfer_latent_entropy();
+		add_device_randomness(&latent_entropy, sizeof(latent_entropy));
 #endif
 
 	}
@@ -806,7 +810,7 @@ static void __init do_pre_smp_initcalls(void)
 		do_one_initcall(*fn);
 
 #ifdef CONFIG_PAX_LATENT_ENTROPY
-		transfer_latent_entropy();
+		add_device_randomness(&latent_entropy, sizeof(latent_entropy));
 #endif
 
 	}
