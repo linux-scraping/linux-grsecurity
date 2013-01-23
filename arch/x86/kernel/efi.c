@@ -455,8 +455,8 @@ void __init efi_init(void)
 		do_add_efi_memmap();
 
 #ifdef CONFIG_X86_32
-	x86_platform.get_wallclock = efi_get_time;
-	x86_platform.set_wallclock = efi_set_rtc_mmss;
+	*(void **)&x86_platform.get_wallclock = efi_get_time;
+	*(void **)&x86_platform.set_wallclock = efi_set_rtc_mmss;
 #endif
 
 	/* Setup for EFI runtime service */

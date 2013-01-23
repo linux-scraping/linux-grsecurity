@@ -334,8 +334,7 @@ static void xen_load_gdt(const struct desc_ptr *dtr)
 {
 	unsigned long va = dtr->address;
 	unsigned int size = dtr->size + 1;
-	unsigned pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
-	unsigned long frames[pages];
+	unsigned long frames[65536 / PAGE_SIZE];
 	int f;
 
 	/*
@@ -383,8 +382,7 @@ static __init void xen_load_gdt_boot(const struct desc_ptr *dtr)
 {
 	unsigned long va = dtr->address;
 	unsigned int size = dtr->size + 1;
-	unsigned pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
-	unsigned long frames[pages];
+	unsigned long frames[65536 / PAGE_SIZE];
 	int f;
 
 	/*
@@ -1038,14 +1036,14 @@ static const struct machine_ops __initdata xen_machine_ops = {
  */
 static void __init xen_setup_stackprotector(void)
 {
-	pv_cpu_ops.write_gdt_entry = xen_write_gdt_entry_boot;
-	pv_cpu_ops.load_gdt = xen_load_gdt_boot;
+	*(void **)&pv_cpu_ops.write_gdt_entry = xen_write_gdt_entry_boot;
+	*(void **)&pv_cpu_ops.load_gdt = xen_load_gdt_boot;
 
 	setup_stack_canary_segment(0);
 	switch_to_new_gdt(0);
 
-	pv_cpu_ops.write_gdt_entry = xen_write_gdt_entry;
-	pv_cpu_ops.load_gdt = xen_load_gdt;
+	*(void **)&pv_cpu_ops.write_gdt_entry = xen_write_gdt_entry;
+	*(void **)&pv_cpu_ops.load_gdt = xen_load_gdt;
 }
 
 /* First C function to be called on Xen boot */
@@ -1060,22 +1058,22 @@ asmlinkage void __init xen_start_kernel(void)
 
 	/* Install Xen paravirt ops */
 	pv_info = xen_info;
-	pv_init_ops = xen_init_ops;
-	pv_time_ops = xen_time_ops;
-	pv_cpu_ops = xen_cpu_ops;
-	pv_apic_ops = xen_apic_ops;
+	memcpy((void *)&pv_init_ops, &xen_init_ops, sizeof pv_init_ops);
+	memcpy((void *)&pv_time_ops, &xen_time_ops, sizeof pv_time_ops);
+	memcpy((void *)&pv_cpu_ops, &xen_cpu_ops, sizeof pv_cpu_ops);
+	memcpy((void *)&pv_apic_ops, &xen_apic_ops, sizeof pv_apic_ops);
 
-	x86_init.resources.memory_setup = xen_memory_setup;
-	x86_init.oem.arch_setup = xen_arch_setup;
-	x86_init.oem.banner = xen_banner;
+	*(void **)&x86_init.resources.memory_setup = xen_memory_setup;
+	*(void **)&x86_init.oem.arch_setup = xen_arch_setup;
+	*(void **)&x86_init.oem.banner = xen_banner;
 
-	x86_init.timers.timer_init = xen_time_init;
-	x86_init.timers.setup_percpu_clockev = x86_init_noop;
-	x86_cpuinit.setup_percpu_clockev = x86_init_noop;
+	*(void **)&x86_init.timers.timer_init = xen_time_init;
+	*(void **)&x86_init.timers.setup_percpu_clockev = x86_init_noop;
+	*(void **)&x86_cpuinit.setup_percpu_clockev = x86_init_noop;
 
-	x86_platform.calibrate_tsc = xen_tsc_khz;
-	x86_platform.get_wallclock = xen_get_wallclock;
-	x86_platform.set_wallclock = xen_set_wallclock;
+	*(void **)&x86_platform.calibrate_tsc = xen_tsc_khz;
+	*(void **)&x86_platform.get_wallclock = xen_get_wallclock;
+	*(void **)&x86_platform.set_wallclock = xen_set_wallclock;
 
 	/*
 	 * Set up some pagetable state before starting to set any ptes.
@@ -1139,7 +1137,7 @@ asmlinkage void __init xen_start_kernel(void)
 		pv_mmu_ops.ptep_modify_prot_commit = xen_ptep_modify_prot_commit;
 	}
 
-	machine_ops = xen_machine_ops;
+	memcpy((void *)&machine_ops, &xen_machine_ops, sizeof machine_ops);
 
 	xen_smp_init();
 

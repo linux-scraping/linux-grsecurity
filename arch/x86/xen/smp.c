@@ -479,7 +479,7 @@ static const struct smp_ops xen_smp_ops __initdata = {
 
 void __init xen_smp_init(void)
 {
-	smp_ops = xen_smp_ops;
+	memcpy((void *)&smp_ops, &xen_smp_ops, sizeof smp_ops);
 	xen_fill_possible_map();
 	xen_init_spinlocks();
 }

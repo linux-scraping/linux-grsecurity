@@ -45,7 +45,9 @@
 	.equ	swapper_pg_dir, KERNEL_RAM_VADDR - 0x4000
 
 	.macro	pgtbl, rd
-	ldr	\rd, =(KERNEL_RAM_PADDR - 0x4000)
+	mov	\rd, #KERNEL_RAM_PADDR
+	sub	\rd, #0x4000
+	add	\rd, \rd, \phys
 	.endm
 
 #ifdef CONFIG_XIP_KERNEL

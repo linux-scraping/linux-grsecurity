@@ -86,7 +86,6 @@ struct fsnotify_ops {
 	void (*freeing_mark)(struct fsnotify_mark_entry *entry, struct fsnotify_group *group);
 	void (*free_event_priv)(struct fsnotify_event_private_data *priv);
 };
-typedef struct fsnotify_ops __no_const fsnotify_ops_no_const;
 
 /*
  * A group is a "thing" that wants to receive notification about filesystem

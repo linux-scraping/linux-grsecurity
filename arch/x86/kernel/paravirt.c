@@ -310,11 +310,11 @@ struct pv_info pv_info __read_only = {
 	.shared_kernel_pmd = 1,	/* Only used when CONFIG_X86_PAE is set */
 };
 
-struct pv_init_ops pv_init_ops __read_only = {
+struct pv_init_ops pv_init_ops = {
 	.patch = native_patch,
 };
 
-struct pv_time_ops pv_time_ops __read_only = {
+struct pv_time_ops pv_time_ops = {
 	.sched_clock = native_sched_clock,
 };
 
@@ -330,7 +330,7 @@ struct pv_irq_ops pv_irq_ops __read_only = {
 #endif
 };
 
-struct pv_cpu_ops pv_cpu_ops __read_only = {
+struct pv_cpu_ops pv_cpu_ops = {
 	.cpuid = native_cpuid,
 	.get_debugreg = native_get_debugreg,
 	.set_debugreg = native_set_debugreg,
@@ -391,7 +391,7 @@ struct pv_cpu_ops pv_cpu_ops __read_only = {
 	.end_context_switch = paravirt_nop,
 };
 
-struct pv_apic_ops pv_apic_ops __read_only = {
+struct pv_apic_ops pv_apic_ops = {
 #ifdef CONFIG_X86_LOCAL_APIC
 	.startup_ipi_hook = paravirt_nop,
 #endif

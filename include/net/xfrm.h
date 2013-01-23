@@ -389,7 +389,7 @@ struct xfrm_mode {
 	struct module *owner;
 	unsigned int encap;
 	int flags;
-};
+} __do_const;
 
 /* Flags for xfrm_mode. */
 enum {

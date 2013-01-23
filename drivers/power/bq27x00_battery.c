@@ -44,7 +44,7 @@ struct bq27x00_device_info;
 struct bq27x00_access_methods {
 	int (*read)(u8 reg, int *rt_value, int b_single,
 		struct bq27x00_device_info *di);
-} __no_const;
+};
 
 struct bq27x00_device_info {
 	struct device 		*dev;
@@ -53,7 +53,7 @@ struct bq27x00_device_info {
 	int			current_uA;
 	int			temp_C;
 	int			charge_rsoc;
-	struct bq27x00_access_methods	*bus;
+	struct bq27x00_access_methods	bus;
 	struct power_supply	bat;
 
 	struct i2c_client	*client;
@@ -76,7 +76,7 @@ static int bq27x00_read(u8 reg, int *rt_value, int b_single,
 {
 	int ret;
 
-	ret = di->bus->read(reg, rt_value, b_single, di);
+	ret = di->bus.read(reg, rt_value, b_single, di);
 	*rt_value = be16_to_cpu(*rt_value);
 
 	return ret;
@@ -253,7 +253,6 @@ static int bq27200_battery_probe(struct i2c_client *client,
 {
 	char *name;
 	struct bq27x00_device_info *di;
-	struct bq27x00_access_methods *bus;
 	int num;
 	int retval = 0;
 
@@ -282,19 +281,10 @@ static int bq27200_battery_probe(struct i2c_client *client,
 	}
 	di->id = num;
 
-	bus = kzalloc(sizeof(*bus), GFP_KERNEL);
-	if (!bus) {
-		dev_err(&client->dev, "failed to allocate access method "
-					"data\n");
-		retval = -ENOMEM;
-		goto batt_failed_3;
-	}
-
 	i2c_set_clientdata(client, di);
 	di->dev = &client->dev;
 	di->bat.name = name;
-	bus->read = &bq27200_read;
-	di->bus = bus;
+	di->bus.read = &bq27200_read;
 	di->client = client;
 
 	bq27x00_powersupply_init(di);
@@ -302,15 +292,13 @@ static int bq27200_battery_probe(struct i2c_client *client,
 	retval = power_supply_register(&client->dev, &di->bat);
 	if (retval) {
 		dev_err(&client->dev, "failed to register battery\n");
-		goto batt_failed_4;
+		goto batt_failed_3;
 	}
 
 	dev_info(&client->dev, "support ver. %s enabled\n", DRIVER_VERSION);
 
 	return 0;
 
-batt_failed_4:
-	kfree(bus);
 batt_failed_3:
 	kfree(di);
 batt_failed_2:

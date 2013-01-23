@@ -32,7 +32,7 @@ struct crypto_type {
 	unsigned int maskclear;
 	unsigned int maskset;
 	unsigned int tfmsize;
-};
+} __do_const;
 
 struct crypto_instance {
 	struct crypto_alg alg;

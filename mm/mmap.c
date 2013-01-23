@@ -29,6 +29,7 @@
 #include <linux/rmap.h>
 #include <linux/mmu_notifier.h>
 #include <linux/perf_event.h>
+#include <linux/random.h>
 
 #include <asm/uaccess.h>
 #include <asm/cacheflush.h>
@@ -1414,7 +1415,17 @@ unacct_error:
 	return error;
 }
 
-bool check_heap_stack_gap(const struct vm_area_struct *vma, unsigned long addr, unsigned long len)
+#ifdef CONFIG_GRKERNSEC_RAND_THREADSTACK
+unsigned long gr_rand_threadstack_offset(const struct mm_struct *mm, const struct file *filp, unsigned long flags)
+{
+	if ((mm->pax_flags & MF_PAX_RANDMMAP) && !filp && (flags & MAP_STACK))
+		return (random32() & 0xFF) << PAGE_SHIFT;
+
+	return 0;
+}
+#endif
+
+bool check_heap_stack_gap(const struct vm_area_struct *vma, unsigned long addr, unsigned long len, unsigned long offset)
 {
 	if (!vma) {
 #ifdef CONFIG_STACK_GROWSUP
@@ -1437,16 +1448,24 @@ bool check_heap_stack_gap(const struct vm_area_struct *vma, unsigned long addr, 
 	else if (vma->vm_prev && (vma->vm_prev->vm_flags & VM_GROWSUP))
 		return addr - vma->vm_prev->vm_end <= sysctl_heap_stack_gap;
 #endif
+	else if (offset)
+		return offset <= vma->vm_start - addr - len;
 
 	return true;
 }
 
-unsigned long skip_heap_stack_gap(const struct vm_area_struct *vma, unsigned long len)
+unsigned long skip_heap_stack_gap(const struct vm_area_struct *vma, unsigned long len, unsigned long offset)
 {
 	if (vma->vm_start < len)
 		return -ENOMEM;
-	if (!(vma->vm_flags & VM_GROWSDOWN))
-		return vma->vm_start - len;
+
+	if (!(vma->vm_flags & VM_GROWSDOWN)) {
+		if (offset <= vma->vm_start - len)
+			return vma->vm_start - len - offset;
+		else
+			return -ENOMEM;
+	}
+
 	if (sysctl_heap_stack_gap <= vma->vm_start - len)
 		return vma->vm_start - len - sysctl_heap_stack_gap;
 	return -ENOMEM;

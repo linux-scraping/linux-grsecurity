@@ -580,7 +580,7 @@ struct hda_bus_ops {
 	/* notify power-up/down from codec to controller */
 	void (*pm_notify)(struct hda_bus *bus);
 #endif
-} __no_const;
+};
 
 /* template to pass to the bus constructor */
 struct hda_bus_template {
@@ -675,7 +675,6 @@ struct hda_codec_ops {
 	int (*check_power_status)(struct hda_codec *codec, hda_nid_t nid);
 #endif
 };
-typedef struct hda_codec_ops __no_const hda_codec_ops_no_const;
 
 /* record for amp information cache */
 struct hda_cache_head {
@@ -706,7 +705,7 @@ struct hda_pcm_ops {
 		       struct snd_pcm_substream *substream);
 	int (*cleanup)(struct hda_pcm_stream *info, struct hda_codec *codec,
 		       struct snd_pcm_substream *substream);
-} __no_const;
+};
 
 /* PCM information for each substream */
 struct hda_pcm_stream {
@@ -761,7 +760,7 @@ struct hda_codec {
 	const char *modelname;	/* model name for preset */
 
 	/* set by patch */
-	hda_codec_ops_no_const patch_ops;
+	struct hda_codec_ops patch_ops;
 
 	/* PCM to create, set by patch_ops.build_pcms callback */
 	unsigned int num_pcms;

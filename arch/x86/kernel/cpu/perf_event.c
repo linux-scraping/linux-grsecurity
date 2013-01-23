@@ -1940,7 +1940,7 @@ perf_event_nmi_handler(struct notifier_block *self,
 	return NOTIFY_STOP;
 }
 
-static __read_mostly struct notifier_block perf_event_nmi_notifier = {
+static struct notifier_block perf_event_nmi_notifier = {
 	.notifier_call		= perf_event_nmi_handler,
 	.next			= NULL,
 	.priority		= 1

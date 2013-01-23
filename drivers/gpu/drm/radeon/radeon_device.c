@@ -322,8 +322,10 @@ int radeon_asic_init(struct radeon_device *rdev)
 	case CHIP_RV380:
 		rdev->asic = &r300_asic;
 		if (rdev->flags & RADEON_IS_PCIE) {
-			rdev->asic->gart_tlb_flush = &rv370_pcie_gart_tlb_flush;
-			rdev->asic->gart_set_page = &rv370_pcie_gart_set_page;
+			pax_open_kernel();
+			*(void **)&rdev->asic->gart_tlb_flush = &rv370_pcie_gart_tlb_flush;
+			*(void **)&rdev->asic->gart_set_page = &rv370_pcie_gart_set_page;
+			pax_close_kernel();
 		}
 		break;
 	case CHIP_R420:
@@ -506,13 +508,17 @@ void radeon_agp_disable(struct radeon_device *rdev)
 			rdev->family == CHIP_R423) {
 		DRM_INFO("Forcing AGP to PCIE mode\n");
 		rdev->flags |= RADEON_IS_PCIE;
-		rdev->asic->gart_tlb_flush = &rv370_pcie_gart_tlb_flush;
-		rdev->asic->gart_set_page = &rv370_pcie_gart_set_page;
+		pax_open_kernel();
+		*(void **)&rdev->asic->gart_tlb_flush = &rv370_pcie_gart_tlb_flush;
+		*(void **)&rdev->asic->gart_set_page = &rv370_pcie_gart_set_page;
+		pax_close_kernel();
 	} else {
 		DRM_INFO("Forcing AGP to PCI mode\n");
 		rdev->flags |= RADEON_IS_PCI;
-		rdev->asic->gart_tlb_flush = &r100_pci_gart_tlb_flush;
-		rdev->asic->gart_set_page = &r100_pci_gart_set_page;
+		pax_open_kernel();
+		*(void **)&rdev->asic->gart_tlb_flush = &r100_pci_gart_tlb_flush;
+		*(void **)&rdev->asic->gart_set_page = &r100_pci_gart_set_page;
+		pax_close_kernel();
 	}
 }
 

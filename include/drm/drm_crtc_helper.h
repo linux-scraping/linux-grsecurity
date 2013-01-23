@@ -64,7 +64,7 @@ struct drm_crtc_helper_funcs {
 
 	/* reload the current crtc LUT */
 	void (*load_lut)(struct drm_crtc *crtc);
-} __no_const;
+};
 
 struct drm_encoder_helper_funcs {
 	void (*dpms)(struct drm_encoder *encoder, int mode);

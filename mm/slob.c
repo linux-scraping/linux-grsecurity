@@ -564,7 +564,7 @@ bool is_usercopy_object(const void *ptr)
 }
 
 #ifdef CONFIG_PAX_USERCOPY
-const char *check_heap_object(const void *ptr, unsigned long n, bool to)
+const char *check_heap_object(const void *ptr, unsigned long n)
 {
 	struct slob_page *sp;
 	const slob_t *free;

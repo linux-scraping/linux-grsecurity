@@ -81,7 +81,12 @@ static cpumask_var_t cpus_hardware_enabled;
 struct kmem_cache *kvm_vcpu_cache;
 EXPORT_SYMBOL_GPL(kvm_vcpu_cache);
 
-static __read_mostly struct preempt_ops kvm_preempt_ops;
+static void kvm_sched_in(struct preempt_notifier *pn, int cpu);
+static void kvm_sched_out(struct preempt_notifier *pn, struct task_struct *next);
+static struct preempt_ops kvm_preempt_ops = {
+	.sched_in = kvm_sched_in,
+	.sched_out = kvm_sched_out,
+};
 
 struct dentry *kvm_debugfs_dir;
 
@@ -2863,9 +2868,6 @@ int kvm_init(const void *opaque, unsigned int vcpu_size,
 		printk(KERN_ERR "kvm: misc device register failed\n");
 		goto out_free;
 	}
-
-	kvm_preempt_ops.sched_in = kvm_sched_in;
-	kvm_preempt_ops.sched_out = kvm_sched_out;
 
 	kvm_init_debug();
 

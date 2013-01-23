@@ -626,9 +626,9 @@ do {								\
 	reloc = call_vrom_long_func(vmi_rom, get_reloc,		\
 				    VMI_CALL_##vmicall);	\
 	if (rel->type == VMI_RELOCATION_CALL_REL) 		\
-		opname = (void *)rel->eip;			\
+		*(void **)&opname = (void *)rel->eip;		\
 	else if (rel->type == VMI_RELOCATION_NOP) 		\
-		opname = (void *)vmi_nop;			\
+		*(void **)&opname = (void *)vmi_nop;		\
 	else if (rel->type != VMI_RELOCATION_NONE)		\
 		printk(KERN_WARNING "VMI: Unknown relocation "	\
 				    "type %d for " #vmicall"\n",\
@@ -648,7 +648,7 @@ do {								\
 				    VMI_CALL_##vmicall);	\
 	BUG_ON(rel->type == VMI_RELOCATION_JUMP_REL);		\
 	if (rel->type == VMI_RELOCATION_CALL_REL) {		\
-		opname = wrapper;				\
+		*(void **)&opname = wrapper;			\
 		vmi_ops.cache = (void *)rel->eip;		\
 	}							\
 } while (0)
@@ -672,7 +672,7 @@ static inline int __init activate_vmi(void)
 	pv_info.kernel_rpl = kernel_cs & SEGMENT_RPL_MASK;
 	pv_info.name = "vmi [deprecated]";
 
-	pv_init_ops.patch = vmi_patch;
+	*(void **)&pv_init_ops.patch = vmi_patch;
 
 	/*
 	 * Many of these operations are ABI compatible with VMI.
@@ -728,7 +728,7 @@ static inline int __init activate_vmi(void)
 	para_fill(pv_cpu_ops.store_gdt, GetGDT);
 	para_fill(pv_cpu_ops.store_idt, GetIDT);
 	para_fill(pv_cpu_ops.store_tr, GetTR);
-	pv_cpu_ops.load_tls = vmi_load_tls;
+	*(void **)&pv_cpu_ops.load_tls = vmi_load_tls;
 	para_wrap(pv_cpu_ops.write_ldt_entry, vmi_write_ldt_entry,
 		  write_ldt_entry, WriteLDTEntry);
 	para_wrap(pv_cpu_ops.write_gdt_entry, vmi_write_gdt_entry,
@@ -812,8 +812,8 @@ static inline int __init activate_vmi(void)
 	 * the backend.  They are performance critical anyway, so requiring
 	 * a patch is not a big problem.
 	 */
-	pv_cpu_ops.irq_enable_sysexit = (void *)0xfeedbab0;
-	pv_cpu_ops.iret = (void *)0xbadbab0;
+	*(void **)&pv_cpu_ops.irq_enable_sysexit = (void *)0xfeedbab0;
+	*(void **)&pv_cpu_ops.iret = (void *)0xbadbab0;
 
 #ifdef CONFIG_SMP
 	para_wrap(pv_apic_ops.startup_ipi_hook, vmi_startup_ipi_hook, set_initial_ap_state, SetInitialAPState);
@@ -839,15 +839,15 @@ static inline int __init activate_vmi(void)
 		vmi_timer_ops.set_alarm = vmi_get_function(VMI_CALL_SetAlarm);
 		vmi_timer_ops.cancel_alarm =
 			 vmi_get_function(VMI_CALL_CancelAlarm);
-		x86_init.timers.timer_init = vmi_time_init;
+		*(void **)&x86_init.timers.timer_init = vmi_time_init;
 #ifdef CONFIG_X86_LOCAL_APIC
-		x86_init.timers.setup_percpu_clockev = vmi_time_bsp_init;
-		x86_cpuinit.setup_percpu_clockev = vmi_time_ap_init;
+		*(void **)&x86_init.timers.setup_percpu_clockev = vmi_time_bsp_init;
+		*(void **)&x86_cpuinit.setup_percpu_clockev = vmi_time_ap_init;
 #endif
-		pv_time_ops.sched_clock = vmi_sched_clock;
-		x86_platform.calibrate_tsc = vmi_tsc_khz;
-		x86_platform.get_wallclock = vmi_get_wallclock;
-		x86_platform.set_wallclock = vmi_set_wallclock;
+		*(void **)&pv_time_ops.sched_clock = vmi_sched_clock;
+		*(void **)&x86_platform.calibrate_tsc = vmi_tsc_khz;
+		*(void **)&x86_platform.get_wallclock = vmi_get_wallclock;
+		*(void **)&x86_platform.set_wallclock = vmi_set_wallclock;
 
 		/* We have true wallclock functions; disable CMOS clock sync */
 		no_sync_cmos_clock = 1;

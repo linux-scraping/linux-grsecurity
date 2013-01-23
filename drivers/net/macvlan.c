@@ -568,7 +568,7 @@ static void macvlan_dellink(struct net_device *dev)
 		macvlan_port_destroy(port->dev);
 }
 
-static struct rtnl_link_ops macvlan_link_ops __read_mostly = {
+static struct rtnl_link_ops macvlan_link_ops = {
 	.kind		= "macvlan",
 	.priv_size	= sizeof(struct macvlan_dev),
 	.get_tx_queues  = macvlan_get_tx_queues,

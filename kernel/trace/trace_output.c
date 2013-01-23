@@ -711,14 +711,16 @@ int register_ftrace_event(struct trace_event *event)
 			goto out;
 	}
 
+	pax_open_kernel();
 	if (event->trace == NULL)
-		event->trace = trace_nop_print;
+		*(void **)&event->trace = trace_nop_print;
 	if (event->raw == NULL)
-		event->raw = trace_nop_print;
+		*(void **)&event->raw = trace_nop_print;
 	if (event->hex == NULL)
-		event->hex = trace_nop_print;
+		*(void **)&event->hex = trace_nop_print;
 	if (event->binary == NULL)
-		event->binary = trace_nop_print;
+		*(void **)&event->binary = trace_nop_print;
+	pax_close_kernel();
 
 	key = event->type & (EVENT_HASHSIZE - 1);
 

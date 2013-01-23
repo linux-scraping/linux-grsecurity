@@ -725,8 +725,11 @@ static int __devinit hpwdt_init_one(struct pci_dev *dev,
 	 * die notify list to handle a critical NMI. The default is to
 	 * be last so other users of the NMI signal can function.
 	 */
-	if (priority)
-		die_notifier.priority = 0x7FFFFFFF;
+	if (priority) {
+		pax_open_kernel();
+		*(void **)&die_notifier.priority = 0x7FFFFFFF;
+		pax_close_kernel();
+	}
 
 	retval = register_die_notifier(&die_notifier);
 	if (retval != 0) {

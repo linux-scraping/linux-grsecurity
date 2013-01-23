@@ -1265,28 +1265,28 @@ __init void lguest_init(void)
 	pv_irq_ops.safe_halt = lguest_safe_halt;
 
 	/* Setup operations */
-	pv_init_ops.patch = lguest_patch;
+	*(void **)&pv_init_ops.patch = lguest_patch;
 
 	/* Intercepts of various CPU instructions */
-	pv_cpu_ops.load_gdt = lguest_load_gdt;
-	pv_cpu_ops.cpuid = lguest_cpuid;
-	pv_cpu_ops.load_idt = lguest_load_idt;
-	pv_cpu_ops.iret = lguest_iret;
-	pv_cpu_ops.load_sp0 = lguest_load_sp0;
-	pv_cpu_ops.load_tr_desc = lguest_load_tr_desc;
-	pv_cpu_ops.set_ldt = lguest_set_ldt;
-	pv_cpu_ops.load_tls = lguest_load_tls;
-	pv_cpu_ops.set_debugreg = lguest_set_debugreg;
-	pv_cpu_ops.clts = lguest_clts;
-	pv_cpu_ops.read_cr0 = lguest_read_cr0;
-	pv_cpu_ops.write_cr0 = lguest_write_cr0;
-	pv_cpu_ops.read_cr4 = lguest_read_cr4;
-	pv_cpu_ops.write_cr4 = lguest_write_cr4;
-	pv_cpu_ops.write_gdt_entry = lguest_write_gdt_entry;
-	pv_cpu_ops.write_idt_entry = lguest_write_idt_entry;
-	pv_cpu_ops.wbinvd = lguest_wbinvd;
-	pv_cpu_ops.start_context_switch = paravirt_start_context_switch;
-	pv_cpu_ops.end_context_switch = lguest_end_context_switch;
+	*(void **)&pv_cpu_ops.load_gdt = lguest_load_gdt;
+	*(void **)&pv_cpu_ops.cpuid = lguest_cpuid;
+	*(void **)&pv_cpu_ops.load_idt = lguest_load_idt;
+	*(void **)&pv_cpu_ops.iret = lguest_iret;
+	*(void **)&pv_cpu_ops.load_sp0 = lguest_load_sp0;
+	*(void **)&pv_cpu_ops.load_tr_desc = lguest_load_tr_desc;
+	*(void **)&pv_cpu_ops.set_ldt = lguest_set_ldt;
+	*(void **)&pv_cpu_ops.load_tls = lguest_load_tls;
+	*(void **)&pv_cpu_ops.set_debugreg = lguest_set_debugreg;
+	*(void **)&pv_cpu_ops.clts = lguest_clts;
+	*(void **)&pv_cpu_ops.read_cr0 = lguest_read_cr0;
+	*(void **)&pv_cpu_ops.write_cr0 = lguest_write_cr0;
+	*(void **)&pv_cpu_ops.read_cr4 = lguest_read_cr4;
+	*(void **)&pv_cpu_ops.write_cr4 = lguest_write_cr4;
+	*(void **)&pv_cpu_ops.write_gdt_entry = lguest_write_gdt_entry;
+	*(void **)&pv_cpu_ops.write_idt_entry = lguest_write_idt_entry;
+	*(void **)&pv_cpu_ops.wbinvd = lguest_wbinvd;
+	*(void **)&pv_cpu_ops.start_context_switch = paravirt_start_context_switch;
+	*(void **)&pv_cpu_ops.end_context_switch = lguest_end_context_switch;
 
 	/* Pagetable management */
 	pv_mmu_ops.write_cr3 = lguest_write_cr3;
@@ -1314,11 +1314,11 @@ __init void lguest_init(void)
 	set_lguest_basic_apic_ops();
 #endif
 
-	x86_init.resources.memory_setup = lguest_memory_setup;
-	x86_init.irqs.intr_init = lguest_init_IRQ;
-	x86_init.timers.timer_init = lguest_time_init;
-	x86_platform.calibrate_tsc = lguest_tsc_khz;
-	x86_platform.get_wallclock =  lguest_get_wallclock;
+	*(void **)&x86_init.resources.memory_setup = lguest_memory_setup;
+	*(void **)&x86_init.irqs.intr_init = lguest_init_IRQ;
+	*(void **)&x86_init.timers.timer_init = lguest_time_init;
+	*(void **)&x86_platform.calibrate_tsc = lguest_tsc_khz;
+	*(void **)&x86_platform.get_wallclock =  lguest_get_wallclock;
 
 	/*
 	 * Now is a good time to look at the implementations of these functions
@@ -1411,7 +1411,7 @@ __init void lguest_init(void)
 	 * routine.
 	 */
 	pm_power_off = lguest_power_off;
-	machine_ops.restart = lguest_restart;
+	*(void **)&machine_ops.restart = lguest_restart;
 
 	/*
 	 * Now we're set up, call i386_start_kernel() in head32.c and we proceed

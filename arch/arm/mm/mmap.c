@@ -30,6 +30,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
 	unsigned long start_addr;
+	unsigned long offset = gr_rand_threadstack_offset(mm, filp, flags);
 #ifdef CONFIG_CPU_V6
 	unsigned int cache_type;
 	int do_align = 0, aliasing = 0;
@@ -74,7 +75,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 			addr = PAGE_ALIGN(addr);
 
 		vma = find_vma(mm, addr);
-		if (TASK_SIZE - len >= addr && check_heap_stack_gap(vma, addr, len))
+		if (TASK_SIZE - len >= addr && check_heap_stack_gap(vma, addr, len, offset))
 			return addr;
 	}
 	if (len > mm->cached_hole_size) {
@@ -104,7 +105,7 @@ full_search:
 			}
 			return -ENOMEM;
 		}
-		if (check_heap_stack_gap(vma, addr, len)) {
+		if (check_heap_stack_gap(vma, addr, len, offset)) {
 			/*
 			 * Remember the place where we stopped the search:
 			 */
@@ -118,7 +119,6 @@ full_search:
 			addr = COLOUR_ALIGN(addr, pgoff);
 	}
 }
-
 
 /*
  * You really shouldn't be using read() or write() on /dev/mem.  This

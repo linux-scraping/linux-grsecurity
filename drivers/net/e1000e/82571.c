@@ -212,7 +212,6 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
 {
 	struct e1000_hw *hw = &adapter->hw;
 	struct e1000_mac_info *mac = &hw->mac;
-	e1000_mac_operations_no_const *func = &mac->ops;
 	u32 swsm = 0;
 	u32 swsm2 = 0;
 	bool force_clear_smbi = false;
@@ -245,22 +244,22 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
 	/* check for link */
 	switch (hw->phy.media_type) {
 	case e1000_media_type_copper:
-		func->setup_physical_interface = e1000_setup_copper_link_82571;
-		func->check_for_link = e1000e_check_for_copper_link;
-		func->get_link_up_info = e1000e_get_speed_and_duplex_copper;
+		mac->ops.setup_physical_interface = e1000_setup_copper_link_82571;
+		mac->ops.check_for_link = e1000e_check_for_copper_link;
+		mac->ops.get_link_up_info = e1000e_get_speed_and_duplex_copper;
 		break;
 	case e1000_media_type_fiber:
-		func->setup_physical_interface =
+		mac->ops.setup_physical_interface =
 			e1000_setup_fiber_serdes_link_82571;
-		func->check_for_link = e1000e_check_for_fiber_link;
-		func->get_link_up_info =
+		mac->ops.check_for_link = e1000e_check_for_fiber_link;
+		mac->ops.get_link_up_info =
 			e1000e_get_speed_and_duplex_fiber_serdes;
 		break;
 	case e1000_media_type_internal_serdes:
-		func->setup_physical_interface =
+		mac->ops.setup_physical_interface =
 			e1000_setup_fiber_serdes_link_82571;
-		func->check_for_link = e1000_check_for_serdes_link_82571;
-		func->get_link_up_info =
+		mac->ops.check_for_link = e1000_check_for_serdes_link_82571;
+		mac->ops.get_link_up_info =
 			e1000e_get_speed_and_duplex_fiber_serdes;
 		break;
 	default:
@@ -271,12 +270,12 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
 	switch (hw->mac.type) {
 	case e1000_82574:
 	case e1000_82583:
-		func->check_mng_mode = e1000_check_mng_mode_82574;
-		func->led_on = e1000_led_on_82574;
+		mac->ops.check_mng_mode = e1000_check_mng_mode_82574;
+		mac->ops.led_on = e1000_led_on_82574;
 		break;
 	default:
-		func->check_mng_mode = e1000e_check_mng_mode_generic;
-		func->led_on = e1000e_led_on_generic;
+		mac->ops.check_mng_mode = e1000e_check_mng_mode_generic;
+		mac->ops.led_on = e1000e_led_on_generic;
 		break;
 	}
 

@@ -372,12 +372,12 @@ void xen_uninit_lock_cpu(int cpu)
 
 void __init xen_init_spinlocks(void)
 {
-	pv_lock_ops.spin_is_locked = xen_spin_is_locked;
-	pv_lock_ops.spin_is_contended = xen_spin_is_contended;
-	pv_lock_ops.spin_lock = xen_spin_lock;
-	pv_lock_ops.spin_lock_flags = xen_spin_lock_flags;
-	pv_lock_ops.spin_trylock = xen_spin_trylock;
-	pv_lock_ops.spin_unlock = xen_spin_unlock;
+	*(void **)&pv_lock_ops.spin_is_locked = xen_spin_is_locked;
+	*(void **)&pv_lock_ops.spin_is_contended = xen_spin_is_contended;
+	*(void **)&pv_lock_ops.spin_lock = xen_spin_lock;
+	*(void **)&pv_lock_ops.spin_lock_flags = xen_spin_lock_flags;
+	*(void **)&pv_lock_ops.spin_trylock = xen_spin_trylock;
+	*(void **)&pv_lock_ops.spin_unlock = xen_spin_unlock;
 }
 
 #ifdef CONFIG_XEN_DEBUG_FS

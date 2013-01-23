@@ -21,9 +21,9 @@
 static void __init i386_default_early_setup(void)
 {
 	/* Initilize 32bit specific setup functions */
-	x86_init.resources.probe_roms = probe_roms;
-	x86_init.resources.reserve_resources = i386_reserve_resources;
-	x86_init.mpparse.setup_ioapic_ids = setup_ioapic_ids_from_mpc;
+	*(void **)&x86_init.resources.probe_roms = probe_roms;
+	*(void **)&x86_init.resources.reserve_resources = i386_reserve_resources;
+	*(void **)&x86_init.mpparse.setup_ioapic_ids = setup_ioapic_ids_from_mpc;
 
 	reserve_ebda_region();
 }

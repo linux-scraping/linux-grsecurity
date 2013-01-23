@@ -188,6 +188,9 @@ static inline void fsnotify_access(struct dentry *dentry)
 	struct inode *inode = dentry->d_inode;
 	__u32 mask = FS_ACCESS;
 
+	if (is_sidechannel_device(inode))
+		return;
+
 	if (S_ISDIR(inode->i_mode))
 		mask |= FS_IN_ISDIR;
 
@@ -204,6 +207,9 @@ static inline void fsnotify_modify(struct dentry *dentry)
 {
 	struct inode *inode = dentry->d_inode;
 	__u32 mask = FS_MODIFY;
+
+	if (is_sidechannel_device(inode))
+		return;
 
 	if (S_ISDIR(inode->i_mode))
 		mask |= FS_IN_ISDIR;

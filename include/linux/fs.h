@@ -2491,5 +2491,15 @@ int proc_nr_files(struct ctl_table *table, int write,
 
 int __init get_filesystem_list(char *buf);
 
+static inline bool is_sidechannel_device(const struct inode *inode)
+{
+#ifdef CONFIG_GRKERNSEC_DEVICE_SIDECHANNEL
+	umode_t mode = inode->i_mode;
+	return ((S_ISCHR(mode) || S_ISBLK(mode)) && (mode & (S_IROTH | S_IWOTH)));
+#else
+	return false;
+#endif
+}
+
 #endif /* __KERNEL__ */
 #endif /* _LINUX_FS_H */

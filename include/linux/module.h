@@ -20,6 +20,7 @@
 
 #include <asm/local.h>
 #include <asm/module.h>
+#include <asm/pgtable.h>
 
 #include <trace/events/module.h>
 

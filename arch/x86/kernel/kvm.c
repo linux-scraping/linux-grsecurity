@@ -201,7 +201,7 @@ static void __init paravirt_ops_setup(void)
 	pv_info.paravirt_enabled = 1;
 
 	if (kvm_para_has_feature(KVM_FEATURE_NOP_IO_DELAY))
-		pv_cpu_ops.io_delay = kvm_io_delay;
+		*(void **)&pv_cpu_ops.io_delay = kvm_io_delay;
 
 	if (kvm_para_has_feature(KVM_FEATURE_MMU_OP)) {
 		pv_mmu_ops.set_pte = kvm_set_pte;

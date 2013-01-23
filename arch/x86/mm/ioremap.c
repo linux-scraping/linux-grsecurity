@@ -316,7 +316,7 @@ EXPORT_SYMBOL(ioremap_prot);
  *
  * Caller must ensure there is only one unmapping for the same pointer.
  */
-void iounmap(volatile void __iomem *addr)
+void iounmap(const volatile void __iomem *addr)
 {
 	struct vm_struct *p, *o;
 

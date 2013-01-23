@@ -395,7 +395,9 @@ static int balloon_init_watcher(struct notifier_block *notifier,
 	return NOTIFY_DONE;
 }
 
-static struct notifier_block xenstore_notifier;
+static struct notifier_block xenstore_notifier = {
+	.notifier_call = balloon_init_watcher,
+};
 
 static int __init balloon_init(void)
 {
@@ -427,7 +429,6 @@ static int __init balloon_init(void)
 	}
 
 	target_watch.callback = watch_target;
-	xenstore_notifier.notifier_call = balloon_init_watcher;
 
 	register_xenstore_notifier(&xenstore_notifier);
 

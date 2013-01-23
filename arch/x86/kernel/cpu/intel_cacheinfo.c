@@ -931,6 +931,11 @@ static struct kobj_type ktype_cache = {
 	.default_attrs	= default_attrs,
 };
 
+static struct kobj_type ktype_l3_cache = {
+	.sysfs_ops	= &sysfs_ops,
+	.default_attrs	= default_l3_attrs,
+};
+
 static struct kobj_type ktype_percpu_entry = {
 	.sysfs_ops	= &sysfs_ops,
 };
@@ -997,6 +1002,8 @@ static int __cpuinit cache_add_dev(struct sys_device * sys_dev)
 	}
 
 	for (i = 0; i < num_cache_leaves; i++) {
+		struct kobj_type *ktype;
+
 		this_object = INDEX_KOBJECT_PTR(cpu, i);
 		this_object->cpu = cpu;
 		this_object->index = i;
@@ -1004,12 +1011,12 @@ static int __cpuinit cache_add_dev(struct sys_device * sys_dev)
 		this_leaf = CPUID4_INFO_IDX(cpu, i);
 
 		if (this_leaf->can_disable)
-			ktype_cache.default_attrs = default_l3_attrs;
+			ktype = &ktype_l3_cache;
 		else
-			ktype_cache.default_attrs = default_attrs;
+			ktype = &ktype_cache;
 
 		retval = kobject_init_and_add(&(this_object->kobj),
-					      &ktype_cache,
+					      ktype,
 					      per_cpu(cache_kobject, cpu),
 					      "index%1lu", i);
 		if (unlikely(retval)) {

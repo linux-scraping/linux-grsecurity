@@ -40,6 +40,7 @@ asmlinkage unsigned long sys_getpagesize(void)
 unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr, unsigned long len, unsigned long pgoff, unsigned long flags)
 {
 	struct vm_area_struct * vmm;
+	unsigned long offset = gr_rand_threadstack_offset(current->mm, filp, flags);
 
 	if (flags & MAP_FIXED) {
 		/* We do not accept a shared mapping if it would violate
@@ -72,7 +73,7 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr, unsi
 		}
 		if (TASK_SIZE - PAGE_SIZE - len < addr)
 			return -ENOMEM;
-		if (check_heap_stack_gap(vmm, addr, len))
+		if (check_heap_stack_gap(vmm, addr, len, offset))
 			return addr;
 		addr = vmm->vm_end;
 		if (flags & MAP_SHARED)

@@ -150,6 +150,7 @@ unsigned long hugetlb_get_unmapped_area(struct file *file, unsigned long addr, u
 		unsigned long pgoff, unsigned long flags)
 {
 	struct vm_area_struct *vmm;
+	unsigned long offset = gr_rand_threadstack_offset(current->mm, file, flags);
 
 	if (len > RGN_MAP_LIMIT)
 		return -ENOMEM;
@@ -172,7 +173,7 @@ unsigned long hugetlb_get_unmapped_area(struct file *file, unsigned long addr, u
 		/* At this point:  (!vmm || addr < vmm->vm_end). */
 		if (REGION_OFFSET(addr) + len > RGN_MAP_LIMIT)
 			return -ENOMEM;
-		if (check_heap_stack_gap(vmm, addr, len))
+		if (check_heap_stack_gap(vmm, addr, len, offset))
 			return addr;
 		addr = ALIGN(vmm->vm_end, HPAGE_SIZE);
 	}

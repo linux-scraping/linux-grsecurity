@@ -22,7 +22,7 @@ struct nf_queue_handler {
 	int			(*outfn)(struct nf_queue_entry *entry,
 					 unsigned int queuenum);
 	char			*name;
-};
+} __do_const;
 
 extern int nf_register_queue_handler(u_int8_t pf,
 				     const struct nf_queue_handler *qh);

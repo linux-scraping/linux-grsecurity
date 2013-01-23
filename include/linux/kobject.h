@@ -108,7 +108,7 @@ struct kobj_type {
 	void (*release)(struct kobject *kobj);
 	const struct sysfs_ops *sysfs_ops;
 	struct attribute **default_attrs;
-};
+} __do_const;
 
 struct kobj_uevent_env {
 	char *envp[UEVENT_NUM_ENVP];
