@@ -277,6 +277,7 @@ static unsigned long hugetlb_get_unmapped_area_bottomup(struct file *file,
 	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
 	unsigned long start_addr, pax_task_size = TASK_SIZE;
+	unsigned long offset = gr_rand_threadstack_offset(mm, file, flags);
 
 #ifdef CONFIG_PAX_SEGMEXEC
 	if (mm->pax_flags & MF_PAX_SEGMEXEC)
@@ -309,7 +310,7 @@ full_search:
 			}
 			return -ENOMEM;
 		}
-		if (check_heap_stack_gap(vma, addr, len))
+		if (check_heap_stack_gap(vma, addr, len, offset))
 			break;
 		if (addr + mm->cached_hole_size < vma->vm_start)
 		        mm->cached_hole_size = vma->vm_start - addr;
@@ -330,6 +331,7 @@ static unsigned long hugetlb_get_unmapped_area_topdown(struct file *file,
 	unsigned long base = mm->mmap_base;
 	unsigned long addr;
 	unsigned long largest_hole = mm->cached_hole_size;
+	unsigned long offset = gr_rand_threadstack_offset(mm, file, flags);
 
 	/* don't allow allocations above current base */
 	if (mm->free_area_cache > base)
@@ -356,7 +358,7 @@ static unsigned long hugetlb_get_unmapped_area_topdown(struct file *file,
 		if (!vma)
 			return addr;
 
-		if (check_heap_stack_gap(vma, addr, len)) {
+		if (check_heap_stack_gap(vma, addr, len, offset)) {
 			/* remember the address as a hint for next time */
 			mm->cached_hole_size = largest_hole;
 			return (mm->free_area_cache = addr);
@@ -371,7 +373,7 @@ static unsigned long hugetlb_get_unmapped_area_topdown(struct file *file,
 			largest_hole = vma->vm_start - addr;
 
 		/* try just below the current vma->vm_start */
-		addr = skip_heap_stack_gap(vma, len);
+		addr = skip_heap_stack_gap(vma, len, offset);
 	} while (!IS_ERR_VALUE(addr));
 
 fail:
@@ -418,6 +420,7 @@ hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
 	unsigned long pax_task_size = TASK_SIZE;
+	unsigned long offset = gr_rand_threadstack_offset(mm, file, flags);
 
 	if (len & ~huge_page_mask(h))
 		return -EINVAL;
@@ -441,7 +444,7 @@ hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 	if (addr) {
 		addr = ALIGN(addr, huge_page_size(h));
 		vma = find_vma(mm, addr);
-		if (pax_task_size - len >= addr && check_heap_stack_gap(vma, addr, len))
+		if (pax_task_size - len >= addr && check_heap_stack_gap(vma, addr, len, offset))
 			return addr;
 	}
 	if (mm->get_unmapped_area == arch_get_unmapped_area)

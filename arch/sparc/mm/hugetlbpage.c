@@ -34,6 +34,7 @@ static unsigned long hugetlb_get_unmapped_area_bottomup(struct file *filp,
 	struct vm_area_struct * vma;
 	unsigned long task_size = TASK_SIZE;
 	unsigned long start_addr;
+	unsigned long offset = gr_rand_threadstack_offset(mm, filp, flags);
 
 	if (test_thread_flag(TIF_32BIT))
 		task_size = STACK_TOP32;
@@ -67,7 +68,7 @@ full_search:
 			}
 			return -ENOMEM;
 		}
-		if (likely(check_heap_stack_gap(vma, addr, len))) {
+		if (likely(check_heap_stack_gap(vma, addr, len, offset))) {
 			/*
 			 * Remember the place where we stopped the search:
 			 */
@@ -90,6 +91,7 @@ hugetlb_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	struct vm_area_struct *vma;
 	struct mm_struct *mm = current->mm;
 	unsigned long addr = addr0;
+	unsigned long offset = gr_rand_threadstack_offset(mm, filp, flags);
 
 	/* This should only ever run for 32-bit processes.  */
 	BUG_ON(!test_thread_flag(TIF_32BIT));
@@ -106,7 +108,7 @@ hugetlb_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	/* make sure it can fit in the remaining address space */
 	if (likely(addr > len)) {
 		vma = find_vma(mm, addr-len);
-		if (check_heap_stack_gap(vma, addr - len, len)) {
+		if (check_heap_stack_gap(vma, addr - len, len, offset)) {
 			/* remember the address as a hint for next time */
 			return (mm->free_area_cache = addr-len);
 		}
@@ -125,7 +127,7 @@ hugetlb_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 		 * return with success:
 		 */
 		vma = find_vma(mm, addr);
-		if (likely(check_heap_stack_gap(vma, addr, len))) {
+		if (likely(check_heap_stack_gap(vma, addr, len, offset))) {
 			/* remember the address as a hint for next time */
 			return (mm->free_area_cache = addr);
 		}
@@ -135,7 +137,7 @@ hugetlb_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
  		        mm->cached_hole_size = vma->vm_start - addr;
 
 		/* try just below the current vma->vm_start */
-		addr = skip_heap_stack_gap(vma, len);
+		addr = skip_heap_stack_gap(vma, len, offset);
 	} while (!IS_ERR_VALUE(addr));
 
 bottomup:
@@ -164,6 +166,7 @@ hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
 	unsigned long task_size = TASK_SIZE;
+	unsigned long offset = gr_rand_threadstack_offset(mm, filp, flags);
 
 	if (test_thread_flag(TIF_32BIT))
 		task_size = STACK_TOP32;
@@ -182,7 +185,7 @@ hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 	if (addr) {
 		addr = ALIGN(addr, HPAGE_SIZE);
 		vma = find_vma(mm, addr);
-		if (task_size - len >= addr && check_heap_stack_gap(vma, addr, len))
+		if (task_size - len >= addr && check_heap_stack_gap(vma, addr, len, offset))
 			return addr;
 	}
 	if (mm->get_unmapped_area == arch_get_unmapped_area)

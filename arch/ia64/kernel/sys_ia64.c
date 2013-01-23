@@ -28,6 +28,7 @@ arch_get_unmapped_area (struct file *filp, unsigned long addr, unsigned long len
 	unsigned long start_addr, align_mask = PAGE_SIZE - 1;
 	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
+	unsigned long offset = gr_rand_threadstack_offset(mm, filp, flags);
 
 	if (len > RGN_MAP_LIMIT)
 		return -ENOMEM;
@@ -75,7 +76,7 @@ arch_get_unmapped_area (struct file *filp, unsigned long addr, unsigned long len
 			}
 			return -ENOMEM;
 		}
-		if (check_heap_stack_gap(vma, addr, len)) {
+		if (check_heap_stack_gap(vma, addr, len, offset)) {
 			/* Remember the address where we stopped this search:  */
 			mm->free_area_cache = addr + len;
 			return addr;

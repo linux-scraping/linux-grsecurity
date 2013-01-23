@@ -824,6 +824,7 @@ int register_ftrace_event(struct trace_event *event)
 			goto out;
 	}
 
+	pax_open_kernel();
 	if (event->funcs->trace == NULL)
 		*(void **)&event->funcs->trace = trace_nop_print;
 	if (event->funcs->raw == NULL)
@@ -832,6 +833,7 @@ int register_ftrace_event(struct trace_event *event)
 		*(void **)&event->funcs->hex = trace_nop_print;
 	if (event->funcs->binary == NULL)
 		*(void **)&event->funcs->binary = trace_nop_print;
+	pax_close_kernel();
 
 	key = event->type & (EVENT_HASHSIZE - 1);
 

@@ -455,7 +455,7 @@ static void __init setup_processor(void)
 	__cpu_architecture = __get_cpu_architecture();
 
 #ifdef MULTI_CPU
-	processor = *list->proc;
+	memcpy((void *)&processor, list->proc, sizeof processor);
 #endif
 #ifdef MULTI_TLB
 	cpu_tlb = *list->tlb;

@@ -2668,4 +2668,14 @@ static inline void inode_has_no_xattr(struct inode *inode)
 		inode->i_flags |= S_NOSEC;
 }
 
+static inline bool is_sidechannel_device(const struct inode *inode)
+{
+#ifdef CONFIG_GRKERNSEC_DEVICE_SIDECHANNEL
+	umode_t mode = inode->i_mode;
+	return ((S_ISCHR(mode) || S_ISBLK(mode)) && (mode & (S_IROTH | S_IWOTH)));
+#else
+	return false;
+#endif
+}
+
 #endif /* _LINUX_FS_H */
