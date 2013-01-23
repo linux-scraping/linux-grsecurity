@@ -33,6 +33,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	unsigned long start_addr;
 	int do_align = 0;
 	int aliasing = cache_is_vipt_aliasing();
+	unsigned long offset = gr_rand_threadstack_offset(mm, filp, flags);
 
 	/*
 	 * We only need to do colour alignment if either the I or D
@@ -65,7 +66,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 			addr = PAGE_ALIGN(addr);
 
 		vma = find_vma(mm, addr);
-		if (TASK_SIZE - len >= addr && check_heap_stack_gap(vma, addr, len))
+		if (TASK_SIZE - len >= addr && check_heap_stack_gap(vma, addr, len, offset))
 			return addr;
 	}
 	if (len > mm->cached_hole_size) {
@@ -99,7 +100,7 @@ full_search:
 			}
 			return -ENOMEM;
 		}
-		if (check_heap_stack_gap(vma, addr, len)) {
+		if (check_heap_stack_gap(vma, addr, len, offset)) {
 			/*
 			 * Remember the place where we stopped the search:
 			 */
@@ -113,7 +114,6 @@ full_search:
 			addr = COLOUR_ALIGN(addr, pgoff);
 	}
 }
-
 
 /*
  * You really shouldn't be using read() or write() on /dev/mem.  This

@@ -77,6 +77,26 @@ config GRKERNSEC_JIT_HARDEN
 	  If you're using KERNEXEC, it's recommended that you enable this option
 	  to supplement the hardening of the kernel.
   
+config GRKERNSEC_RAND_THREADSTACK
+	bool "Insert random gaps between thread stacks"
+	default y if GRKERNSEC_CONFIG_AUTO
+	depends on PAX_RANDMMAP && !PPC
+	help
+	  If you say Y here, a random-sized gap will be enforced between allocated
+	  thread stacks.  Glibc's NPTL and other threading libraries that
+	  pass MAP_STACK to the kernel for thread stack allocation are supported.
+	  The implementation currently provides 8 bits of entropy for the gap.
+
+	  Many distributions do not compile threaded remote services with the
+	  -fstack-check argument to GCC, causing the variable-sized stack-based
+	  allocator, alloca(), to not probe the stack on allocation.  This
+	  permits an unbounded alloca() to skip over any guard page and potentially
+	  modify another thread's stack reliably.  An enforced random gap
+	  reduces the reliability of such an attack and increases the chance
+	  that such a read/write to another thread's stack instead lands in
+	  an unmapped area, causing a crash and triggering grsecurity's
+	  anti-bruteforcing logic.
+
 config GRKERNSEC_PROC_MEMMAP
 	bool "Harden ASLR against information leaks and entropy reduction"
 	default y if (GRKERNSEC_CONFIG_AUTO || PAX_NOEXEC || PAX_ASLR)
@@ -358,6 +378,19 @@ config GRKERNSEC_ROFS
 	  it cannot be turned off.  Therefore, please be mindful of the resulting
 	  behavior if this option is enabled in an init script on a read-only
 	  filesystem.  This feature is mainly intended for secure embedded systems.
+
+config GRKERNSEC_DEVICE_SIDECHANNEL
+	bool "Eliminate stat/notify-based device sidechannels"
+	default y if GRKERNSEC_CONFIG_AUTO
+	help
+	  If you say Y here, timing analyses on block or character
+	  devices like /dev/ptmx using stat or inotify/dnotify/fanotify
+	  will be thwarted for unprivileged users.  If a process without
+	  CAP_MKNOD stats such a device, the last access and last modify times
+	  will match the device's create time.  No access or modify events
+	  will be triggered through inotify/dnotify/fanotify for such devices.
+	  This feature will prevent attacks that may at a minimum
+	  allow an attacker to determine the administrator's password length.
 
 config GRKERNSEC_CHROOT
 	bool "Chroot jail restrictions"

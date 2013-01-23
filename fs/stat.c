@@ -28,8 +28,13 @@ void generic_fillattr(struct inode *inode, struct kstat *stat)
 	stat->gid = inode->i_gid;
 	stat->rdev = inode->i_rdev;
 	stat->size = i_size_read(inode);
-	stat->atime = inode->i_atime;
-	stat->mtime = inode->i_mtime;
+	if (is_sidechannel_device(inode) && !capable_nolog(CAP_MKNOD)) {
+		stat->atime = inode->i_ctime;
+		stat->mtime = inode->i_ctime;
+	} else {
+		stat->atime = inode->i_atime;
+		stat->mtime = inode->i_mtime;
+	}
 	stat->ctime = inode->i_ctime;
 	stat->blksize = (1 << inode->i_blkbits);
 	stat->blocks = inode->i_blocks;
@@ -46,8 +51,14 @@ int vfs_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat *stat)
 	if (retval)
 		return retval;
 
-	if (inode->i_op->getattr)
-		return inode->i_op->getattr(mnt, dentry, stat);
+	if (inode->i_op->getattr) {
+		retval = inode->i_op->getattr(mnt, dentry, stat);
+		if (!retval && is_sidechannel_device(inode) && !capable_nolog(CAP_MKNOD)) {
+			stat->atime = stat->ctime;
+			stat->mtime = stat->ctime;
+		}
+		return retval;
+	}
 
 	generic_fillattr(inode, stat);
 	return 0;

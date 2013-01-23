@@ -387,8 +387,18 @@ extern unsigned long sysctl_heap_stack_gap;
 #include <linux/aio.h>
 
 #ifdef CONFIG_MMU
-extern bool check_heap_stack_gap(const struct vm_area_struct *vma, unsigned long addr, unsigned long len);
-extern unsigned long skip_heap_stack_gap(const struct vm_area_struct *vma, unsigned long len);
+
+#ifdef CONFIG_GRKERNSEC_RAND_THREADSTACK
+extern unsigned long gr_rand_threadstack_offset(const struct mm_struct *mm, const struct file *filp, unsigned long flags);
+#else
+static inline unsigned long gr_rand_threadstack_offset(const struct mm_struct *mm, const struct file *filp, unsigned long flags)
+{
+	return 0;
+}
+#endif
+
+extern bool check_heap_stack_gap(const struct vm_area_struct *vma, unsigned long addr, unsigned long len, unsigned long offset);
+extern unsigned long skip_heap_stack_gap(const struct vm_area_struct *vma, unsigned long len, unsigned long offset);
 extern void arch_pick_mmap_layout(struct mm_struct *mm);
 extern unsigned long
 arch_get_unmapped_area(struct file *, unsigned long, unsigned long,
