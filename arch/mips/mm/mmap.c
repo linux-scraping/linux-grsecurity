@@ -160,10 +160,10 @@ static unsigned long arch_get_unmapped_area_common(struct file *filp,
 			goto bottomup;
 
 		addr = mm->mmap_base - len;
-		if (do_color_align)
-			addr = COLOUR_ALIGN_DOWN(addr, pgoff);
 
 		do {
+			if (do_color_align)
+				addr = COLOUR_ALIGN_DOWN(addr, pgoff);
 			/*
 			 * Lookup failure means no vma is above this address,
 			 * else if new region fits below vma->vm_start,
@@ -180,10 +180,8 @@ static unsigned long arch_get_unmapped_area_common(struct file *filp,
 				mm->cached_hole_size = vma->vm_start - addr;
 
 			/* try just below the current vma->vm_start */
-			addr = vma->vm_start - len;
-			if (do_color_align)
-				addr = COLOUR_ALIGN_DOWN(addr, pgoff);
-		} while (likely(len < vma->vm_start));
+			addr = skip_heap_stack_gap(vma, len);
+		} while (!IS_ERR_VALUE(addr));
 
 bottomup:
 		/*
