@@ -58,6 +58,7 @@
 #include <linux/pipe_fs_i.h>
 #include <linux/random.h>
 #include <linux/seq_file.h>
+#include <linux/mman.h>
 
 #ifdef CONFIG_PAX_REFCOUNT
 #include <linux/kallsyms.h>
@@ -740,6 +741,27 @@ int setup_arg_pages(struct linux_binprm *bprm,
 		stack_base = vma->vm_start - stack_expand;
 #endif
 	ret = expand_stack(vma, stack_base);
+
+#if !defined(CONFIG_STACK_GROWSUP) && defined(CONFIG_PAX_ASLR)
+	if (!ret && (mm->pax_flags & MF_PAX_RANDMMAP) && STACK_TOP <= 0xFFFFFFFFU && STACK_TOP > vma->vm_end) {
+		unsigned long size, flags, vm_flags;
+
+		size = STACK_TOP - vma->vm_end;
+		flags = MAP_FIXED | MAP_PRIVATE;
+		vm_flags = VM_DONTEXPAND | VM_RESERVED;
+
+		ret = vma->vm_end != mmap_region(NULL, vma->vm_end, size, flags, vm_flags, 0);
+
+#ifdef CONFIG_X86
+		if (!ret) {
+			size = mmap_min_addr + ((mm->delta_mmap ^ mm->delta_stack) & (0xFFUL << PAGE_SHIFT));
+			ret = 0 != mmap_region(NULL, 0, size, flags, vm_flags, 0);
+		}
+#endif
+
+	}
+#endif
+
 	if (ret)
 		ret = -EFAULT;
 
