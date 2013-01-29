@@ -180,7 +180,7 @@ static unsigned long arch_get_unmapped_area_common(struct file *filp,
 				mm->cached_hole_size = vma->vm_start - addr;
 
 			/* try just below the current vma->vm_start */
-			addr = skip_heap_stack_gap(vma, len);
+			addr = skip_heap_stack_gap(vma, len, offset);
 		} while (!IS_ERR_VALUE(addr));
 
 bottomup:
