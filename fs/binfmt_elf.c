@@ -875,7 +875,7 @@ static unsigned long randomize_stack_top(unsigned long stack_top)
 	unsigned int random_variable = 0;
 
 #ifdef CONFIG_PAX_RANDUSTACK
-	if (randomize_va_space)
+	if (current->mm->pax_flags & MF_PAX_RANDMMAP)
 		return stack_top - current->mm->delta_stack;
 #endif
 
