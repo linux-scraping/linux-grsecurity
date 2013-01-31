@@ -11,18 +11,24 @@ config GRKERNSEC_KMEM
 	help
 	  If you say Y here, /dev/kmem and /dev/mem won't be allowed to
 	  be written to or read from to modify or leak the contents of the running
-	  kernel.  /dev/port will also not be allowed to be opened. If you have module
-	  support disabled, enabling this will close up four ways that are
+	  kernel.  /dev/port will also not be allowed to be opened and support
+	  for /dev/cpu/*/msr will be removed.  If you have module
+	  support disabled, enabling this will close up five ways that are
 	  currently used  to insert malicious code into the running kernel.
+
 	  Even with all these features enabled, we still highly recommend that
 	  you use the RBAC system, as it is still possible for an attacker to
 	  modify the running kernel through privileged I/O granted by ioperm/iopl.
+
 	  If you are not using XFree86, you may be able to stop this additional
 	  case by enabling the 'Disable privileged I/O' option. Though nothing
 	  legitimately writes to /dev/kmem, XFree86 does need to write to /dev/mem,
 	  but only to video memory, which is the only writing we allow in this
 	  case.  If /dev/kmem or /dev/mem are mmaped without PROT_WRITE, they will
 	  not be allowed to mprotect it with PROT_WRITE later.
+	  Enabling this feature will prevent the "cpupower" and "powertop" tools
+	  from working.
+
 	  It is highly recommended that you say Y here if you meet all the
 	  conditions above.
 
@@ -545,11 +551,11 @@ depends on GRKERNSEC
 config GRKERNSEC_AUDIT_GROUP
 	bool "Single group for auditing"
 	help
-	  If you say Y here, the exec, chdir, and (un)mount logging features
-	  will only operate on a group you specify.  This option is recommended
-	  if you only want to watch certain users instead of having a large
-	  amount of logs from the entire system.  If the sysctl option is enabled,
-	  a sysctl option with name "audit_group" is created.
+	  If you say Y here, the exec and chdir logging features will only operate
+	  on a group you specify.  This option is recommended if you only want to
+	  watch certain users instead of having a large amount of logs from the
+	  entire system.  If the sysctl option is enabled, a sysctl option with
+	  name "audit_group" is created.
 
 config GRKERNSEC_AUDIT_GID
 	int "GID for auditing"
