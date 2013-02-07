@@ -155,7 +155,7 @@ struct mxr_layer {
 	/** layer index (unique identifier) */
 	int idx;
 	/** callbacks for layer methods */
-	struct mxr_layer_ops ops;
+	struct mxr_layer_ops *ops;
 	/** format array */
 	const struct mxr_format **fmt_array;
 	/** size of format array */

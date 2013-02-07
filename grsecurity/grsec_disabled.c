@@ -69,13 +69,6 @@ gr_handle_proc_ptrace(struct task_struct *task)
 	return 0;
 }
 
-void
-gr_learn_resource(const struct task_struct *task,
-		  const int res, const unsigned long wanted, const int gt)
-{
-	return;
-}
-
 int
 gr_set_acls(const int type)
 {
@@ -434,7 +427,6 @@ void gr_put_exec_file(struct task_struct *task)
 	return;
 }
 
-EXPORT_SYMBOL(gr_learn_resource);
 EXPORT_SYMBOL(gr_set_kernel_label);
 #ifdef CONFIG_SECURITY
 EXPORT_SYMBOL(gr_check_user_change);

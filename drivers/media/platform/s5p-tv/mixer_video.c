@@ -209,7 +209,7 @@ static void mxr_layer_default_geo(struct mxr_layer *layer)
 	layer->geo.src.height = layer->geo.src.full_height;
 
 	mxr_geometry_dump(mdev, &layer->geo);
-	layer->ops.fix_geometry(layer, MXR_GEOMETRY_SINK, 0);
+	layer->ops->fix_geometry(layer, MXR_GEOMETRY_SINK, 0);
 	mxr_geometry_dump(mdev, &layer->geo);
 }
 
@@ -227,7 +227,7 @@ static void mxr_layer_update_output(struct mxr_layer *layer)
 	layer->geo.dst.full_width = mbus_fmt.width;
 	layer->geo.dst.full_height = mbus_fmt.height;
 	layer->geo.dst.field = mbus_fmt.field;
-	layer->ops.fix_geometry(layer, MXR_GEOMETRY_SINK, 0);
+	layer->ops->fix_geometry(layer, MXR_GEOMETRY_SINK, 0);
 
 	mxr_geometry_dump(mdev, &layer->geo);
 }
@@ -333,7 +333,7 @@ static int mxr_s_fmt(struct file *file, void *priv,
 	/* set source size to highest accepted value */
 	geo->src.full_width = max(geo->dst.full_width, pix->width);
 	geo->src.full_height = max(geo->dst.full_height, pix->height);
-	layer->ops.fix_geometry(layer, MXR_GEOMETRY_SOURCE, 0);
+	layer->ops->fix_geometry(layer, MXR_GEOMETRY_SOURCE, 0);
 	mxr_geometry_dump(mdev, &layer->geo);
 	/* set cropping to total visible screen */
 	geo->src.width = pix->width;
@@ -341,12 +341,12 @@ static int mxr_s_fmt(struct file *file, void *priv,
 	geo->src.x_offset = 0;
 	geo->src.y_offset = 0;
 	/* assure consistency of geometry */
-	layer->ops.fix_geometry(layer, MXR_GEOMETRY_CROP, MXR_NO_OFFSET);
+	layer->ops->fix_geometry(layer, MXR_GEOMETRY_CROP, MXR_NO_OFFSET);
 	mxr_geometry_dump(mdev, &layer->geo);
 	/* set full size to lowest possible value */
 	geo->src.full_width = 0;
 	geo->src.full_height = 0;
-	layer->ops.fix_geometry(layer, MXR_GEOMETRY_SOURCE, 0);
+	layer->ops->fix_geometry(layer, MXR_GEOMETRY_SOURCE, 0);
 	mxr_geometry_dump(mdev, &layer->geo);
 
 	/* returning results */
@@ -473,7 +473,7 @@ static int mxr_s_selection(struct file *file, void *fh,
 		target->width = s->r.width;
 		target->height = s->r.height;
 
-		layer->ops.fix_geometry(layer, stage, s->flags);
+		layer->ops->fix_geometry(layer, stage, s->flags);
 
 		/* retrieve update selection rectangle */
 		res.left = target->x_offset;
@@ -928,13 +928,13 @@ static int start_streaming(struct vb2_queue *vq, unsigned int count)
 	mxr_output_get(mdev);
 
 	mxr_layer_update_output(layer);
-	layer->ops.format_set(layer);
+	layer->ops->format_set(layer);
 	/* enabling layer in hardware */
 	spin_lock_irqsave(&layer->enq_slock, flags);
 	layer->state = MXR_LAYER_STREAMING;
 	spin_unlock_irqrestore(&layer->enq_slock, flags);
 
-	layer->ops.stream_set(layer, MXR_ENABLE);
+	layer->ops->stream_set(layer, MXR_ENABLE);
 	mxr_streamer_get(mdev);
 
 	return 0;
@@ -1004,7 +1004,7 @@ static int stop_streaming(struct vb2_queue *vq)
 	spin_unlock_irqrestore(&layer->enq_slock, flags);
 
 	/* disabling layer in hardware */
-	layer->ops.stream_set(layer, MXR_DISABLE);
+	layer->ops->stream_set(layer, MXR_DISABLE);
 	/* remove one streamer */
 	mxr_streamer_put(mdev);
 	/* allow changes in output configuration */
@@ -1043,8 +1043,8 @@ void mxr_base_layer_unregister(struct mxr_layer *layer)
 
 void mxr_layer_release(struct mxr_layer *layer)
 {
-	if (layer->ops.release)
-		layer->ops.release(layer);
+	if (layer->ops->release)
+		layer->ops->release(layer);
 }
 
 void mxr_base_layer_release(struct mxr_layer *layer)
@@ -1070,7 +1070,7 @@ struct mxr_layer *mxr_base_layer_create(struct mxr_device *mdev,
 
 	layer->mdev = mdev;
 	layer->idx = idx;
-	layer->ops = *ops;
+	layer->ops = ops;
 
 	spin_lock_init(&layer->enq_slock);
 	INIT_LIST_HEAD(&layer->enq_list);

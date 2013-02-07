@@ -1999,9 +1999,8 @@ void pax_report_fault(struct pt_regs *regs, void *pc, void *sp)
 		printk(KERN_ERR "PAX: From %pI4: execution attempt in: %s, %08lx-%08lx %08lx\n", &tsk->signal->curr_ip, path_fault, start, end, offset);
 	else
 		printk(KERN_ERR "PAX: execution attempt in: %s, %08lx-%08lx %08lx\n", path_fault, start, end, offset);
-	printk(KERN_ERR "PAX: terminating task: %s(%s):%d, uid/euid: %u/%u, "
-			"PC: %p, SP: %p\n", path_exec, tsk->comm, task_pid_nr(tsk),
-			task_uid(tsk), task_euid(tsk), pc, sp);
+	printk(KERN_ERR "PAX: terminating task: %s(%s):%d, uid/euid: %u/%u, PC: %p, SP: %p\n", path_exec, tsk->comm, task_pid_nr(tsk),
+			from_kuid(&init_user_ns, task_uid(tsk)), from_kuid(&init_user_ns, task_euid(tsk)), pc, sp);
 	free_page((unsigned long)buffer_exec);
 	free_page((unsigned long)buffer_fault);
 	pax_report_insns(regs, pc, sp);
@@ -2019,10 +2018,11 @@ void pax_report_refcount_overflow(struct pt_regs *regs)
 {
 	if (current->signal->curr_ip)
 		printk(KERN_ERR "PAX: From %pI4: refcount overflow detected in: %s:%d, uid/euid: %u/%u\n",
-				 &current->signal->curr_ip, current->comm, task_pid_nr(current), current_uid(), current_euid());
+				&current->signal->curr_ip, current->comm, task_pid_nr(current),
+				from_kuid(&init_user_ns, current_uid()), from_kuid(&init_user_ns, current_euid()));
 	else
-		printk(KERN_ERR "PAX: refcount overflow detected in: %s:%d, uid/euid: %u/%u\n",
-				 current->comm, task_pid_nr(current), current_uid(), current_euid());
+		printk(KERN_ERR "PAX: refcount overflow detected in: %s:%d, uid/euid: %u/%u\n", current->comm, task_pid_nr(current),
+				from_kuid(&init_user_ns, current_uid()), from_kuid(&init_user_ns, current_euid()));
 	print_symbol(KERN_ERR "PAX: refcount overflow occured at: %s\n", instruction_pointer(regs));
 	show_regs(regs);
 	force_sig_info(SIGKILL, SEND_SIG_FORCED, current);

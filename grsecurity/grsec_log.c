@@ -13,6 +13,9 @@
 #define ENABLE_PREEMPT()
 #endif
 
+#define GR_GLOBAL_UID(x) from_kuid_munged(&init_user_ns, (x))
+#define GR_GLOBAL_GID(x) from_kgid_munged(&init_user_ns, (x))
+
 #define BEGIN_LOCKS(x) \
 	DISABLE_PREEMPT(); \
 	rcu_read_lock(); \
@@ -122,10 +125,14 @@ static void gr_log_middle_varargs(int audit, const char *msg, ...)
 static void gr_log_end(int audit, int append_default)
 {
 	char *buf = (audit == GR_DO_AUDIT) ? gr_audit_log_buf : gr_alert_log_buf;
-
 	if (append_default) {
+		struct task_struct *task = current;
+		struct task_struct *parent = task->real_parent;
+		const struct cred *cred = __task_cred(task);
+		const struct cred *pcred = __task_cred(parent);
 		unsigned int len = strlen(buf);
-		snprintf(buf + len, PAGE_SIZE - len - 1, DEFAULTSECMSG, DEFAULTSECARGS(current, current_cred(), __task_cred(current->real_parent)));
+
+		snprintf(buf + len, PAGE_SIZE - len - 1, DEFAULTSECMSG, gr_task_fullpath(task), task->comm, task_pid_nr(task), GR_GLOBAL_UID(cred->uid), GR_GLOBAL_UID(cred->euid), GR_GLOBAL_GID(cred->gid), GR_GLOBAL_GID(cred->egid), gr_parent_task_fullpath(task), parent->comm, task_pid_nr(task->real_parent), GR_GLOBAL_UID(pcred->uid), GR_GLOBAL_UID(pcred->euid), GR_GLOBAL_GID(pcred->gid), GR_GLOBAL_GID(pcred->egid));
 	}
 
 	printk("%s\n", buf);
@@ -158,7 +165,7 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 	switch (argtypes) {
 	case GR_TTYSNIFF:
 		task = va_arg(ap, struct task_struct *);
-		gr_log_middle_varargs(audit, msg, &task->signal->curr_ip, gr_task_fullpath0(task), task->comm, task->pid, gr_parent_task_fullpath0(task), task->real_parent->comm, task->real_parent->pid);
+		gr_log_middle_varargs(audit, msg, &task->signal->curr_ip, gr_task_fullpath0(task), task->comm, task_pid_nr(task), gr_parent_task_fullpath0(task), task->real_parent->comm, task_pid_nr(task->real_parent));
 		break;
 	case GR_SYSCTL_HIDDEN:
 		str1 = va_arg(ap, char *);
@@ -236,7 +243,7 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 		break;
 	case GR_PTRACE:
 		task = va_arg(ap, struct task_struct *);
-		gr_log_middle_varargs(audit, msg, task->exec_file ? gr_to_filename(task->exec_file->f_path.dentry, task->exec_file->f_path.mnt) : "(none)", task->comm, task->pid);
+		gr_log_middle_varargs(audit, msg, task->exec_file ? gr_to_filename(task->exec_file->f_path.dentry, task->exec_file->f_path.mnt) : "(none)", task->comm, task_pid_nr(task));
 		break;
 	case GR_RESOURCE:
 		task = va_arg(ap, struct task_struct *);
@@ -245,14 +252,14 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 		ulong1 = va_arg(ap, unsigned long);
 		str1 = va_arg(ap, char *);
 		ulong2 = va_arg(ap, unsigned long);
-		gr_log_middle_varargs(audit, msg, ulong1, str1, ulong2, gr_task_fullpath(task), task->comm, task->pid, cred->uid, cred->euid, cred->gid, cred->egid, gr_parent_task_fullpath(task), task->real_parent->comm, task->real_parent->pid, pcred->uid, pcred->euid, pcred->gid, pcred->egid);
+		gr_log_middle_varargs(audit, msg, ulong1, str1, ulong2, gr_task_fullpath(task), task->comm, task_pid_nr(task), GR_GLOBAL_UID(cred->uid), GR_GLOBAL_UID(cred->euid), GR_GLOBAL_GID(cred->gid), GR_GLOBAL_GID(cred->egid), gr_parent_task_fullpath(task), task->real_parent->comm, task_pid_nr(task->real_parent), GR_GLOBAL_UID(pcred->uid), GR_GLOBAL_UID(pcred->euid), GR_GLOBAL_GID(pcred->gid), GR_GLOBAL_GID(pcred->egid));
 		break;
 	case GR_CAP:
 		task = va_arg(ap, struct task_struct *);
 		cred = __task_cred(task);
 		pcred = __task_cred(task->real_parent);
 		str1 = va_arg(ap, char *);
-		gr_log_middle_varargs(audit, msg, str1, gr_task_fullpath(task), task->comm, task->pid, cred->uid, cred->euid, cred->gid, cred->egid, gr_parent_task_fullpath(task), task->real_parent->comm, task->real_parent->pid, pcred->uid, pcred->euid, pcred->gid, pcred->egid);
+		gr_log_middle_varargs(audit, msg, str1, gr_task_fullpath(task), task->comm, task_pid_nr(task), GR_GLOBAL_UID(cred->uid), GR_GLOBAL_UID(cred->euid), GR_GLOBAL_GID(cred->gid), GR_GLOBAL_GID(cred->egid), gr_parent_task_fullpath(task), task->real_parent->comm, task_pid_nr(task->real_parent), GR_GLOBAL_UID(pcred->uid), GR_GLOBAL_UID(pcred->euid), GR_GLOBAL_GID(pcred->gid), GR_GLOBAL_GID(pcred->egid));
 		break;
 	case GR_SIG:
 		str1 = va_arg(ap, char *);
@@ -264,21 +271,21 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 		cred = __task_cred(task);
 		pcred = __task_cred(task->real_parent);
 		num1 = va_arg(ap, int);
-		gr_log_middle_varargs(audit, msg, num1, gr_task_fullpath0(task), task->comm, task->pid, cred->uid, cred->euid, cred->gid, cred->egid, gr_parent_task_fullpath0(task), task->real_parent->comm, task->real_parent->pid, pcred->uid, pcred->euid, pcred->gid, pcred->egid);
+		gr_log_middle_varargs(audit, msg, num1, gr_task_fullpath0(task), task->comm, task_pid_nr(task), GR_GLOBAL_UID(cred->uid), GR_GLOBAL_UID(cred->euid), GR_GLOBAL_GID(cred->gid), GR_GLOBAL_GID(cred->egid), gr_parent_task_fullpath0(task), task->real_parent->comm, task_pid_nr(task->real_parent), GR_GLOBAL_UID(pcred->uid), GR_GLOBAL_UID(pcred->euid), GR_GLOBAL_GID(pcred->gid), GR_GLOBAL_GID(pcred->egid));
 		break;
 	case GR_CRASH1:
 		task = va_arg(ap, struct task_struct *);
 		cred = __task_cred(task);
 		pcred = __task_cred(task->real_parent);
 		ulong1 = va_arg(ap, unsigned long);
-		gr_log_middle_varargs(audit, msg, gr_task_fullpath(task), task->comm, task->pid, cred->uid, cred->euid, cred->gid, cred->egid, gr_parent_task_fullpath(task), task->real_parent->comm, task->real_parent->pid, pcred->uid, pcred->euid, pcred->gid, pcred->egid, cred->uid, ulong1);
+		gr_log_middle_varargs(audit, msg, gr_task_fullpath(task), task->comm, task_pid_nr(task), GR_GLOBAL_UID(cred->uid), GR_GLOBAL_UID(cred->euid), GR_GLOBAL_GID(cred->gid), GR_GLOBAL_GID(cred->egid), gr_parent_task_fullpath(task), task->real_parent->comm, task_pid_nr(task->real_parent), GR_GLOBAL_UID(pcred->uid), GR_GLOBAL_UID(pcred->euid), GR_GLOBAL_GID(pcred->gid), GR_GLOBAL_GID(pcred->egid), GR_GLOBAL_UID(cred->uid), ulong1);
 		break;
 	case GR_CRASH2:
 		task = va_arg(ap, struct task_struct *);
 		cred = __task_cred(task);
 		pcred = __task_cred(task->real_parent);
 		ulong1 = va_arg(ap, unsigned long);
-		gr_log_middle_varargs(audit, msg, gr_task_fullpath(task), task->comm, task->pid, cred->uid, cred->euid, cred->gid, cred->egid, gr_parent_task_fullpath(task), task->real_parent->comm, task->real_parent->pid, pcred->uid, pcred->euid, pcred->gid, pcred->egid, ulong1);
+		gr_log_middle_varargs(audit, msg, gr_task_fullpath(task), task->comm, task_pid_nr(task), GR_GLOBAL_UID(cred->uid), GR_GLOBAL_UID(cred->euid), GR_GLOBAL_GID(cred->gid), GR_GLOBAL_GID(cred->egid), gr_parent_task_fullpath(task), task->real_parent->comm, task_pid_nr(task->real_parent), GR_GLOBAL_UID(pcred->uid), GR_GLOBAL_UID(pcred->euid), GR_GLOBAL_GID(pcred->gid), GR_GLOBAL_GID(pcred->egid), ulong1);
 		break;
 	case GR_RWXMAP:
 		file = va_arg(ap, struct file *);
@@ -306,7 +313,7 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 			cred = __task_cred(task);
 			pcred = __task_cred(task->real_parent);
 
-			gr_log_middle_varargs(audit, msg, gr_task_fullpath(task), task->comm, task->pid, &task->signal->curr_ip, tty_name(task->signal->tty, cur_tty), cred->uid, cred->euid, cred->gid, cred->egid, wday, whr, wmin, wsec, cday, chr, cmin, csec, (task->flags & PF_SIGNALED) ? "killed by signal" : "exited", ulong1, gr_parent_task_fullpath(task), task->real_parent->comm, task->real_parent->pid, &task->real_parent->signal->curr_ip, tty_name(task->real_parent->signal->tty, parent_tty), pcred->uid, pcred->euid, pcred->gid, pcred->egid);
+			gr_log_middle_varargs(audit, msg, gr_task_fullpath(task), task->comm, task_pid_nr(task), &task->signal->curr_ip, tty_name(task->signal->tty, cur_tty), GR_GLOBAL_UID(cred->uid), GR_GLOBAL_UID(cred->euid), GR_GLOBAL_GID(cred->gid), GR_GLOBAL_GID(cred->egid), wday, whr, wmin, wsec, cday, chr, cmin, csec, (task->flags & PF_SIGNALED) ? "killed by signal" : "exited", ulong1, gr_parent_task_fullpath(task), task->real_parent->comm, task_pid_nr(task->real_parent), &task->real_parent->signal->curr_ip, tty_name(task->real_parent->signal->tty, parent_tty), GR_GLOBAL_UID(pcred->uid), GR_GLOBAL_UID(pcred->euid), GR_GLOBAL_GID(pcred->gid), GR_GLOBAL_GID(pcred->egid));
 		}
 		break;
 	default:

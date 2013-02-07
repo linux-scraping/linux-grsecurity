@@ -660,10 +660,11 @@ show_fault_oops(struct pt_regs *regs, unsigned long error_code,
 	if (init_mm.start_code <= address && address < init_mm.end_code) {
 		if (current->signal->curr_ip)
 			printk(KERN_ERR "PAX: From %pI4: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n",
-					 &current->signal->curr_ip, current->comm, task_pid_nr(current), current_uid(), current_euid());
+					&current->signal->curr_ip, current->comm, task_pid_nr(current),
+					from_kuid(&init_user_ns, current_uid()), from_kuid(&init_user_ns, current_euid()));
 		else
-			printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n",
-					 current->comm, task_pid_nr(current), current_uid(), current_euid());
+			printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n", current->comm, task_pid_nr(current),
+					from_kuid(&init_user_ns, current_uid()), from_kuid(&init_user_ns, current_euid()));
 	}
 #endif
 
@@ -845,12 +846,14 @@ __bad_area_nosemaphore(struct pt_regs *regs, unsigned long error_code,
 		}
 #endif
 
+		/* Kernel addresses are always protection faults: */
+		error_code |= (address >= TASK_SIZE);
+
 		if (unlikely(show_unhandled_signals))
 			show_signal_msg(regs, error_code, address, tsk);
 
-		/* Kernel addresses are always protection faults: */
 		tsk->thread.cr2		= address;
-		tsk->thread.error_code	= error_code | (address >= TASK_SIZE);
+		tsk->thread.error_code	= error_code;
 		tsk->thread.trap_nr	= X86_TRAP_PF;
 
 		force_sig_info_fault(SIGSEGV, si_code, address, tsk, 0);

@@ -61,11 +61,6 @@ static unsigned int gr_status __read_only = GR_STATUS_INIT;
 extern int chkpw(struct gr_arg *entry, unsigned char *salt, unsigned char *sum);
 extern void gr_clear_learn_entries(void);
 
-#ifdef CONFIG_GRKERNSEC_RESLOG
-extern void gr_log_resource(const struct task_struct *task,
-			    const int res, const unsigned long wanted, const int gt);
-#endif
-
 unsigned char *gr_system_salt;
 unsigned char *gr_system_sum;
 
@@ -3462,6 +3457,26 @@ gr_set_acls(const int type)
 	return 0;
 }
 
+#if defined(CONFIG_GRKERNSEC_RESLOG) || !defined(CONFIG_GRKERNSEC_NO_RBAC)
+static const unsigned long res_learn_bumps[GR_NLIMITS] = {
+	[RLIMIT_CPU] = GR_RLIM_CPU_BUMP,
+	[RLIMIT_FSIZE] = GR_RLIM_FSIZE_BUMP,
+	[RLIMIT_DATA] = GR_RLIM_DATA_BUMP,
+	[RLIMIT_STACK] = GR_RLIM_STACK_BUMP,
+	[RLIMIT_CORE] = GR_RLIM_CORE_BUMP,
+	[RLIMIT_RSS] = GR_RLIM_RSS_BUMP,
+	[RLIMIT_NPROC] = GR_RLIM_NPROC_BUMP,
+	[RLIMIT_NOFILE] = GR_RLIM_NOFILE_BUMP,
+	[RLIMIT_MEMLOCK] = GR_RLIM_MEMLOCK_BUMP,
+	[RLIMIT_AS] = GR_RLIM_AS_BUMP,
+	[RLIMIT_LOCKS] = GR_RLIM_LOCKS_BUMP,
+	[RLIMIT_SIGPENDING] = GR_RLIM_SIGPENDING_BUMP,
+	[RLIMIT_MSGQUEUE] = GR_RLIM_MSGQUEUE_BUMP,
+	[RLIMIT_NICE] = GR_RLIM_NICE_BUMP,
+	[RLIMIT_RTPRIO] = GR_RLIM_RTPRIO_BUMP,
+	[RLIMIT_RTTIME] = GR_RLIM_RTTIME_BUMP
+};
+
 void
 gr_learn_resource(const struct task_struct *task,
 		  const int res, const unsigned long wanted, const int gt)
@@ -3473,10 +3488,8 @@ gr_learn_resource(const struct task_struct *task,
 		     task->acl && (task->acl->mode & (GR_LEARN | GR_INHERITLEARN))))
 		goto skip_reslog;
 
-#ifdef CONFIG_GRKERNSEC_RESLOG
 	gr_log_resource(task, res, wanted, gt);
-#endif
-      skip_reslog:
+skip_reslog:
 
 	if (unlikely(!(gr_status & GR_READY) || !wanted || res >= GR_NLIMITS))
 		return;
@@ -3490,57 +3503,7 @@ gr_learn_resource(const struct task_struct *task,
 	if (wanted >= acl->res[res].rlim_cur) {
 		unsigned long res_add;
 
-		res_add = wanted;
-		switch (res) {
-		case RLIMIT_CPU:
-			res_add += GR_RLIM_CPU_BUMP;
-			break;
-		case RLIMIT_FSIZE:
-			res_add += GR_RLIM_FSIZE_BUMP;
-			break;
-		case RLIMIT_DATA:
-			res_add += GR_RLIM_DATA_BUMP;
-			break;
-		case RLIMIT_STACK:
-			res_add += GR_RLIM_STACK_BUMP;
-			break;
-		case RLIMIT_CORE:
-			res_add += GR_RLIM_CORE_BUMP;
-			break;
-		case RLIMIT_RSS:
-			res_add += GR_RLIM_RSS_BUMP;
-			break;
-		case RLIMIT_NPROC:
-			res_add += GR_RLIM_NPROC_BUMP;
-			break;
-		case RLIMIT_NOFILE:
-			res_add += GR_RLIM_NOFILE_BUMP;
-			break;
-		case RLIMIT_MEMLOCK:
-			res_add += GR_RLIM_MEMLOCK_BUMP;
-			break;
-		case RLIMIT_AS:
-			res_add += GR_RLIM_AS_BUMP;
-			break;
-		case RLIMIT_LOCKS:
-			res_add += GR_RLIM_LOCKS_BUMP;
-			break;
-		case RLIMIT_SIGPENDING:
-			res_add += GR_RLIM_SIGPENDING_BUMP;
-			break;
-		case RLIMIT_MSGQUEUE:
-			res_add += GR_RLIM_MSGQUEUE_BUMP;
-			break;
-		case RLIMIT_NICE:
-			res_add += GR_RLIM_NICE_BUMP;
-			break;
-		case RLIMIT_RTPRIO:
-			res_add += GR_RLIM_RTPRIO_BUMP;
-			break;
-		case RLIMIT_RTTIME:
-			res_add += GR_RLIM_RTTIME_BUMP;
-			break;
-		}
+		res_add = wanted + res_learn_bumps[res];
 
 		acl->res[res].rlim_cur = res_add;
 
@@ -3560,6 +3523,7 @@ gr_learn_resource(const struct task_struct *task,
 
 	return;
 }
+#endif
 
 #if defined(CONFIG_PAX_HAVE_ACL_FLAGS) && (defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR))
 void

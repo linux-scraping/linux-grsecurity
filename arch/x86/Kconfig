@@ -1706,7 +1706,7 @@ config COMPAT_VDSO
 	def_bool n
 	prompt "Compat VDSO support"
 	depends on X86_32 || IA32_EMULATION
-	depends on !PAX_NOEXEC && !PAX_MEMORY_UDEREF
+	depends on !PAX_PAGEEXEC && !PAX_SEGMEXEC && !PAX_KERNEXEC && !PAX_MEMORY_UDEREF
 	---help---
 	  Map the 32-bit VDSO to the predictable old-style address too.
 

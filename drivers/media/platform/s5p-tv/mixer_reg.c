@@ -276,7 +276,7 @@ static void mxr_irq_layer_handle(struct mxr_layer *layer)
 		layer->update_buf = next;
 	}
 
-	layer->ops.buffer_set(layer, layer->update_buf);
+	layer->ops->buffer_set(layer, layer->update_buf);
 
 	if (done && done != layer->shadow_buf)
 		vb2_buffer_done(&done->vb, VB2_BUF_STATE_DONE);

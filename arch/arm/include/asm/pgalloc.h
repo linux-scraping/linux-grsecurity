@@ -17,12 +17,13 @@
 #include <asm/processor.h>
 #include <asm/cacheflush.h>
 #include <asm/tlbflush.h>
+#include <asm/system_info.h>
 
 #define check_pgt_cache()		do { } while (0)
 
 #ifdef CONFIG_MMU
 
-#define _PAGE_USER_TABLE	(PMD_TYPE_TABLE | PMD_PXNTABLE | PMD_BIT4 | PMD_DOMAIN(DOMAIN_USER))
+#define _PAGE_USER_TABLE	(PMD_TYPE_TABLE | PMD_BIT4 | PMD_DOMAIN(DOMAIN_USER))
 #define _PAGE_KERNEL_TABLE	(PMD_TYPE_TABLE | PMD_BIT4 | PMD_DOMAIN(DOMAIN_KERNEL))
 
 #ifdef CONFIG_ARM_LPAE
@@ -171,7 +172,7 @@ pmd_populate_kernel(struct mm_struct *mm, pmd_t *pmdp, pte_t *ptep)
 static inline void
 pmd_populate(struct mm_struct *mm, pmd_t *pmdp, pgtable_t ptep)
 {
-	__pmd_populate(pmdp, page_to_phys(ptep), _PAGE_USER_TABLE);
+	__pmd_populate(pmdp, page_to_phys(ptep), _PAGE_USER_TABLE | __supported_pmd_mask);
 }
 #define pmd_pgtable(pmd) pmd_page(pmd)
 

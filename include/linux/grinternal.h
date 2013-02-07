@@ -111,14 +111,6 @@ extern rwlock_t grsec_exec_file_lock;
 
 #define have_same_root(tsk_a,tsk_b) ((tsk_a)->gr_chroot_dentry == (tsk_b)->gr_chroot_dentry)
 
-#define DEFAULTSECARGS(task, cred, pcred) gr_task_fullpath(task), (task)->comm, \
-		       (task)->pid, (cred)->uid, \
-		       (cred)->euid, (cred)->gid, (cred)->egid, \
-		       gr_parent_task_fullpath(task), \
-		       (task)->real_parent->comm, (task)->real_parent->pid, \
-		       (pcred)->uid, (pcred)->euid, \
-		       (pcred)->gid, (pcred)->egid
-
 #define GR_CHROOT_CAPS {{ \
 	CAP_TO_MASK(CAP_LINUX_IMMUTABLE) | CAP_TO_MASK(CAP_NET_ADMIN) | \
 	CAP_TO_MASK(CAP_SYS_MODULE) | CAP_TO_MASK(CAP_SYS_RAWIO) | \

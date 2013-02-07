@@ -97,6 +97,8 @@ EXPORT_SYMBOL(system_serial_high);
 unsigned int elf_hwcap __read_mostly;
 EXPORT_SYMBOL(elf_hwcap);
 
+pteval_t __supported_pte_mask __read_only;
+pmdval_t __supported_pmd_mask __read_only;
 
 #ifdef MULTI_CPU
 struct processor processor;
@@ -236,9 +238,13 @@ static int __get_cpu_architecture(void)
 		asm("mrc	p15, 0, %0, c0, c1, 4"
 		    : "=r" (mmfr0));
 		if ((mmfr0 & 0x0000000f) >= 0x00000003 ||
-		    (mmfr0 & 0x000000f0) >= 0x00000030)
+		    (mmfr0 & 0x000000f0) >= 0x00000030) {
 			cpu_arch = CPU_ARCH_ARMv7;
-		else if ((mmfr0 & 0x0000000f) == 0x00000002 ||
+			if ((mmfr0 & 0x0000000f) == 0x00000005 || (mmfr0 & 0x0000000f) == 0x00000004) {
+				__supported_pte_mask |= L_PTE_PXN;
+				__supported_pmd_mask |= PMD_PXNTABLE;
+			}
+		} else if ((mmfr0 & 0x0000000f) == 0x00000002 ||
 			 (mmfr0 & 0x000000f0) == 0x00000020)
 			cpu_arch = CPU_ARCH_ARMv6;
 		else

@@ -513,6 +513,8 @@ static void __init build_mem_type_table(void)
 	vecs_pgprot |= PTE_EXT_AF;
 #endif
 
+	user_pgprot |= __supported_pte_mask;
+
 	for (i = 0; i < 16; i++) {
 		pteval_t v = pgprot_val(protection_map[i]);
 		protection_map[i] = __pgprot(v | user_pgprot);
