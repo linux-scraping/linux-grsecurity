@@ -86,17 +86,6 @@ gr_handle_chroot_setpriority(struct task_struct *p, const int niceval)
 }
 
 int
-gr_handle_chroot_rawio(const struct inode *inode)
-{
-#ifdef CONFIG_GRKERNSEC_CHROOT_CAPS
-	if (grsec_enable_chroot_caps && proc_is_chrooted(current) && 
-	    inode && S_ISBLK(inode->i_mode) && !capable(CAP_SYS_RAWIO))
-		return 1;
-#endif
-	return 0;
-}
-
-int
 gr_handle_chroot_fowner(struct pid *pid, enum pid_type type)
 {
 #ifdef CONFIG_GRKERNSEC_CHROOT_FINDTASK

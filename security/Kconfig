@@ -843,6 +843,12 @@ config PAX_USERCOPY
 	  Since this has a negligible performance impact, you should enable
 	  this feature.
 
+
+config PAX_USERCOPY_DEBUG
+	bool
+	depends on X86 && PAX_USERCOPY
+	default n
+
 config PAX_SIZE_OVERFLOW
 	bool "Prevent various integer overflows in function size parameters"
 	default y if GRKERNSEC_CONFIG_AUTO

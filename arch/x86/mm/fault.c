@@ -842,12 +842,14 @@ __bad_area_nosemaphore(struct pt_regs *regs, unsigned long error_code,
 		}
 #endif
 
+		/* Kernel addresses are always protection faults: */
+		error_code |= (address >= TASK_SIZE);
+
 		if (unlikely(show_unhandled_signals))
 			show_signal_msg(regs, error_code, address, tsk);
 
-		/* Kernel addresses are always protection faults: */
 		tsk->thread.cr2		= address;
-		tsk->thread.error_code	= error_code | (address >= TASK_SIZE);
+		tsk->thread.error_code	= error_code;
 		tsk->thread.trap_no	= 14;
 
 		force_sig_info_fault(SIGSEGV, si_code, address, tsk);
