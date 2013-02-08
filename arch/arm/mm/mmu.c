@@ -1233,6 +1233,7 @@ static void __init map_lowmem(void)
 		map.virtual = __phys_to_virt(start);
 		map.length = end - start;
 
+#ifdef CONFIG_PAX_KERNEXEC
 		if (map.virtual <= (unsigned long)_stext && ((unsigned long)_end < (map.virtual + map.length))) {
 			struct map_desc kernel;
 			struct map_desc initmap;
@@ -1263,6 +1264,10 @@ static void __init map_lowmem(void)
 		}
 
 		map.type = MT_MEMORY_RW;
+#else
+		map.type = MT_MEMORY;
+#endif
+
 		create_mapping(&map);
 	}
 }

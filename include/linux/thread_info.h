@@ -146,6 +146,15 @@ static inline bool test_and_clear_restore_sigmask(void)
 #error "no set_restore_sigmask() provided and default one won't work"
 #endif
 
+extern void __check_object_size(const void *ptr, unsigned long n, bool to);
+static inline void check_object_size(const void *ptr, unsigned long n, bool to)
+{
+#ifndef CONFIG_PAX_USERCOPY_DEBUG
+	if (!__builtin_constant_p(n))
+#endif
+		__check_object_size(ptr, n, to);
+}
+
 #endif	/* __KERNEL__ */
 
 #endif /* _LINUX_THREAD_INFO_H */

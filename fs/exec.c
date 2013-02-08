@@ -2091,7 +2091,7 @@ static __noreturn void pax_report_usercopy(const void *ptr, unsigned long len, b
 }
 #endif
 
-void check_object_size(const void *ptr, unsigned long n, bool to)
+void __check_object_size(const void *ptr, unsigned long n, bool to)
 {
 
 #ifdef CONFIG_PAX_USERCOPY
@@ -2111,7 +2111,7 @@ void check_object_size(const void *ptr, unsigned long n, bool to)
 #endif
 
 }
-EXPORT_SYMBOL(check_object_size);
+EXPORT_SYMBOL(__check_object_size);
 
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
 void pax_track_stack(void)

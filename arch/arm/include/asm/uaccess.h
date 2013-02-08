@@ -22,8 +22,6 @@
 #define VERIFY_READ 0
 #define VERIFY_WRITE 1
 
-extern void check_object_size(const void *ptr, unsigned long n, bool to);
-
 /*
  * The exception table consists of pairs of addresses: the first is the
  * address of an instruction that is allowed to fault, and the second is
@@ -425,15 +423,15 @@ extern unsigned long __must_check ___copy_to_user(void __user *to, const void *f
 
 static inline unsigned long __must_check __copy_from_user(void *to, const void __user *from, unsigned long n)
 {
-	if (!__builtin_constant_p(n))
-		check_object_size(to, n, false);
+	check_object_size(to, n, false);
+
 	return ___copy_from_user(to, from, n);
 }
 
 static inline unsigned long __must_check __copy_to_user(void __user *to, const void *from, unsigned long n)
 {
-	if (!__builtin_constant_p(n))
-		check_object_size(from, n, true);
+	check_object_size(from, n, true);
+
 	return ___copy_to_user(to, from, n);
 }
 

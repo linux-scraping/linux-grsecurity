@@ -350,6 +350,10 @@ static unsigned long mmap_rnd(void)
 {
 	unsigned long rnd = 0UL;
 
+#ifdef CONFIG_PAX_RANDMMAP
+	if (!(current->mm->pax_flags & MF_PAX_RANDMMAP))
+#endif
+
 	if (current->flags & PF_RANDOMIZE) {
 		unsigned long val = get_random_int();
 		if (test_thread_flag(TIF_32BIT))

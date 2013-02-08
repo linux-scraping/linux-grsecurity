@@ -1728,7 +1728,7 @@ void __init kmem_cache_init(void)
 
 #ifdef CONFIG_PAX_USERCOPY_SLABS
 		sizes->cs_usercopycachep = kmem_cache_zalloc(kmem_cache, GFP_NOWAIT);
-		sizes->cs_usercopycachep->name = names->name_dma;
+		sizes->cs_usercopycachep->name = names->name_usercopy;
 		sizes->cs_usercopycachep->size = sizes->cs_size;
 		sizes->cs_usercopycachep->object_size = sizes->cs_size;
 		sizes->cs_usercopycachep->align = ARCH_KMALLOC_MINALIGN;

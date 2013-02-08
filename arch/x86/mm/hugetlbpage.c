@@ -441,6 +441,10 @@ hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 		return addr;
 	}
 
+#ifdef CONFIG_PAX_RANDMMAP
+	if (!(mm->pax_flags & MF_PAX_RANDMMAP))
+#endif
+
 	if (addr) {
 		addr = ALIGN(addr, huge_page_size(h));
 		vma = find_vma(mm, addr);

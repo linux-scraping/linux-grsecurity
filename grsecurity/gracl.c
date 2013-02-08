@@ -3523,6 +3523,7 @@ skip_reslog:
 
 	return;
 }
+EXPORT_SYMBOL(gr_learn_resource);
 #endif
 
 #if defined(CONFIG_PAX_HAVE_ACL_FLAGS) && (defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR))
@@ -3994,7 +3995,6 @@ void gr_put_exec_file(struct task_struct *task)
 #ifdef CONFIG_NETFILTER_XT_MATCH_GRADM_MODULE
 EXPORT_SYMBOL(gr_acl_is_enabled);
 #endif
-EXPORT_SYMBOL(gr_learn_resource);
 EXPORT_SYMBOL(gr_set_kernel_label);
 #ifdef CONFIG_SECURITY
 EXPORT_SYMBOL(gr_check_user_change);

@@ -1652,7 +1652,6 @@ extern void (*pax_set_initial_flags_func)(struct linux_binprm *bprm);
 extern void pax_report_fault(struct pt_regs *regs, void *pc, void *sp);
 extern void pax_report_insns(struct pt_regs *regs, void *pc, void *sp);
 extern void pax_report_refcount_overflow(struct pt_regs *regs);
-extern void check_object_size(const void *ptr, unsigned long n, bool to);
 
 /* Future-safe accessor for struct task_struct's cpus_allowed. */
 #define tsk_cpus_allowed(tsk) (&(tsk)->cpus_allowed)

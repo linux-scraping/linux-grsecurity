@@ -995,36 +995,6 @@ ENTRY(ptregs_clone)
 	CFI_ENDPROC
 ENDPROC(ptregs_clone)
 
-	ALIGN;
-ENTRY(kernel_execve)
-	CFI_STARTPROC
-	pushl_cfi %ebp
-	sub $PT_OLDSS+4,%esp
-	pushl_cfi %edi
-	pushl_cfi %ecx
-	pushl_cfi %eax
-	lea 3*4(%esp),%edi
-	mov $PT_OLDSS/4+1,%ecx
-	xorl %eax,%eax
-	rep stosl
-	popl_cfi %eax
-	popl_cfi %ecx
-	popl_cfi %edi
-	movl $X86_EFLAGS_IF,PT_EFLAGS(%esp)
-	pushl_cfi %esp
-	call sys_execve
-	add $4,%esp
-	CFI_ADJUST_CFA_OFFSET -4
-	GET_THREAD_INFO(%ebp)
-	test %eax,%eax
-	jz syscall_exit
-	add $PT_OLDSS+4,%esp
-	CFI_ADJUST_CFA_OFFSET -PT_OLDSS-4
-	popl_cfi %ebp
-	ret
-	CFI_ENDPROC
-ENDPROC(kernel_execve)
-
 .macro FIXUP_ESPFIX_STACK
 /*
  * Switch back for ESPFIX stack to the normal zerobased stack

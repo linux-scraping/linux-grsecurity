@@ -39,6 +39,8 @@
 #ifdef CONFIG_MMU
 static inline void *__module_alloc(unsigned long size, pgprot_t prot)
 {
+	if (!size || PAGE_ALIGN(size) > (MODULES_END - MODULES_VADDR))
+		return NULL;
 	return __vmalloc_node_range(size, 1, MODULES_VADDR, MODULES_END,
 				GFP_KERNEL, prot, -1,
 				__builtin_return_address(0));
