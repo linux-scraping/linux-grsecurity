@@ -836,9 +836,10 @@ __bad_area_nosemaphore(struct pt_regs *regs, unsigned long error_code,
 #endif
 
 		/* Kernel addresses are always protection faults: */
-		error_code |= (address >= TASK_SIZE);
+		if (address >= TASK_SIZE)
+			error_code |= PF_PROT;
 
-		if (unlikely(show_unhandled_signals))
+		if (show_unhandled_signals)
 			show_signal_msg(regs, error_code, address, tsk);
 
 		tsk->thread.cr2		= address;
