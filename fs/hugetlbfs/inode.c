@@ -153,6 +153,7 @@ hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 	struct vm_area_struct *vma;
 	unsigned long start_addr;
 	struct hstate *h = hstate_file(file);
+	unsigned long offset = gr_rand_threadstack_offset(mm, file, flags);
 
 	if (len & ~huge_page_mask(h))
 		return -EINVAL;
@@ -172,7 +173,7 @@ hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 	if (addr) {
 		addr = ALIGN(addr, huge_page_size(h));
 		vma = find_vma(mm, addr);
-		if (TASK_SIZE - len >= addr && check_heap_stack_gap(vma, addr, len))
+		if (TASK_SIZE - len >= addr && check_heap_stack_gap(vma, addr, len, offset))
 			return addr;
 	}
 
@@ -201,7 +202,7 @@ full_search:
 			return -ENOMEM;
 		}
 
-		if (check_heap_stack_gap(vma, addr, len)) {
+		if (check_heap_stack_gap(vma, addr, len, offset)) {
 			mm->free_area_cache = addr + len;
 			return addr;
 		}
