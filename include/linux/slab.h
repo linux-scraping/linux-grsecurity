@@ -253,8 +253,18 @@ bool is_usercopy_object(const void *ptr);
  * for general use, and so are not documented here. For a full list of
  * potential flags, always refer to linux/gfp.h.
  */
+
+extern void kcalloc_error(void)
+#if defined(CONFIG_GCOV_KERNEL) && defined(CONFIG_PAX_SIZE_OVERFLOW)
+__compiletime_warning("kcalloc called with swapped arguments?");
+#else
+__compiletime_error("kcalloc called with swapped arguments?");
+#endif
+
 static inline void *kcalloc(size_t n, size_t size, gfp_t flags)
 {
+	if (__builtin_constant_p(n) && !__builtin_constant_p(size))
+		kcalloc_error();
 	if (size != 0 && n > ULONG_MAX / size)
 		return NULL;
 	return __kmalloc(n * size, flags | __GFP_ZERO);

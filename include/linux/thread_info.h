@@ -123,6 +123,13 @@ static inline void set_restore_sigmask(void)
 }
 #endif	/* TIF_RESTORE_SIGMASK && !HAVE_SET_RESTORE_SIGMASK */
 
+extern void __check_object_size(const void *ptr, unsigned long n, bool to);
+static inline void check_object_size(const void *ptr, unsigned long n, bool to)
+{
+	if (!__builtin_constant_p(n))
+		__check_object_size(ptr, n, to);
+}
+
 #endif	/* __KERNEL__ */
 
 #endif /* _LINUX_THREAD_INFO_H */

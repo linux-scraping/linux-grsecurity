@@ -46,6 +46,8 @@ __copy_to_user_inatomic(void __user *to, const void *from, unsigned long n)
 	if ((long)n < 0)
 		return n;
 
+	check_object_size(from, n, true);
+
 	if (__builtin_constant_p(n)) {
 		unsigned long ret;
 
@@ -64,8 +66,6 @@ __copy_to_user_inatomic(void __user *to, const void *from, unsigned long n)
 			return ret;
 		}
 	}
-	if (!__builtin_constant_p(n))
-		check_object_size(from, n, true);
 	return __copy_to_user_ll(to, from, n);
 }
 
@@ -150,6 +150,8 @@ __copy_from_user(void *to, const void __user *from, unsigned long n)
 	if ((long)n < 0)
 		return n;
 
+	check_object_size(to, n, false);
+
 	if (__builtin_constant_p(n)) {
 		unsigned long ret;
 
@@ -165,8 +167,6 @@ __copy_from_user(void *to, const void __user *from, unsigned long n)
 			return ret;
 		}
 	}
-	if (!__builtin_constant_p(n))
-		check_object_size(to, n, false);
 	return __copy_from_user_ll(to, from, n);
 }
 
@@ -268,15 +268,14 @@ copy_from_user(void *to, const void __user *from, unsigned long n)
 {
 	size_t sz = __compiletime_object_size(to);
 
+	check_object_size(to, n, false);
+
 	if (unlikely(sz != (size_t)-1 && sz < n))
 		copy_from_user_overflow();
 	else if (access_ok(VERIFY_READ, from, n))
 		n = __copy_from_user(to, from, n);
-	else if ((long)n > 0) {
-		if (!__builtin_constant_p(n))
-			check_object_size(to, n, false);
+	else if ((long)n > 0)
 		memset(to, 0, n);
-	}
 	return n;
 }
 

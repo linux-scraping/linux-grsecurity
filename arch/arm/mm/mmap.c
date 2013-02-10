@@ -75,6 +75,11 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 		start_addr = addr = mm->mmap_base;
 		mm->cached_hole_size = 0;
 	}
+
+#ifdef CONFIG_PAX_RANDMMAP
+	if (!(current->mm->pax_flags & MF_PAX_RANDMMAP))
+#endif
+
 	/* 8 bits of randomness in 20 address space bits */
 	if ((current->flags & PF_RANDOMIZE) &&
 	    !(current->personality & ADDR_NO_RANDOMIZE))
