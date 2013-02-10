@@ -1490,6 +1490,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
 	unsigned long start_addr;
+	unsigned long offset = gr_rand_threadstack_offset(mm, filp, flags);
 
 	if (len > TASK_SIZE)
 		return -ENOMEM;
@@ -1505,7 +1506,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 		addr = PAGE_ALIGN(addr);
 		if (TASK_SIZE - len >= addr) {
 			vma = find_vma(mm, addr);
-			if (check_heap_stack_gap(vma, addr, len))
+			if (check_heap_stack_gap(vma, addr, len, offset))
 				return addr;
 		}
 	}
@@ -1531,7 +1532,7 @@ full_search:
 			}
 			return -ENOMEM;
 		}
-		if (check_heap_stack_gap(vma, addr, len))
+		if (check_heap_stack_gap(vma, addr, len, offset))
 			break;
 		if (addr + mm->cached_hole_size < vma->vm_start)
 		        mm->cached_hole_size = vma->vm_start - addr;
@@ -1576,6 +1577,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	struct vm_area_struct *vma;
 	struct mm_struct *mm = current->mm;
 	unsigned long base = mm->mmap_base, addr = addr0;
+	unsigned long offset = gr_rand_threadstack_offset(mm, filp, flags);
 
 	/* requested length too big for entire address space */
 	if (len > TASK_SIZE)
@@ -1593,7 +1595,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 		addr = PAGE_ALIGN(addr);
 		if (TASK_SIZE - len >= addr) {
 			vma = find_vma(mm, addr);
-			if (check_heap_stack_gap(vma, addr, len))
+			if (check_heap_stack_gap(vma, addr, len, offset))
 				return addr;
 		}
 	}
@@ -1610,7 +1612,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	/* make sure it can fit in the remaining address space */
 	if (addr > len) {
 		vma = find_vma(mm, addr-len);
-		if (check_heap_stack_gap(vma, addr - len, len))
+		if (check_heap_stack_gap(vma, addr - len, len, offset))
 			/* remember the address as a hint for next time */
 			return (mm->free_area_cache = addr-len);
 	}
@@ -1627,7 +1629,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 		 * return with success:
 		 */
 		vma = find_vma(mm, addr);
-		if (check_heap_stack_gap(vma, addr, len))
+		if (check_heap_stack_gap(vma, addr, len, offset))
 			/* remember the address as a hint for next time */
 			return (mm->free_area_cache = addr);
 
@@ -1636,7 +1638,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
  		        mm->cached_hole_size = vma->vm_start - addr;
 
 		/* try just below the current vma->vm_start */
-		addr = skip_heap_stack_gap(vma, len);
+		addr = skip_heap_stack_gap(vma, len, offset);
 	} while (!IS_ERR_VALUE(addr));
 
 bottomup:

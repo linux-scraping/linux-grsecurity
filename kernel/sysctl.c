@@ -1962,6 +1962,9 @@ int sysctl_perm(struct ctl_table_root *root, struct ctl_table *table, int op)
 		return -EACCES;
 	if (gr_handle_chroot_sysctl(op))
 		return -EACCES;
+	if ((op & MAY_WRITE) && !capable(CAP_SYS_ADMIN))
+		return -EPERM;
+
 	error = gr_handle_sysctl(table, op);
 	if (error)
 		return error;
