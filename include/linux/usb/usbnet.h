@@ -33,6 +33,7 @@ struct usbnet {
 	wait_queue_head_t	*wait;
 	struct mutex		phy_mutex;
 	unsigned char		suspend_count;
+	unsigned char		pkt_cnt, pkt_err;
 
 	/* i/o info: pipes etc */
 	unsigned		in, out;
@@ -65,6 +66,7 @@ struct usbnet {
 #		define EVENT_STS_SPLIT	3
 #		define EVENT_LINK_RESET	4
 #		define EVENT_RX_PAUSED	5
+#		define EVENT_RX_KILL	10
 };
 
 static inline struct usb_driver *driver_of(struct usb_interface *intf)
