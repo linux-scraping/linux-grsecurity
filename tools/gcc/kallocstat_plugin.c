@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2013 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -51,7 +51,7 @@ static const char * const kalloc_functions[] = {
 };
 
 static struct plugin_info kallocstat_plugin_info = {
-	.version	= "201111150100",
+	.version	= "201302112000",
 };
 
 static unsigned int execute_kallocstat(void);
@@ -60,6 +60,9 @@ static struct gimple_opt_pass kallocstat_pass = {
 	.pass = {
 		.type			= GIMPLE_PASS,
 		.name			= "kallocstat",
+#if BUILDING_GCC_VERSION >= 4008
+		.optinfo_flags		= OPTGROUP_NONE,
+#endif
 		.gate			= NULL,
 		.execute		= execute_kallocstat,
 		.sub			= NULL,

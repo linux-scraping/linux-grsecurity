@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2013 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -42,10 +42,14 @@ extern rtx emit_move_insn(rtx x, rtx y);
 #define ANY_RETURN_P(rtx) (GET_CODE(rtx) == RETURN)
 #endif
 
+#if BUILDING_GCC_VERSION >= 4008
+#define TODO_dump_func 0
+#endif
+
 int plugin_is_GPL_compatible;
 
 static struct plugin_info kernexec_plugin_info = {
-	.version	= "201111291120",
+	.version	= "201302112000",
 	.help		= "method=[bts|or]\tinstrumentation method\n"
 };
 
@@ -61,6 +65,9 @@ static struct gimple_opt_pass kernexec_reload_pass = {
 	.pass = {
 		.type			= GIMPLE_PASS,
 		.name			= "kernexec_reload",
+#if BUILDING_GCC_VERSION >= 4008
+		.optinfo_flags		= OPTGROUP_NONE,
+#endif
 		.gate			= kernexec_cmodel_check,
 		.execute		= execute_kernexec_reload,
 		.sub			= NULL,
@@ -79,6 +86,9 @@ static struct gimple_opt_pass kernexec_fptr_pass = {
 	.pass = {
 		.type			= GIMPLE_PASS,
 		.name			= "kernexec_fptr",
+#if BUILDING_GCC_VERSION >= 4008
+		.optinfo_flags		= OPTGROUP_NONE,
+#endif
 		.gate			= kernexec_cmodel_check,
 		.execute		= execute_kernexec_fptr,
 		.sub			= NULL,
@@ -97,6 +107,9 @@ static struct rtl_opt_pass kernexec_retaddr_pass = {
 	.pass = {
 		.type			= RTL_PASS,
 		.name			= "kernexec_retaddr",
+#if BUILDING_GCC_VERSION >= 4008
+		.optinfo_flags		= OPTGROUP_NONE,
+#endif
 		.gate			= kernexec_cmodel_check,
 		.execute		= execute_kernexec_retaddr,
 		.sub			= NULL,
@@ -194,8 +207,10 @@ static void kernexec_instrument_fptr_bts(gimple_stmt_iterator *gsi)
 
 	// create temporary unsigned long variable used for bitops and cast fptr to it
 	intptr = create_tmp_var(long_unsigned_type_node, "kernexec_bts");
+#if BUILDING_GCC_VERSION <= 4007
 	add_referenced_var(intptr);
 	mark_sym_for_renaming(intptr);
+#endif
 	assign_intptr = gimple_build_assign(intptr, fold_convert(long_unsigned_type_node, old_fptr));
 	gsi_insert_before(gsi, assign_intptr, GSI_SAME_STMT);
 	update_stmt(assign_intptr);
@@ -209,8 +224,10 @@ static void kernexec_instrument_fptr_bts(gimple_stmt_iterator *gsi)
 
 	// cast temporary unsigned long back to a temporary fptr variable
 	new_fptr = create_tmp_var(TREE_TYPE(old_fptr), "kernexec_fptr");
+#if BUILDING_GCC_VERSION <= 4007
 	add_referenced_var(new_fptr);
 	mark_sym_for_renaming(new_fptr);
+#endif
 	assign_new_fptr = gimple_build_assign(new_fptr, fold_convert(TREE_TYPE(old_fptr), intptr));
 	gsi_insert_before(gsi, assign_new_fptr, GSI_SAME_STMT);
 	update_stmt(assign_new_fptr);
@@ -224,24 +241,36 @@ static void kernexec_instrument_fptr_or(gimple_stmt_iterator *gsi)
 {
 	gimple asm_or_stmt, call_stmt;
 	tree old_fptr, new_fptr, input, output;
+#if BUILDING_GCC_VERSION <= 4007
 	VEC(tree, gc) *inputs = NULL;
 	VEC(tree, gc) *outputs = NULL;
+#else
+	vec<tree, va_gc> *inputs = NULL;
+	vec<tree, va_gc> *outputs = NULL;
+#endif
 
 	call_stmt = gsi_stmt(*gsi);
 	old_fptr = gimple_call_fn(call_stmt);
 
 	// create temporary fptr variable
 	new_fptr = create_tmp_var(TREE_TYPE(old_fptr), "kernexec_or");
+#if BUILDING_GCC_VERSION <= 4007
 	add_referenced_var(new_fptr);
 	mark_sym_for_renaming(new_fptr);
+#endif
 
 	// build asm volatile("orq %%r10, %0\n\t" : "=r"(new_fptr) : "0"(old_fptr));
 	input = build_tree_list(NULL_TREE, build_string(2, "0"));
 	input = chainon(NULL_TREE, build_tree_list(input, old_fptr));
 	output = build_tree_list(NULL_TREE, build_string(3, "=r"));
 	output = chainon(NULL_TREE, build_tree_list(output, new_fptr));
+#if BUILDING_GCC_VERSION <= 4007
 	VEC_safe_push(tree, gc, inputs, input);
 	VEC_safe_push(tree, gc, outputs, output);
+#else
+	vec_safe_push(inputs, input);
+	vec_safe_push(outputs, output);
+#endif
 	asm_or_stmt = gimple_build_asm_vec("orq %%r10, %0\n\t", inputs, outputs, NULL, NULL);
 	gimple_asm_set_volatile(asm_or_stmt, true);
 	gsi_insert_before(gsi, asm_or_stmt, GSI_SAME_STMT);
@@ -279,9 +308,13 @@ static unsigned int execute_kernexec_fptr(void)
 				gcc_unreachable();
 
 			// ... through a function pointer
-			fn = SSA_NAME_VAR(fn);
-			if (TREE_CODE(fn) != VAR_DECL && TREE_CODE(fn) != PARM_DECL)
-				continue;
+			if (SSA_NAME_VAR(fn) != NULL_TREE) {
+				fn = SSA_NAME_VAR(fn);
+				if (TREE_CODE(fn) != VAR_DECL && TREE_CODE(fn) != PARM_DECL) {
+					debug_tree(fn);
+					gcc_unreachable();
+				}
+			}
 			fn = TREE_TYPE(fn);
 			if (TREE_CODE(fn) != POINTER_TYPE)
 				continue;

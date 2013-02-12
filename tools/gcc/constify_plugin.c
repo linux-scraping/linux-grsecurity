@@ -38,7 +38,7 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info const_plugin_info = {
-	.version	= "201301150230",
+	.version	= "201302112000",
 	.help		= "no-constify\tturn off constification\n",
 };
 
@@ -260,16 +260,23 @@ static unsigned int check_local_variables(void)
 {
 	unsigned int ret = 0;
 	tree var;
-	referenced_var_iterator rvi;
 
 #if BUILDING_GCC_VERSION == 4005
-	FOR_EACH_REFERENCED_VAR(var, rvi) {
+	tree vars;
 #else
-	FOR_EACH_REFERENCED_VAR(cfun, var, rvi) {
+	unsigned int i;
+#endif
+
+#if BUILDING_GCC_VERSION == 4005
+	for (vars = cfun->local_decls; vars; vars = TREE_CHAIN(vars)) {
+		var = TREE_VALUE(vars);
+#else
+	FOR_EACH_LOCAL_DECL(cfun, i, var) {
 #endif
 		tree type = TREE_TYPE(var);
 
-		if (!DECL_P(var) || TREE_STATIC(var) || DECL_EXTERNAL(var))
+		gcc_assert(DECL_P(var));
+		if (is_global_var(var))
 			continue;
 
 		if (TREE_CODE(type) != RECORD_TYPE && TREE_CODE(type) != UNION_TYPE)
@@ -281,8 +288,8 @@ static unsigned int check_local_variables(void)
 //		if (lookup_attribute("no_const", DECL_ATTRIBUTES(var)))
 //			continue;
 
-//		if (lookup_attribute("no_const", TYPE_ATTRIBUTES(type)))
-//			continue;
+		if (lookup_attribute("no_const", TYPE_ATTRIBUTES(type)))
+			continue;
 
 		if (walk_struct(type)) {
 			error_at(DECL_SOURCE_LOCATION(var), "constified variable %qE cannot be local", var);
@@ -296,6 +303,9 @@ struct gimple_opt_pass pass_local_variable = {
 	{
 		.type			= GIMPLE_PASS,
 		.name			= "check_local_variables",
+#if BUILDING_GCC_VERSION >= 4008
+		.optinfo_flags		= OPTGROUP_NONE,
+#endif
 		.gate			= NULL,
 		.execute		= check_local_variables,
 		.sub			= NULL,

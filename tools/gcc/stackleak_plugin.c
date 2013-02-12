@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2013 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -37,6 +37,10 @@
 #include "rtl.h"
 #include "emit-rtl.h"
 
+#if BUILDING_GCC_VERSION >= 4008
+#define TODO_dump_func 0
+#endif
+
 extern void print_gimple_stmt(FILE *, gimple, int, int);
 
 int plugin_is_GPL_compatible;
@@ -47,7 +51,7 @@ static const char check_function[] = "pax_check_alloca";
 static bool init_locals;
 
 static struct plugin_info stackleak_plugin_info = {
-	.version	= "201203140940",
+	.version	= "201302112000",
 	.help		= "track-lowest-sp=nn\ttrack sp in functions whose frame size is at least nn bytes\n"
 //			  "initialize-locals\t\tforcibly initialize all stack frames\n"
 };
@@ -60,6 +64,9 @@ static struct gimple_opt_pass stackleak_tree_instrument_pass = {
 	.pass = {
 		.type			= GIMPLE_PASS,
 		.name			= "stackleak_tree_instrument",
+#if BUILDING_GCC_VERSION >= 4008
+		.optinfo_flags		= OPTGROUP_NONE,
+#endif
 		.gate			= gate_stackleak_track_stack,
 		.execute		= execute_stackleak_tree_instrument,
 		.sub			= NULL,
@@ -78,6 +85,9 @@ static struct rtl_opt_pass stackleak_final_rtl_opt_pass = {
 	.pass = {
 		.type			= RTL_PASS,
 		.name			= "stackleak_final",
+#if BUILDING_GCC_VERSION >= 4008
+		.optinfo_flags		= OPTGROUP_NONE,
+#endif
 		.gate			= gate_stackleak_track_stack,
 		.execute		= execute_stackleak_final,
 		.sub			= NULL,
@@ -214,7 +224,7 @@ static unsigned int execute_stackleak_tree_instrument(void)
 
 static unsigned int execute_stackleak_final(void)
 {
-	rtx insn;
+	rtx insn, next;
 
 	if (cfun->calls_alloca)
 		return 0;
@@ -224,10 +234,11 @@ static unsigned int execute_stackleak_final(void)
 		return 0;
 
 	// 1. find pax_track_stack calls
-	for (insn = get_insns(); insn; insn = NEXT_INSN(insn)) {
+	for (insn = get_insns(); insn; insn = next) {
 		// rtl match: (call_insn 8 7 9 3 (call (mem (symbol_ref ("pax_track_stack") [flags 0x41] <function_decl 0xb7470e80 pax_track_stack>) [0 S1 A8]) (4)) -1 (nil) (nil))
 		rtx body;
 
+		next = NEXT_INSN(insn);
 		if (!CALL_P(insn))
 			continue;
 		body = PATTERN(insn);
@@ -243,10 +254,13 @@ static unsigned int execute_stackleak_final(void)
 			continue;
 //		warning(0, "track_frame_size: %d %ld %d", cfun->calls_alloca, get_frame_size(), track_frame_size);
 		// 2. delete call
-		insn = delete_insn_and_edges(insn);
+		delete_insn_and_edges(insn);
 #if BUILDING_GCC_VERSION >= 4007
-		if (GET_CODE(insn) == NOTE && NOTE_KIND(insn) == NOTE_INSN_CALL_ARG_LOCATION)
-			insn = delete_insn_and_edges(insn);
+		if (GET_CODE(next) == NOTE && NOTE_KIND(next) == NOTE_INSN_CALL_ARG_LOCATION) {
+			insn = next;
+			next = NEXT_INSN(insn);
+			delete_insn_and_edges(insn);
+		}
 #endif
 	}
 

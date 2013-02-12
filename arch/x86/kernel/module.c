@@ -45,7 +45,7 @@ do {							\
 
 static inline void *__module_alloc(unsigned long size, pgprot_t prot)
 {
-	if (size == 0 || PAGE_ALIGN(size) > MODULES_LEN)
+	if (!size || PAGE_ALIGN(size) > MODULES_LEN)
 		return NULL;
 	return __vmalloc_node_range(size, 1, MODULES_VADDR, MODULES_END,
 				GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO, prot,
