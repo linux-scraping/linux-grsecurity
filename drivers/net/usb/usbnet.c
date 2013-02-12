@@ -344,6 +344,12 @@ static int rx_submit (struct usbnet *dev, struct urb *urb, gfp_t flags)
 	unsigned long		lockflags;
 	size_t			size = dev->rx_urb_size;
 
+	/* prevent rx skb allocation when error ratio is high */
+	if (test_bit(EVENT_RX_KILL, &dev->flags)) {
+		usb_free_urb(urb);
+		return -ENOLINK;
+	}
+
 	if ((skb = alloc_skb (size + NET_IP_ALIGN, flags)) == NULL) {
 		netif_dbg(dev, rx_err, dev->net, "no rx skb\n");
 		usbnet_defer_kevent (dev, EVENT_RX_MEMORY);
@@ -501,6 +507,17 @@ block:
 		dev->net->stats.rx_errors++;
 		netif_dbg(dev, rx_err, dev->net, "rx status %d\n", urb_status);
 		break;
+	}
+
+	/* stop rx if packet error rate is high */
+	if (++dev->pkt_cnt > 30) {
+		dev->pkt_cnt = 0;
+		dev->pkt_err = 0;
+	} else {
+		if (state == rx_cleanup)
+			dev->pkt_err++;
+		if (dev->pkt_err > 20)
+			set_bit(EVENT_RX_KILL, &dev->flags);
 	}
 
 	state = defer_bh(dev, skb, &dev->rxq, state);
@@ -788,6 +805,11 @@ int usbnet_open (struct net_device *net)
 		   (dev->driver_info->flags & FLAG_FRAMING_RN) ? "RNDIS" :
 		   (dev->driver_info->flags & FLAG_FRAMING_AX) ? "ASIX" :
 		   "simple");
+
+	/* reset rx error state */
+	dev->pkt_cnt = 0;
+	dev->pkt_err = 0;
+	clear_bit(EVENT_RX_KILL, &dev->flags);
 
 	// delay posting reads until we're fully open
 	tasklet_schedule (&dev->bh);
@@ -1226,6 +1248,9 @@ static void usbnet_bh (unsigned long param)
 			netdev_dbg(dev->net, "bogus skb state %d\n", entry->state);
 		}
 	}
+
+	/* restart RX again after disabling due to high error rate */
+	clear_bit(EVENT_RX_KILL, &dev->flags);
 
 	// waiting for all pending urbs to complete?
 	if (dev->wait) {

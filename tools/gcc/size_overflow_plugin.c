@@ -38,6 +38,10 @@
 #define C_DECL_IMPLICIT(EXP) DECL_LANG_FLAG_2 (EXP)
 #endif
 
+#if BUILDING_GCC_VERSION >= 4008
+#define TODO_dump_func 0
+#endif
+
 struct size_overflow_hash {
 	const struct size_overflow_hash * const next;
 	const char * const name;
@@ -390,8 +394,10 @@ static tree create_new_var(tree type)
 {
 	tree new_var = create_tmp_var(type, "cicus");
 
+#if BUILDING_GCC_VERSION <= 4007
 	add_referenced_var(new_var);
 	mark_sym_for_renaming(new_var);
+#endif
 	return new_var;
 }
 
@@ -611,11 +617,13 @@ static gimple overflow_create_phi_node(gimple oldstmt, tree result)
 	basic_block bb;
 	gimple phi;
 	gimple_stmt_iterator gsi = gsi_for_stmt(oldstmt);
+	gimple_seq seq;
 
 	bb = gsi_bb(gsi);
 
 	phi = create_phi_node(result, bb);
-	gsi = gsi_last(phi_nodes(bb));
+	seq = phi_nodes(bb);
+	gsi = gsi_last(seq);
 	gsi_remove(&gsi, false);
 
 	gsi = gsi_for_stmt(oldstmt);
@@ -1855,13 +1863,16 @@ static struct gimple_opt_pass size_overflow_pass = {
 	.pass = {
 		.type			= GIMPLE_PASS,
 		.name			= "size_overflow",
+#if BUILDING_GCC_VERSION >= 4008
+		.optinfo_flags		= OPTGROUP_NONE,
+#endif
 		.gate			= NULL,
 		.execute		= handle_function,
 		.sub			= NULL,
 		.next			= NULL,
 		.static_pass_number	= 0,
 		.tv_id			= TV_NONE,
-		.properties_required	= PROP_cfg | PROP_referenced_vars,
+		.properties_required	= PROP_cfg,
 		.properties_provided	= 0,
 		.properties_destroyed	= 0,
 		.todo_flags_start	= 0,

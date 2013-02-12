@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 by PaX Team <pageexec@freemail.hu>
+ * Copyright 2012-2013 by PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -28,7 +28,7 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info colorize_plugin_info = {
-	.version	= "201203092200",
+	.version	= "201302112000",
 	.help		= NULL,
 };
 
@@ -107,6 +107,9 @@ struct simple_ipa_opt_pass pass_ipa_colorize_rearm = {
 	.pass = {
 		.type			= SIMPLE_IPA_PASS,
 		.name			= "colorize_rearm",
+#if BUILDING_GCC_VERSION >= 4008
+		.optinfo_flags		= OPTGROUP_NONE,
+#endif
 		.gate			= NULL,
 		.execute		= execute_colorize_rearm,
 		.sub			= NULL,

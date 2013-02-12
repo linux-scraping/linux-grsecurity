@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2012-2013 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -39,12 +39,16 @@
 #include "emit-rtl.h"
 #include "tree-flow.h"
 
+#if BUILDING_GCC_VERSION >= 4008
+#define TODO_dump_func 0
+#endif
+
 int plugin_is_GPL_compatible;
 
 static tree latent_entropy_decl;
 
 static struct plugin_info latent_entropy_plugin_info = {
-	.version	= "201207271820",
+	.version	= "201302112000",
 	.help		= NULL
 };
 
@@ -55,6 +59,9 @@ static struct gimple_opt_pass latent_entropy_pass = {
 	.pass = {
 		.type			= GIMPLE_PASS,
 		.name			= "latent_entropy",
+#if BUILDING_GCC_VERSION >= 4008
+		.optinfo_flags		= OPTGROUP_NONE,
+#endif
 		.gate			= gate_latent_entropy,
 		.execute		= execute_latent_entropy,
 		.sub			= NULL,
@@ -150,7 +157,9 @@ static void perturb_local_entropy(basic_block bb, tree local_entropy)
 	op = get_op(&rhs);
 	addxorrol = fold_build2_loc(UNKNOWN_LOCATION, op, unsigned_intDI_type_node, local_entropy, rhs);
 	assign = gimple_build_assign(local_entropy, addxorrol);
+#if BUILDING_GCC_VERSION <= 4007
 	find_referenced_vars_in(assign);
+#endif
 //debug_bb(bb);
 	gsi = gsi_after_labels(bb);
 	gsi_insert_before(&gsi, assign, GSI_NEW_STMT);
@@ -165,12 +174,16 @@ static void perturb_latent_entropy(basic_block bb, tree rhs)
 
 	// 1. create temporary copy of latent_entropy
 	temp = create_tmp_var(unsigned_intDI_type_node, "temp_latent_entropy");
+#if BUILDING_GCC_VERSION <= 4007
 	add_referenced_var(temp);
 	mark_sym_for_renaming(temp);
+#endif
 
 	// 2. read...
 	assign = gimple_build_assign(temp, latent_entropy_decl);
+#if BUILDING_GCC_VERSION <= 4007
 	find_referenced_vars_in(assign);
+#endif
 	gsi = gsi_after_labels(bb);
 	gsi_insert_after(&gsi, assign, GSI_NEW_STMT);
 	update_stmt(assign);
@@ -178,13 +191,17 @@ static void perturb_latent_entropy(basic_block bb, tree rhs)
 	// 3. ...modify...
 	addxorrol = fold_build2_loc(UNKNOWN_LOCATION, get_op(NULL), unsigned_intDI_type_node, temp, rhs);
 	assign = gimple_build_assign(temp, addxorrol);
+#if BUILDING_GCC_VERSION <= 4007
 	find_referenced_vars_in(assign);
+#endif
 	gsi_insert_after(&gsi, assign, GSI_NEW_STMT);
 	update_stmt(assign);
 
 	// 4. ...write latent_entropy
 	assign = gimple_build_assign(latent_entropy_decl, temp);
+#if BUILDING_GCC_VERSION <= 4007
 	find_referenced_vars_in(assign);
+#endif
 	gsi_insert_after(&gsi, assign, GSI_NEW_STMT);
 	update_stmt(assign);
 }
@@ -199,8 +216,13 @@ static unsigned int execute_latent_entropy(void)
 	if (!latent_entropy_decl) {
 		struct varpool_node *node;
 
+#if BUILDING_GCC_VERSION <= 4007
 		for (node = varpool_nodes; node; node = node->next) {
 			tree var = node->decl;
+#else
+		FOR_EACH_VARIABLE(node) {
+			tree var = node->symbol.decl;
+#endif
 			if (strcmp(IDENTIFIER_POINTER(DECL_NAME(var)), "latent_entropy"))
 				continue;
 			latent_entropy_decl = var;
@@ -217,8 +239,10 @@ static unsigned int execute_latent_entropy(void)
 
 	// 1. create local entropy variable
 	local_entropy = create_tmp_var(unsigned_intDI_type_node, "local_entropy");
+#if BUILDING_GCC_VERSION <= 4007
 	add_referenced_var(local_entropy);
 	mark_sym_for_renaming(local_entropy);
+#endif
 
 	// 2. initialize local entropy variable
 	bb = split_block_after_labels(ENTRY_BLOCK_PTR)->dest;
@@ -228,7 +252,9 @@ static unsigned int execute_latent_entropy(void)
 
 	assign = gimple_build_assign(local_entropy, build_int_cstu(unsigned_intDI_type_node, get_random_const()));
 //	gimple_set_location(assign, loc);
+#if BUILDING_GCC_VERSION <= 4007
 	find_referenced_vars_in(assign);
+#endif
 	gsi_insert_after(&gsi, assign, GSI_NEW_STMT);
 	update_stmt(assign);
 	bb = bb->next_bb;
