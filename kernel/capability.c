@@ -399,11 +399,11 @@ EXPORT_SYMBOL(ns_capable);
 bool ns_capable_nolog(struct user_namespace *ns, int cap)
 {
 	if (unlikely(!cap_valid(cap))) {
-		printk(KERN_CRIT "capable() called with invalid cap=%u\n", cap);
+		printk(KERN_CRIT "capable_nolog() called with invalid cap=%u\n", cap);
 		BUG();
 	}
 
-	if (security_capable(current_cred(), ns, cap) == 0 && gr_is_capable_nolog(cap)) {
+	if (security_capable_noaudit(current_cred(), ns, cap) == 0 && gr_is_capable_nolog(cap)) {
 		current->flags |= PF_SUPERPRIV;
 		return true;
 	}
