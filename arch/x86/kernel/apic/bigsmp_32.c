@@ -152,7 +152,7 @@ static int probe_bigsmp(void)
 	return dmi_bigsmp;
 }
 
-static struct apic apic_bigsmp = {
+static struct apic apic_bigsmp __read_only = {
 
 	.name				= "bigsmp",
 	.probe				= probe_bigsmp,

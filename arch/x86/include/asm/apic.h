@@ -391,7 +391,7 @@ struct apic {
 	 */
 	int (*x86_32_numa_cpu_node)(int cpu);
 #endif
-} __do_const;
+};
 
 /*
  * Pointer to the local APIC driver in use on this system (there's

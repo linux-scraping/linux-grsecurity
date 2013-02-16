@@ -1206,7 +1206,7 @@ out:
 EXPORT_SYMBOL_GPL(register_efivars);
 
 static struct efivars __efivars;
-static struct efivar_operations ops;
+static efivar_operations_no_const ops __read_only;
 
 /*
  * For now we register the efi subsystem with the firmware subsystem
@@ -1234,9 +1234,9 @@ efivars_init(void)
 		return -ENOMEM;
 	}
 
-	*(void **)&ops.get_variable = efi.get_variable;
-	*(void **)&ops.set_variable = efi.set_variable;
-	*(void **)&ops.get_next_variable = efi.get_next_variable;
+	ops.get_variable = efi.get_variable;
+	ops.set_variable = efi.set_variable;
+	ops.get_next_variable = efi.get_next_variable;
 	error = register_efivars(&__efivars, &ops, efi_kobj);
 	if (error)
 		goto err_put;

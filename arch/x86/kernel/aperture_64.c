@@ -390,7 +390,7 @@ int __init gart_iommu_hole_init(void)
 
 			iommu_detected = 1;
 			gart_iommu_aperture = 1;
-			*(void **)&x86_init.iommu.iommu_init = gart_iommu_init;
+			x86_init.iommu.iommu_init = gart_iommu_init;
 
 			ctl = read_pci_config(bus, slot, 3,
 					      AMD64_GARTAPERTURECTL);

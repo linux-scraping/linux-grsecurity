@@ -178,7 +178,7 @@ static int __init numachip_system_init(void)
 	if (!numachip_system)
 		return 0;
 
-	*(void **)&x86_cpuinit.fixup_cpu_id = fixup_cpu_id;
+	x86_cpuinit.fixup_cpu_id = fixup_cpu_id;
 
 	map_csrs();
 

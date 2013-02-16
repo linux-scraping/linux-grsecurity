@@ -12,7 +12,7 @@ struct machine_ops {
 	void (*shutdown)(void);
 	void (*crash_shutdown)(struct pt_regs *);
 	void (* __noreturn emergency_restart)(void);
-};
+} __no_const;
 
 extern struct machine_ops machine_ops;
 

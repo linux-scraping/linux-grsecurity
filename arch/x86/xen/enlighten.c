@@ -912,23 +912,23 @@ static u32 xen_safe_apic_wait_icr_idle(void)
         return 0;
 }
 
-static void set_xen_basic_apic_ops(void)
+static void __init set_xen_basic_apic_ops(void)
 {
-	*(void **)&apic->read = xen_apic_read;
-	*(void **)&apic->write = xen_apic_write;
-	*(void **)&apic->icr_read = xen_apic_icr_read;
-	*(void **)&apic->icr_write = xen_apic_icr_write;
-	*(void **)&apic->wait_icr_idle = xen_apic_wait_icr_idle;
-	*(void **)&apic->safe_wait_icr_idle = xen_safe_apic_wait_icr_idle;
-	*(void **)&apic->set_apic_id = xen_set_apic_id;
-	*(void **)&apic->get_apic_id = xen_get_apic_id;
+	apic->read = xen_apic_read;
+	apic->write = xen_apic_write;
+	apic->icr_read = xen_apic_icr_read;
+	apic->icr_write = xen_apic_icr_write;
+	apic->wait_icr_idle = xen_apic_wait_icr_idle;
+	apic->safe_wait_icr_idle = xen_safe_apic_wait_icr_idle;
+	apic->set_apic_id = xen_set_apic_id;
+	apic->get_apic_id = xen_get_apic_id;
 
 #ifdef CONFIG_SMP
-	*(void **)&apic->send_IPI_allbutself = xen_send_IPI_allbutself;
-	*(void **)&apic->send_IPI_mask_allbutself = xen_send_IPI_mask_allbutself;
-	*(void **)&apic->send_IPI_mask = xen_send_IPI_mask;
-	*(void **)&apic->send_IPI_all = xen_send_IPI_all;
-	*(void **)&apic->send_IPI_self = xen_send_IPI_self;
+	apic->send_IPI_allbutself = xen_send_IPI_allbutself;
+	apic->send_IPI_mask_allbutself = xen_send_IPI_mask_allbutself;
+	apic->send_IPI_mask = xen_send_IPI_mask;
+	apic->send_IPI_all = xen_send_IPI_all;
+	apic->send_IPI_self = xen_send_IPI_self;
 #endif
 }
 
@@ -1286,14 +1286,14 @@ static const struct machine_ops xen_machine_ops __initconst = {
  */
 static void __init xen_setup_stackprotector(void)
 {
-	*(void **)&pv_cpu_ops.write_gdt_entry = xen_write_gdt_entry_boot;
-	*(void **)&pv_cpu_ops.load_gdt = xen_load_gdt_boot;
+	pv_cpu_ops.write_gdt_entry = xen_write_gdt_entry_boot;
+	pv_cpu_ops.load_gdt = xen_load_gdt_boot;
 
 	setup_stack_canary_segment(0);
 	switch_to_new_gdt(0);
 
-	*(void **)&pv_cpu_ops.write_gdt_entry = xen_write_gdt_entry;
-	*(void **)&pv_cpu_ops.load_gdt = xen_load_gdt;
+	pv_cpu_ops.write_gdt_entry = xen_write_gdt_entry;
+	pv_cpu_ops.load_gdt = xen_load_gdt;
 }
 
 /* First C function to be called on Xen boot */
@@ -1311,13 +1311,13 @@ asmlinkage void __init xen_start_kernel(void)
 
 	/* Install Xen paravirt ops */
 	pv_info = xen_info;
-	memcpy((void *)&pv_init_ops, &xen_init_ops, sizeof pv_init_ops);
-	memcpy((void *)&pv_cpu_ops, &xen_cpu_ops, sizeof pv_cpu_ops);
-	memcpy((void *)&pv_apic_ops, &xen_apic_ops, sizeof pv_apic_ops);
+	pv_init_ops = xen_init_ops;
+	pv_cpu_ops = xen_cpu_ops;
+	pv_apic_ops = xen_apic_ops;
 
-	*(void **)&x86_init.resources.memory_setup = xen_memory_setup;
-	*(void **)&x86_init.oem.arch_setup = xen_arch_setup;
-	*(void **)&x86_init.oem.banner = xen_banner;
+	x86_init.resources.memory_setup = xen_memory_setup;
+	x86_init.oem.arch_setup = xen_arch_setup;
+	x86_init.oem.banner = xen_banner;
 
 	xen_init_time_ops();
 
@@ -1449,7 +1449,7 @@ asmlinkage void __init xen_start_kernel(void)
 		add_preferred_console("tty", 0, NULL);
 		add_preferred_console("hvc", 0, NULL);
 		if (pci_xen)
-			*(void **)&x86_init.pci.arch_init = pci_xen_init;
+			x86_init.pci.arch_init = pci_xen_init;
 	} else {
 		const struct dom0_vga_console_info *info =
 			(void *)((char *)xen_start_info +
@@ -1475,8 +1475,8 @@ asmlinkage void __init xen_start_kernel(void)
 		xen_acpi_sleep_register();
 
 		/* Avoid searching for BIOS MP tables */
-		*(void **)&x86_init.mpparse.find_smp_config = x86_init_noop;
-		*(void **)&x86_init.mpparse.get_smp_config = x86_init_uint_noop;
+		x86_init.mpparse.find_smp_config = x86_init_noop;
+		x86_init.mpparse.get_smp_config = x86_init_uint_noop;
 	}
 #ifdef CONFIG_PCI
 	/* PCI BIOS service won't work from a PV guest. */
@@ -1582,7 +1582,7 @@ static void __init xen_hvm_guest_init(void)
 	xen_hvm_smp_init();
 	register_cpu_notifier(&xen_hvm_cpu_notifier);
 	xen_unplug_emulated_devices();
-	*(void **)&x86_init.irqs.intr_init = xen_init_IRQ;
+	x86_init.irqs.intr_init = xen_init_IRQ;
 	xen_hvm_init_time_ops();
 	xen_hvm_init_mmu_ops();
 }

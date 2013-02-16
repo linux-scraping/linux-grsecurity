@@ -656,6 +656,7 @@ struct efivar_operations {
 	efi_get_next_variable_t *get_next_variable;
 	efi_set_variable_t *set_variable;
 };
+typedef struct efivar_operations __no_const efivar_operations_no_const;
 
 struct efivars {
 	/*

@@ -114,7 +114,7 @@ static void __init set_vsmp_pv_ops(void)
 		pv_irq_ops.irq_enable  = PV_CALLEE_SAVE(vsmp_irq_enable);
 		pv_irq_ops.save_fl  = PV_CALLEE_SAVE(vsmp_save_fl);
 		pv_irq_ops.restore_fl  = PV_CALLEE_SAVE(vsmp_restore_fl);
-		*(void **)&pv_init_ops.patch = vsmp_patch;
+		pv_init_ops.patch = vsmp_patch;
 		ctl &= ~(1 << 4);
 	}
 	writel(ctl, address + 4);
@@ -217,8 +217,8 @@ static void fill_vector_allocation_domain(int cpu, struct cpumask *retmask,
 static void vsmp_apic_post_init(void)
 {
 	/* need to update phys_pkg_id */
-	*(void **)&apic->phys_pkg_id = apicid_phys_pkg_id;
-	*(void **)&apic->vector_allocation_domain = fill_vector_allocation_domain;
+	apic->phys_pkg_id = apicid_phys_pkg_id;
+	apic->vector_allocation_domain = fill_vector_allocation_domain;
 }
 
 void __init vsmp_init(void)
@@ -227,7 +227,7 @@ void __init vsmp_init(void)
 	if (!is_vsmp_box())
 		return;
 
-	*(void **)&x86_platform.apic_post_init = vsmp_apic_post_init;
+	x86_platform.apic_post_init = vsmp_apic_post_init;
 
 	vsmp_cap_cpus();
 
