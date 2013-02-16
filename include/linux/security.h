@@ -1677,6 +1677,8 @@ int security_capset(struct cred *new, const struct cred *old,
 		    const kernel_cap_t *permitted);
 int security_capable(struct user_namespace *ns, const struct cred *cred,
 			int cap);
+int security_capable_noaudit(struct user_namespace *ns, const struct cred *cred,
+				int cap);
 int security_real_capable(struct task_struct *tsk, struct user_namespace *ns,
 			int cap);
 int security_real_capable_noaudit(struct task_struct *tsk,
@@ -1879,6 +1881,12 @@ static inline int security_capable(struct user_namespace *ns,
 				   const struct cred *cred, int cap)
 {
 	return cap_capable(current, cred, ns, cap, SECURITY_CAP_AUDIT);
+}
+
+static inline int security_capable_noaudit(struct user_namespace *ns,
+				   const struct cred *cred, int cap)
+{
+	return cap_capable(current, cred, ns, cap, SECURITY_CAP_NOAUDIT);
 }
 
 static inline int security_real_capable(struct task_struct *tsk, struct user_namespace *ns, int cap)
