@@ -157,6 +157,12 @@ int security_capable(int cap)
 				     SECURITY_CAP_AUDIT);
 }
 
+int security_capable_noaudit(int cap)
+{
+	return security_ops->capable(current, current_cred(), cap,
+				     SECURITY_CAP_AUDIT);
+}
+
 int security_real_capable(struct task_struct *tsk, int cap)
 {
 	const struct cred *cred;

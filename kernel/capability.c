@@ -315,11 +315,11 @@ int capable(int cap)
 int capable_nolog(int cap)
 {
 	if (unlikely(!cap_valid(cap))) {
-		printk(KERN_CRIT "capable() called with invalid cap=%u\n", cap);
+		printk(KERN_CRIT "capable_nolog() called with invalid cap=%u\n", cap);
 		BUG();
 	}
 
-	if (security_capable(cap) == 0 && gr_is_capable_nolog(cap)) {
+	if (security_capable_noaudit(cap) == 0 && gr_is_capable_nolog(cap)) {
 		current->flags |= PF_SUPERPRIV;
 		return 1;
 	}

@@ -1736,6 +1736,7 @@ int security_capset(struct cred *new, const struct cred *old,
 		    const kernel_cap_t *inheritable,
 		    const kernel_cap_t *permitted);
 int security_capable(int cap);
+int security_capable_noaudit(int cap);
 int security_real_capable(struct task_struct *tsk, int cap);
 int security_real_capable_noaudit(struct task_struct *tsk, int cap);
 int security_acct(struct file *file);
@@ -1943,6 +1944,11 @@ static inline int security_capset(struct cred *new,
 static inline int security_capable(int cap)
 {
 	return cap_capable(current, current_cred(), cap, SECURITY_CAP_AUDIT);
+}
+
+static inline int security_capable_noaudit(int cap)
+{
+	return cap_capable(current, current_cred(), cap, SECURITY_CAP_NOAUDIT);
 }
 
 static inline int security_real_capable(struct task_struct *tsk, int cap)
