@@ -56,7 +56,7 @@ static void ptrace_untrace(struct task_struct *child)
 		    child->signal->group_stop_count)
 			__set_task_state(child, TASK_STOPPED);
 		else
-			signal_wake_up(child, 1);
+			ptrace_signal_wake_up(child, true);
 	}
 	spin_unlock(&child->sighand->siglock);
 }
@@ -80,10 +80,54 @@ void __ptrace_unlink(struct task_struct *child)
 		ptrace_untrace(child);
 }
 
-/*
- * Check that we have indeed attached to the thing..
+/* Ensure that nothing can wake it up, even SIGKILL */
+static bool ptrace_freeze_traced(struct task_struct *task)
+{
+	bool ret = false;
+
+	spin_lock_irq(&task->sighand->siglock);
+	if (task_is_traced(task) && !__fatal_signal_pending(task)) {
+		task->state = __TASK_TRACED;
+		ret = true;
+	}
+	spin_unlock_irq(&task->sighand->siglock);
+
+	return ret;
+}
+
+static void ptrace_unfreeze_traced(struct task_struct *task)
+{
+	if (task->state != __TASK_TRACED)
+		return;
+
+	WARN_ON(!task->ptrace || task->parent != current);
+
+	spin_lock_irq(&task->sighand->siglock);
+	if (__fatal_signal_pending(task))
+		wake_up_state(task, __TASK_TRACED);
+	else
+		task->state = TASK_TRACED;
+	spin_unlock_irq(&task->sighand->siglock);
+}
+
+/**
+ * ptrace_check_attach - check whether ptracee is ready for ptrace operation
+ * @child: ptracee to check for
+ * @ignore_state: don't check whether @child is currently %TASK_TRACED
+ *
+ * Check whether @child is being ptraced by %current and ready for further
+ * ptrace operations.  If @ignore_state is %false, @child also should be in
+ * %TASK_TRACED state and on return the child is guaranteed to be traced
+ * and not executing.  If @ignore_state is %true, @child can be in any
+ * state.
+ *
+ * CONTEXT:
+ * Grabs and releases tasklist_lock and @child->sighand->siglock.
+ *
+ * RETURNS:
+ * 0 on success, -ESRCH if %child is not ready.
  */
-int ptrace_check_attach(struct task_struct *child, int kill)
+int ptrace_check_attach(struct task_struct *child, bool ignore_state)
 {
 	int ret = -ESRCH;
 
@@ -95,25 +139,29 @@ int ptrace_check_attach(struct task_struct *child, int kill)
 	 * be changed by us so it's not changing right after this.
 	 */
 	read_lock(&tasklist_lock);
-	if ((child->ptrace & PT_PTRACED) && child->parent == current) {
-		ret = 0;
+	if (child->ptrace && child->parent == current) {
+		WARN_ON(child->state == __TASK_TRACED);
 		/*
 		 * child->sighand can't be NULL, release_task()
 		 * does ptrace_unlink() before __exit_signal().
 		 */
-		spin_lock_irq(&child->sighand->siglock);
-		if (task_is_stopped(child))
-			child->state = TASK_TRACED;
-		else if (!task_is_traced(child) && !kill)
-			ret = -ESRCH;
-		spin_unlock_irq(&child->sighand->siglock);
+		if (ignore_state || ptrace_freeze_traced(child))
+			ret = 0;
 	}
 	read_unlock(&tasklist_lock);
 
-	if (!ret && !kill)
-		ret = wait_task_inactive(child, TASK_TRACED) ? 0 : -ESRCH;
+	if (!ret && !ignore_state) {
+		if (!wait_task_inactive(child, __TASK_TRACED)) {
+			/*
+			 * This can only happen if may_ptrace_stop() fails and
+			 * ptrace_stop() changes ->state back to TASK_RUNNING,
+			 * so we should not worry about leaking __TASK_TRACED.
+			 */
+			WARN_ON(child->state == __TASK_TRACED);
+			ret = -ESRCH;
+		}
+	}
 
-	/* All systems go.. */
 	return ret;
 }
 
@@ -524,7 +572,7 @@ static int ptrace_resume(struct task_struct *child, long request, long data)
 	}
 
 	child->exit_code = data;
-	wake_up_process(child);
+	wake_up_state(child, __TASK_TRACED);
 
 	return 0;
 }
@@ -664,6 +712,8 @@ SYSCALL_DEFINE4(ptrace, long, request, long, pid, long, addr, long, data)
 		goto out_put_task_struct;
 
 	ret = arch_ptrace(child, request, addr, data);
+	if (ret || request != PTRACE_DETACH)
+		ptrace_unfreeze_traced(child);
 
  out_put_task_struct:
 	put_task_struct(child);
@@ -788,8 +838,11 @@ asmlinkage long compat_sys_ptrace(compat_long_t request, compat_long_t pid,
 	}
 
 	ret = ptrace_check_attach(child, request == PTRACE_KILL);
-	if (!ret)
+	if (!ret) {
 		ret = compat_arch_ptrace(child, request, addr, data);
+		if (ret || request != PTRACE_DETACH)
+			ptrace_unfreeze_traced(child);
+	}
 
  out_put_task_struct:
 	put_task_struct(child);
