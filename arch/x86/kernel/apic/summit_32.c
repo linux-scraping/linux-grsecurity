@@ -491,7 +491,7 @@ void setup_summit(void)
 }
 #endif
 
-static struct apic apic_summit = {
+static struct apic apic_summit __read_only = {
 
 	.name				= "summit",
 	.probe				= probe_summit,

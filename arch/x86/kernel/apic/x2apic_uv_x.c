@@ -139,8 +139,8 @@ static int __init uv_acpi_madt_oem_check(char *oem_id, char *oem_table_id)
 			is_uv1 ? UV1_HUB_REVISION_BASE : UV2_HUB_REVISION_BASE;
 		pnodeid = early_get_pnodeid();
 		early_get_apic_pnode_shift();
-		*(void **)&x86_platform.is_untracked_pat_range =  uv_is_untracked_pat_range;
-		*(void **)&x86_platform.nmi_init = uv_nmi_init;
+		x86_platform.is_untracked_pat_range =  uv_is_untracked_pat_range;
+		x86_platform.nmi_init = uv_nmi_init;
 		if (!strcmp(oem_table_id, "UVL"))
 			uv_system_type = UV_LEGACY_APIC;
 		else if (!strcmp(oem_table_id, "UVX"))
@@ -346,7 +346,7 @@ static int uv_probe(void)
 	return apic == &apic_x2apic_uv_x;
 }
 
-static struct apic __refdata apic_x2apic_uv_x = {
+static struct apic apic_x2apic_uv_x __read_only = {
 
 	.name				= "UV large system",
 	.probe				= uv_probe,

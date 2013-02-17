@@ -101,7 +101,7 @@ struct x86_init_timers {
 	void (*tsc_pre_init)(void);
 	void (*timer_init)(void);
 	void (*wallclock_init)(void);
-};
+} __no_const;
 
 /**
  * struct x86_init_iommu - platform specific iommu setup
@@ -139,7 +139,7 @@ struct x86_init_ops {
 	struct x86_init_timers		timers;
 	struct x86_init_iommu		iommu;
 	struct x86_init_pci		pci;
-};
+} __no_const;
 
 /**
  * struct x86_cpuinit_ops - platform specific cpu hotplug setups
@@ -147,7 +147,7 @@ struct x86_init_ops {
  */
 struct x86_cpuinit_ops {
 	void (*setup_percpu_clockev)(void);
-};
+} __no_const;
 
 /**
  * struct x86_platform_ops - platform specific runtime functions
@@ -169,7 +169,7 @@ struct x86_platform_ops {
 	void (*nmi_init)(void);
 	unsigned char (*get_nmi_reason)(void);
 	int (*i8042_detect)(void);
-};
+} __no_const;
 
 struct pci_dev;
 
@@ -177,7 +177,7 @@ struct x86_msi_ops {
 	int (*setup_msi_irqs)(struct pci_dev *dev, int nvec, int type);
 	void (*teardown_msi_irq)(unsigned int irq);
 	void (*teardown_msi_irqs)(struct pci_dev *dev);
-};
+} __no_const;
 
 extern struct x86_init_ops x86_init;
 extern struct x86_cpuinit_ops x86_cpuinit;

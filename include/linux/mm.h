@@ -248,6 +248,7 @@ struct vm_operations_struct {
 		const nodemask_t *to, unsigned long flags);
 #endif
 };
+typedef struct vm_operations_struct __no_const vm_operations_struct_no_const;
 
 struct mmu_gather;
 struct inode;

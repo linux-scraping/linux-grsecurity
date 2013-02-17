@@ -1502,7 +1502,7 @@ static int __init amd_iommu_init(void)
 
 	register_syscore_ops(&amd_iommu_syscore_ops);
 
-	*(void **)&x86_platform.iommu_shutdown = disable_iommus;
+	x86_platform.iommu_shutdown = disable_iommus;
 
 	if (iommu_pass_through)
 		goto out;
@@ -1572,7 +1572,7 @@ int __init amd_iommu_detect(void)
 	if (acpi_table_parse("IVRS", early_amd_iommu_detect) == 0) {
 		iommu_detected = 1;
 		amd_iommu_detected = 1;
-		*(void **)&x86_init.iommu.iommu_init = amd_iommu_init;
+		x86_init.iommu.iommu_init = amd_iommu_init;
 
 		/* Make sure ACS will be enabled */
 		pci_request_acs();

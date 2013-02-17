@@ -208,7 +208,7 @@ static int x2apic_cluster_probe(void)
 		return 0;
 }
 
-static struct apic apic_x2apic_cluster = {
+static struct apic apic_x2apic_cluster __read_only = {
 
 	.name				= "cluster x2apic",
 	.probe				= x2apic_cluster_probe,

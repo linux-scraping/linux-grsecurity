@@ -90,14 +90,14 @@ struct x86_init_ops x86_init __initdata = {
 	},
 };
 
-struct x86_cpuinit_ops x86_cpuinit __cpuinitdata = {
+struct x86_cpuinit_ops x86_cpuinit __cpuinitconst = {
 	.setup_percpu_clockev		= setup_secondary_APIC_clock,
 };
 
 static void default_nmi_init(void) { };
 static int default_i8042_detect(void) { return 1; };
 
-struct x86_platform_ops x86_platform = {
+struct x86_platform_ops x86_platform __read_only = {
 	.calibrate_tsc			= native_calibrate_tsc,
 	.wallclock_init			= wallclock_init_noop,
 	.get_wallclock			= mach_get_cmos_time,
@@ -110,7 +110,7 @@ struct x86_platform_ops x86_platform = {
 };
 
 EXPORT_SYMBOL_GPL(x86_platform);
-struct x86_msi_ops x86_msi = {
+struct x86_msi_ops x86_msi __read_only = {
 	.setup_msi_irqs = native_setup_msi_irqs,
 	.teardown_msi_irq = native_teardown_msi_irq,
 	.teardown_msi_irqs = default_teardown_msi_irqs,

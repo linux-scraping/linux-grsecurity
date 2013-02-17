@@ -850,7 +850,7 @@ int __init gart_iommu_init(void)
 
 	flush_gart();
 	dma_ops = &gart_dma_ops;
-	*(void **)&x86_platform.iommu_shutdown = gart_iommu_shutdown;
+	x86_platform.iommu_shutdown = gart_iommu_shutdown;
 	swiotlb = 0;
 
 	return 0;

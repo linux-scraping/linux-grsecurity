@@ -52,7 +52,7 @@ irq_cpustat_t irq_stat[NR_CPUS] ____cacheline_aligned;
 EXPORT_SYMBOL(irq_stat);
 #endif
 
-static struct softirq_action softirq_vec[NR_SOFTIRQS] __cacheline_aligned_in_smp;
+static struct softirq_action softirq_vec[NR_SOFTIRQS] __read_only __aligned(PAGE_SIZE);
 
 DEFINE_PER_CPU(struct task_struct *, ksoftirqd);
 
@@ -385,11 +385,9 @@ void raise_softirq(unsigned int nr)
 	local_irq_restore(flags);
 }
 
-void open_softirq(int nr, void (*action)(void))
+void __init open_softirq(int nr, void (*action)(void))
 {
-	pax_open_kernel();
-	*(void **)&softirq_vec[nr].action = action;
-	pax_close_kernel();
+	softirq_vec[nr].action = action;
 }
 
 /*

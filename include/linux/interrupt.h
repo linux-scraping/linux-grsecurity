@@ -450,7 +450,7 @@ extern const char * const softirq_to_name[NR_SOFTIRQS];
 struct softirq_action
 {
 	void	(*action)(void);
-};
+} __no_const;
 
 asmlinkage void do_softirq(void);
 asmlinkage void __do_softirq(void);

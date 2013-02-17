@@ -320,11 +320,11 @@ struct pv_info pv_info __read_only = {
 #endif
 };
 
-struct pv_init_ops pv_init_ops = {
+struct pv_init_ops pv_init_ops __read_only = {
 	.patch = native_patch,
 };
 
-struct pv_time_ops pv_time_ops = {
+struct pv_time_ops pv_time_ops __read_only = {
 	.sched_clock = native_sched_clock,
 	.steal_clock = native_steal_clock,
 };
@@ -341,7 +341,7 @@ struct pv_irq_ops pv_irq_ops __read_only = {
 #endif
 };
 
-struct pv_cpu_ops pv_cpu_ops = {
+struct pv_cpu_ops pv_cpu_ops __read_only = {
 	.cpuid = native_cpuid,
 	.get_debugreg = native_get_debugreg,
 	.set_debugreg = native_set_debugreg,
@@ -402,7 +402,7 @@ struct pv_cpu_ops pv_cpu_ops = {
 	.end_context_switch = paravirt_nop,
 };
 
-struct pv_apic_ops pv_apic_ops = {
+struct pv_apic_ops pv_apic_ops __read_only= {
 #ifdef CONFIG_X86_LOCAL_APIC
 	.startup_ipi_hook = paravirt_nop,
 #endif
