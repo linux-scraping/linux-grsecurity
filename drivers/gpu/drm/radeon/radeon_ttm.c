@@ -822,8 +822,10 @@ int radeon_mmap(struct file *filp, struct vm_area_struct *vma)
 	}
 	if (unlikely(ttm_vm_ops == NULL)) {
 		ttm_vm_ops = vma->vm_ops;
+		pax_open_kernel();
 		radeon_ttm_vm_ops = *ttm_vm_ops;
 		radeon_ttm_vm_ops.fault = &radeon_ttm_fault;
+		pax_close_kernel();
 	}
 	vma->vm_ops = &radeon_ttm_vm_ops;
 	return 0;
