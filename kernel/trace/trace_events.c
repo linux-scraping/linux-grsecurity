@@ -1002,10 +1002,10 @@ trace_create_file_ops(struct module *mod)
 	file_ops->mod = mod;
 
 	pax_open_kernel();
-	*(void **)&mod->trace_id.owner = mod;
-	*(void **)&mod->trace_enable.owner = mod;
-	*(void **)&mod->trace_filter.owner = mod;
-	*(void **)&mod->trace_format.owner = mod;
+	mod->trace_id.owner = mod;
+	mod->trace_enable.owner = mod;
+	mod->trace_filter.owner = mod;
+	mod->trace_format.owner = mod;
 	pax_close_kernel();
 
 	list_add(&file_ops->list, &ftrace_module_file_list);

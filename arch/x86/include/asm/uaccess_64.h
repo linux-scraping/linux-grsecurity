@@ -38,6 +38,8 @@ unsigned long __copy_from_user(void *dst, const void __user *src, unsigned long 
 	if (size > INT_MAX)
 		return size;
 
+	check_object_size(dst, size, false);
+
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	if (!__access_ok(VERIFY_READ, src, size))
 		return size;
@@ -49,7 +51,6 @@ unsigned long __copy_from_user(void *dst, const void __user *src, unsigned long 
 	}
 
 	if (!__builtin_constant_p(size)) {
-		check_object_size(dst, size, false);
 		return copy_user_generic(dst, (__force_kernel const void *)____m(src), size);
 	}
 	switch (size) {
@@ -101,6 +102,8 @@ unsigned long __copy_to_user(void __user *dst, const void *src, unsigned long si
 	if (size > INT_MAX)
 		return size;
 
+	check_object_size(src, size, true);
+
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	if (!__access_ok(VERIFY_WRITE, dst, size))
 		return size;
@@ -111,10 +114,8 @@ unsigned long __copy_to_user(void __user *dst, const void *src, unsigned long si
 		return size;
 	}
 
-	if (!__builtin_constant_p(size)) {
-		check_object_size(src, size, true);
+	if (!__builtin_constant_p(size))
 		return copy_user_generic((__force_kernel void *)____m(dst), src, size);
-	}
 	switch (size) {
 	case 1:__put_user_asm(*(const u8 *)src, (u8 __user *)dst,
 			      ret, "b", "b", "iq", 1);
@@ -164,13 +165,12 @@ unsigned long copy_from_user(void *to, const void __user *from, unsigned long le
 {
 	might_fault();
 
+	check_object_size(to, len, false);
+
 	if (access_ok(VERIFY_READ, from, len))
 		len = __copy_from_user(to, from, len);
-	else if (len < INT_MAX) {
-		if (!__builtin_constant_p(len))
-			check_object_size(to, len, false);
+	else if (len < INT_MAX)
 		memset(to, 0, len);
-	}
 	return len;
 }
 

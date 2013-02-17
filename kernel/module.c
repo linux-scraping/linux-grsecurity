@@ -2351,7 +2351,7 @@ static noinline struct module *load_module(void __user *umod,
 	 * scanned as it contains data and code that will be freed
 	 * after the module is initialized.
 	 */
-	kmemleak_not_leak(ptr);
+	kmemleak_ignore(ptr);
 	if (!ptr && mod->init_size_rw) {
 		err = -ENOMEM;
 		goto free_core_rw;
@@ -2372,7 +2372,7 @@ static noinline struct module *load_module(void __user *umod,
 	mod->module_core_rx = ptr;
 
 	ptr = module_alloc_update_bounds_rx(mod->init_size_rx);
-	kmemleak_not_leak(ptr);
+	kmemleak_ignore(ptr);
 	if (!ptr && mod->init_size_rx) {
 		err = -ENOMEM;
 		goto free_core_rx;

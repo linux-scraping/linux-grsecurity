@@ -334,7 +334,7 @@ static void rx_submit (struct usbnet *dev, struct urb *urb, gfp_t flags)
 	/* prevent rx skb allocation when error ratio is high */
 	if (test_bit(EVENT_RX_KILL, &dev->flags)) {
 		usb_free_urb(urb);
-		return -ENOLINK;
+		return;
 	}
 
 	if ((skb = alloc_skb (size + NET_IP_ALIGN, flags)) == NULL) {
@@ -492,7 +492,7 @@ block:
 		dev->pkt_cnt = 0;
 		dev->pkt_err = 0;
 	} else {
-		if (state == rx_cleanup)
+		if (entry->state == rx_cleanup)
 			dev->pkt_err++;
 		if (dev->pkt_err > 20)
 			set_bit(EVENT_RX_KILL, &dev->flags);

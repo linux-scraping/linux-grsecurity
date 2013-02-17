@@ -88,7 +88,7 @@ struct x86_init_timers {
 	void (*setup_percpu_clockev)(void);
 	void (*tsc_pre_init)(void);
 	void (*timer_init)(void);
-};
+} __no_const;
 
 /**
  * struct x86_init_ops - functions for platform specific setup
@@ -101,7 +101,7 @@ struct x86_init_ops {
 	struct x86_init_oem		oem;
 	struct x86_init_paging		paging;
 	struct x86_init_timers		timers;
-};
+} __no_const;
 
 /**
  * struct x86_cpuinit_ops - platform specific cpu hotplug setups
@@ -109,7 +109,7 @@ struct x86_init_ops {
  */
 struct x86_cpuinit_ops {
 	void (*setup_percpu_clockev)(void);
-};
+} __no_const;
 
 /**
  * struct x86_platform_ops - platform specific runtime functions
@@ -121,7 +121,7 @@ struct x86_platform_ops {
 	unsigned long (*calibrate_tsc)(void);
 	unsigned long (*get_wallclock)(void);
 	int (*set_wallclock)(unsigned long nowtime);
-};
+} __no_const;
 
 extern struct x86_init_ops x86_init;
 extern struct x86_cpuinit_ops x86_cpuinit;

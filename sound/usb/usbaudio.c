@@ -963,12 +963,12 @@ static int snd_usb_pcm_playback_trigger(struct snd_pcm_substream *substream,
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		*(void **)&subs->ops.prepare = prepare_playback_urb;
+		subs->ops.prepare = prepare_playback_urb;
 		return 0;
 	case SNDRV_PCM_TRIGGER_STOP:
 		return deactivate_urbs(subs, 0, 0);
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		*(void **)&subs->ops.prepare = prepare_nodata_playback_urb;
+		subs->ops.prepare = prepare_nodata_playback_urb;
 		return 0;
 	default:
 		return -EINVAL;
@@ -985,15 +985,15 @@ static int snd_usb_pcm_capture_trigger(struct snd_pcm_substream *substream,
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
-		*(void **)&subs->ops.retire = retire_capture_urb;
+		subs->ops.retire = retire_capture_urb;
 		return start_urbs(subs, substream->runtime);
 	case SNDRV_PCM_TRIGGER_STOP:
 		return deactivate_urbs(subs, 0, 0);
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		*(void **)&subs->ops.retire = retire_paused_capture_urb;
+		subs->ops.retire = retire_paused_capture_urb;
 		return 0;
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		*(void **)&subs->ops.retire = retire_capture_urb;
+		subs->ops.retire = retire_capture_urb;
 		return 0;
 	default:
 		return -EINVAL;
@@ -1542,7 +1542,7 @@ static int snd_usb_pcm_prepare(struct snd_pcm_substream *substream)
 	/* for playback, submit the URBs now; otherwise, the first hwptr_done
 	 * updates for all URBs would happen at the same time when starting */
 	if (subs->direction == SNDRV_PCM_STREAM_PLAYBACK) {
-		*(void **)&subs->ops.prepare = prepare_nodata_playback_urb;
+		subs->ops.prepare = prepare_nodata_playback_urb;
 		return start_urbs(subs, runtime);
 	} else
 		return 0;
@@ -2235,7 +2235,7 @@ static void init_substream(struct snd_usb_stream *as, int stream, struct audiofo
 		case USB_ID(0x041e, 0x3f02): /* E-Mu 0202 USB */
 		case USB_ID(0x041e, 0x3f04): /* E-Mu 0404 USB */
 		case USB_ID(0x041e, 0x3f0a): /* E-Mu Tracker Pre */
-			*(void **)&subs->ops.retire_sync = retire_playback_sync_urb_hs_emu;
+			subs->ops.retire_sync = retire_playback_sync_urb_hs_emu;
 			break;
 		}
 	}

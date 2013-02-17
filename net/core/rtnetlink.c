@@ -57,7 +57,7 @@ struct rtnl_link
 {
 	rtnl_doit_func		doit;
 	rtnl_dumpit_func	dumpit;
-};
+} __no_const;
 
 static DEFINE_MUTEX(rtnl_mutex);
 
@@ -160,13 +160,11 @@ int __rtnl_register(int protocol, int msgtype,
 		rtnl_msg_handlers[protocol] = tab;
 	}
 
-	pax_open_kernel();
 	if (doit)
-		*(void **)&tab[msgindex].doit = doit;
+		tab[msgindex].doit = doit;
 
 	if (dumpit)
-		*(void **)&tab[msgindex].dumpit = dumpit;
-	pax_close_kernel();
+		tab[msgindex].dumpit = dumpit;
 
 	return 0;
 }
@@ -210,10 +208,8 @@ int rtnl_unregister(int protocol, int msgtype)
 	if (rtnl_msg_handlers[protocol] == NULL)
 		return -ENOENT;
 
-	pax_open_kernel();
-	*(void **)&rtnl_msg_handlers[protocol][msgindex].doit = NULL;
-	*(void **)&rtnl_msg_handlers[protocol][msgindex].dumpit = NULL;
-	pax_close_kernel();
+	rtnl_msg_handlers[protocol][msgindex].doit = NULL;
+	rtnl_msg_handlers[protocol][msgindex].dumpit = NULL;
 
 	return 0;
 }

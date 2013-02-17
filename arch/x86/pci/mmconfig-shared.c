@@ -340,8 +340,7 @@ static void __init pci_mmcfg_insert_resources(void)
 	char *names;
 	unsigned num_buses;
 
-	res = kcalloc(PCI_MMCFG_RESOURCE_NAME_LEN + sizeof(*res),
-			pci_mmcfg_config_num, GFP_KERNEL);
+	res = kcalloc(pci_mmcfg_config_num, PCI_MMCFG_RESOURCE_NAME_LEN + sizeof(*res), GFP_KERNEL);
 	if (!res) {
 		printk(KERN_ERR "PCI: Unable to allocate MMCONFIG resources\n");
 		return;

@@ -368,6 +368,10 @@ void arch_pick_mmap_layout(struct mm_struct *mm)
 {
 	unsigned long random_factor = 0UL;
 
+#ifdef CONFIG_PAX_RANDMMAP
+	if (!(current->mm->pax_flags & MF_PAX_RANDMMAP))
+#endif
+
 	if (current->flags & PF_RANDOMIZE) {
 		random_factor = get_random_int();
 		if (test_thread_flag(TIF_32BIT))

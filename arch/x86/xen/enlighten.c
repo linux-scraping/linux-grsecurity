@@ -714,12 +714,12 @@ static u32 xen_safe_apic_wait_icr_idle(void)
 
 static void set_xen_basic_apic_ops(void)
 {
-	*(void **)&apic->read = xen_apic_read;
-	*(void **)&apic->write = xen_apic_write;
-	*(void **)&apic->icr_read = xen_apic_icr_read;
-	*(void **)&apic->icr_write = xen_apic_icr_write;
-	*(void **)&apic->wait_icr_idle = xen_apic_wait_icr_idle;
-	*(void **)&apic->safe_wait_icr_idle = xen_safe_apic_wait_icr_idle;
+	apic->read = xen_apic_read;
+	apic->write = xen_apic_write;
+	apic->icr_read = xen_apic_icr_read;
+	apic->icr_write = xen_apic_icr_write;
+	apic->wait_icr_idle = xen_apic_wait_icr_idle;
+	apic->safe_wait_icr_idle = xen_safe_apic_wait_icr_idle;
 }
 
 #endif
@@ -996,8 +996,8 @@ static __noreturn void xen_reboot(int reason)
 {
 	struct sched_shutdown r = { .reason = reason };
 
-	if (HYPERVISOR_sched_op(SCHEDOP_shutdown, &r))
-		BUG();
+	HYPERVISOR_sched_op(SCHEDOP_shutdown, &r);
+	BUG();
 }
 
 static __noreturn void xen_restart(char *msg)
@@ -1036,14 +1036,14 @@ static const struct machine_ops __initdata xen_machine_ops = {
  */
 static void __init xen_setup_stackprotector(void)
 {
-	*(void **)&pv_cpu_ops.write_gdt_entry = xen_write_gdt_entry_boot;
-	*(void **)&pv_cpu_ops.load_gdt = xen_load_gdt_boot;
+	pv_cpu_ops.write_gdt_entry = xen_write_gdt_entry_boot;
+	pv_cpu_ops.load_gdt = xen_load_gdt_boot;
 
 	setup_stack_canary_segment(0);
 	switch_to_new_gdt(0);
 
-	*(void **)&pv_cpu_ops.write_gdt_entry = xen_write_gdt_entry;
-	*(void **)&pv_cpu_ops.load_gdt = xen_load_gdt;
+	pv_cpu_ops.write_gdt_entry = xen_write_gdt_entry;
+	pv_cpu_ops.load_gdt = xen_load_gdt;
 }
 
 /* First C function to be called on Xen boot */
@@ -1063,17 +1063,17 @@ asmlinkage void __init xen_start_kernel(void)
 	memcpy((void *)&pv_cpu_ops, &xen_cpu_ops, sizeof pv_cpu_ops);
 	memcpy((void *)&pv_apic_ops, &xen_apic_ops, sizeof pv_apic_ops);
 
-	*(void **)&x86_init.resources.memory_setup = xen_memory_setup;
-	*(void **)&x86_init.oem.arch_setup = xen_arch_setup;
-	*(void **)&x86_init.oem.banner = xen_banner;
+	x86_init.resources.memory_setup = xen_memory_setup;
+	x86_init.oem.arch_setup = xen_arch_setup;
+	x86_init.oem.banner = xen_banner;
 
-	*(void **)&x86_init.timers.timer_init = xen_time_init;
-	*(void **)&x86_init.timers.setup_percpu_clockev = x86_init_noop;
-	*(void **)&x86_cpuinit.setup_percpu_clockev = x86_init_noop;
+	x86_init.timers.timer_init = xen_time_init;
+	x86_init.timers.setup_percpu_clockev = x86_init_noop;
+	x86_cpuinit.setup_percpu_clockev = x86_init_noop;
 
-	*(void **)&x86_platform.calibrate_tsc = xen_tsc_khz;
-	*(void **)&x86_platform.get_wallclock = xen_get_wallclock;
-	*(void **)&x86_platform.set_wallclock = xen_set_wallclock;
+	x86_platform.calibrate_tsc = xen_tsc_khz;
+	x86_platform.get_wallclock = xen_get_wallclock;
+	x86_platform.set_wallclock = xen_set_wallclock;
 
 	/*
 	 * Set up some pagetable state before starting to set any ptes.

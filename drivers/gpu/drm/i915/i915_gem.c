@@ -3639,8 +3639,8 @@ i915_gem_execbuffer(struct drm_device *dev, void *data,
 		return -EINVAL;
 	}
 	/* Copy in the exec list from userland */
-	exec_list = drm_calloc_large(sizeof(*exec_list), args->buffer_count);
-	object_list = drm_calloc_large(sizeof(*object_list), args->buffer_count);
+	exec_list = drm_calloc_large(args->buffer_count, sizeof(*exec_list));
+	object_list = drm_calloc_large(args->buffer_count, sizeof(*object_list));
 	if (exec_list == NULL || object_list == NULL) {
 		DRM_ERROR("Failed to allocate exec or object list "
 			  "for %d buffers\n",

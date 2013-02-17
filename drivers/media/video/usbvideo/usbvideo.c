@@ -699,13 +699,13 @@ int usbvideo_register(
 	/* Copy callbacks, apply defaults for those that are not set */
 	memmove((void *)&cams->cb, cbTbl, sizeof(cams->cb));
 	if (cams->cb.getFrame == NULL)
-		*(void **)&cams->cb.getFrame = usbvideo_GetFrame;
+		cams->cb.getFrame = usbvideo_GetFrame;
 	if (cams->cb.disconnect == NULL)
-		*(void **)&cams->cb.disconnect = usbvideo_Disconnect;
+		cams->cb.disconnect = usbvideo_Disconnect;
 	if (cams->cb.startDataPump == NULL)
-		*(void **)&cams->cb.startDataPump = usbvideo_StartDataPump;
+		cams->cb.startDataPump = usbvideo_StartDataPump;
 	if (cams->cb.stopDataPump == NULL)
-		*(void **)&cams->cb.stopDataPump = usbvideo_StopDataPump;
+		cams->cb.stopDataPump = usbvideo_StopDataPump;
 
 	cams->num_cameras = num_cams;
 	cams->cam = (struct uvd *) &cams[1];

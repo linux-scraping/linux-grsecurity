@@ -846,7 +846,7 @@ __bad_area_nosemaphore(struct pt_regs *regs, unsigned long error_code,
 		if (address >= TASK_SIZE)
 			error_code |= PF_PROT;
 
-		if (show_unhandled_signals)
+		if (likely(show_unhandled_signals))
 			show_signal_msg(regs, error_code, address, tsk);
 
 		tsk->thread.cr2		= address;
