@@ -134,6 +134,7 @@ hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 	struct vm_area_struct *vma;
 	unsigned long start_addr;
 	struct hstate *h = hstate_file(file);
+	unsigned long offset = gr_rand_threadstack_offset(mm, file, flags);
 
 	if (len & ~huge_page_mask(h))
 		return -EINVAL;
@@ -180,7 +181,7 @@ full_search:
 			return -ENOMEM;
 		}
 
-		if (check_heap_stack_gap(vma, addr, len))
+		if (check_heap_stack_gap(vma, addr, len, offset))
 			return addr;
 		addr = ALIGN(vma->vm_end, huge_page_size(h));
 	}

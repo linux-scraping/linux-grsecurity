@@ -78,6 +78,7 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	struct vm_area_struct * vmm;
 	int do_color_align;
 	unsigned long task_size;
+	unsigned long offset = gr_rand_threadstack_offset(current->mm, filp, flags);
 
 	task_size = STACK_TOP;
 
@@ -113,7 +114,7 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 		else
 			addr = PAGE_ALIGN(addr);
 		vmm = find_vma(current->mm, addr);
-		if (task_size - len >= addr && check_heap_stack_gap(vmm, addr, len))
+		if (task_size - len >= addr && check_heap_stack_gap(vmm, addr, len, offset))
 			return addr;
 	}
 	addr = current->mm->mmap_base;
@@ -126,7 +127,7 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 		/* At this point:  (!vmm || addr < vmm->vm_end). */
 		if (task_size - len < addr)
 			return -ENOMEM;
-		if (check_heap_stack_gap(vmm, addr, len))
+		if (check_heap_stack_gap(vmm, addr, len, offset))
 			return addr;
 		addr = vmm->vm_end;
 		if (do_color_align)
