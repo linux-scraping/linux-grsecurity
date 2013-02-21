@@ -1,5 +1,5 @@
 #!/bin/bash
-plugincc=`$1 -x c -shared - -o /dev/null -I\`$3 -print-file-name=plugin\`/include 2>&1 <<EOF
+plugincc=`$1 -E -shared - -o /dev/null -I\`$3 -print-file-name=plugin\`/include 2>&1 <<EOF
 #include "gcc-plugin.h"
 #include "tree.h"
 #include "tm.h"
