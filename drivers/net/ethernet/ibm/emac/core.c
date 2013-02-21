@@ -2309,7 +2309,7 @@ static int __devinit emac_of_bus_notify(struct notifier_block *nb,
 	return 0;
 }
 
-static struct notifier_block emac_of_bus_notifier __devinitdata = {
+static struct notifier_block emac_of_bus_notifier = {
 	.notifier_call = emac_of_bus_notify
 };
 

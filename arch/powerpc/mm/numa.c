@@ -964,7 +964,7 @@ static void __init *careful_zallocation(int nid, unsigned long size,
 	return ret;
 }
 
-static struct notifier_block __cpuinitdata ppc64_numa_nb = {
+static struct notifier_block ppc64_numa_nb = {
 	.notifier_call = cpu_numa_callback,
 	.priority = 1 /* Must run before sched domains notifier. */
 };

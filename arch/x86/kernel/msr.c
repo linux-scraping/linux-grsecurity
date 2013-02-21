@@ -235,7 +235,7 @@ static int __cpuinit msr_class_cpu_callback(struct notifier_block *nfb,
 	return notifier_from_errno(err);
 }
 
-static struct notifier_block __refdata msr_class_cpu_notifier = {
+static struct notifier_block msr_class_cpu_notifier = {
 	.notifier_call = msr_class_cpu_callback,
 };
 

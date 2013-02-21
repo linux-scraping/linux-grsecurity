@@ -1377,7 +1377,7 @@ static int __cpuinit cpuup_callback(struct notifier_block *nfb,
 	return notifier_from_errno(err);
 }
 
-static struct notifier_block __cpuinitdata cpucache_notifier = {
+static struct notifier_block cpucache_notifier = {
 	&cpuup_callback, NULL, 0
 };
 

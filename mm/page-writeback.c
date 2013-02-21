@@ -1380,7 +1380,7 @@ ratelimit_handler(struct notifier_block *self, unsigned long u, void *v)
 	return NOTIFY_DONE;
 }
 
-static struct notifier_block __cpuinitdata ratelimit_nb = {
+static struct notifier_block ratelimit_nb = {
 	.notifier_call	= ratelimit_handler,
 	.next		= NULL,
 };

@@ -1919,7 +1919,7 @@ static int __cpuinit mca_cpu_callback(struct notifier_block *nfb,
 	return NOTIFY_OK;
 }
 
-static struct notifier_block mca_cpu_notifier __cpuinitdata = {
+static struct notifier_block mca_cpu_notifier = {
 	.notifier_call = mca_cpu_callback
 };
 

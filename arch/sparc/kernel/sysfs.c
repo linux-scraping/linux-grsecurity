@@ -266,7 +266,7 @@ static int __cpuinit sysfs_cpu_notify(struct notifier_block *self,
 	return NOTIFY_OK;
 }
 
-static struct notifier_block __cpuinitdata sysfs_cpu_nb = {
+static struct notifier_block sysfs_cpu_nb = {
 	.notifier_call	= sysfs_cpu_notify,
 };
 

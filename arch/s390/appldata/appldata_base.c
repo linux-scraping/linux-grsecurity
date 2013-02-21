@@ -610,7 +610,7 @@ static int __cpuinit appldata_cpu_notify(struct notifier_block *self,
 	return NOTIFY_OK;
 }
 
-static struct notifier_block __cpuinitdata appldata_nb = {
+static struct notifier_block appldata_nb = {
 	.notifier_call = appldata_cpu_notify,
 };
 

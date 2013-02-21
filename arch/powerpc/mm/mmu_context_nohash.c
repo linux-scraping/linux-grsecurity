@@ -370,7 +370,7 @@ static int __cpuinit mmu_context_cpu_notify(struct notifier_block *self,
 	return NOTIFY_OK;
 }
 
-static struct notifier_block __cpuinitdata mmu_context_cpu_nb = {
+static struct notifier_block mmu_context_cpu_nb = {
 	.notifier_call	= mmu_context_cpu_notify,
 };
 
