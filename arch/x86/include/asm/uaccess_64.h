@@ -78,6 +78,7 @@ static inline unsigned long __must_check copy_from_user(void *to,
 	might_fault();
 
 	check_object_size(to, n, false);
+
 	if (access_ok(VERIFY_READ, from, n))
 		n = __copy_from_user(to, from, n);
 	else if (n < INT_MAX)

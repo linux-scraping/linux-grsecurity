@@ -161,7 +161,7 @@ static int setup_additional_pages(struct linux_binprm *bprm,
 #endif
 
 	addr = vdso_addr(mm->start_stack, size);
-	addr = align_addr(addr, NULL, ALIGN_VDSO);
+	addr = align_vdso_addr(addr);
 	addr = get_unmapped_area(NULL, addr, size, 0, 0);
 	if (IS_ERR_VALUE(addr)) {
 		ret = addr;

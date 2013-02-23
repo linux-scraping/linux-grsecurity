@@ -23,6 +23,7 @@
 #include <linux/hw_breakpoint.h>
 #include <linux/rcupdate.h>
 #include <linux/module.h>
+#include <linux/context_tracking.h>
 
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
@@ -1494,7 +1495,7 @@ long syscall_trace_enter(struct pt_regs *regs)
 {
 	long ret = 0;
 
-	rcu_user_exit();
+	user_exit();
 
 #ifdef CONFIG_GRKERNSEC_SETXID
 	if (unlikely(test_and_clear_thread_flag(TIF_GRSEC_SETXID)))
@@ -1554,7 +1555,7 @@ void syscall_trace_leave(struct pt_regs *regs)
 	 * or do_notify_resume(), in which case we can be in RCU
 	 * user mode.
 	 */
-	rcu_user_exit();
+	user_exit();
 
 #ifdef CONFIG_GRKERNSEC_SETXID
 	if (unlikely(test_and_clear_thread_flag(TIF_GRSEC_SETXID)))
@@ -1577,5 +1578,5 @@ void syscall_trace_leave(struct pt_regs *regs)
 	if (step || test_thread_flag(TIF_SYSCALL_TRACE))
 		tracehook_report_syscall_exit(regs, step);
 
-	rcu_user_enter();
+	user_enter();
 }

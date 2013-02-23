@@ -85,7 +85,7 @@ static struct {
  * Returns the entry point for the given service, NULL on error
  */
 
-static unsigned long __devinit bios32_service(unsigned long service)
+static unsigned long bios32_service(unsigned long service)
 {
 	unsigned char return_code;	/* %al */
 	unsigned long address;		/* %ebx */
@@ -167,7 +167,7 @@ static struct {
 
 static int pci_bios_present __read_only;
 
-static int __devinit check_pcibios(void)
+static int check_pcibios(void)
 {
 	u32 signature, eax, ebx, ecx;
 	u8 status, major_ver, minor_ver, hw_mech;
@@ -382,7 +382,7 @@ static const struct pci_raw_ops pci_bios_access = {
  * Try to find PCI BIOS.
  */
 
-static const struct pci_raw_ops * __devinit pci_find_bios(void)
+static const struct pci_raw_ops *pci_find_bios(void)
 {
 	union bios32 *check;
 	unsigned char sum;

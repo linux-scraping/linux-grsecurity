@@ -186,28 +186,3 @@ struct fs_struct init_fs = {
 	.seq		= SEQCNT_ZERO,
 	.umask		= 0022,
 };
-
-void daemonize_fs_struct(void)
-{
-	struct fs_struct *fs = current->fs;
-
-	if (fs) {
-		int kill;
-
-		task_lock(current);
-
-		spin_lock(&init_fs.lock);
-		atomic_inc(&init_fs.users);
-		spin_unlock(&init_fs.lock);
-
-		spin_lock(&fs->lock);
-		current->fs = &init_fs;
-		gr_set_chroot_entries(current, &current->fs->root);
-		kill = !atomic_dec_return(&fs->users);
-		spin_unlock(&fs->lock);
-
-		task_unlock(current);
-		if (kill)
-			free_fs_struct(fs);
-	}
-}

@@ -25,14 +25,23 @@ extern const struct file_operations random_fops, urandom_fops;
 unsigned int get_random_int(void);
 unsigned long randomize_range(unsigned long start, unsigned long end, unsigned long len);
 
-u32 random32(void);
-void srandom32(u32 seed);
+u32 prandom_u32(void);
+void prandom_bytes(void *buf, int nbytes);
+void prandom_seed(u32 seed);
 
-u32 prandom32(struct rnd_state *);
+/*
+ * These macros are preserved for backward compatibility and should be
+ * removed as soon as a transition is finished.
+ */
+#define random32() prandom_u32()
+#define srandom32(seed) prandom_seed(seed)
+
+u32 prandom_u32_state(struct rnd_state *);
+void prandom_bytes_state(struct rnd_state *state, void *buf, int nbytes);
 
 static inline unsigned long pax_get_random_long(void)
 {
-	return random32() + (sizeof(long) > 4 ? (unsigned long)random32() << 32 : 0);
+	return prandom_u32() + (sizeof(long) > 4 ? (unsigned long)prandom_u32() << 32 : 0);
 }
 
 /*
@@ -40,15 +49,15 @@ static inline unsigned long pax_get_random_long(void)
  */
 static inline u32 __seed(u32 x, u32 m)
 {
-	return (x <= m) ? x + m + 1 : x;
+	return (x < m) ? x + m : x;
 }
 
 /**
- * prandom32_seed - set seed for prandom32().
+ * prandom_seed_state - set seed for prandom_u32_state().
  * @state: pointer to state structure to receive the seed.
  * @seed: arbitrary 64-bit value to use as a seed.
  */
-static inline void prandom32_seed(struct rnd_state *state, u64 seed)
+static inline void prandom_seed_state(struct rnd_state *state, u64 seed)
 {
 	u32 i = (seed >> 32) ^ (seed << 10) ^ seed;
 

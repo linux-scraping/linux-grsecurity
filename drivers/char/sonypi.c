@@ -1165,7 +1165,7 @@ static struct acpi_driver sonypi_acpi_driver = {
 };
 #endif
 
-static int __devinit sonypi_create_input_devices(struct platform_device *pdev)
+static int sonypi_create_input_devices(struct platform_device *pdev)
 {
 	struct input_dev *jog_dev;
 	struct input_dev *key_dev;
@@ -1226,7 +1226,7 @@ static int __devinit sonypi_create_input_devices(struct platform_device *pdev)
 	return error;
 }
 
-static int __devinit sonypi_setup_ioports(struct sonypi_device *dev,
+static int sonypi_setup_ioports(struct sonypi_device *dev,
 				const struct sonypi_ioport_list *ioport_list)
 {
 	/* try to detect if sony-laptop is being used and thus
@@ -1266,7 +1266,7 @@ static int __devinit sonypi_setup_ioports(struct sonypi_device *dev,
 	return -EBUSY;
 }
 
-static int __devinit sonypi_setup_irq(struct sonypi_device *dev,
+static int sonypi_setup_irq(struct sonypi_device *dev,
 				      const struct sonypi_irq_list *irq_list)
 {
 	while (irq_list->irq) {
@@ -1283,7 +1283,7 @@ static int __devinit sonypi_setup_irq(struct sonypi_device *dev,
 	return -EBUSY;
 }
 
-static void __devinit sonypi_display_info(void)
+static void sonypi_display_info(void)
 {
 	printk(KERN_INFO "sonypi: detected type%d model, "
 	       "verbose = %d, fnkeyinit = %s, camera = %s, "
@@ -1305,7 +1305,7 @@ static void __devinit sonypi_display_info(void)
 		       sonypi_misc_device.minor);
 }
 
-static int __devinit sonypi_probe(struct platform_device *dev)
+static int sonypi_probe(struct platform_device *dev)
 {
 	const struct sonypi_ioport_list *ioport_list;
 	const struct sonypi_irq_list *irq_list;
@@ -1429,7 +1429,7 @@ static int __devinit sonypi_probe(struct platform_device *dev)
 	return error;
 }
 
-static int __devexit sonypi_remove(struct platform_device *dev)
+static int sonypi_remove(struct platform_device *dev)
 {
 	sonypi_disable();
 
@@ -1492,7 +1492,7 @@ static struct platform_driver sonypi_driver = {
 		.pm	= SONYPI_PM,
 	},
 	.probe		= sonypi_probe,
-	.remove		= __devexit_p(sonypi_remove),
+	.remove		= sonypi_remove,
 	.shutdown	= sonypi_shutdown,
 };
 

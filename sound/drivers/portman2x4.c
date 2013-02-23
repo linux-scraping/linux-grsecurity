@@ -97,9 +97,9 @@ static int portman_free(struct portman *pm)
 	return 0;
 }
 
-static int __devinit portman_create(struct snd_card *card, 
-				    struct pardevice *pardev, 
-				    struct portman **rchip)
+static int portman_create(struct snd_card *card,
+			  struct pardevice *pardev,
+			  struct portman **rchip)
 {
 	struct portman *pm;
 
@@ -562,7 +562,7 @@ static struct snd_rawmidi_ops snd_portman_midi_input = {
 };
 
 /* Create and initialize the rawmidi component */
-static int __devinit snd_portman_rawmidi_create(struct snd_card *card)
+static int snd_portman_rawmidi_create(struct snd_card *card)
 {
 	struct portman *pm = card->private_data;
 	struct snd_rawmidi *rmidi;
@@ -649,7 +649,7 @@ static void snd_portman_interrupt(void *userdata)
 	spin_unlock(&pm->reg_lock);
 }
 
-static int __devinit snd_portman_probe_port(struct parport *p)
+static int snd_portman_probe_port(struct parport *p)
 {
 	struct pardevice *pardev;
 	int res;
@@ -673,7 +673,7 @@ static int __devinit snd_portman_probe_port(struct parport *p)
 	return res ? -EIO : 0;
 }
 
-static void __devinit snd_portman_attach(struct parport *p)
+static void snd_portman_attach(struct parport *p)
 {
 	struct platform_device *device;
 
@@ -729,7 +729,7 @@ static void snd_portman_card_private_free(struct snd_card *card)
 	portman_free(pm);
 }
 
-static int __devinit snd_portman_probe(struct platform_device *pdev)
+static int snd_portman_probe(struct platform_device *pdev)
 {
 	struct pardevice *pardev;
 	struct parport *p;
@@ -815,7 +815,7 @@ __err:
 	return err;
 }
 
-static int __devexit snd_portman_remove(struct platform_device *pdev)
+static int snd_portman_remove(struct platform_device *pdev)
 {
 	struct snd_card *card = platform_get_drvdata(pdev);
 
@@ -828,7 +828,7 @@ static int __devexit snd_portman_remove(struct platform_device *pdev)
 
 static struct platform_driver snd_portman_driver = {
 	.probe  = snd_portman_probe,
-	.remove = __devexit_p(snd_portman_remove),
+	.remove = snd_portman_remove,
 	.driver = {
 		.name = PLATFORM_DRIVER,
 		.owner	= THIS_MODULE,

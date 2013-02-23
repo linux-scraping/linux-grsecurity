@@ -38,13 +38,6 @@ extern struct sys_timer ux500_timer;
 	.type		= MT_DEVICE,		\
 }
 
-#define __MEM_DEV_DESC(x, sz)	{		\
-	.virtual	= IO_ADDRESS(x),	\
-	.pfn		= __phys_to_pfn(x),	\
-	.length		= sz,			\
-	.type		= MT_MEMORY,		\
-}
-
 extern struct smp_operations ux500_smp_ops;
 extern void ux500_cpu_die(unsigned int cpu);
 

@@ -140,15 +140,16 @@ __do_kernel_fault(struct mm_struct *mm, unsigned long addr, unsigned int fsr,
 		return;
 
 #ifdef CONFIG_PAX_KERNEXEC
-	if (fsr & FSR_WRITE) {
-		if (((unsigned long)_stext <= addr && addr < init_mm.end_code) || (MODULES_VADDR <= addr && addr < MODULES_END)) {
-			if (current->signal->curr_ip)
-				printk(KERN_ERR "PAX: From %pI4: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n",
-						 &current->signal->curr_ip, current->comm, task_pid_nr(current), current_uid(), current_euid());
-			else
-				printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n",
-						 current->comm, task_pid_nr(current), current_uid(), current_euid());
-		}
+	if ((fsr & FSR_WRITE) &&
+	    (((unsigned long)_stext <= addr && addr < init_mm.end_code) ||
+	     (MODULES_VADDR <= addr && addr < MODULES_END)))
+	{
+		if (current->signal->curr_ip)
+			printk(KERN_ERR "PAX: From %pI4: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n", &current->signal->curr_ip, current->comm, task_pid_nr(current),
+					from_kuid(&init_user_ns, current_uid()), from_kuid(&init_user_ns, current_euid()));
+		else
+			printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n", current->comm, task_pid_nr(current),
+					from_kuid(&init_user_ns, current_uid()), from_kuid(&init_user_ns, current_euid()));
 	}
 #endif
 
@@ -591,9 +592,22 @@ do_DataAbort(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 	const struct fsr_info *inf = fsr_info + fsr_fs(fsr);
 	struct siginfo info;
 
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	if (addr < TASK_SIZE && is_domain_fault(fsr)) {
+		if (current->signal->curr_ip)
+			printk(KERN_ERR "PAX: From %pI4: %s:%d, uid/euid: %u/%u, attempted to access userland memory at %08lx\n", &current->signal->curr_ip, current->comm, task_pid_nr(current),
+					from_kuid(&init_user_ns, current_uid()), from_kuid(&init_user_ns, current_euid()), addr);
+		else
+			printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to access userland memory at %08lx\n", current->comm, task_pid_nr(current),
+					from_kuid(&init_user_ns, current_uid()), from_kuid(&init_user_ns, current_euid()), addr);
+		goto die;
+	}
+#endif
+
 	if (!inf->fn(addr, fsr & ~FSR_LNX_PF, regs))
 		return;
 
+die:
 	printk(KERN_ALERT "Unhandled fault: %s (0x%03x) at 0x%08lx\n",
 		inf->name, fsr, addr);
 
@@ -623,16 +637,16 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 	const struct fsr_info *inf = ifsr_info + fsr_fs(ifsr);
 	struct siginfo info;
 
-#ifdef CONFIG_PAX_KERNEXEC
-	if (!user_mode(regs) && is_xn_fault(ifsr)) {
+#if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
+	if (!user_mode(regs) && (is_domain_fault(ifsr) || is_xn_fault(ifsr))) {
 		if (current->signal->curr_ip)
-			printk(KERN_ERR "PAX: From %pI4: %s:%d, uid/euid: %u/%u, attempted to execute %s memory at %08lx\n",
-					 &current->signal->curr_ip, current->comm, task_pid_nr(current), current_uid(), current_euid(),
-					 addr >= TASK_SIZE ? "non-executable kernel" : "userland", addr);
+			printk(KERN_ERR "PAX: From %pI4: %s:%d, uid/euid: %u/%u, attempted to execute %s memory at %08lx\n", &current->signal->curr_ip, current->comm, task_pid_nr(current),
+					from_kuid(&init_user_ns, current_uid()), from_kuid(&init_user_ns, current_euid()),
+					addr >= TASK_SIZE ? "non-executable kernel" : "userland", addr);
 		else
-			printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to execute %s memory at %08lx\n",
-					 current->comm, task_pid_nr(current), current_uid(), current_euid(),
-					 addr >= TASK_SIZE ? "non-executable kernel" : "userland", addr);
+			printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to execute %s memory at %08lx\n", current->comm, task_pid_nr(current),
+					from_kuid(&init_user_ns, current_uid()), from_kuid(&init_user_ns, current_euid()),
+					addr >= TASK_SIZE ? "non-executable kernel" : "userland", addr);
 		goto die;
 	}
 #endif
@@ -654,10 +668,10 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 	if (!inf->fn(addr, ifsr | FSR_LNX_PF, regs))
 		return;
 
+die:
 	printk(KERN_ALERT "Unhandled prefetch abort: %s (0x%03x) at 0x%08lx\n",
 		inf->name, ifsr, addr);
 
-die:
 	info.si_signo = inf->sig;
 	info.si_errno = 0;
 	info.si_code  = inf->code;

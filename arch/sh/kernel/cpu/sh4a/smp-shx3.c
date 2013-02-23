@@ -143,7 +143,7 @@ shx3_cpu_callback(struct notifier_block *nfb, unsigned long action, void *hcpu)
 	return NOTIFY_OK;
 }
 
-static struct notifier_block __cpuinitdata shx3_cpu_notifier = {
+static struct notifier_block shx3_cpu_notifier = {
 	.notifier_call		= shx3_cpu_callback,
 };
 

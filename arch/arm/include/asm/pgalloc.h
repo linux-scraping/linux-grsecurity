@@ -133,12 +133,15 @@ static inline void pte_free(struct mm_struct *mm, pgtable_t pte)
 	__free_page(pte);
 }
 
-static inline void __pmd_update(pmd_t *pmdp, pmdval_t prot)
+static inline void __section_update(pmd_t *pmdp, unsigned long addr, pmdval_t prot)
 {
-	pmdval_t pmdval = pmd_val(*pmdp) | prot;
-	pmdp[0] = __pmd(pmdval);
-#ifndef CONFIG_ARM_LPAE
-	pmdp[1] = __pmd(pmdval + 256 * sizeof(pte_t));
+#ifdef CONFIG_ARM_LPAE
+	pmdp[0] = __pmd(pmd_val(pmdp[0]) | prot);
+#else
+	if (addr & SECTION_SIZE)
+		pmdp[1] = __pmd(pmd_val(pmdp[1]) | prot);
+	else
+		pmdp[0] = __pmd(pmd_val(pmdp[0]) | prot);
 #endif
 	flush_pmd_entry(pmdp);
 }

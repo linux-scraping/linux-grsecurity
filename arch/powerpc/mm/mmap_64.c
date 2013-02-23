@@ -58,7 +58,7 @@ static unsigned long mmap_rnd(void)
 	unsigned long rnd = 0;
 
 #ifdef CONFIG_PAX_RANDMMAP
-	if (!(current->mm->pax_flags & MF_PAX_RANDMMAP))
+	if (!(mm->pax_flags & MF_PAX_RANDMMAP))
 #endif
 
 	if (current->flags & PF_RANDOMIZE) {

@@ -606,7 +606,9 @@ asmlinkage int arm_syscall(int no, struct pt_regs *regs)
 			 * The user helper at 0xffff0fe0 must be used instead.
 			 * (see entry-armv.S for details)
 			 */
+			pax_open_kernel();
 			*((unsigned int *)0xffff0ff0) = regs->ARM_r0;
+			pax_close_kernel();
 		}
 		return 0;
 
@@ -854,5 +856,9 @@ void __init early_trap_init(void *vectors_base)
 	       sigreturn_codes, sizeof(sigreturn_codes));
 
 	flush_icache_range(vectors, vectors + PAGE_SIZE);
-	modify_domain(DOMAIN_USER, DOMAIN_CLIENT);
+
+#ifndef CONFIG_PAX_MEMORY_UDEREF
+	modify_domain(DOMAIN_USER, DOMAIN_USERCLIENT);
+#endif
+
 }

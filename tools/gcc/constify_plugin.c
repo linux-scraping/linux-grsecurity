@@ -47,7 +47,7 @@ static tree get_field_type(tree field)
 	return strip_array_types(TREE_TYPE(field));
 }
 
-static bool walk_struct(tree node);
+static bool walk_struct(tree node, bool all);
 static void deconstify_tree(tree node);
 
 static void deconstify_type(tree type)
@@ -61,7 +61,7 @@ static void deconstify_type(tree type)
 			continue;
 		if (!TYPE_READONLY(fieldtype))
 			continue;
-		if (!walk_struct(fieldtype))
+		if (!walk_struct(fieldtype, true))
 			continue;
 
 		deconstify_tree(field);
@@ -209,7 +209,7 @@ static bool is_fptr(tree field)
 	return TREE_CODE(TREE_TYPE(ptr)) == FUNCTION_TYPE;
 }
 
-static bool walk_struct(tree node)
+static bool walk_struct(tree node, bool all)
 {
 	tree field;
 
@@ -232,9 +232,9 @@ static bool walk_struct(tree node)
 		if (node == type)
 			return false;
 		if (code == RECORD_TYPE || code == UNION_TYPE) {
-			if (!(walk_struct(type)))
+			if (!(walk_struct(type, all)))
 				return false;
-		} else if (!is_fptr(field) && !TREE_READONLY(field))
+		} else if (!is_fptr(field) && (!all || !TREE_READONLY(field)))
 			return false;
 	}
 	return true;
@@ -250,7 +250,7 @@ static void finish_type(void *event_data, void *data)
 	if (TYPE_READONLY(type))
 		return;
 
-	if (walk_struct(type))
+	if (walk_struct(type, true))
 		constify_type(type);
 	else
 		deconstify_type(type);
@@ -291,7 +291,7 @@ static unsigned int check_local_variables(void)
 		if (lookup_attribute("no_const", TYPE_ATTRIBUTES(type)))
 			continue;
 
-		if (walk_struct(type)) {
+		if (walk_struct(type, false)) {
 			error_at(DECL_SOURCE_LOCATION(var), "constified variable %qE cannot be local", var);
 			ret = 1;
 		}

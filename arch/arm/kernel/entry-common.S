@@ -10,17 +10,45 @@
 
 #include <asm/unistd.h>
 #include <asm/ftrace.h>
+#include <asm/domain.h>
 #include <asm/unwind.h>
+
+#include "entry-header.S"
 
 #ifdef CONFIG_NEED_RET_TO_USER
 #include <mach/entry-macro.S>
 #else
 	.macro  arch_ret_to_user, tmp1, tmp2
+#if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
+	@ save regs
+	stmdb	sp!, {r1, r2}
+        @ read DACR from cpu_domain into r1
+        mov     r2, sp
+        @ assume 8K pages, since we have to split the immediate in two
+        bic     r2, r2, #(0x1fc0)
+        bic     r2, r2, #(0x3f)
+        ldr     r1, [r2, #TI_CPU_DOMAIN]
+#ifdef CONFIG_PAX_KERNEXEC
+        @ set type of DOMAIN_KERNEL to DOMAIN_KERNELCLIENT
+        bic     r1, r1, #(domain_val(DOMAIN_KERNEL, 3))
+        orr     r1, r1, #(domain_val(DOMAIN_KERNEL, DOMAIN_KERNELCLIENT))
+#endif
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+        @ set current DOMAIN_USER to DOMAIN_UDEREF
+        bic     r1, r1, #(domain_val(DOMAIN_USER, 3))
+        orr     r1, r1, #(domain_val(DOMAIN_USER, DOMAIN_UDEREF))
+#endif
+        @ write r1 to current_thread_info()->cpu_domain
+        str     r1, [r2, #TI_CPU_DOMAIN]
+        @ write r1 to DACR
+        mcr     p15, 0, r1, c3, c0, 0
+        @ instruction sync
+        instr_sync
+	@ restore regs
+	ldmia	sp!, {r1, r2}
+#endif
 	.endm
 #endif
-
-#include "entry-header.S"
-
 
 	.align	5
 /*
@@ -339,6 +367,7 @@ ENDPROC(ftrace_stub)
 
 	.align	5
 ENTRY(vector_swi)
+
 	sub	sp, sp, #S_FRAME_SIZE
 	stmia	sp, {r0 - r12}			@ Calling r0 - r12
  ARM(	add	r8, sp, #S_PC		)
@@ -388,6 +417,12 @@ ENTRY(vector_swi)
 	ldr	scno, [lr, #-4]			@ get SWI instruction
 #endif
 
+	/*
+	 * do this here to avoid a performance hit of wrapping the code above
+	 * that directly dereferences userland to parse the SWI instruction
+	 */
+	pax_enter_kernel_user
+
 #ifdef CONFIG_ALIGNMENT_TRAP
 	ldr	ip, __cr_alignment
 	ldr	ip, [ip]
@@ -416,16 +451,6 @@ ENTRY(vector_swi)
 local_restart:
 	ldr	r10, [tsk, #TI_FLAGS]		@ check for syscall tracing
 	stmdb	sp!, {r4, r5}			@ push fifth and sixth args
-
-#ifdef CONFIG_SECCOMP
-	tst	r10, #_TIF_SECCOMP
-	beq	1f
-	mov	r0, scno
-	bl	__secure_computing	
-	add	r0, sp, #S_R0 + S_OFF		@ pointer to regs
-	ldmia	r0, {r0 - r3}			@ have to reload r0 - r3
-1:
-#endif
 
 	tst	r10, #_TIF_SYSCALL_WORK		@ are we tracing syscalls?
 	bne	__sys_trace
@@ -458,11 +483,13 @@ __sys_trace:
 	ldmccia	r1, {r0 - r6}			@ have to reload r0 - r6
 	stmccia	sp, {r4, r5}			@ and update the stack args
 	ldrcc	pc, [tbl, scno, lsl #2]		@ call sys_* routine
-	b	2b
+	cmp	scno, #-1			@ skip the syscall?
+	bne	2b
+	add	sp, sp, #S_OFF			@ restore stack
+	b	ret_slow_syscall
 
 __sys_trace_return:
 	str	r0, [sp, #S_R0 + S_OFF]!	@ save returned r0
-	mov	r1, scno
 	mov	r0, sp
 	bl	syscall_trace_exit
 	b	ret_slow_syscall
@@ -509,22 +536,6 @@ sys_syscall:
 		ldrlo	pc, [tbl, scno, lsl #2]
 		b	sys_ni_syscall
 ENDPROC(sys_syscall)
-
-sys_fork_wrapper:
-		add	r0, sp, #S_OFF
-		b	sys_fork
-ENDPROC(sys_fork_wrapper)
-
-sys_vfork_wrapper:
-		add	r0, sp, #S_OFF
-		b	sys_vfork
-ENDPROC(sys_vfork_wrapper)
-
-sys_clone_wrapper:
-		add	ip, sp, #S_OFF
-		str	ip, [sp, #4]
-		b	sys_clone
-ENDPROC(sys_clone_wrapper)
 
 sys_sigreturn_wrapper:
 		add	r0, sp, #S_OFF

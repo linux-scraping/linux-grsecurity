@@ -616,7 +616,7 @@ salinfo_cpu_callback(struct notifier_block *nb, unsigned long action, void *hcpu
 	return NOTIFY_OK;
 }
 
-static struct notifier_block salinfo_cpu_notifier __cpuinitdata =
+static struct notifier_block salinfo_cpu_notifier =
 {
 	.notifier_call = salinfo_cpu_callback,
 	.priority = 0,

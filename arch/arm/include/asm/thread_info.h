@@ -77,9 +77,9 @@ struct thread_info {
 	.flags		= 0,						\
 	.preempt_count	= INIT_PREEMPT_COUNT,				\
 	.addr_limit	= KERNEL_DS,					\
-	.cpu_domain	= domain_val(DOMAIN_USER, DOMAIN_MANAGER) |	\
-			  domain_val(DOMAIN_KERNEL, DOMAIN_MANAGER) |	\
-			  domain_val(DOMAIN_IO, DOMAIN_CLIENT),		\
+	.cpu_domain	= domain_val(DOMAIN_USER, DOMAIN_USERCLIENT) |	\
+			  domain_val(DOMAIN_KERNEL, DOMAIN_KERNELCLIENT) |	\
+			  domain_val(DOMAIN_IO, DOMAIN_KERNELCLIENT),	\
 	.restart_block	= {						\
 		.fn	= do_no_restart_syscall,			\
 	},								\
@@ -151,16 +151,16 @@ extern int vfp_restore_user_hwstate(struct user_vfp __user *,
 #define TIF_SYSCALL_TRACE	8
 #define TIF_SYSCALL_AUDIT	9
 #define TIF_SYSCALL_TRACEPOINT	10
+#define TIF_SECCOMP		11	/* seccomp syscall filtering active */
 
 /* within 8 bits of TIF_SYSCALL_TRACE
-   to meet flexible second operand requirements
-*/
-#define TIF_GRSEC_SETXID	11
+ *  to meet flexible second operand requirements
+ */
+#define TIF_GRSEC_SETXID	12
 
 #define TIF_USING_IWMMXT	17
 #define TIF_MEMDIE		18	/* is terminating due to OOM killer */
 #define TIF_RESTORE_SIGMASK	20
-#define TIF_SECCOMP		21
 #define TIF_SWITCH_MM		22	/* deferred switch_mm */
 
 #define _TIF_SIGPENDING		(1 << TIF_SIGPENDING)
@@ -169,13 +169,13 @@ extern int vfp_restore_user_hwstate(struct user_vfp __user *,
 #define _TIF_SYSCALL_TRACE	(1 << TIF_SYSCALL_TRACE)
 #define _TIF_SYSCALL_AUDIT	(1 << TIF_SYSCALL_AUDIT)
 #define _TIF_SYSCALL_TRACEPOINT	(1 << TIF_SYSCALL_TRACEPOINT)
-#define _TIF_USING_IWMMXT	(1 << TIF_USING_IWMMXT)
 #define _TIF_SECCOMP		(1 << TIF_SECCOMP)
+#define _TIF_USING_IWMMXT	(1 << TIF_USING_IWMMXT)
 #define _TIF_GRSEC_SETXID	(1 << TIF_GRSEC_SETXID)
 
 /* Checks for any syscall work in entry-common.S */
-#define _TIF_SYSCALL_WORK (_TIF_SYSCALL_TRACE | _TIF_SYSCALL_AUDIT | _TIF_SYSCALL_TRACEPOINT | \
-			   _TIF_GRSEC_SETXID)
+#define _TIF_SYSCALL_WORK (_TIF_SYSCALL_TRACE | _TIF_SYSCALL_AUDIT | \
+			   _TIF_SYSCALL_TRACEPOINT | _TIF_SECCOMP | _TIF_GRSEC_SETXID)
 
 /*
  * Change these and you break ASM code in entry-common.S

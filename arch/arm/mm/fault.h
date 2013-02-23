@@ -29,6 +29,11 @@ static inline int is_xn_fault(unsigned int fsr)
 	return ((fsr_fs(fsr) & 0x3c) == 0xc);
 }
 
+static inline int is_domain_fault(unsigned int fsr)
+{
+	return ((fsr_fs(fsr) & 0xD) == 0x9);
+}
+
 void do_bad_area(unsigned long addr, unsigned int fsr, struct pt_regs *regs);
 unsigned long search_exception_table(unsigned long addr);
 

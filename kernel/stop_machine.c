@@ -362,7 +362,7 @@ static int __cpuinit cpu_stop_cpu_callback(struct notifier_block *nfb,
  * cpu notifiers.  It currently shares the same priority as sched
  * migration_notifier.
  */
-static struct notifier_block __cpuinitdata cpu_stop_cpu_notifier = {
+static struct notifier_block cpu_stop_cpu_notifier = {
 	.notifier_call	= cpu_stop_cpu_callback,
 	.priority	= 10,
 };

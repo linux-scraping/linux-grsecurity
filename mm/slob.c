@@ -28,9 +28,8 @@
  * from kmalloc are prepended with a 4-byte header with the kmalloc size.
  * If kmalloc is asked for objects of PAGE_SIZE or larger, it calls
  * alloc_pages() directly, allocating compound pages so the page order
- * does not have to be separately tracked, and also stores the exact
- * allocation size in page->private so that it can be used to accurately
- * provide ksize(). These objects are detected in kfree() because slob_page()
+ * does not have to be separately tracked.
+ * These objects are detected in kfree() because PageSlab()
  * is false for them.
  *
  * SLAB is emulated on top of SLOB by simply calling constructors and
@@ -59,7 +58,6 @@
 
 #include <linux/kernel.h>
 #include <linux/slab.h>
-#include "slab.h"
 
 #include <linux/mm.h>
 #include <linux/swap.h> /* struct reclaim_state */
@@ -74,6 +72,7 @@
 
 #include <linux/atomic.h>
 
+#include "slab.h"
 /*
  * slob_block has a field 'units', which indicates size of block if +ve,
  * or offset of next block if -ve (in SLOB_UNITs).
@@ -124,7 +123,6 @@ static inline void clear_slob_page_free(struct page *sp)
 
 #define SLOB_UNIT sizeof(slob_t)
 #define SLOB_UNITS(size) (((size) + SLOB_UNIT - 1)/SLOB_UNIT)
-#define SLOB_ALIGN L1_CACHE_BYTES
 
 /*
  * struct slob_rcu is inserted at the tail of allocated slob blocks, which
@@ -524,7 +522,7 @@ void kfree(const void *block)
 		__ClearPageSlab(sp);
 		reset_page_mapcount(sp);
 		sp->private = 0;
-		put_page(sp);
+		__free_pages(sp, compound_order(sp));
 	}
 }
 EXPORT_SYMBOL(kfree);
@@ -604,6 +602,8 @@ const char *check_heap_object(const void *ptr, unsigned long n)
 size_t ksize(const void *block)
 {
 	struct page *sp;
+	int align;
+	slob_t *m;
 
 	BUG_ON(!block);
 	if (unlikely(block == ZERO_SIZE_PTR))
@@ -611,31 +611,22 @@ size_t ksize(const void *block)
 
 	sp = virt_to_page(block);
 	VM_BUG_ON(!PageSlab(sp));
-	if (!sp->private) {
-		int align = max_t(size_t, ARCH_KMALLOC_MINALIGN, ARCH_SLAB_MINALIGN);
-		slob_t *m = (slob_t *)(block - align);
-		return SLOB_UNITS(m[0].units) * SLOB_UNIT;
-	} else
+	if (sp->private)
 		return sp->private;
+
+	align = max_t(size_t, ARCH_KMALLOC_MINALIGN, ARCH_SLAB_MINALIGN);
+	m = (slob_t *)(block - align);
+	return SLOB_UNITS(m[0].units) * SLOB_UNIT;
 }
 EXPORT_SYMBOL(ksize);
 
 int __kmem_cache_create(struct kmem_cache *c, unsigned long flags)
 {
-	size_t align = c->size;
-
 	if (flags & SLAB_DESTROY_BY_RCU) {
 		/* leave room for rcu footer at the end of object */
 		c->size += sizeof(struct slob_rcu);
 	}
 	c->flags = flags;
-	/* ignore alignment unless it's forced */
-	c->align = (flags & SLAB_HWCACHE_ALIGN) ? SLOB_ALIGN : 0;
-	if (c->align < ARCH_SLAB_MINALIGN)
-		c->align = ARCH_SLAB_MINALIGN;
-	if (c->align < align)
-		c->align = align;
-
 	return 0;
 }
 
@@ -652,7 +643,7 @@ void *kmem_cache_alloc_node(struct kmem_cache *c, gfp_t flags, int node)
 #else
 	if (c->size < PAGE_SIZE) {
 		b = slob_alloc(c->size, flags, c->align, node);
-		trace_kmem_cache_alloc_node(_RET_IP_, b, c->size,
+		trace_kmem_cache_alloc_node(_RET_IP_, b, c->object_size,
 					    SLOB_UNITS(c->size) * SLOB_UNIT,
 					    flags, node);
 	} else {
@@ -663,7 +654,7 @@ void *kmem_cache_alloc_node(struct kmem_cache *c, gfp_t flags, int node)
 			b = page_address(sp);
 			sp->private = c->size;
 		}
-		trace_kmem_cache_alloc_node(_RET_IP_, b, c->size,
+		trace_kmem_cache_alloc_node(_RET_IP_, b, c->object_size,
 					    PAGE_SIZE << get_order(c->size),
 					    flags, node);
 	}
@@ -726,12 +717,6 @@ void kmem_cache_free(struct kmem_cache *c, void *b)
 
 }
 EXPORT_SYMBOL(kmem_cache_free);
-
-unsigned int kmem_cache_size(struct kmem_cache *c)
-{
-	return c->size;
-}
-EXPORT_SYMBOL(kmem_cache_size);
 
 int __kmem_cache_shutdown(struct kmem_cache *c)
 {

@@ -331,12 +331,12 @@ static int hvcs_open(struct tty_struct *tty, struct file *filp);
 static void hvcs_close(struct tty_struct *tty, struct file *filp);
 static void hvcs_hangup(struct tty_struct * tty);
 
-static int __devinit hvcs_probe(struct vio_dev *dev,
+static int hvcs_probe(struct vio_dev *dev,
 		const struct vio_device_id *id);
-static int __devexit hvcs_remove(struct vio_dev *dev);
+static int hvcs_remove(struct vio_dev *dev);
 static int __init hvcs_module_init(void);
 static void __exit hvcs_module_exit(void);
-static int __devinit hvcs_initialize(void);
+static int hvcs_initialize(void);
 
 #define HVCS_SCHED_READ	0x00000001
 #define HVCS_QUICK_READ	0x00000002
@@ -677,7 +677,7 @@ static int khvcsd(void *unused)
 	return 0;
 }
 
-static struct vio_device_id hvcs_driver_table[] __devinitdata= {
+static struct vio_device_id hvcs_driver_table[] = {
 	{"serial-server", "hvterm2"},
 	{ "", "" }
 };
@@ -757,7 +757,7 @@ static int hvcs_get_index(void)
 	return -1;
 }
 
-static int __devinit hvcs_probe(
+static int hvcs_probe(
 	struct vio_dev *dev,
 	const struct vio_device_id *id)
 {
@@ -836,7 +836,7 @@ static int __devinit hvcs_probe(
 	return 0;
 }
 
-static int __devexit hvcs_remove(struct vio_dev *dev)
+static int hvcs_remove(struct vio_dev *dev)
 {
 	struct hvcs_struct *hvcsd = dev_get_drvdata(&dev->dev);
 	unsigned long flags;
@@ -875,7 +875,7 @@ static int __devexit hvcs_remove(struct vio_dev *dev)
 static struct vio_driver hvcs_vio_driver = {
 	.id_table	= hvcs_driver_table,
 	.probe		= hvcs_probe,
-	.remove		= __devexit_p(hvcs_remove),
+	.remove		= hvcs_remove,
 	.name		= hvcs_driver_name,
 };
 
@@ -1479,7 +1479,7 @@ static void hvcs_free_index_list(void)
 	hvcs_index_count = 0;
 }
 
-static int __devinit hvcs_initialize(void)
+static int hvcs_initialize(void)
 {
 	int rc, num_ttys_to_alloc;
 
@@ -1497,8 +1497,10 @@ static int __devinit hvcs_initialize(void)
 		num_ttys_to_alloc = hvcs_parm_num_devs;
 
 	hvcs_tty_driver = alloc_tty_driver(num_ttys_to_alloc);
-	if (!hvcs_tty_driver)
+	if (!hvcs_tty_driver) {
+		mutex_unlock(&hvcs_init_mutex);
 		return -ENOMEM;
+	}
 
 	if (hvcs_alloc_index_list(num_ttys_to_alloc)) {
 		rc = -ENOMEM;

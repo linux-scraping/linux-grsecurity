@@ -65,9 +65,8 @@ struct thread_struct {
 	regs->ARM_cpsr |= PSR_ENDSTATE;					\
 	regs->ARM_pc = pc & ~1;		/* pc */			\
 	regs->ARM_sp = sp;		/* sp */			\
-	regs->ARM_r2 = stack[2];	/* r2 (envp) */			\
-	regs->ARM_r1 = stack[1];	/* r1 (argv) */			\
-	regs->ARM_r0 = stack[0];	/* r0 (argc) */			\
+	/* r2 (envp), r1 (argv), r0 (argc) */				\
+	(void)copy_from_user(&regs->ARM_r0, (const char __user *)stack, 3 * sizeof(unsigned long)); \
 	nommu_start_thread(regs);					\
 })
 

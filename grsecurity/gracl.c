@@ -24,6 +24,7 @@
 #include <linux/fdtable.h>
 #include <linux/percpu.h>
 #include <linux/lglock.h>
+#include <linux/hugetlb.h>
 #include "../fs/mount.h"
 
 #include <asm/uaccess.h>
@@ -78,8 +79,9 @@ extern struct vfsmount *sock_mnt;
 
 extern struct vfsmount *pipe_mnt;
 extern struct vfsmount *shm_mnt;
+
 #ifdef CONFIG_HUGETLBFS
-extern struct vfsmount *hugetlbfs_vfsmount;
+extern struct vfsmount *hugetlbfs_vfsmount[HUGE_MAX_HSTATE];
 #endif
 
 static struct acl_object_label *fakefs_obj_rw;
@@ -1854,6 +1856,20 @@ full_lookup(const struct dentry *orig_dentry, const struct vfsmount *orig_mnt,
 	return __full_lookup(orig_dentry, orig_mnt, inode, device, subj, path, newglob);
 }
 
+#ifdef CONFIG_HUGETLBFS
+static inline bool
+is_hugetlbfs_mnt(const struct vfsmount *mnt)
+{
+	int i;
+	for (i = 0; i < HUGE_MAX_HSTATE; i++) {
+		if (unlikely(hugetlbfs_vfsmount[i] == mnt))
+			return true;
+	}
+
+	return false;
+}
+#endif
+
 static struct acl_object_label *
 __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	      const struct acl_subject_label *subj, char *path, const int checkglob)
@@ -1872,7 +1888,7 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	    mnt == sock_mnt ||
 #endif
 #ifdef CONFIG_HUGETLBFS
-	    (mnt == hugetlbfs_vfsmount && dentry->d_inode->i_nlink == 0) ||
+	    (is_hugetlbfs_mnt(mnt) && dentry->d_inode->i_nlink == 0) ||
 #endif
 		/* ignore Eric Biederman */
 	    IS_PRIVATE(l_dentry->d_inode))) {

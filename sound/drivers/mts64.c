@@ -84,9 +84,9 @@ static int snd_mts64_free(struct mts64 *mts)
 	return 0;
 }
 
-static int __devinit snd_mts64_create(struct snd_card *card, 
-				      struct pardevice *pardev, 
-				      struct mts64 **rchip)
+static int snd_mts64_create(struct snd_card *card,
+			    struct pardevice *pardev,
+			    struct mts64 **rchip)
 {
 	struct mts64 *mts;
 
@@ -215,7 +215,7 @@ static int mts64_device_ready(struct parport *p)
  *  0 init ok
  *  -EIO failure
  */
-static int __devinit mts64_device_init(struct parport *p)
+static int mts64_device_init(struct parport *p)
 {
 	int i;
 
@@ -291,7 +291,7 @@ static u8 mts64_map_midi_input(u8 c)
  *  0       device found
  *  -ENODEV no device
  */
-static int __devinit mts64_probe(struct parport *p)
+static int mts64_probe(struct parport *p)
 {
 	u8 c;
 
@@ -484,7 +484,7 @@ __out:
 	return changed;
 }
 
-static struct snd_kcontrol_new mts64_ctl_smpte_switch __devinitdata = {
+static struct snd_kcontrol_new mts64_ctl_smpte_switch = {
 	.iface = SNDRV_CTL_ELEM_IFACE_RAWMIDI,
 	.name  = "SMPTE Playback Switch",
 	.index = 0,
@@ -557,7 +557,7 @@ static int snd_mts64_ctl_smpte_time_put(struct snd_kcontrol *kctl,
 	return changed;
 }
 
-static struct snd_kcontrol_new mts64_ctl_smpte_time_hours __devinitdata = {
+static struct snd_kcontrol_new mts64_ctl_smpte_time_hours = {
 	.iface = SNDRV_CTL_ELEM_IFACE_RAWMIDI,
 	.name  = "SMPTE Time Hours",
 	.index = 0,
@@ -568,7 +568,7 @@ static struct snd_kcontrol_new mts64_ctl_smpte_time_hours __devinitdata = {
 	.put  = snd_mts64_ctl_smpte_time_put
 };
 
-static struct snd_kcontrol_new mts64_ctl_smpte_time_minutes __devinitdata = {
+static struct snd_kcontrol_new mts64_ctl_smpte_time_minutes = {
 	.iface = SNDRV_CTL_ELEM_IFACE_RAWMIDI,
 	.name  = "SMPTE Time Minutes",
 	.index = 0,
@@ -579,7 +579,7 @@ static struct snd_kcontrol_new mts64_ctl_smpte_time_minutes __devinitdata = {
 	.put  = snd_mts64_ctl_smpte_time_put
 };
 
-static struct snd_kcontrol_new mts64_ctl_smpte_time_seconds __devinitdata = {
+static struct snd_kcontrol_new mts64_ctl_smpte_time_seconds = {
 	.iface = SNDRV_CTL_ELEM_IFACE_RAWMIDI,
 	.name  = "SMPTE Time Seconds",
 	.index = 0,
@@ -590,7 +590,7 @@ static struct snd_kcontrol_new mts64_ctl_smpte_time_seconds __devinitdata = {
 	.put  = snd_mts64_ctl_smpte_time_put
 };
 
-static struct snd_kcontrol_new mts64_ctl_smpte_time_frames __devinitdata = {
+static struct snd_kcontrol_new mts64_ctl_smpte_time_frames = {
 	.iface = SNDRV_CTL_ELEM_IFACE_RAWMIDI,
 	.name  = "SMPTE Time Frames",
 	.index = 0,
@@ -652,7 +652,7 @@ static int snd_mts64_ctl_smpte_fps_put(struct snd_kcontrol *kctl,
 	return changed;
 }
 
-static struct snd_kcontrol_new mts64_ctl_smpte_fps __devinitdata = {
+static struct snd_kcontrol_new mts64_ctl_smpte_fps = {
 	.iface = SNDRV_CTL_ELEM_IFACE_RAWMIDI,
 	.name  = "SMPTE Fps",
 	.index = 0,
@@ -664,11 +664,11 @@ static struct snd_kcontrol_new mts64_ctl_smpte_fps __devinitdata = {
 };
 
 
-static int __devinit snd_mts64_ctl_create(struct snd_card *card, 
-					  struct mts64 *mts) 
+static int snd_mts64_ctl_create(struct snd_card *card,
+				struct mts64 *mts)
 {
 	int err, i;
-	static struct snd_kcontrol_new *control[] __devinitdata = {
+	static struct snd_kcontrol_new *control[] = {
 		&mts64_ctl_smpte_switch,
 		&mts64_ctl_smpte_time_hours,
 		&mts64_ctl_smpte_time_minutes,
@@ -774,7 +774,7 @@ static struct snd_rawmidi_ops snd_mts64_rawmidi_input_ops = {
 };
 
 /* Create and initialize the rawmidi component */
-static int __devinit snd_mts64_rawmidi_create(struct snd_card *card)
+static int snd_mts64_rawmidi_create(struct snd_card *card)
 {
 	struct mts64 *mts = card->private_data;
 	struct snd_rawmidi *rmidi;
@@ -860,7 +860,7 @@ __out:
 	spin_unlock(&mts->lock);
 }
 
-static int __devinit snd_mts64_probe_port(struct parport *p)
+static int snd_mts64_probe_port(struct parport *p)
 {
 	struct pardevice *pardev;
 	int res;
@@ -884,7 +884,7 @@ static int __devinit snd_mts64_probe_port(struct parport *p)
 	return res;
 }
 
-static void __devinit snd_mts64_attach(struct parport *p)
+static void snd_mts64_attach(struct parport *p)
 {
 	struct platform_device *device;
 
@@ -940,7 +940,7 @@ static void snd_mts64_card_private_free(struct snd_card *card)
 	snd_mts64_free(mts);
 }
 
-static int __devinit snd_mts64_probe(struct platform_device *pdev)
+static int snd_mts64_probe(struct platform_device *pdev)
 {
 	struct pardevice *pardev;
 	struct parport *p;
@@ -1025,7 +1025,7 @@ __err:
 	return err;
 }
 
-static int __devexit snd_mts64_remove(struct platform_device *pdev)
+static int snd_mts64_remove(struct platform_device *pdev)
 {
 	struct snd_card *card = platform_get_drvdata(pdev);
 
@@ -1038,7 +1038,7 @@ static int __devexit snd_mts64_remove(struct platform_device *pdev)
 
 static struct platform_driver snd_mts64_driver = {
 	.probe  = snd_mts64_probe,
-	.remove = __devexit_p(snd_mts64_remove),
+	.remove = snd_mts64_remove,
 	.driver = {
 		.name = PLATFORM_DRIVER,
 		.owner	= THIS_MODULE,

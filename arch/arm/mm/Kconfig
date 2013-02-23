@@ -352,6 +352,10 @@ config CPU_PJ4
 	select ARM_THUMBEE
 	select CPU_V7
 
+config CPU_PJ4B
+	bool
+	select CPU_V7
+
 # ARMv6
 config CPU_V6
 	bool "Support ARM V6 processor" if ARCH_INTEGRATOR || MACH_REALVIEW_EB || MACH_REALVIEW_PBX
@@ -421,7 +425,7 @@ config CPU_32v5
 
 config CPU_32v6
 	bool
-	select CPU_USE_DOMAINS if CPU_V6 && MMU
+	select CPU_USE_DOMAINS if CPU_V6 && MMU && !PAX_KERNEXEC
 	select TLS_REG_EMUL if !CPU_32v6K && !MMU
 
 config CPU_32v6K
@@ -573,6 +577,7 @@ config CPU_CP15_MPU
 
 config CPU_USE_DOMAINS
 	bool
+	depends on !ARM_LPAE && !PAX_KERNEXEC
 	help
 	  This option enables or disables the use of domain switching
 	  via the set_fs() function.
