@@ -609,10 +609,16 @@ static unsigned int devkmsg_poll(struct file *file, poll_table *wait)
 	return ret;
 }
 
+static int check_syslog_permissions(int type, bool from_file);
+
 static int devkmsg_open(struct inode *inode, struct file *file)
 {
 	struct devkmsg_user *user;
 	int err;
+
+	err = check_syslog_permissions(SYSLOG_ACTION_OPEN, SYSLOG_FROM_FILE);
+	if (err)
+		return err;
 
 	/* write-only does not need any file context */
 	if ((file->f_flags & O_ACCMODE) == O_WRONLY)
@@ -822,7 +828,7 @@ static int syslog_action_restricted(int type)
 	if (dmesg_restrict)
 		return 1;
 	/* Unless restricted, we allow "read all" and "get buffer size" for everybody */
-	return type != SYSLOG_ACTION_READ_ALL && type != SYSLOG_ACTION_SIZE_BUFFER;
+	return type != SYSLOG_ACTION_OPEN && type != SYSLOG_ACTION_READ_ALL && type != SYSLOG_ACTION_SIZE_BUFFER;
 }
 
 static int check_syslog_permissions(int type, bool from_file)
