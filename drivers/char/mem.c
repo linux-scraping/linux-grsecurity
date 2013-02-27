@@ -900,6 +900,11 @@ static ssize_t kmsg_write(struct file * file, const char __user * buf,
 	char *tmp;
 	ssize_t ret;
 
+#ifdef CONFIG_GRKERNSEC_DMESG
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+#endif
+
 	tmp = kmalloc(count + 1, GFP_KERNEL);
 	if (tmp == NULL)
 		return -ENOMEM;
