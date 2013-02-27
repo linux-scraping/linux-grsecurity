@@ -3257,13 +3257,13 @@ struct dentry *user_path_create(int dfd, const char __user *pathname,
 }
 EXPORT_SYMBOL(user_path_create);
 
-static struct dentry *user_path_create_with_name(int dfd, const char __user *pathname, struct path *path, struct filename **to, int is_dir)
+static struct dentry *user_path_create_with_name(int dfd, const char __user *pathname, struct path *path, struct filename **to, unsigned int lookup_flags)
 {
 	struct filename *tmp = getname(pathname);
 	struct dentry *res;
 	if (IS_ERR(tmp))
 		return ERR_CAST(tmp);
-	res = kern_path_create(dfd, tmp->name, path, is_dir);
+	res = kern_path_create(dfd, tmp->name, path, lookup_flags);
 	if (IS_ERR(res))
 		putname(tmp);
 	else
