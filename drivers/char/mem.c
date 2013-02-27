@@ -862,6 +862,11 @@ static ssize_t kmsg_writev(struct kiocb *iocb, const struct iovec *iv,
 	ssize_t ret = -EFAULT;
 	size_t len = iov_length(iv, count);
 
+#ifdef CONFIG_GRKERNSEC_DMESG
+	if (!capable(CAP_SYSLOG))
+		return -EPERM;
+#endif
+
 	line = kmalloc(len + 1, GFP_KERNEL);
 	if (line == NULL)
 		return -ENOMEM;
