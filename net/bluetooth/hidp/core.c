@@ -778,9 +778,9 @@ static int hidp_setup_hid(struct hidp_session *session,
 	hid->version = req->version;
 	hid->country = req->country;
 
-	strncpy(hid->name, req->name, 128);
-	strncpy(hid->phys, batostr(&src), 64);
-	strncpy(hid->uniq, batostr(&dst), 64);
+	strncpy(hid->name, req->name, sizeof(hid->name) - 1);
+	strncpy(hid->phys, batostr(&src), sizeof(hid->phys) - 1);
+	strncpy(hid->uniq, batostr(&dst), sizeof(hid->uniq) - 1);
 
 	hid->dev.parent = hidp_get_device(session);
 	hid->ll_driver = &hidp_hid_driver;
