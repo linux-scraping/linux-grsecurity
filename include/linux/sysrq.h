@@ -15,6 +15,7 @@
 #define _LINUX_SYSRQ_H
 
 #include <linux/errno.h>
+#include <linux/compiler.h>
 #include <linux/types.h>
 
 /* Enable/disable SYSRQ support by default (0==no, 1==yes). */

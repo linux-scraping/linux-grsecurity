@@ -1243,7 +1243,7 @@ static int do_umount(struct mount *mnt, int flags)
 	return retval;
 }
 
-/* 
+/*
  * Is the caller allowed to modify his namespace?
  */
 static inline bool may_mount(void)
