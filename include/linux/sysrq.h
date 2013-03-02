@@ -15,6 +15,7 @@
 #define _LINUX_SYSRQ_H
 
 #include <linux/errno.h>
+#include <linux/compiler.h>
 
 struct pt_regs;
 struct tty_struct;
