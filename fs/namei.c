@@ -1644,17 +1644,15 @@ static int path_lookupat(int dfd, const char *name,
 	if (!err)
 		err = complete_walk(nd);
 
-	if (!(nd->flags & LOOKUP_PARENT)) {
+	if (!err && !(nd->flags & LOOKUP_PARENT)) {
 #ifdef CONFIG_GRKERNSEC
 		if (flags & LOOKUP_RCU) {
-			if (!err)
-				path_put(&nd->path);
+			path_put(&nd->path);
 			err = -ECHILD;
 		} else
 #endif
 		if (!gr_acl_handle_hidden_file(nd->path.dentry, nd->path.mnt)) {
-			if (!err)
-				path_put(&nd->path);
+			path_put(&nd->path);
 			err = -ENOENT;
 		}
 	}
