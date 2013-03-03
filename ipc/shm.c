@@ -71,7 +71,7 @@ static int sysvipc_shm_proc_show(struct seq_file *s, void *it);
 
 #ifdef CONFIG_GRKERNSEC
 extern int gr_handle_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
-			   const time_t shm_createtime, const uid_t cuid,
+			   const time_t shm_createtime, const kuid_t cuid,
 			   const int shmid);
 extern int gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 			   const time_t shm_createtime);

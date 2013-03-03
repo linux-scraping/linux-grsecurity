@@ -501,7 +501,7 @@ void gr_delayed_cred_worker(void)
 
 	current->delayed_cred = NULL;
 
-	if (current_uid() && new != NULL) {
+	if (!uid_eq(current_uid(), GLOBAL_ROOT_UID) && new != NULL) {
 		// from doing get_cred on it when queueing this
 		put_cred(new);
 		return;
@@ -562,7 +562,8 @@ int commit_creds(struct cred *new)
 	   init_cred
 	*/
 	if (grsec_enable_setxid && !current_is_single_threaded() &&
-	    !current_uid() && new->uid) {
+	    uid_eq(current_uid(), GLOBAL_ROOT_UID) &&
+	    !uid_eq(new->uid, GLOBAL_ROOT_UID)) {
 		schedule_it = 1;
 	}
 	ret = __commit_creds(new);

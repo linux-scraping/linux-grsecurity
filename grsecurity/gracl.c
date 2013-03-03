@@ -2039,7 +2039,7 @@ gr_log_learn(const struct dentry *dentry, const struct vfsmount *mnt, const __u3
 	const struct cred *cred = current_cred();
 
 	security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename, task->role->roletype,
-		       cred->uid, cred->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
+		       GR_GLOBAL_UID(cred->uid), GR_GLOBAL_GID(cred->gid), task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
 		       task->exec_file->f_path.mnt) : task->acl->filename, task->acl->filename,
 		       1UL, 1UL, gr_to_filename(dentry, mnt), (unsigned long) mode, &task->signal->saved_ip);
 
@@ -2047,16 +2047,29 @@ gr_log_learn(const struct dentry *dentry, const struct vfsmount *mnt, const __u3
 }
 
 static void
-gr_log_learn_id_change(const char type, const unsigned int real, 
-		       const unsigned int effective, const unsigned int fs)
+gr_log_learn_uid_change(const kuid_t real, const kuid_t effective, const kuid_t fs)
 {
 	struct task_struct *task = current;
 	const struct cred *cred = current_cred();
 
 	security_learn(GR_ID_LEARN_MSG, task->role->rolename, task->role->roletype,
-		       cred->uid, cred->gid, task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
+		       GR_GLOBAL_UID(cred->uid), GR_GLOBAL_GID(cred->gid), task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
 		       task->exec_file->f_path.mnt) : task->acl->filename, task->acl->filename,
-		       type, real, effective, fs, &task->signal->saved_ip);
+		       'u', GR_GLOBAL_UID(real), GR_GLOBAL_UID(effective), GR_GLOBAL_UID(fs), &task->signal->saved_ip);
+
+	return;
+}
+
+static void
+gr_log_learn_gid_change(const kgid_t real, const kgid_t effective, const kgid_t fs)
+{
+	struct task_struct *task = current;
+	const struct cred *cred = current_cred();
+
+	security_learn(GR_ID_LEARN_MSG, task->role->rolename, task->role->roletype,
+		       GR_GLOBAL_UID(cred->uid), GR_GLOBAL_GID(cred->gid), task->exec_file ? gr_to_filename1(task->exec_file->f_path.dentry,
+		       task->exec_file->f_path.mnt) : task->acl->filename, task->acl->filename,
+		       'g', GR_GLOBAL_GID(real), GR_GLOBAL_GID(effective), GR_GLOBAL_GID(fs), &task->signal->saved_ip);
 
 	return;
 }
@@ -2329,23 +2342,28 @@ gr_set_proc_res(struct task_struct *task)
 extern int __gr_process_user_ban(struct user_struct *user);
 
 int
-gr_check_user_change(int real, int effective, int fs)
+gr_check_user_change(kuid_t real, kuid_t effective, kuid_t fs)
 {
 	unsigned int i;
 	__u16 num;
 	uid_t *uidlist;
-	int curuid;
+	uid_t curuid;
 	int realok = 0;
 	int effectiveok = 0;
 	int fsok = 0;
+	uid_t globalreal, globaleffective, globalfs;
 
 #if defined(CONFIG_GRKERNSEC_KERN_LOCKOUT) || defined(CONFIG_GRKERNSEC_BRUTE)
 	struct user_struct *user;
 
-	if (real == -1)
+	if (!uid_valid(real))
 		goto skipit;
 
-	user = find_user(real);
+	/* find user based on global namespace */
+
+	globalreal = GR_GLOBAL_UID(real);
+
+	user = find_user(make_kuid(&init_user_ns, globalreal));
 	if (user == NULL)
 		goto skipit;
 
@@ -2365,7 +2383,7 @@ skipit:
 		return 0;
 
 	if (current->acl->mode & (GR_LEARN | GR_INHERITLEARN))
-		gr_log_learn_id_change('u', real, effective, fs);
+		gr_log_learn_uid_change(real, effective, fs);
 
 	num = current->acl->user_trans_num;
 	uidlist = current->acl->user_transitions;
@@ -2373,31 +2391,43 @@ skipit:
 	if (uidlist == NULL)
 		return 0;
 
-	if (real == -1)
+	if (!uid_valid(real)) {
 		realok = 1;
-	if (effective == -1)
+		globalreal = (uid_t)-1;		
+	} else {
+		globalreal = GR_GLOBAL_UID(real);		
+	}
+	if (!uid_valid(effective)) {
 		effectiveok = 1;
-	if (fs == -1)
+		globaleffective = (uid_t)-1;
+	} else {
+		globaleffective = GR_GLOBAL_UID(effective);
+	}
+	if (!uid_valid(fs)) {
 		fsok = 1;
+		globalfs = (uid_t)-1;
+	} else {
+		globalfs = GR_GLOBAL_UID(fs);
+	}
 
 	if (current->acl->user_trans_type & GR_ID_ALLOW) {
 		for (i = 0; i < num; i++) {
-			curuid = (int)uidlist[i];
-			if (real == curuid)
+			curuid = uidlist[i];
+			if (globalreal == curuid)
 				realok = 1;
-			if (effective == curuid)
+			if (globaleffective == curuid)
 				effectiveok = 1;
-			if (fs == curuid)
+			if (globalfs == curuid)
 				fsok = 1;
 		}
 	} else if (current->acl->user_trans_type & GR_ID_DENY) {
 		for (i = 0; i < num; i++) {
-			curuid = (int)uidlist[i];
-			if (real == curuid)
+			curuid = uidlist[i];
+			if (globalreal == curuid)
 				break;
-			if (effective == curuid)
+			if (globaleffective == curuid)
 				break;
-			if (fs == curuid)
+			if (globalfs == curuid)
 				break;
 		}
 		/* not in deny list */
@@ -2411,27 +2441,28 @@ skipit:
 	if (realok && effectiveok && fsok)
 		return 0;
 	else {
-		gr_log_int(GR_DONT_AUDIT, GR_USRCHANGE_ACL_MSG, realok ? (effectiveok ? (fsok ? 0 : fs) : effective) : real);
+		gr_log_int(GR_DONT_AUDIT, GR_USRCHANGE_ACL_MSG, realok ? (effectiveok ? (fsok ? 0 : globalfs) : globaleffective) : globalreal);
 		return 1;
 	}
 }
 
 int
-gr_check_group_change(int real, int effective, int fs)
+gr_check_group_change(kgid_t real, kgid_t effective, kgid_t fs)
 {
 	unsigned int i;
 	__u16 num;
 	gid_t *gidlist;
-	int curgid;
+	gid_t curgid;
 	int realok = 0;
 	int effectiveok = 0;
 	int fsok = 0;
+	gid_t globalreal, globaleffective, globalfs;
 
 	if (unlikely(!(gr_status & GR_READY)))
 		return 0;
 
 	if (current->acl->mode & (GR_LEARN | GR_INHERITLEARN))
-		gr_log_learn_id_change('g', real, effective, fs);
+		gr_log_learn_gid_change(real, effective, fs);
 
 	num = current->acl->group_trans_num;
 	gidlist = current->acl->group_transitions;
@@ -2439,31 +2470,43 @@ gr_check_group_change(int real, int effective, int fs)
 	if (gidlist == NULL)
 		return 0;
 
-	if (real == -1)
+	if (!gid_valid(real)) {
 		realok = 1;
-	if (effective == -1)
+		globalreal = (gid_t)-1;		
+	} else {
+		globalreal = GR_GLOBAL_GID(real);
+	}
+	if (!gid_valid(effective)) {
 		effectiveok = 1;
-	if (fs == -1)
+		globaleffective = (gid_t)-1;		
+	} else {
+		globaleffective = GR_GLOBAL_GID(effective);
+	}
+	if (!gid_valid(fs)) {
 		fsok = 1;
+		globalfs = (gid_t)-1;		
+	} else {
+		globalfs = GR_GLOBAL_GID(fs);
+	}
 
 	if (current->acl->group_trans_type & GR_ID_ALLOW) {
 		for (i = 0; i < num; i++) {
-			curgid = (int)gidlist[i];
-			if (real == curgid)
+			curgid = gidlist[i];
+			if (globalreal == curgid)
 				realok = 1;
-			if (effective == curgid)
+			if (globaleffective == curgid)
 				effectiveok = 1;
-			if (fs == curgid)
+			if (globalfs == curgid)
 				fsok = 1;
 		}
 	} else if (current->acl->group_trans_type & GR_ID_DENY) {
 		for (i = 0; i < num; i++) {
-			curgid = (int)gidlist[i];
-			if (real == curgid)
+			curgid = gidlist[i];
+			if (globalreal == curgid)
 				break;
-			if (effective == curgid)
+			if (globaleffective == curgid)
 				break;
-			if (fs == curgid)
+			if (globalfs == curgid)
 				break;
 		}
 		/* not in deny list */
@@ -2477,7 +2520,7 @@ gr_check_group_change(int real, int effective, int fs)
 	if (realok && effectiveok && fsok)
 		return 0;
 	else {
-		gr_log_int(GR_DONT_AUDIT, GR_GRPCHANGE_ACL_MSG, realok ? (effectiveok ? (fsok ? 0 : fs) : effective) : real);
+		gr_log_int(GR_DONT_AUDIT, GR_GRPCHANGE_ACL_MSG, realok ? (effectiveok ? (fsok ? 0 : globalfs) : globaleffective) : globalreal);
 		return 1;
 	}
 }
@@ -2485,15 +2528,20 @@ gr_check_group_change(int real, int effective, int fs)
 extern int gr_acl_is_capable(const int cap);
 
 void
-gr_set_role_label(struct task_struct *task, const uid_t uid, const uid_t gid)
+gr_set_role_label(struct task_struct *task, const kuid_t kuid, const kgid_t kgid)
 {
 	struct acl_role_label *role = task->role;
 	struct acl_subject_label *subj = NULL;
 	struct acl_object_label *obj;
 	struct file *filp;
+	uid_t uid;
+	gid_t gid;
 
 	if (unlikely(!(gr_status & GR_READY)))
 		return;
+
+	uid = GR_GLOBAL_UID(kuid);
+	gid = GR_GLOBAL_GID(kgid);
 
 	filp = task->exec_file;
 
@@ -3448,7 +3496,7 @@ gr_set_acls(const int type)
 
 		if (task->exec_file) {
 			cred = __task_cred(task);
-			task->role = lookup_acl_role_label(task, cred->uid, cred->gid);
+			task->role = lookup_acl_role_label(task, GR_GLOBAL_UID(cred->uid), GR_GLOBAL_GID(cred->gid));
 			ret = gr_apply_subject_to_task(task);
 			if (ret) {
 				read_unlock(&grsec_exec_file_lock);
@@ -3531,7 +3579,7 @@ skip_reslog:
 		rcu_read_lock();
 		cred = __task_cred(task);
 		security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename,
-			       task->role->roletype, cred->uid, cred->gid, acl->filename,
+			       task->role->roletype, GR_GLOBAL_UID(cred->uid), GR_GLOBAL_GID(cred->gid), acl->filename,
 			       acl->filename, acl->res[res].rlim_cur, acl->res[res].rlim_max,
 			       "", (unsigned long) res, &task->signal->saved_ip);
 		rcu_read_unlock();

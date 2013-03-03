@@ -91,7 +91,7 @@ EXPORT_SYMBOL(copy_page);
 
 EXPORT_SYMBOL(___copy_from_user);
 EXPORT_SYMBOL(___copy_to_user);
-EXPORT_SYMBOL(__clear_user);
+EXPORT_SYMBOL(___clear_user);
 
 EXPORT_SYMBOL(__get_user_1);
 EXPORT_SYMBOL(__get_user_2);

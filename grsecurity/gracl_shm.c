@@ -9,7 +9,7 @@
 
 int
 gr_handle_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
-		const time_t shm_createtime, const uid_t cuid, const int shmid)
+		const time_t shm_createtime, const kuid_t cuid, const int shmid)
 {
 	struct task_struct *task;
 
@@ -30,7 +30,7 @@ gr_handle_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 		     (task->acl != current->acl))) {
 		read_unlock(&tasklist_lock);
 		rcu_read_unlock();
-		gr_log_int3(GR_DONT_AUDIT, GR_SHMAT_ACL_MSG, cuid, shm_cprid, shmid);
+		gr_log_int3(GR_DONT_AUDIT, GR_SHMAT_ACL_MSG, GR_GLOBAL_UID(cuid), shm_cprid, shmid);
 		return 0;
 	}
 	read_unlock(&tasklist_lock);

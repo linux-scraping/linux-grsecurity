@@ -137,7 +137,7 @@ gr_check_crash_exec(const struct file *filp)
 }
 
 int
-gr_check_crash_uid(const uid_t uid)
+gr_check_crash_uid(const kuid_t uid)
 {
 	return 0;
 }
@@ -314,7 +314,7 @@ gr_acl_handle_filldir(const struct file *file, const char *name,
 
 int
 gr_handle_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
-		const time_t shm_createtime, const uid_t cuid, const int shmid)
+		const time_t shm_createtime, const kuid_t cuid, const int shmid)
 {
 	return 1;
 }
@@ -371,7 +371,7 @@ gr_acl_handle_mprotect(const struct file *file, const unsigned long prot)
 }
 
 void
-gr_set_role_label(const uid_t uid, const gid_t gid)
+gr_set_role_label(const kuid_t uid, const kgid_t gid)
 {
 	return;
 }
@@ -401,13 +401,13 @@ gr_set_kernel_label(struct task_struct *task)
 }
 
 int
-gr_check_user_change(int real, int effective, int fs)
+gr_check_user_change(kuid_t real, kuid_t effective, kuid_t fs)
 {
 	return 0;
 }
 
 int
-gr_check_group_change(int real, int effective, int fs)
+gr_check_group_change(kgid_t real, kgid_t effective, kgid_t fs)
 {
 	return 0;
 }

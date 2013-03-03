@@ -594,7 +594,7 @@ static bool has_pid_permissions(struct pid_namespace *pid,
 		const struct cred *tmpcred = current_cred();
 		const struct cred *cred = __task_cred(task);
 
-		if (!tmpcred->uid || (tmpcred->uid == cred->uid)
+		if (uid_eq(tmpcred->uid, GLOBAL_ROOT_UID) || uid_eq(tmpcred->uid, cred->uid)
 #ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
 			|| in_group_p(grsec_proc_gid)
 #endif

@@ -10,7 +10,7 @@
 int grsec_enable_ptrace_readexec;
 int grsec_enable_setxid;
 int grsec_enable_symlinkown;
-int grsec_symlinkown_gid;
+kgid_t grsec_symlinkown_gid;
 int grsec_enable_brute;
 int grsec_enable_link;
 int grsec_enable_dmesg;
@@ -23,7 +23,7 @@ int grsec_enable_audit_ptrace;
 int grsec_enable_time;
 int grsec_enable_audit_textrel;
 int grsec_enable_group;
-int grsec_audit_gid;
+kgid_t grsec_audit_gid;
 int grsec_enable_chdir;
 int grsec_enable_mount;
 int grsec_enable_rofs;
@@ -42,7 +42,7 @@ int grsec_enable_chroot_caps;
 int grsec_enable_chroot_sysctl;
 int grsec_enable_chroot_unix;
 int grsec_enable_tpe;
-int grsec_tpe_gid;
+kgid_t grsec_tpe_gid;
 int grsec_enable_blackhole;
 #ifdef CONFIG_IPV6_MODULE
 EXPORT_SYMBOL(grsec_enable_blackhole);
@@ -51,11 +51,11 @@ int grsec_lastack_retries;
 int grsec_enable_tpe_all;
 int grsec_enable_tpe_invert;
 int grsec_enable_socket_all;
-int grsec_socket_all_gid;
+kgid_t grsec_socket_all_gid;
 int grsec_enable_socket_client;
-int grsec_socket_client_gid;
+kgid_t grsec_socket_client_gid;
 int grsec_enable_socket_server;
-int grsec_socket_server_gid;
+kgid_t grsec_socket_server_gid;
 int grsec_resource_logging;
 int grsec_disable_privio;
 int grsec_enable_log_rwxmaps;
@@ -161,7 +161,7 @@ grsecurity_init(void)
 #endif
 #ifdef CONFIG_GRKERNSEC_AUDIT_GROUP
 	grsec_enable_group = 1;
-	grsec_audit_gid = CONFIG_GRKERNSEC_AUDIT_GID;
+	grsec_audit_gid = KGIDT_INIT(CONFIG_GRKERNSEC_AUDIT_GID);
 #endif
 #ifdef CONFIG_GRKERNSEC_PTRACE_READEXEC
 	grsec_enable_ptrace_readexec = 1;
@@ -256,26 +256,26 @@ grsecurity_init(void)
 #endif
 #ifdef CONFIG_GRKERNSEC_SYMLINKOWN
 	grsec_enable_symlinkown = 1;
-	grsec_symlinkown_gid = CONFIG_GRKERNSEC_SYMLINKOWN_GID;
+	grsec_symlinkown_gid = KGIDT_INIT(CONFIG_GRKERNSEC_SYMLINKOWN_GID);
 #endif
 #ifdef CONFIG_GRKERNSEC_TPE
 	grsec_enable_tpe = 1;
-	grsec_tpe_gid = CONFIG_GRKERNSEC_TPE_GID;
+	grsec_tpe_gid = KGIDT_INIT(CONFIG_GRKERNSEC_TPE_GID);
 #ifdef CONFIG_GRKERNSEC_TPE_ALL
 	grsec_enable_tpe_all = 1;
 #endif
 #endif
 #ifdef CONFIG_GRKERNSEC_SOCKET_ALL
 	grsec_enable_socket_all = 1;
-	grsec_socket_all_gid = CONFIG_GRKERNSEC_SOCKET_ALL_GID;
+	grsec_socket_all_gid = KGIDT_INIT(CONFIG_GRKERNSEC_SOCKET_ALL_GID);
 #endif
 #ifdef CONFIG_GRKERNSEC_SOCKET_CLIENT
 	grsec_enable_socket_client = 1;
-	grsec_socket_client_gid = CONFIG_GRKERNSEC_SOCKET_CLIENT_GID;
+	grsec_socket_client_gid = KGIDT_INIT(CONFIG_GRKERNSEC_SOCKET_CLIENT_GID);
 #endif
 #ifdef CONFIG_GRKERNSEC_SOCKET_SERVER
 	grsec_enable_socket_server = 1;
-	grsec_socket_server_gid = CONFIG_GRKERNSEC_SOCKET_SERVER_GID;
+	grsec_socket_server_gid = KGIDT_INIT(CONFIG_GRKERNSEC_SOCKET_SERVER_GID);
 #endif
 #endif
 

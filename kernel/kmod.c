@@ -139,7 +139,7 @@ static int ____request_module(bool wait, char *module_param, const char *fmt, va
 		return ret;
 
 #ifdef CONFIG_GRKERNSEC_MODHARDEN
-	if (!current_uid()) {
+	if (uid_eq(current_uid(), GLOBAL_ROOT_UID)) {
 		/* hack to workaround consolekit/udisks stupidity */
 		read_lock(&tasklist_lock);
 		if (!strcmp(current->comm, "mount") &&
@@ -204,12 +204,12 @@ int __request_module(bool wait, const char *fmt, ...)
 	int ret;
 
 #ifdef CONFIG_GRKERNSEC_MODHARDEN
-	if (current_uid()) {
+	if (!uid_eq(current_uid(), GLOBAL_ROOT_UID)) {
 		char module_param[MODULE_NAME_LEN];
 
 		memset(module_param, 0, sizeof(module_param));
 
-		snprintf(module_param, sizeof(module_param) - 1, "grsec_modharden_normal%u_", current_uid());
+		snprintf(module_param, sizeof(module_param) - 1, "grsec_modharden_normal%u_", GR_GLOBAL_UID(current_uid()));
 
 		va_start(args, fmt);
 		ret = ____request_module(wait, module_param, fmt, args);

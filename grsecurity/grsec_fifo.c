@@ -13,10 +13,10 @@ gr_handle_fifo(const struct dentry *dentry, const struct vfsmount *mnt,
 
 	if (grsec_enable_fifo && S_ISFIFO(dentry->d_inode->i_mode) &&
 	    !(flag & O_EXCL) && (dir->d_inode->i_mode & S_ISVTX) &&
-	    (dentry->d_inode->i_uid != dir->d_inode->i_uid) &&
-	    (cred->fsuid != dentry->d_inode->i_uid)) {
+	    !uid_eq(dentry->d_inode->i_uid, dir->d_inode->i_uid) &&
+	    !uid_eq(cred->fsuid, dentry->d_inode->i_uid)) {
 		if (!inode_permission(dentry->d_inode, acc_mode))
-			gr_log_fs_int2(GR_DONT_AUDIT, GR_FIFO_MSG, dentry, mnt, dentry->d_inode->i_uid, dentry->d_inode->i_gid);
+			gr_log_fs_int2(GR_DONT_AUDIT, GR_FIFO_MSG, dentry, mnt, GR_GLOBAL_UID(dentry->d_inode->i_uid), GR_GLOBAL_GID(dentry->d_inode->i_gid));
 		return -EACCES;
 	}
 #endif

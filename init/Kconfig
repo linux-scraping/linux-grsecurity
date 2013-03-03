@@ -1080,8 +1080,6 @@ config UIDGID_CONVERTED
 	depends on OCFS2_FS = n
 	depends on XFS_FS = n
 
-	depends on GRKERNSEC = n
-
 config UIDGID_STRICT_TYPE_CHECKS
 	bool "Require conversions between uid/gids and their internal representation"
 	depends on UIDGID_CONVERTED

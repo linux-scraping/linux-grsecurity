@@ -49,8 +49,8 @@ int gr_task_acl_is_capable(const struct task_struct *task, const struct cred *cr
 	if ((curracl->mode & (GR_LEARN | GR_INHERITLEARN))
 	    && cap_raised(cred->cap_effective, cap)) {
 		security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename,
-			       task->role->roletype, cred->uid,
-			       cred->gid, task->exec_file ?
+			       task->role->roletype, GR_GLOBAL_UID(cred->uid),
+			       GR_GLOBAL_GID(cred->gid), task->exec_file ?
 			       gr_to_filename(task->exec_file->f_path.dentry,
 			       task->exec_file->f_path.mnt) : curracl->filename,
 			       curracl->filename, 0UL,

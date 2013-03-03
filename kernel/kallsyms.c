@@ -557,7 +557,7 @@ static int s_show(struct seq_file *m, void *p)
 	struct kallsym_iter *iter = m->private;
 
 #ifdef CONFIG_GRKERNSEC_HIDESYM
-	if (current_uid())
+	if (!uid_eq(current_uid(), GLOBAL_ROOT_UID))
 		return 0;
 #endif
 

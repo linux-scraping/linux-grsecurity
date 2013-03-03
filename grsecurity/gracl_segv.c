@@ -99,9 +99,10 @@ gr_insertsort(void)
 }
 
 static __inline__ void
-gr_insert_uid(const uid_t uid, const unsigned long expires)
+gr_insert_uid(const kuid_t kuid, const unsigned long expires)
 {
 	int loc;
+	uid_t uid = GR_GLOBAL_UID(kuid);
 
 	if (uid_used == GR_UIDTABLE_MAX)
 		return;
@@ -136,13 +137,16 @@ gr_remove_uid(const unsigned short loc)
 }
 
 int
-gr_check_crash_uid(const uid_t uid)
+gr_check_crash_uid(const kuid_t kuid)
 {
 	int loc;
 	int ret = 0;
+	uid_t uid;
 
 	if (unlikely(!gr_acl_is_enabled()))
 		return 0;
+
+	uid = GR_GLOBAL_UID(kuid);
 
 	spin_lock(&gr_uid_lock);
 	loc = gr_find_uid(uid);
@@ -166,8 +170,8 @@ proc_is_setxid(const struct cred *cred)
 	if (!uid_eq(cred->uid, cred->euid) || !uid_eq(cred->uid, cred->suid) ||
 	    !uid_eq(cred->uid, cred->fsuid))
 		return 1;
-	if (!uid_eq(cred->gid, cred->egid) || !uid_eq(cred->gid, cred->sgid) ||
-	    !uid_eq(cred->gid, cred->fsgid))
+	if (!gid_eq(cred->gid, cred->egid) || !gid_eq(cred->gid, cred->sgid) ||
+	    !gid_eq(cred->gid, cred->fsgid))
 		return 1;
 
 	return 0;

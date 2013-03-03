@@ -16,7 +16,7 @@ gr_tpe_allow(const struct file *file)
 	char *msg2 = NULL;
 
 	// never restrict root
-	if (!cred->uid)
+	if (uid_eq(cred->uid, GLOBAL_ROOT_UID))
 		return 1;
 
 	if (grsec_enable_tpe) {
@@ -37,7 +37,7 @@ gr_tpe_allow(const struct file *file)
 	if (!msg)
 		goto next_check;
 
-	if (inode->i_uid)
+	if (!uid_eq(inode->i_uid, GLOBAL_ROOT_UID))
 		msg2 = "file in non-root-owned directory";
 	else if (inode->i_mode & S_IWOTH)
 		msg2 = "file in world-writable directory";
@@ -56,7 +56,7 @@ next_check:
 	if (!grsec_enable_tpe || !grsec_enable_tpe_all)
 		return 1;
 
-	if (inode->i_uid && (inode->i_uid != cred->uid))
+	if (!uid_eq(inode->i_uid, GLOBAL_ROOT_UID) && !uid_eq(inode->i_uid, cred->uid))
 		msg = "directory not owned by user";
 	else if (inode->i_mode & S_IWOTH)
 		msg = "file in world-writable directory";

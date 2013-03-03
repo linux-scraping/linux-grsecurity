@@ -601,7 +601,7 @@ SYSCALL_DEFINE2(setregid, gid_t, rgid, gid_t, egid)
 			goto error;
 	}
 
-	if (gr_check_group_change(new->gid, new->egid, -1))
+	if (gr_check_group_change(new->gid, new->egid, INVALID_GID))
 		goto error;
 
 	if (rgid != (gid_t) -1 ||
@@ -740,7 +740,7 @@ SYSCALL_DEFINE2(setreuid, uid_t, ruid, uid_t, euid)
 			goto error;
 	}
 
-	if (gr_check_user_change(new->uid, new->euid, -1))
+	if (gr_check_user_change(new->uid, new->euid, INVALID_UID))
 		goto error;
 
 	if (!uid_eq(new->uid, old->uid)) {
@@ -868,7 +868,7 @@ SYSCALL_DEFINE3(setresuid, uid_t, ruid, uid_t, euid, uid_t, suid)
 			goto error;
 	}
 
-	if (gr_check_user_change(kruid, keuid, -1))
+	if (gr_check_user_change(kruid, keuid, INVALID_UID))
 		goto error;
 
 	if (ruid != (uid_t) -1) {
@@ -953,7 +953,7 @@ SYSCALL_DEFINE3(setresgid, gid_t, rgid, gid_t, egid, gid_t, sgid)
 			goto error;
 	}
 
-	if (gr_check_group_change(krgid, kegid, -1))
+	if (gr_check_group_change(krgid, kegid, INVALID_GID))
 		goto error;
 
 	if (rgid != (gid_t) -1)
@@ -1009,7 +1009,7 @@ SYSCALL_DEFINE1(setfsuid, uid_t, uid)
 	if (!uid_valid(kuid))
 		return old_fsuid;
 
-	if (gr_check_user_change(-1, -1, kuid))
+	if (gr_check_user_change(INVALID_UID, INVALID_UID, kuid))
 		goto error;
 
 	new = prepare_creds();
@@ -1059,7 +1059,7 @@ SYSCALL_DEFINE1(setfsgid, gid_t, gid)
 	if (gid_eq(kgid, old->gid)  || gid_eq(kgid, old->egid)  ||
 	    gid_eq(kgid, old->sgid) || gid_eq(kgid, old->fsgid) ||
 	    nsown_capable(CAP_SETGID)) {
-		if (gr_check_group_change(-1, -1, kgid))
+		if (gr_check_group_change(INVALID_GID, INVALID_GID, kgid))
 			goto error;
 
 		if (!gid_eq(kgid, old->fsgid)) {

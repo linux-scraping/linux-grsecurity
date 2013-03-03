@@ -13,9 +13,6 @@
 #define ENABLE_PREEMPT()
 #endif
 
-#define GR_GLOBAL_UID(x) from_kuid_munged(&init_user_ns, (x))
-#define GR_GLOBAL_GID(x) from_kgid_munged(&init_user_ns, (x))
-
 #define BEGIN_LOCKS(x) \
 	DISABLE_PREEMPT(); \
 	rcu_read_lock(); \

@@ -114,8 +114,8 @@ gr_search_socket(const int domain, const int type, const int protocol)
 		if (curr->mode & (GR_LEARN | GR_INHERITLEARN)) {
 			__u32 fakeip = 0;
 			security_learn(GR_IP_LEARN_MSG, current->role->rolename,
-				       current->role->roletype, cred->uid,
-				       cred->gid, current->exec_file ?
+				       current->role->roletype, GR_GLOBAL_UID(cred->uid),
+				       GR_GLOBAL_GID(cred->gid), current->exec_file ?
 				       gr_to_filename(current->exec_file->f_path.dentry,
 				       current->exec_file->f_path.mnt) :
 				       curr->filename, curr->filename,
@@ -142,8 +142,8 @@ inet_check:
 		if (type == SOCK_RAW || type == SOCK_PACKET) {
 			__u32 fakeip = 0;
 			security_learn(GR_IP_LEARN_MSG, current->role->rolename,
-				       current->role->roletype, cred->uid,
-				       cred->gid, current->exec_file ?
+				       current->role->roletype, GR_GLOBAL_UID(cred->uid),
+				       GR_GLOBAL_GID(cred->gid), current->exec_file ?
 				       gr_to_filename(current->exec_file->f_path.dentry,
 				       current->exec_file->f_path.mnt) :
 				       curr->filename, curr->filename,
@@ -152,8 +152,8 @@ inet_check:
 		} else if ((type == SOCK_DGRAM) && (protocol == IPPROTO_IP)) {
 			__u32 fakeip = 0;
 			security_learn(GR_IP_LEARN_MSG, current->role->rolename,
-				       current->role->roletype, cred->uid,
-				       cred->gid, current->exec_file ?
+				       current->role->roletype, GR_GLOBAL_UID(cred->uid),
+				       GR_GLOBAL_GID(cred->gid), current->exec_file ?
 				       gr_to_filename(current->exec_file->f_path.dentry,
 				       current->exec_file->f_path.mnt) :
 				       curr->filename, curr->filename,
@@ -249,8 +249,8 @@ gr_search_connectbind(const int full_mode, struct sock *sk,
 
 	if (curr->mode & (GR_LEARN | GR_INHERITLEARN)) {
 		security_learn(GR_IP_LEARN_MSG, current->role->rolename,
-			       current->role->roletype, cred->uid,
-			       cred->gid, current->exec_file ?
+			       current->role->roletype, GR_GLOBAL_UID(cred->uid),
+			       GR_GLOBAL_GID(cred->gid), current->exec_file ?
 			       gr_to_filename(current->exec_file->f_path.dentry,
 			       current->exec_file->f_path.mnt) :
 			       curr->filename, curr->filename,

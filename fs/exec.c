@@ -225,8 +225,8 @@ static struct page *get_arg_page(struct linux_binprm *bprm, unsigned long pos,
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
 		// only allow 512KB for argv+env on suid/sgid binaries
 		// to prevent easy ASLR exhaustion
-		if (((bprm->cred->euid != current_euid()) ||
-		     (bprm->cred->egid != current_egid())) &&
+		if (((!uid_eq(bprm->cred->euid, current_euid())) ||
+		     (!gid_eq(bprm->cred->egid, current_egid()))) &&
 		    (size > (512 * 1024))) {
 			put_page(page);
 			return NULL;
@@ -1640,7 +1640,7 @@ static int do_execve_common(const char *filename,
 	/* limit suid stack to 8MB
 	 * we saved the old limits above and will restore them if this exec fails
 	 */
-	if (((bprm->cred->euid != current_euid()) || (bprm->cred->egid != current_egid())) &&
+	if (((!uid_eq(bprm->cred->euid, current_euid())) || (!gid_eq(bprm->cred->egid, current_egid()))) &&
 	    (old_rlim[RLIMIT_STACK].rlim_cur > (8 * 1024 * 1024)))
 		current->signal->rlim[RLIMIT_STACK].rlim_cur = 8 * 1024 * 1024;
 #endif
