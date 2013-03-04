@@ -152,10 +152,10 @@ static int __init set_reset_devices(char *str)
 __setup("reset_devices", set_reset_devices);
 
 #ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
-int grsec_proc_gid = CONFIG_GRKERNSEC_PROC_GID;
+kgid_t grsec_proc_gid = KGIDT_INIT(CONFIG_GRKERNSEC_PROC_GID);
 static int __init setup_grsec_proc_gid(char *str)
 {
-	grsec_proc_gid = (int)simple_strtol(str, NULL, 0);
+	grsec_proc_gid = KGIDT_INIT(simple_strtol(str, NULL, 0));
 	return 1;
 }
 __setup("grsec_proc_gid=", setup_grsec_proc_gid);
