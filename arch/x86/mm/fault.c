@@ -819,6 +819,9 @@ __bad_area_nosemaphore(struct pt_regs *regs, unsigned long error_code,
 				return;
 		}
 #endif
+		/* Kernel addresses are always protection faults: */
+		if (address >= TASK_SIZE)
+			error_code |= PF_PROT;
 
 #if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
 		if (pax_is_fetch_fault(regs, error_code, address)) {
@@ -839,7 +842,7 @@ __bad_area_nosemaphore(struct pt_regs *regs, unsigned long error_code,
 		if (address >= TASK_SIZE)
 			error_code |= PF_PROT;
 
-		if (show_unhandled_signals)
+		if (likely(show_unhandled_signals))
 			show_signal_msg(regs, error_code, address, tsk);
 
 		tsk->thread.cr2		= address;
