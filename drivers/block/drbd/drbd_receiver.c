@@ -4346,7 +4346,7 @@ struct data_cmd {
 	int expect_payload;
 	size_t pkt_size;
 	int (*fn)(struct drbd_tconn *, struct packet_info *);
-};
+} __do_const;
 
 static struct data_cmd drbd_cmd_handler[] = {
 	[P_DATA]	    = { 1, sizeof(struct p_data), receive_Data },
@@ -5222,7 +5222,7 @@ static int tconn_finish_peer_reqs(struct drbd_tconn *tconn)
 struct asender_cmd {
 	size_t pkt_size;
 	int (*fn)(struct drbd_tconn *tconn, struct packet_info *);
-};
+} __do_const;
 
 static struct asender_cmd asender_tbl[] = {
 	[P_PING]	    = { 0, got_Ping },

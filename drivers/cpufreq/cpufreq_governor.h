@@ -142,7 +142,7 @@ struct dbs_data {
 	void (*gov_check_cpu)(int cpu, unsigned int load);
 
 	/* Governor specific ops, see below */
-	void *gov_ops;
+	const void *gov_ops;
 };
 
 /* Governor specific ops, will be passed to dbs_data->gov_ops */

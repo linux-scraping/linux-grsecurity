@@ -11,7 +11,7 @@ int gr_handle_symlink_owner(const struct path *link, const struct inode *target)
 
 	if (grsec_enable_symlinkown && in_group_p(grsec_symlinkown_gid) &&
 	   /* ignore root-owned links, e.g. /proc/self */
-	    !uid_eq(link_inode->i_uid, GLOBAL_ROOT_UID) && target &&
+	    gr_is_global_nonroot(link_inode->i_uid) && target &&
 	    !uid_eq(link_inode->i_uid, target->i_uid)) {
 		gr_log_fs_int2(GR_DONT_AUDIT, GR_SYMLINKOWNER_MSG, link->dentry, link->mnt, link_inode->i_uid, target->i_uid);
 		return 1;
@@ -49,7 +49,7 @@ gr_handle_hardlink(const struct dentry *dentry,
 	if (grsec_enable_link && !uid_eq(cred->fsuid, inode->i_uid) &&
 	    (!S_ISREG(mode) || is_privileged_binary(dentry) || 
 	     (inode_permission(inode, MAY_READ | MAY_WRITE))) &&
-	    !capable(CAP_FOWNER) && !uid_eq(cred->uid, GLOBAL_ROOT_UID)) {
+	    !capable(CAP_FOWNER) && gr_is_global_nonroot(cred->uid)) {
 		gr_log_fs_int2_str(GR_DONT_AUDIT, GR_HARDLINK_MSG, dentry, mnt, inode->i_uid, inode->i_gid, to->name);
 		return -EPERM;
 	}

@@ -193,7 +193,7 @@ static int __init dmi_disable_osi_win7(const struct dmi_system_id *d)
 	return 0;
 }
 
-static struct dmi_system_id acpi_osi_dmi_table[] __initdata = {
+static const struct dmi_system_id acpi_osi_dmi_table[] __initconst = {
 	{
 	.callback = dmi_disable_osi_vista,
 	.ident = "Fujitsu Siemens",

@@ -54,7 +54,7 @@ static int ipv4_local_port_range(ctl_table *table, int write,
 {
 	int ret;
 	int range[2];
-	ctl_table tmp = {
+	ctl_table_no_const tmp = {
 		.data = &range,
 		.maxlen = sizeof(range),
 		.mode = table->mode,
@@ -107,7 +107,7 @@ static int ipv4_ping_group_range(ctl_table *table, int write,
 	int ret;
 	gid_t urange[2];
 	kgid_t low, high;
-	ctl_table tmp = {
+	ctl_table_no_const tmp = {
 		.data = &urange,
 		.maxlen = sizeof(urange),
 		.mode = table->mode,
@@ -138,7 +138,7 @@ static int proc_tcp_congestion_control(ctl_table *ctl, int write,
 				       void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	char val[TCP_CA_NAME_MAX];
-	ctl_table tbl = {
+	ctl_table_no_const tbl = {
 		.data = val,
 		.maxlen = TCP_CA_NAME_MAX,
 	};
@@ -157,7 +157,7 @@ static int proc_tcp_available_congestion_control(ctl_table *ctl,
 						 void __user *buffer, size_t *lenp,
 						 loff_t *ppos)
 {
-	ctl_table tbl = { .maxlen = TCP_CA_BUF_MAX, };
+	ctl_table_no_const tbl = { .maxlen = TCP_CA_BUF_MAX, };
 	int ret;
 
 	tbl.data = kmalloc(tbl.maxlen, GFP_USER);
@@ -174,7 +174,7 @@ static int proc_allowed_congestion_control(ctl_table *ctl,
 					   void __user *buffer, size_t *lenp,
 					   loff_t *ppos)
 {
-	ctl_table tbl = { .maxlen = TCP_CA_BUF_MAX };
+	ctl_table_no_const tbl = { .maxlen = TCP_CA_BUF_MAX };
 	int ret;
 
 	tbl.data = kmalloc(tbl.maxlen, GFP_USER);
@@ -200,15 +200,17 @@ static int ipv4_tcp_mem(ctl_table *ctl, int write,
 	struct mem_cgroup *memcg;
 #endif
 
-	ctl_table tmp = {
+	ctl_table_no_const tmp = {
 		.data = &vec,
 		.maxlen = sizeof(vec),
 		.mode = ctl->mode,
 	};
 
 	if (!write) {
-		ctl->data = &net->ipv4.sysctl_tcp_mem;
-		return proc_doulongvec_minmax(ctl, write, buffer, lenp, ppos);
+		ctl_table_no_const tcp_mem = *ctl;
+
+		tcp_mem.data = &net->ipv4.sysctl_tcp_mem;
+		return proc_doulongvec_minmax(&tcp_mem, write, buffer, lenp, ppos);
 	}
 
 	ret = proc_doulongvec_minmax(&tmp, write, buffer, lenp, ppos);
@@ -235,7 +237,7 @@ static int ipv4_tcp_mem(ctl_table *ctl, int write,
 int proc_tcp_fastopen_key(ctl_table *ctl, int write, void __user *buffer,
 			  size_t *lenp, loff_t *ppos)
 {
-	ctl_table tbl = { .maxlen = (TCP_FASTOPEN_KEY_LENGTH * 2 + 10) };
+	ctl_table_no_const tbl = { .maxlen = (TCP_FASTOPEN_KEY_LENGTH * 2 + 10) };
 	struct tcp_fastopen_context *ctxt;
 	int ret;
 	u32  user_key[4]; /* 16 bytes, matching TCP_FASTOPEN_KEY_LENGTH */
@@ -476,7 +478,7 @@ static struct ctl_table ipv4_table[] = {
 	},
 	{
 		.procname	= "ip_local_reserved_ports",
-		.data		= NULL, /* initialized in sysctl_ipv4_init */
+		.data		= sysctl_local_reserved_ports,
 		.maxlen		= 65536,
 		.mode		= 0644,
 		.proc_handler	= proc_do_large_bitmap,
@@ -860,9 +862,8 @@ static struct ctl_table ipv4_net_table[] = {
 
 static __net_init int ipv4_sysctl_init_net(struct net *net)
 {
-	struct ctl_table *table;
+	ctl_table_no_const *table = NULL;
 
-	table = ipv4_net_table;
 	if (!net_eq(net, &init_net)) {
 		table = kmemdup(table, sizeof(ipv4_net_table), GFP_KERNEL);
 		if (table == NULL)
@@ -897,15 +898,17 @@ static __net_init int ipv4_sysctl_init_net(struct net *net)
 
 	tcp_init_mem(net);
 
-	net->ipv4.ipv4_hdr = register_net_sysctl(net, "net/ipv4", table);
+	if (!net_eq(net, &init_net))
+		net->ipv4.ipv4_hdr = register_net_sysctl(net, "net/ipv4", table);
+	else
+		net->ipv4.ipv4_hdr = register_net_sysctl(net, "net/ipv4", ipv4_net_table);
 	if (net->ipv4.ipv4_hdr == NULL)
 		goto err_reg;
 
 	return 0;
 
 err_reg:
-	if (!net_eq(net, &init_net))
-		kfree(table);
+	kfree(table);
 err_alloc:
 	return -ENOMEM;
 }
@@ -927,16 +930,6 @@ static __net_initdata struct pernet_operations ipv4_sysctl_ops = {
 static __init int sysctl_ipv4_init(void)
 {
 	struct ctl_table_header *hdr;
-	struct ctl_table *i;
-
-	for (i = ipv4_table; i->procname; i++) {
-		if (strcmp(i->procname, "ip_local_reserved_ports") == 0) {
-			i->data = sysctl_local_reserved_ports;
-			break;
-		}
-	}
-	if (!i->procname)
-		return -EINVAL;
 
 	hdr = register_net_sysctl(&init_net, "net/ipv4", ipv4_table);
 	if (hdr == NULL)

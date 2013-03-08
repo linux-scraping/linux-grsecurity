@@ -32,36 +32,136 @@
 #include "rtl.h"
 #include "emit-rtl.h"
 #include "tree-flow.h"
+#include "target.h"
 
+// should come from c-tree.h if only it were installed for gcc 4.5...
 #define C_TYPE_FIELDS_READONLY(TYPE) TREE_LANG_FLAG_1(TYPE)
+
+// unused type flag in all versions 4.5-4.8
+#define TYPE_CONSTIFY_VISITED(TYPE) TYPE_LANG_FLAG_4(TYPE)
 
 int plugin_is_GPL_compatible;
 
 static struct plugin_info const_plugin_info = {
-	.version	= "201302112000",
+	.version	= "201303070020",
 	.help		= "no-constify\tturn off constification\n",
 };
 
-static tree get_field_type(tree field)
+typedef struct {
+	bool has_fptr_field;
+	bool has_writable_field;
+	bool has_do_const_field;
+	bool has_no_const_field;
+} constify_info;
+
+static const_tree get_field_type(const_tree field)
 {
 	return strip_array_types(TREE_TYPE(field));
 }
 
-static bool walk_struct(tree node, bool all);
+static bool is_fptr(const_tree field)
+{
+	const_tree ptr = get_field_type(field);
+
+	if (TREE_CODE(ptr) != POINTER_TYPE)
+		return false;
+
+	return TREE_CODE(TREE_TYPE(ptr)) == FUNCTION_TYPE;
+}
+
+/*
+ * determine whether the given structure type meets the requirements for automatic constification,
+ * including the constification attributes on nested structure types
+ */
+static void constifiable(const_tree node, constify_info *cinfo)
+{
+	const_tree field;
+
+	gcc_assert(TREE_CODE(node) == RECORD_TYPE || TREE_CODE(node) == UNION_TYPE);
+
+	// e.g., pointer to structure fields while still constructing the structure type
+	if (TYPE_FIELDS(node) == NULL_TREE)
+		return;
+
+	for (field = TYPE_FIELDS(node); field; field = TREE_CHAIN(field)) {
+		const_tree type = get_field_type(field);
+		enum tree_code code = TREE_CODE(type);
+
+		if (node == type)
+			continue;
+
+		if (is_fptr(field))
+			cinfo->has_fptr_field = true;
+		else if (!TREE_READONLY(field))
+			cinfo->has_writable_field = true;
+
+		if (code == RECORD_TYPE || code == UNION_TYPE) {
+			if (lookup_attribute("do_const", TYPE_ATTRIBUTES(type)))
+				cinfo->has_do_const_field = true;
+			else if (lookup_attribute("no_const", TYPE_ATTRIBUTES(type)))
+				cinfo->has_no_const_field = true;
+			else
+				constifiable(type, cinfo);
+		}
+	}
+}
+
+static bool constified(const_tree node)
+{
+	constify_info cinfo = {
+		.has_fptr_field = false,
+		.has_writable_field = false,
+		.has_do_const_field = false,
+		.has_no_const_field = false
+	};
+
+	gcc_assert(TREE_CODE(node) == RECORD_TYPE || TREE_CODE(node) == UNION_TYPE);
+
+	if (lookup_attribute("no_const", TYPE_ATTRIBUTES(node))) {
+		gcc_assert(!TYPE_READONLY(node));
+		return false;
+	}
+
+	if (lookup_attribute("do_const", TYPE_ATTRIBUTES(node))) {
+		gcc_assert(TYPE_READONLY(node));
+		return true;
+	}
+
+	constifiable(node, &cinfo);
+	if ((!cinfo.has_fptr_field || cinfo.has_writable_field) && !cinfo.has_do_const_field)
+		return false;
+
+	return TYPE_READONLY(node);
+}
+
 static void deconstify_tree(tree node);
 
 static void deconstify_type(tree type)
 {
 	tree field;
 
-	for (field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field)) {
-		tree fieldtype = get_field_type(field);
+	gcc_assert(TREE_CODE(type) == RECORD_TYPE || TREE_CODE(type) == UNION_TYPE);
 
+	for (field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field)) {
+		const_tree fieldtype = get_field_type(field);
+
+		// special case handling of simple ptr-to-same-array-type members
+		if (TREE_CODE(TREE_TYPE(field)) == POINTER_TYPE) {
+			const_tree ptrtype = TREE_TYPE(TREE_TYPE(field));
+
+			if (TREE_CODE(ptrtype) != RECORD_TYPE && TREE_CODE(ptrtype) != UNION_TYPE)
+				continue;
+			if (TREE_TYPE(TREE_TYPE(field)) == type)
+				continue;
+			if (TYPE_MAIN_VARIANT(ptrtype) == TYPE_MAIN_VARIANT(type)) {
+				TREE_TYPE(field) = copy_node(TREE_TYPE(field));
+				TREE_TYPE(TREE_TYPE(field)) = type;
+			}
+			continue;
+		}
 		if (TREE_CODE(fieldtype) != RECORD_TYPE && TREE_CODE(fieldtype) != UNION_TYPE)
 			continue;
-		if (!TYPE_READONLY(fieldtype))
-			continue;
-		if (!walk_struct(fieldtype, true))
+		if (!constified(fieldtype))
 			continue;
 
 		deconstify_tree(field);
@@ -69,16 +169,17 @@ static void deconstify_type(tree type)
 	}
 	TYPE_READONLY(type) = 0;
 	C_TYPE_FIELDS_READONLY(type) = 0;
+	if (lookup_attribute("do_const", TYPE_ATTRIBUTES(type)))
+		TYPE_ATTRIBUTES(type) = remove_attribute("do_const", TYPE_ATTRIBUTES(type));
 }
 
 static void deconstify_tree(tree node)
 {
 	tree old_type, new_type, field;
 
-//	TREE_READONLY(node) = 0;
 	old_type = TREE_TYPE(node);
 	while (TREE_CODE(old_type) == ARRAY_TYPE && TREE_CODE(TREE_TYPE(old_type)) != ARRAY_TYPE) {
-		node = old_type;
+		node = TREE_TYPE(node) = copy_node(old_type);
 		old_type = TREE_TYPE(old_type);
 	}
 
@@ -98,10 +199,21 @@ static void deconstify_tree(tree node)
 static tree handle_no_const_attribute(tree *node, tree name, tree args, int flags, bool *no_add_attrs)
 {
 	tree type;
+	constify_info cinfo = {
+		.has_fptr_field = false,
+		.has_writable_field = false,
+		.has_do_const_field = false,
+		.has_no_const_field = false
+	};
 
 	*no_add_attrs = true;
 	if (TREE_CODE(*node) == FUNCTION_DECL) {
 		error("%qE attribute does not apply to functions", name);
+		return NULL_TREE;
+	}
+
+	if (TREE_CODE(*node) == PARM_DECL) {
+		error("%qE attribute does not apply to function parameters", name);
 		return NULL_TREE;
 	}
 
@@ -111,14 +223,12 @@ static tree handle_no_const_attribute(tree *node, tree name, tree args, int flag
 	}
 
 	if (TYPE_P(*node)) {
-		if (TREE_CODE(*node) == RECORD_TYPE || TREE_CODE(*node) == UNION_TYPE)
-			*no_add_attrs = false;
-		else
-			error("%qE attribute applies to struct and union types only", name);
-		return NULL_TREE;
+		*no_add_attrs = false;
+		type = *node;
+	} else {
+		gcc_assert(TREE_CODE(*node) == TYPE_DECL);
+		type = TREE_TYPE(*node);
 	}
-
-	type = TREE_TYPE(*node);
 
 	if (TREE_CODE(type) != RECORD_TYPE && TREE_CODE(type) != UNION_TYPE) {
 		error("%qE attribute applies to struct and union types only", name);
@@ -130,16 +240,20 @@ static tree handle_no_const_attribute(tree *node, tree name, tree args, int flag
 		return NULL_TREE;
 	}
 
-	if (TREE_CODE(*node) == TYPE_DECL && !TYPE_READONLY(type)) {
-		error("%qE attribute used on type that is not constified", name);
+	if (TYPE_P(*node)) {
+		if (lookup_attribute("do_const", TYPE_ATTRIBUTES(type)))
+			error("%qE attribute is incompatible with 'do_const'", name);
 		return NULL_TREE;
 	}
 
-	if (TREE_CODE(*node) == TYPE_DECL) {
+	constifiable(type, &cinfo);
+	if ((cinfo.has_fptr_field && !cinfo.has_writable_field) || lookup_attribute("do_const", TYPE_ATTRIBUTES(type))) {
 		deconstify_tree(*node);
+		TYPE_CONSTIFY_VISITED(TREE_TYPE(*node)) = 1;
 		return NULL_TREE;
 	}
 
+	error("%qE attribute used on type that is not constified", name);
 	return NULL_TREE;
 }
 
@@ -147,6 +261,8 @@ static void constify_type(tree type)
 {
 	TYPE_READONLY(type) = 1;
 	C_TYPE_FIELDS_READONLY(type) = 1;
+	TYPE_CONSTIFY_VISITED(type) = 1;
+//	TYPE_ATTRIBUTES(type) = tree_cons(get_identifier("do_const"), NULL_TREE, TYPE_ATTRIBUTES(type));
 }
 
 static tree handle_do_const_attribute(tree *node, tree name, tree args, int flags, bool *no_add_attrs)
@@ -162,8 +278,17 @@ static tree handle_do_const_attribute(tree *node, tree name, tree args, int flag
 		return NULL_TREE;
 	}
 
+	if (lookup_attribute(IDENTIFIER_POINTER(name), TYPE_ATTRIBUTES(*node))) {
+		error("%qE attribute is already applied to the type", name);
+		return NULL_TREE;
+	}
+
+	if (lookup_attribute("no_const", TYPE_ATTRIBUTES(*node))) {
+		error("%qE attribute is incompatible with 'no_const'", name);
+		return NULL_TREE;
+	}
+
 	*no_add_attrs = false;
-	constify_type(*node);
 	return NULL_TREE;
 }
 
@@ -199,61 +324,54 @@ static void register_attributes(void *event_data, void *data)
 	register_attribute(&do_const_attr);
 }
 
-static bool is_fptr(tree field)
-{
-	tree ptr = get_field_type(field);
-
-	if (TREE_CODE(ptr) != POINTER_TYPE)
-		return false;
-
-	return TREE_CODE(TREE_TYPE(ptr)) == FUNCTION_TYPE;
-}
-
-static bool walk_struct(tree node, bool all)
-{
-	tree field;
-
-	if (TYPE_FIELDS(node) == NULL_TREE)
-		return false;
-
-	if (lookup_attribute("do_const", TYPE_ATTRIBUTES(node)))
-		return true;
-
-	if (lookup_attribute("no_const", TYPE_ATTRIBUTES(node))) {
-		gcc_assert(!TYPE_READONLY(node));
-		deconstify_type(node);
-		return false;
-	}
-
-	for (field = TYPE_FIELDS(node); field; field = TREE_CHAIN(field)) {
-		tree type = get_field_type(field);
-		enum tree_code code = TREE_CODE(type);
-
-		if (node == type)
-			return false;
-		if (code == RECORD_TYPE || code == UNION_TYPE) {
-			if (!(walk_struct(type, all)))
-				return false;
-		} else if (!is_fptr(field) && (!all || !TREE_READONLY(field)))
-			return false;
-	}
-	return true;
-}
-
 static void finish_type(void *event_data, void *data)
 {
 	tree type = (tree)event_data;
+	constify_info cinfo = {
+		.has_fptr_field = false,
+		.has_writable_field = false,
+		.has_do_const_field = false,
+		.has_no_const_field = false
+	};
 
 	if (type == NULL_TREE || type == error_mark_node)
 		return;
 
-	if (TYPE_READONLY(type))
+	if (TYPE_FIELDS(type) == NULL_TREE || TYPE_CONSTIFY_VISITED(type))
 		return;
 
-	if (walk_struct(type, true))
+	constifiable(type, &cinfo);
+
+	if (TYPE_READONLY(type) && C_TYPE_FIELDS_READONLY(type)) {
+		if (!lookup_attribute("do_const", TYPE_ATTRIBUTES(type)))
+			return;
+		if (cinfo.has_writable_field)
+			return;
+		error("'do_const' attribute used on type that is%sconstified", cinfo.has_fptr_field ? " " : " not ");
+		return;
+	}
+
+	if (lookup_attribute("no_const", TYPE_ATTRIBUTES(type))) {
+		if ((cinfo.has_fptr_field && !cinfo.has_writable_field) || cinfo.has_do_const_field) {
+			deconstify_type(type);
+			TYPE_CONSTIFY_VISITED(type) = 1;
+		} else
+			error("'no_const' attribute used on type that is not constified");
+		return;
+	}
+
+	if (lookup_attribute("do_const", TYPE_ATTRIBUTES(type))) {
 		constify_type(type);
-	else
-		deconstify_type(type);
+		return;
+	}
+
+	if (cinfo.has_fptr_field && !cinfo.has_writable_field) {
+		constify_type(type);
+		return;
+	}
+
+	deconstify_type(type);
+	TYPE_CONSTIFY_VISITED(type) = 1;
 }
 
 static unsigned int check_local_variables(void)
@@ -282,24 +400,19 @@ static unsigned int check_local_variables(void)
 		if (TREE_CODE(type) != RECORD_TYPE && TREE_CODE(type) != UNION_TYPE)
 			continue;
 
-		if (!TYPE_READONLY(type))
+		if (!TYPE_READONLY(type) || !C_TYPE_FIELDS_READONLY(type))
 			continue;
 
-//		if (lookup_attribute("no_const", DECL_ATTRIBUTES(var)))
-//			continue;
-
-		if (lookup_attribute("no_const", TYPE_ATTRIBUTES(type)))
+		if (!TYPE_CONSTIFY_VISITED(type))
 			continue;
 
-		if (walk_struct(type, false)) {
-			error_at(DECL_SOURCE_LOCATION(var), "constified variable %qE cannot be local", var);
-			ret = 1;
-		}
+		error_at(DECL_SOURCE_LOCATION(var), "constified variable %qE cannot be local", var);
+		ret = 1;
 	}
 	return ret;
 }
 
-struct gimple_opt_pass pass_local_variable = {
+static struct gimple_opt_pass pass_local_variable = {
 	{
 		.type			= GIMPLE_PASS,
 		.name			= "check_local_variables",
@@ -319,6 +432,45 @@ struct gimple_opt_pass pass_local_variable = {
 		.todo_flags_finish	= 0
 	}
 };
+
+static struct {
+	const char *name;
+	const char *asm_op;
+} sections[] = {
+	{".init.rodata",     "\t.section\t.init.rodata,\"a\""},
+	{".ref.rodata",      "\t.section\t.ref.rodata,\"a\""},
+	{".devinit.rodata",  "\t.section\t.devinit.rodata,\"a\""},
+	{".devexit.rodata",  "\t.section\t.devexit.rodata,\"a\""},
+	{".cpuinit.rodata",  "\t.section\t.cpuinit.rodata,\"a\""},
+	{".cpuexit.rodata",  "\t.section\t.cpuexit.rodata,\"a\""},
+	{".meminit.rodata",  "\t.section\t.meminit.rodata,\"a\""},
+	{".memexit.rodata",  "\t.section\t.memexit.rodata,\"a\""},
+	{".data..read_only", "\t.section\t.data..read_only,\"a\""},
+};
+
+static unsigned int (*old_section_type_flags)(tree decl, const char *name, int reloc);
+
+static unsigned int constify_section_type_flags(tree decl, const char *name, int reloc)
+{
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(sections); i++)
+		if (!strcmp(sections[i].name, name))
+			return 0;
+	return old_section_type_flags(decl, name, reloc);
+}
+
+static void constify_start_unit(void *gcc_data, void *user_data)
+{
+//	size_t i;
+
+//	for (i = 0; i < ARRAY_SIZE(sections); i++)
+//		sections[i].section = get_unnamed_section(0, output_section_asm_op, sections[i].asm_op);
+//		sections[i].section = get_section(sections[i].name, 0, NULL);
+
+	old_section_type_flags = targetm.section_type_flags;
+	targetm.section_type_flags = constify_section_type_flags;
+}
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
@@ -352,6 +504,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	if (constify) {
 		register_callback(plugin_name, PLUGIN_FINISH_TYPE, finish_type, NULL);
 		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &local_variable_pass_info);
+		register_callback(plugin_name, PLUGIN_START_UNIT, constify_start_unit, NULL);
 	}
 	register_callback(plugin_name, PLUGIN_ATTRIBUTES, register_attributes, NULL);
 

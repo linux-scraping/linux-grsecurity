@@ -1688,7 +1688,7 @@ proc_do_sync_ports(ctl_table *table, int write,
  *	align with netns init in ip_vs_control_net_init()
  */
 
-static struct ctl_table vs_vars[] = {
+static ctl_table_no_const vs_vars[] __read_only = {
 	{
 		.procname	= "amemthresh",
 		.maxlen		= sizeof(int),
@@ -3688,7 +3688,7 @@ static int __net_init ip_vs_control_net_init_sysctl(struct net *net)
 {
 	int idx;
 	struct netns_ipvs *ipvs = net_ipvs(net);
-	struct ctl_table *tbl;
+	ctl_table_no_const *tbl;
 
 	atomic_set(&ipvs->dropentry, 0);
 	spin_lock_init(&ipvs->dropentry_lock);

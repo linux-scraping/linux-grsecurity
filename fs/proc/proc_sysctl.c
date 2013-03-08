@@ -887,7 +887,7 @@ static struct ctl_dir *find_subdir(struct ctl_dir *dir,
 static struct ctl_dir *new_dir(struct ctl_table_set *set,
 			       const char *name, int namelen)
 {
-	struct ctl_table *table;
+	ctl_table_no_const *table;
 	struct ctl_dir *new;
 	struct ctl_node *node;
 	char *new_name;
@@ -899,7 +899,7 @@ static struct ctl_dir *new_dir(struct ctl_table_set *set,
 		return NULL;
 
 	node = (struct ctl_node *)(new + 1);
-	table = (struct ctl_table *)(node + 1);
+	table = (ctl_table_no_const *)(node + 1);
 	new_name = (char *)(table + 2);
 	memcpy(new_name, name, namelen);
 	new_name[namelen] = '\0';
@@ -1068,7 +1068,8 @@ static int sysctl_check_table(const char *path, struct ctl_table *table)
 static struct ctl_table_header *new_links(struct ctl_dir *dir, struct ctl_table *table,
 	struct ctl_table_root *link_root)
 {
-	struct ctl_table *link_table, *entry, *link;
+	ctl_table_no_const *link_table, *link;
+	struct ctl_table *entry;
 	struct ctl_table_header *links;
 	struct ctl_node *node;
 	char *link_name;
@@ -1091,7 +1092,7 @@ static struct ctl_table_header *new_links(struct ctl_dir *dir, struct ctl_table 
 		return NULL;
 
 	node = (struct ctl_node *)(links + 1);
-	link_table = (struct ctl_table *)(node + nr_entries);
+	link_table = (ctl_table_no_const *)(node + nr_entries);
 	link_name = (char *)&link_table[nr_entries + 1];
 
 	for (link = link_table, entry = table; entry->procname; link++, entry++) {
@@ -1339,8 +1340,8 @@ static int register_leaf_sysctl_tables(const char *path, char *pos,
 	struct ctl_table_header ***subheader, struct ctl_table_set *set,
 	struct ctl_table *table)
 {
-	struct ctl_table *ctl_table_arg = NULL;
-	struct ctl_table *entry, *files;
+	ctl_table_no_const *ctl_table_arg = NULL, *files = NULL;
+	struct ctl_table *entry;
 	int nr_files = 0;
 	int nr_dirs = 0;
 	int err = -ENOMEM;
@@ -1352,10 +1353,9 @@ static int register_leaf_sysctl_tables(const char *path, char *pos,
 			nr_files++;
 	}
 
-	files = table;
 	/* If there are mixed files and directories we need a new table */
 	if (nr_dirs && nr_files) {
-		struct ctl_table *new;
+		ctl_table_no_const *new;
 		files = kzalloc(sizeof(struct ctl_table) * (nr_files + 1),
 				GFP_KERNEL);
 		if (!files)
@@ -1373,7 +1373,7 @@ static int register_leaf_sysctl_tables(const char *path, char *pos,
 	/* Register everything except a directory full of subdirectories */
 	if (nr_files || !nr_dirs) {
 		struct ctl_table_header *header;
-		header = __register_sysctl_table(set, path, files);
+		header = __register_sysctl_table(set, path, files ? files : table);
 		if (!header) {
 			kfree(ctl_table_arg);
 			goto out;

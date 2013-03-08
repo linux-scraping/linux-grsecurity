@@ -498,7 +498,7 @@ struct dmi_system_id {
 	const char *ident;
 	struct dmi_strmatch matches[4];
 	void *driver_data;
-};
+} __do_const;
 /*
  * struct dmi_device_id appears during expansion of
  * "MODULE_DEVICE_TABLE(dmi, x)". Compiler doesn't look inside it

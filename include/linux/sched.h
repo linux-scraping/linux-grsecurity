@@ -1146,7 +1146,7 @@ struct sched_class {
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	void (*task_move_group) (struct task_struct *p, int on_rq);
 #endif
-};
+} __do_const;
 
 struct load_weight {
 	unsigned long weight, inv_weight;
@@ -1799,7 +1799,7 @@ struct pid_namespace;
 pid_t __task_pid_nr_ns(struct task_struct *task, enum pid_type type,
 			struct pid_namespace *ns);
 
-static inline pid_t task_pid_nr(struct task_struct *tsk)
+static inline pid_t task_pid_nr(const struct task_struct *tsk)
 {
 	return tsk->pid;
 }

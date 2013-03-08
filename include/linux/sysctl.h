@@ -34,8 +34,6 @@ struct ctl_table_root;
 struct ctl_table_header;
 struct ctl_dir;
 
-typedef struct ctl_table ctl_table;
-
 typedef int proc_handler (struct ctl_table *ctl, int write,
 			  void __user *buffer, size_t *lenp, loff_t *ppos);
 
@@ -117,7 +115,9 @@ struct ctl_table
 	struct ctl_table_poll *poll;
 	void *extra1;
 	void *extra2;
-};
+} __do_const;
+typedef struct ctl_table __no_const ctl_table_no_const;
+typedef struct ctl_table ctl_table;
 
 struct ctl_node {
 	struct rb_node node;

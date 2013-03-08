@@ -31,7 +31,7 @@ struct nls_table {
 	const unsigned char *charset2upper;
 	struct module *owner;
 	struct nls_table *next;
-};
+} __do_const;
 
 /* this value hold the maximum octet of charset */
 #define NLS_MAX_CHARSET_SIZE 6 /* for UTF-8 */

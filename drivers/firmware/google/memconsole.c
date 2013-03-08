@@ -147,7 +147,9 @@ static int __init memconsole_init(void)
 	if (!found_memconsole())
 		return -ENODEV;
 
-	memconsole_bin_attr.size = memconsole_length;
+	pax_open_kernel();
+	*(size_t *)&memconsole_bin_attr.size = memconsole_length;
+	pax_close_kernel();
 
 	ret = sysfs_create_bin_file(firmware_kobj, &memconsole_bin_attr);
 

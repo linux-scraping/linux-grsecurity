@@ -69,7 +69,7 @@ struct ichx_desc {
 	/* Some chipsets have quirks, let these use their own request/get */
 	int (*request)(struct gpio_chip *chip, unsigned offset);
 	int (*get)(struct gpio_chip *chip, unsigned offset);
-};
+} __do_const;
 
 static struct {
 	spinlock_t lock;

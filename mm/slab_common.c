@@ -22,7 +22,7 @@
 
 #include "slab.h"
 
-enum slab_state slab_state;
+enum slab_state slab_state __read_only;
 LIST_HEAD(slab_caches);
 DEFINE_MUTEX(slab_mutex);
 struct kmem_cache *kmem_cache;

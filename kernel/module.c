@@ -1453,7 +1453,7 @@ static void add_notes_attrs(struct module *mod, const struct load_info *info)
 {
 	unsigned int notes, loaded, i;
 	struct module_notes_attrs *notes_attrs;
-	struct bin_attribute *nattr;
+	bin_attribute_no_const *nattr;
 
 	/* failed to create section attributes, so can't create notes */
 	if (!mod->sect_attrs)
@@ -1565,7 +1565,7 @@ static void del_usage_links(struct module *mod)
 static int module_add_modinfo_attrs(struct module *mod)
 {
 	struct module_attribute *attr;
-	struct module_attribute *temp_attr;
+	module_attribute_no_const *temp_attr;
 	int error = 0;
 	int i;
 

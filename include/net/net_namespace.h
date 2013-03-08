@@ -282,7 +282,7 @@ struct pernet_operations {
 	void (*exit_batch)(struct list_head *net_exit_list);
 	int *id;
 	size_t size;
-};
+} __do_const;
 
 /*
  * Use these carefully.  If you implement a network device and it

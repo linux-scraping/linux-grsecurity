@@ -138,7 +138,7 @@ struct ipip_net {
 static int ipip_tunnel_init(struct net_device *dev);
 static void ipip_tunnel_setup(struct net_device *dev);
 static void ipip_dev_free(struct net_device *dev);
-static struct rtnl_link_ops ipip_link_ops __read_mostly;
+static struct rtnl_link_ops ipip_link_ops;
 
 static struct rtnl_link_stats64 *ipip_get_stats64(struct net_device *dev,
 						  struct rtnl_link_stats64 *tot)
@@ -972,7 +972,7 @@ static const struct nla_policy ipip_policy[IFLA_IPTUN_MAX + 1] = {
 	[IFLA_IPTUN_PMTUDISC]		= { .type = NLA_U8 },
 };
 
-static struct rtnl_link_ops ipip_link_ops __read_mostly = {
+static struct rtnl_link_ops ipip_link_ops = {
 	.kind		= "ipip",
 	.maxtype	= IFLA_IPTUN_MAX,
 	.policy		= ipip_policy,

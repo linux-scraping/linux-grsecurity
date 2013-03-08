@@ -51,7 +51,7 @@ struct callback_op {
 	callback_decode_arg_t decode_args;
 	callback_encode_res_t encode_res;
 	long res_maxsize;
-};
+} __do_const;
 
 static struct callback_op callback_ops[];
 

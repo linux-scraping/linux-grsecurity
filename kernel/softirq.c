@@ -839,7 +839,7 @@ static struct notifier_block cpu_nfb = {
 	.notifier_call = cpu_callback
 };
 
-static struct smp_hotplug_thread softirq_threads = {
+static struct smp_hotplug_thread softirq_threads __read_only = {
 	.store			= &ksoftirqd,
 	.thread_should_run	= ksoftirqd_should_run,
 	.thread_fn		= run_ksoftirqd,

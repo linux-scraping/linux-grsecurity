@@ -642,7 +642,7 @@ EXPORT_SYMBOL(swiotlb_alloc_coherent);
 
 void
 swiotlb_free_coherent(struct device *hwdev, size_t size, void *vaddr,
-		      dma_addr_t dev_addr)
+		      dma_addr_t dev_addr, struct dma_attrs *attrs)
 {
 	phys_addr_t paddr = dma_to_phys(hwdev, dev_addr);
 

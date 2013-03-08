@@ -497,7 +497,7 @@ struct sctp_af {
 	int		sockaddr_len;
 	sa_family_t	sa_family;
 	struct list_head list;
-} __do_const;
+};
 
 struct sctp_af *sctp_get_af_specific(sa_family_t);
 int sctp_register_af(struct sctp_af *);

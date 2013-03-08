@@ -200,7 +200,7 @@ struct atmdev_ops { /* only send is required */
 	int (*change_qos)(struct atm_vcc *vcc,struct atm_qos *qos,int flags);
 	int (*proc_read)(struct atm_dev *dev,loff_t *pos,char *page);
 	struct module *owner;
-};
+} __do_const ;
 
 struct atmphy_ops {
 	int (*start)(struct atm_dev *dev);

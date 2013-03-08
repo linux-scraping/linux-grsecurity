@@ -2385,7 +2385,7 @@ static __init void mce_init_banks(void)
 
 	for (i = 0; i < mca_cfg.banks; i++) {
 		struct mce_bank *b = &mce_banks[i];
-		struct device_attribute *a = &b->attr;
+		device_attribute_no_const *a = &b->attr;
 
 		sysfs_attr_init(&a->attr);
 		a->attr.name	= b->attrname;

@@ -674,7 +674,7 @@ static struct apic apic_es7000_cluster __read_only = {
 	.x86_32_early_logical_apicid	= es7000_early_logical_apicid,
 };
 
-static struct apic __refdata apic_es7000 __read_only = {
+static struct apic apic_es7000 __read_only = {
 
 	.name				= "es7000",
 	.probe				= probe_es7000,

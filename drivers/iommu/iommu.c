@@ -554,7 +554,7 @@ static struct notifier_block iommu_bus_nb = {
 static void iommu_bus_init(struct bus_type *bus, struct iommu_ops *ops)
 {
 	bus_register_notifier(bus, &iommu_bus_nb);
-	bus_for_each_dev(bus, NULL, ops, add_iommu_group);
+	bus_for_each_dev(bus, NULL, (void *)ops, add_iommu_group);
 }
 
 /**

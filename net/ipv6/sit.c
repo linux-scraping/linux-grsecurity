@@ -72,7 +72,7 @@ MODULE_PARM_DESC(log_ecn_error, "Log packets received with corrupted ECN");
 static int ipip6_tunnel_init(struct net_device *dev);
 static void ipip6_tunnel_setup(struct net_device *dev);
 static void ipip6_dev_free(struct net_device *dev);
-static struct rtnl_link_ops sit_link_ops __read_mostly;
+static struct rtnl_link_ops sit_link_ops;
 
 static int sit_net_id __read_mostly;
 struct sit_net {
@@ -1463,7 +1463,7 @@ static const struct nla_policy ipip6_policy[IFLA_IPTUN_MAX + 1] = {
 #endif
 };
 
-static struct rtnl_link_ops sit_link_ops __read_mostly = {
+static struct rtnl_link_ops sit_link_ops = {
 	.kind		= "sit",
 	.maxtype	= IFLA_IPTUN_MAX,
 	.policy		= ipip6_policy,

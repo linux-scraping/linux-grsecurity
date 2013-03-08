@@ -980,11 +980,11 @@ struct netns_ipvs {
 	/* ip_vs_lblc */
 	int			sysctl_lblc_expiration;
 	struct ctl_table_header	*lblc_ctl_header;
-	struct ctl_table	*lblc_ctl_table;
+	ctl_table_no_const	*lblc_ctl_table;
 	/* ip_vs_lblcr */
 	int			sysctl_lblcr_expiration;
 	struct ctl_table_header	*lblcr_ctl_header;
-	struct ctl_table	*lblcr_ctl_table;
+	ctl_table_no_const	*lblcr_ctl_table;
 	/* ip_vs_est */
 	struct list_head	est_list;	/* estimator list */
 	spinlock_t		est_lock;

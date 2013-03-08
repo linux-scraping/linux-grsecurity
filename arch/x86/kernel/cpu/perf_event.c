@@ -1305,7 +1305,7 @@ static void __init pmu_check_apic(void)
 	pr_info("no hardware sampling interrupt available.\n");
 }
 
-static struct attribute_group x86_pmu_format_group = {
+static attribute_group_no_const x86_pmu_format_group = {
 	.name = "format",
 	.attrs = NULL,
 };
@@ -1313,7 +1313,7 @@ static struct attribute_group x86_pmu_format_group = {
 struct perf_pmu_events_attr {
 	struct device_attribute attr;
 	u64 id;
-};
+} __do_const;
 
 /*
  * Remove all undefined events (x86_pmu.event_map(id) == 0)
@@ -1381,7 +1381,7 @@ static struct attribute *events_attr[] = {
 	NULL,
 };
 
-static struct attribute_group x86_pmu_events_group = {
+static attribute_group_no_const x86_pmu_events_group = {
 	.name = "events",
 	.attrs = events_attr,
 };

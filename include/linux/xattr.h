@@ -28,7 +28,7 @@ struct xattr_handler {
 		   size_t size, int handler_flags);
 	int (*set)(struct dentry *dentry, const char *name, const void *buffer,
 		   size_t size, int flags, int handler_flags);
-};
+} __do_const;
 
 struct xattr {
 	char *name;

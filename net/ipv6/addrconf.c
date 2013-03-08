@@ -4388,7 +4388,7 @@ int addrconf_sysctl_forward(ctl_table *ctl, int write,
 	int *valp = ctl->data;
 	int val = *valp;
 	loff_t pos = *ppos;
-	ctl_table lctl;
+	ctl_table_no_const lctl;
 	int ret;
 
 	/*
@@ -4470,7 +4470,7 @@ int addrconf_sysctl_disable(ctl_table *ctl, int write,
 	int *valp = ctl->data;
 	int val = *valp;
 	loff_t pos = *ppos;
-	ctl_table lctl;
+	ctl_table_no_const lctl;
 	int ret;
 
 	/*

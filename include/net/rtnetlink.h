@@ -81,7 +81,7 @@ struct rtnl_link_ops {
 					       const struct net_device *dev);
 	unsigned int		(*get_num_tx_queues)(void);
 	unsigned int		(*get_num_rx_queues)(void);
-};
+} __do_const;
 
 extern int	__rtnl_link_register(struct rtnl_link_ops *ops);
 extern void	__rtnl_link_unregister(struct rtnl_link_ops *ops);

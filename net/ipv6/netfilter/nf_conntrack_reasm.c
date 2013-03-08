@@ -87,10 +87,9 @@ static struct ctl_table nf_ct_frag6_sysctl_table[] = {
 
 static int nf_ct_frag6_sysctl_register(struct net *net)
 {
-	struct ctl_table *table;
+	ctl_table_no_const *table = NULL;
 	struct ctl_table_header *hdr;
 
-	table = nf_ct_frag6_sysctl_table;
 	if (!net_eq(net, &init_net)) {
 		table = kmemdup(table, sizeof(nf_ct_frag6_sysctl_table),
 				GFP_KERNEL);
@@ -100,9 +99,9 @@ static int nf_ct_frag6_sysctl_register(struct net *net)
 		table[0].data = &net->ipv6.frags.high_thresh;
 		table[1].data = &net->ipv6.frags.low_thresh;
 		table[2].data = &net->ipv6.frags.timeout;
-	}
-
-	hdr = register_net_sysctl(net, "net/netfilter", table);
+		hdr = register_net_sysctl(net, "net/netfilter", table);
+	} else
+		hdr = register_net_sysctl(net, "net/netfilter", nf_ct_frag6_sysctl_table);
 	if (hdr == NULL)
 		goto err_reg;
 
@@ -110,8 +109,7 @@ static int nf_ct_frag6_sysctl_register(struct net *net)
 	return 0;
 
 err_reg:
-	if (!net_eq(net, &init_net))
-		kfree(table);
+	kfree(table);
 err_alloc:
 	return -ENOMEM;
 }

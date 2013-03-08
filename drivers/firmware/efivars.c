@@ -1734,7 +1734,7 @@ efivar_create_sysfs_entry(struct efivars *efivars,
 static int
 create_efivars_bin_attributes(struct efivars *efivars)
 {
-	struct bin_attribute *attr;
+	bin_attribute_no_const *attr;
 	int error;
 
 	/* new_var */

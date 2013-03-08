@@ -1456,7 +1456,7 @@ nfsd4_decode_notsupp(struct nfsd4_compoundargs *argp, void *p)
 
 typedef __be32(*nfsd4_dec)(struct nfsd4_compoundargs *argp, void *);
 
-static nfsd4_dec nfsd4_dec_ops[] = {
+static const nfsd4_dec nfsd4_dec_ops[] = {
 	[OP_ACCESS]		= (nfsd4_dec)nfsd4_decode_access,
 	[OP_CLOSE]		= (nfsd4_dec)nfsd4_decode_close,
 	[OP_COMMIT]		= (nfsd4_dec)nfsd4_decode_commit,
@@ -1496,7 +1496,7 @@ static nfsd4_dec nfsd4_dec_ops[] = {
 	[OP_RELEASE_LOCKOWNER]	= (nfsd4_dec)nfsd4_decode_release_lockowner,
 };
 
-static nfsd4_dec nfsd41_dec_ops[] = {
+static const nfsd4_dec nfsd41_dec_ops[] = {
 	[OP_ACCESS]		= (nfsd4_dec)nfsd4_decode_access,
 	[OP_CLOSE]		= (nfsd4_dec)nfsd4_decode_close,
 	[OP_COMMIT]		= (nfsd4_dec)nfsd4_decode_commit,
@@ -1558,7 +1558,7 @@ static nfsd4_dec nfsd41_dec_ops[] = {
 };
 
 struct nfsd4_minorversion_ops {
-	nfsd4_dec *decoders;
+	const nfsd4_dec *decoders;
 	int nops;
 };
 

@@ -238,6 +238,7 @@ series
 setup
 setup.bin
 setup.elf
+signing_key*
 size_overflow_hash.h
 sImage
 slabinfo
@@ -286,6 +287,7 @@ utsrelease.h
 wakeup.bin
 wakeup.elf
 wakeup.lds
+x509*
 zImage*
 zconf.hash.c
 zconf.lex.c

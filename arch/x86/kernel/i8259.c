@@ -333,14 +333,16 @@ static void init_8259A(int auto_eoi)
 	/* (slave's support for AEOI in flat mode is to be investigated) */
 	outb_pic(SLAVE_ICW4_DEFAULT, PIC_SLAVE_IMR);
 
+	pax_open_kernel();
 	if (auto_eoi)
 		/*
 		 * In AEOI mode we just have to mask the interrupt
 		 * when acking.
 		 */
-		i8259A_chip.irq_mask_ack = disable_8259A_irq;
+		*(void **)&i8259A_chip.irq_mask_ack = disable_8259A_irq;
 	else
-		i8259A_chip.irq_mask_ack = mask_and_ack_8259A;
+		*(void **)&i8259A_chip.irq_mask_ack = mask_and_ack_8259A;
+	pax_close_kernel();
 
 	udelay(100);		/* wait for 8259A to initialize */
 

@@ -864,28 +864,33 @@ static int radeon_ttm_debugfs_init(struct radeon_device *rdev)
 			sprintf(radeon_mem_types_names[i], "radeon_vram_mm");
 		else
 			sprintf(radeon_mem_types_names[i], "radeon_gtt_mm");
-		radeon_mem_types_list[i].name = radeon_mem_types_names[i];
-		radeon_mem_types_list[i].show = &radeon_mm_dump_table;
-		radeon_mem_types_list[i].driver_features = 0;
+		pax_open_kernel();
+		*(const char **)&radeon_mem_types_list[i].name = radeon_mem_types_names[i];
+		*(void **)&radeon_mem_types_list[i].show = &radeon_mm_dump_table;
+		*(u32 *)&radeon_mem_types_list[i].driver_features = 0;
 		if (i == 0)
-			radeon_mem_types_list[i].data = rdev->mman.bdev.man[TTM_PL_VRAM].priv;
+			*(void **)&radeon_mem_types_list[i].data = rdev->mman.bdev.man[TTM_PL_VRAM].priv;
 		else
-			radeon_mem_types_list[i].data = rdev->mman.bdev.man[TTM_PL_TT].priv;
-
+			*(void **)&radeon_mem_types_list[i].data = rdev->mman.bdev.man[TTM_PL_TT].priv;
+		pax_close_kernel();
 	}
 	/* Add ttm page pool to debugfs */
 	sprintf(radeon_mem_types_names[i], "ttm_page_pool");
-	radeon_mem_types_list[i].name = radeon_mem_types_names[i];
-	radeon_mem_types_list[i].show = &ttm_page_alloc_debugfs;
-	radeon_mem_types_list[i].driver_features = 0;
-	radeon_mem_types_list[i++].data = NULL;
+	pax_open_kernel();
+	*(const char **)&radeon_mem_types_list[i].name = radeon_mem_types_names[i];
+	*(void **)&radeon_mem_types_list[i].show = &ttm_page_alloc_debugfs;
+	*(u32 *)&radeon_mem_types_list[i].driver_features = 0;
+	*(void **)&radeon_mem_types_list[i++].data = NULL;
+	pax_close_kernel();
 #ifdef CONFIG_SWIOTLB
 	if (swiotlb_nr_tbl()) {
 		sprintf(radeon_mem_types_names[i], "ttm_dma_page_pool");
-		radeon_mem_types_list[i].name = radeon_mem_types_names[i];
-		radeon_mem_types_list[i].show = &ttm_dma_page_alloc_debugfs;
-		radeon_mem_types_list[i].driver_features = 0;
-		radeon_mem_types_list[i++].data = NULL;
+		pax_open_kernel();
+		*(const char **)&radeon_mem_types_list[i].name = radeon_mem_types_names[i];
+		*(void **)&radeon_mem_types_list[i].show = &ttm_dma_page_alloc_debugfs;
+		*(u32 *)&radeon_mem_types_list[i].driver_features = 0;
+		*(void **)&radeon_mem_types_list[i++].data = NULL;
+		pax_close_kernel();
 	}
 #endif
 	return radeon_debugfs_add_files(rdev, radeon_mem_types_list, i);

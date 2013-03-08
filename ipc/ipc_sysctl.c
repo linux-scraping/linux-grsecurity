@@ -30,7 +30,7 @@ static void *get_ipc(ctl_table *table)
 static int proc_ipc_dointvec(ctl_table *table, int write,
 	void __user *buffer, size_t *lenp, loff_t *ppos)
 {
-	struct ctl_table ipc_table;
+	ctl_table_no_const ipc_table;
 
 	memcpy(&ipc_table, table, sizeof(ipc_table));
 	ipc_table.data = get_ipc(table);
@@ -41,7 +41,7 @@ static int proc_ipc_dointvec(ctl_table *table, int write,
 static int proc_ipc_dointvec_minmax(ctl_table *table, int write,
 	void __user *buffer, size_t *lenp, loff_t *ppos)
 {
-	struct ctl_table ipc_table;
+	ctl_table_no_const ipc_table;
 
 	memcpy(&ipc_table, table, sizeof(ipc_table));
 	ipc_table.data = get_ipc(table);
@@ -65,7 +65,7 @@ static int proc_ipc_dointvec_minmax_orphans(ctl_table *table, int write,
 static int proc_ipc_callback_dointvec(ctl_table *table, int write,
 	void __user *buffer, size_t *lenp, loff_t *ppos)
 {
-	struct ctl_table ipc_table;
+	ctl_table_no_const ipc_table;
 	size_t lenp_bef = *lenp;
 	int rc;
 
@@ -88,7 +88,7 @@ static int proc_ipc_callback_dointvec(ctl_table *table, int write,
 static int proc_ipc_doulongvec_minmax(ctl_table *table, int write,
 	void __user *buffer, size_t *lenp, loff_t *ppos)
 {
-	struct ctl_table ipc_table;
+	ctl_table_no_const ipc_table;
 	memcpy(&ipc_table, table, sizeof(ipc_table));
 	ipc_table.data = get_ipc(table);
 
@@ -122,7 +122,7 @@ static void ipc_auto_callback(int val)
 static int proc_ipcauto_dointvec_minmax(ctl_table *table, int write,
 	void __user *buffer, size_t *lenp, loff_t *ppos)
 {
-	struct ctl_table ipc_table;
+	ctl_table_no_const ipc_table;
 	size_t lenp_bef = *lenp;
 	int oldval;
 	int rc;

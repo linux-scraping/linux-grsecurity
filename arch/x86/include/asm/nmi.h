@@ -42,11 +42,11 @@ struct nmiaction {
 	nmi_handler_t		handler;
 	unsigned long		flags;
 	const char		*name;
-};
+} __do_const;
 
 #define register_nmi_handler(t, fn, fg, n, init...)	\
 ({							\
-	static struct nmiaction init fn##_na = {	\
+	static const struct nmiaction init fn##_na = {	\
 		.handler = (fn),			\
 		.name = (n),				\
 		.flags = (fg),				\

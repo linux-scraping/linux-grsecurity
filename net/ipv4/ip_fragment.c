@@ -789,10 +789,9 @@ static struct ctl_table ip4_frags_ctl_table[] = {
 
 static int __net_init ip4_frags_ns_ctl_register(struct net *net)
 {
-	struct ctl_table *table;
+	ctl_table_no_const *table = NULL;
 	struct ctl_table_header *hdr;
 
-	table = ip4_frags_ns_ctl_table;
 	if (!net_eq(net, &init_net)) {
 		table = kmemdup(table, sizeof(ip4_frags_ns_ctl_table), GFP_KERNEL);
 		if (table == NULL)
@@ -805,9 +804,10 @@ static int __net_init ip4_frags_ns_ctl_register(struct net *net)
 		/* Don't export sysctls to unprivileged users */
 		if (net->user_ns != &init_user_ns)
 			table[0].procname = NULL;
+		hdr = register_net_sysctl(net, "net/ipv4", table);
 	}
+		hdr = register_net_sysctl(net, "net/ipv4", ip4_frags_ns_ctl_table);
 
-	hdr = register_net_sysctl(net, "net/ipv4", table);
 	if (hdr == NULL)
 		goto err_reg;
 
@@ -815,8 +815,7 @@ static int __net_init ip4_frags_ns_ctl_register(struct net *net)
 	return 0;
 
 err_reg:
-	if (!net_eq(net, &init_net))
-		kfree(table);
+	kfree(table);
 err_alloc:
 	return -ENOMEM;
 }

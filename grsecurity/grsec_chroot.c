@@ -12,7 +12,7 @@
 void gr_set_chroot_entries(struct task_struct *task, struct path *path)
 {
 #ifdef CONFIG_GRKERNSEC
-	if (task->pid > 1 && path->dentry != init_task.fs->root.dentry &&
+	if (task_pid_nr(task) > 1 && path->dentry != init_task.fs->root.dentry &&
 	    		     path->dentry != task->nsproxy->mnt_ns->root->mnt.mnt_root)
 		task->gr_is_chrooted = 1;
 	else
@@ -77,7 +77,7 @@ gr_handle_chroot_setpriority(struct task_struct *p, const int niceval)
 #ifdef CONFIG_GRKERNSEC_CHROOT_NICE
 	if (grsec_enable_chroot_nice && (niceval < task_nice(p))
 			&& proc_is_chrooted(current)) {
-		gr_log_str_int(GR_DONT_AUDIT, GR_PRIORITY_CHROOT_MSG, p->comm, p->pid);
+		gr_log_str_int(GR_DONT_AUDIT, GR_PRIORITY_CHROOT_MSG, p->comm, task_pid_nr(p));
 		return -EACCES;
 	}
 #endif

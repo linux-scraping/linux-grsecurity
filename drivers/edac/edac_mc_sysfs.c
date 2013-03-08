@@ -148,7 +148,7 @@ static const char *edac_caps[] = {
 struct dev_ch_attribute {
 	struct device_attribute attr;
 	int channel;
-};
+} __do_const;
 
 #define DEVICE_CHANNEL(_name, _mode, _show, _store, _var) \
 	struct dev_ch_attribute dev_attr_legacy_##_name = \

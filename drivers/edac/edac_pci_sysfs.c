@@ -235,7 +235,7 @@ struct edac_pci_dev_attribute {
 	void *value;
 	 ssize_t(*show) (void *, char *);
 	 ssize_t(*store) (void *, const char *, size_t);
-};
+} __do_const;
 
 /* Set of show/store abstract level functions for PCI Parity object */
 static ssize_t edac_pci_dev_show(struct kobject *kobj, struct attribute *attr,

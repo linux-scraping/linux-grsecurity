@@ -328,7 +328,7 @@ struct irq_chip {
 	void		(*irq_print_chip)(struct irq_data *data, struct seq_file *p);
 
 	unsigned long	flags;
-};
+} __do_const;
 
 /*
  * irq_chip specific flags

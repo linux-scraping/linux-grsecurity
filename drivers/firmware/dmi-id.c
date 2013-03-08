@@ -16,7 +16,7 @@
 struct dmi_device_attribute{
 	struct device_attribute dev_attr;
 	int field;
-};
+} __do_const;
 #define to_dmi_dev_attr(_dev_attr) \
 	container_of(_dev_attr, struct dmi_device_attribute, dev_attr)
 

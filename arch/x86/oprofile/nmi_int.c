@@ -23,6 +23,7 @@
 #include <asm/nmi.h>
 #include <asm/msr.h>
 #include <asm/apic.h>
+#include <asm/pgtable.h>
 
 #include "op_counter.h"
 #include "op_x86_model.h"
@@ -774,8 +775,11 @@ int __init op_nmi_init(struct oprofile_operations *ops)
 	if (ret)
 		return ret;
 
-	if (!model->num_virt_counters)
-		model->num_virt_counters = model->num_counters;
+	if (!model->num_virt_counters) {
+		pax_open_kernel();
+		*(unsigned int *)&model->num_virt_counters = model->num_counters;
+		pax_close_kernel();
+	}
 
 	mux_init(ops);
 

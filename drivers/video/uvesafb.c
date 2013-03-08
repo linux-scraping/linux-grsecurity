@@ -1481,8 +1481,11 @@ static void uvesafb_init_info(struct fb_info *info, struct vbe_mode_ib *mode)
 	info->fix.ywrapstep = (par->ypan > 1) ? 1 : 0;
 
 	/* Disable blanking if the user requested so. */
-	if (!blank)
-		info->fbops->fb_blank = NULL;
+	if (!blank) {
+		pax_open_kernel();
+		*(void **)&info->fbops->fb_blank = NULL;
+		pax_close_kernel();
+	}
 
 	/*
 	 * Find out how much IO memory is required for the mode with
@@ -1558,8 +1561,11 @@ static void uvesafb_init_info(struct fb_info *info, struct vbe_mode_ib *mode)
 	info->flags = FBINFO_FLAG_DEFAULT |
 			(par->ypan ? FBINFO_HWACCEL_YPAN : 0);
 
-	if (!par->ypan)
-		info->fbops->fb_pan_display = NULL;
+	if (!par->ypan) {
+		pax_open_kernel();
+		*(void **)&info->fbops->fb_pan_display = NULL;
+		pax_close_kernel();
+	}
 }
 
 static void uvesafb_init_mtrr(struct fb_info *info)

@@ -2588,7 +2588,7 @@ gr_set_role_label(struct task_struct *task, const kuid_t kuid, const kgid_t kgid
 		task->is_writable = 1;
 
 #ifdef CONFIG_GRKERNSEC_RBAC_DEBUG
-	printk(KERN_ALERT "Set role label for (%s:%d): role:%s, subject:%s\n", task->comm, task->pid, task->role->rolename, task->acl->filename);
+	printk(KERN_ALERT "Set role label for (%s:%d): role:%s, subject:%s\n", task->comm, task_pid_nr(task), task->role->rolename, task->acl->filename);
 #endif
 
 	gr_set_proc_res(task);
@@ -2663,7 +2663,7 @@ skip_check:
 	gr_set_proc_res(task);
 
 #ifdef CONFIG_GRKERNSEC_RBAC_DEBUG
-	printk(KERN_ALERT "Set subject label for (%s:%d): role:%s, subject:%s\n", task->comm, task->pid, task->role->rolename, task->acl->filename);
+	printk(KERN_ALERT "Set subject label for (%s:%d): role:%s, subject:%s\n", task->comm, task_pid_nr(task), task->role->rolename, task->acl->filename);
 #endif
 	return 0;
 }
@@ -3077,7 +3077,7 @@ assign_special_role(char *rolename)
 		tsk->is_writable = 1;
 
 #ifdef CONFIG_GRKERNSEC_RBAC_DEBUG
-	printk(KERN_ALERT "Assigning special role:%s subject:%s to process (%s:%d)\n", tsk->role->rolename, tsk->acl->filename, tsk->comm, tsk->pid);
+	printk(KERN_ALERT "Assigning special role:%s subject:%s to process (%s:%d)\n", tsk->role->rolename, tsk->acl->filename, tsk->comm, task_pid_nr(tsk));
 #endif
 
 out_unlock:
@@ -3131,7 +3131,7 @@ int gr_check_secure_terminal(struct task_struct *task)
 			if (file && S_ISCHR(file->f_path.dentry->d_inode->i_mode) &&
 			    file->f_path.dentry->d_inode->i_rdev == our_file->f_path.dentry->d_inode->i_rdev) {
 				p3 = task;
-				while (p3->pid > 0) {
+				while (task_pid_nr(p3) > 0) {
 					if (p3 == p)
 						break;
 					p3 = p3->real_parent;
@@ -3222,7 +3222,7 @@ write_grsec_handler(struct file *file, const char * buf, size_t count, loff_t *p
 
 	if (gr_usermode->mode != GR_SPROLE && gr_usermode->mode != GR_STATUS &&
 	    gr_usermode->mode != GR_UNSPROLE && gr_usermode->mode != GR_SPROLEPAM &&
-	    !uid_eq(current_uid(), GLOBAL_ROOT_UID)) {
+	    gr_is_global_nonroot(current_uid())) {
 		error = -EPERM;
 		goto out;
 	}
@@ -3461,7 +3461,7 @@ int gr_apply_subject_to_task(struct task_struct *task)
 		gr_set_proc_res(task);
 
 #ifdef CONFIG_GRKERNSEC_RBAC_DEBUG
-		printk(KERN_ALERT "gr_set_acls for (%s:%d): role:%s, subject:%s\n", task->comm, task->pid, task->role->rolename, task->acl->filename);
+		printk(KERN_ALERT "gr_set_acls for (%s:%d): role:%s, subject:%s\n", task->comm, task_pid_nr(task), task->role->rolename, task->acl->filename);
 #endif
 	} else {
 		return 1;
@@ -3502,7 +3502,7 @@ gr_set_acls(const int type)
 				read_unlock(&grsec_exec_file_lock);
 				read_unlock(&tasklist_lock);
 				rcu_read_unlock();
-				gr_log_str_int(GR_DONT_AUDIT_GOOD, GR_DEFACL_MSG, task->comm, task->pid);
+				gr_log_str_int(GR_DONT_AUDIT_GOOD, GR_DEFACL_MSG, task->comm, task_pid_nr(task));
 				return ret;
 			}
 		} else {
@@ -3650,13 +3650,13 @@ gr_handle_proc_ptrace(struct task_struct *task)
 	read_lock(&grsec_exec_file_lock);
 	filp = task->exec_file;
 
-	while (tmp->pid > 0) {
+	while (task_pid_nr(tmp) > 0) {
 		if (tmp == curtemp)
 			break;
 		tmp = tmp->real_parent;
 	}
 
-	if (!filp || (tmp->pid == 0 && ((grsec_enable_harden_ptrace && !uid_eq(current_uid(), GLOBAL_ROOT_UID) && !(gr_status & GR_READY)) ||
+	if (!filp || (task_pid_nr(tmp) == 0 && ((grsec_enable_harden_ptrace && gr_is_global_nonroot(current_uid()) && !(gr_status & GR_READY)) ||
 				((gr_status & GR_READY)	&& !(current->acl->mode & GR_RELAXPTRACE))))) {
 		read_unlock(&grsec_exec_file_lock);
 		read_unlock(&tasklist_lock);
@@ -3680,7 +3680,7 @@ gr_handle_proc_ptrace(struct task_struct *task)
 
 	if (!(current->acl->mode & GR_POVERRIDE) && !(current->role->roletype & GR_ROLE_GOD)
 	    && (current->acl != task->acl || (current->acl != current->role->root_label
-	    && current->pid != task->pid)))
+	    && task_pid_nr(current) != task_pid_nr(task))))
 		return 1;
 
 	return 0;
@@ -3712,13 +3712,13 @@ gr_handle_ptrace(struct task_struct *task, const long request)
 #endif
 	if (request == PTRACE_ATTACH || request == PTRACE_SEIZE) {
 		read_lock(&tasklist_lock);
-		while (tmp->pid > 0) {
+		while (task_pid_nr(tmp) > 0) {
 			if (tmp == curtemp)
 				break;
 			tmp = tmp->real_parent;
 		}
 
-		if (tmp->pid == 0 && ((grsec_enable_harden_ptrace && !uid_eq(current_uid(), GLOBAL_ROOT_UID) && !(gr_status & GR_READY)) ||
+		if (task_pid_nr(tmp) == 0 && ((grsec_enable_harden_ptrace && gr_is_global_nonroot(current_uid()) && !(gr_status & GR_READY)) ||
 					((gr_status & GR_READY)	&& !(current->acl->mode & GR_RELAXPTRACE)))) {
 			read_unlock(&tasklist_lock);
 			gr_log_ptrace(GR_DONT_AUDIT, GR_PTRACE_ACL_MSG, task);
@@ -3930,10 +3930,10 @@ int gr_is_taskstats_denied(int pid)
 #if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
 		cred = __task_cred(task);
 #ifdef CONFIG_GRKERNSEC_PROC_USER
-		if (!uid_eq(cred->uid, GLOBAL_ROOT_UID))
+		if (gr_is_global_nonroot(cred->uid))
 			ret = -EACCES;
 #elif defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
-		if (!uid_eq(cred->uid, GLOBAL_ROOT_UID) && !groups_search(cred->group_info, grsec_proc_gid))
+		if (gr_is_global_nonroot(cred->uid) && !groups_search(cred->group_info, grsec_proc_gid))
 			ret = -EACCES;
 #endif
 #endif

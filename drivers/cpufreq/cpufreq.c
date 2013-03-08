@@ -1875,8 +1875,11 @@ int cpufreq_register_driver(struct cpufreq_driver *driver_data)
 
 	pr_debug("trying to register driver %s\n", driver_data->name);
 
-	if (driver_data->setpolicy)
-		driver_data->flags |= CPUFREQ_CONST_LOOPS;
+	if (driver_data->setpolicy) {
+		pax_open_kernel();
+		*(u8 *)&driver_data->flags |= CPUFREQ_CONST_LOOPS;
+		pax_close_kernel();
+	}
 
 	spin_lock_irqsave(&cpufreq_driver_lock, flags);
 	if (cpufreq_driver) {

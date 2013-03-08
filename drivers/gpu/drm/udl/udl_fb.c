@@ -367,7 +367,6 @@ static int udl_fb_release(struct fb_info *info, int user)
 		fb_deferred_io_cleanup(info);
 		kfree(info->fbdefio);
 		info->fbdefio = NULL;
-		info->fbops->fb_mmap = udl_fb_mmap;
 	}
 
 	pr_warn("released /dev/fb%d user=%d count=%d\n",

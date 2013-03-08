@@ -307,7 +307,7 @@ static int proc_sctp_do_hmac_alg(ctl_table *ctl,
 {
 	struct net *net = current->nsproxy->net_ns;
 	char tmp[8];
-	ctl_table tbl;
+	ctl_table_no_const tbl;
 	int ret;
 	int changed = 0;
 	char *none = "none";
@@ -350,7 +350,7 @@ static int proc_sctp_do_hmac_alg(ctl_table *ctl,
 
 int sctp_sysctl_net_register(struct net *net)
 {
-	struct ctl_table *table;
+	ctl_table_no_const *table;
 	int i;
 
 	table = kmemdup(sctp_net_table, sizeof(sctp_net_table), GFP_KERNEL);

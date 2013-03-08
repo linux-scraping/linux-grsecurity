@@ -37,7 +37,7 @@ struct llc_conn_state_trans {
 	u8		   next_state;
 	llc_conn_ev_qfyr_t *ev_qualifiers;
 	llc_conn_action_t  *ev_actions;
-};
+} __do_const;
 
 struct llc_conn_state {
 	u8			    current_state;

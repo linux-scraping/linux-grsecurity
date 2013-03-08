@@ -9,7 +9,7 @@
 #include <linux/inet_diag.h>
 #include <linux/sock_diag.h>
 
-static const struct sock_diag_handler *sock_diag_handlers[AF_MAX];
+static const struct sock_diag_handler *sock_diag_handlers[AF_MAX] __read_only;
 static int (*inet_rcv_compat)(struct sk_buff *skb, struct nlmsghdr *nlh);
 static DEFINE_MUTEX(sock_diag_table_mutex);
 
@@ -82,8 +82,11 @@ int sock_diag_register(const struct sock_diag_handler *hndl)
 	mutex_lock(&sock_diag_table_mutex);
 	if (sock_diag_handlers[hndl->family])
 		err = -EBUSY;
-	else
+	else {
+		pax_open_kernel();
 		sock_diag_handlers[hndl->family] = hndl;
+		pax_close_kernel();
+	}
 	mutex_unlock(&sock_diag_table_mutex);
 
 	return err;
@@ -99,7 +102,9 @@ void sock_diag_unregister(const struct sock_diag_handler *hnld)
 
 	mutex_lock(&sock_diag_table_mutex);
 	BUG_ON(sock_diag_handlers[family] != hnld);
+	pax_open_kernel();
 	sock_diag_handlers[family] = NULL;
+	pax_close_kernel();
 	mutex_unlock(&sock_diag_table_mutex);
 }
 EXPORT_SYMBOL_GPL(sock_diag_unregister);

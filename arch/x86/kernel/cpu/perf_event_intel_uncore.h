@@ -428,7 +428,7 @@ struct intel_uncore_box {
 struct uncore_event_desc {
 	struct kobj_attribute attr;
 	const char *config;
-};
+} __do_const;
 
 #define INTEL_UNCORE_EVENT_DESC(_name, _config)			\
 {								\

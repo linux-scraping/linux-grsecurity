@@ -1923,7 +1923,8 @@ struct v4l2_ioctl_info {
 				struct file *file, void *fh, void *p);
 	} u;
 	void (*debug)(const void *arg, bool write_only);
-};
+} __do_const;
+typedef struct v4l2_ioctl_info __no_const v4l2_ioctl_info_no_const;
 
 /* This control needs a priority check */
 #define INFO_FL_PRIO	(1 << 0)
@@ -2108,7 +2109,7 @@ static long __video_do_ioctl(struct file *file,
 	struct video_device *vfd = video_devdata(file);
 	const struct v4l2_ioctl_ops *ops = vfd->ioctl_ops;
 	bool write_only = false;
-	struct v4l2_ioctl_info default_info;
+	v4l2_ioctl_info_no_const default_info;
 	const struct v4l2_ioctl_info *info;
 	void *fh = file->private_data;
 	struct v4l2_fh *vfh = NULL;

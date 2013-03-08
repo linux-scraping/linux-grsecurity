@@ -368,7 +368,7 @@ static int compat_radeon_cp_setparam(struct file *file, unsigned int cmd,
 #define compat_radeon_cp_setparam NULL
 #endif /* X86_64 || IA64 */
 
-static drm_ioctl_compat_t *radeon_compat_ioctls[] = {
+static drm_ioctl_compat_t radeon_compat_ioctls[] = {
 	[DRM_RADEON_CP_INIT] = compat_radeon_cp_init,
 	[DRM_RADEON_CLEAR] = compat_radeon_cp_clear,
 	[DRM_RADEON_STIPPLE] = compat_radeon_cp_stipple,
@@ -393,18 +393,15 @@ static drm_ioctl_compat_t *radeon_compat_ioctls[] = {
 long radeon_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	unsigned int nr = DRM_IOCTL_NR(cmd);
-	drm_ioctl_compat_t *fn = NULL;
 	int ret;
 
 	if (nr < DRM_COMMAND_BASE)
 		return drm_compat_ioctl(filp, cmd, arg);
 
-	if (nr < DRM_COMMAND_BASE + DRM_ARRAY_SIZE(radeon_compat_ioctls))
-		fn = radeon_compat_ioctls[nr - DRM_COMMAND_BASE];
-
-	if (fn != NULL)
+	if (nr < DRM_COMMAND_BASE + DRM_ARRAY_SIZE(radeon_compat_ioctls)) {
+		drm_ioctl_compat_t fn = radeon_compat_ioctls[nr - DRM_COMMAND_BASE];
 		ret = (*fn) (filp, cmd, arg);
-	else
+	} else
 		ret = drm_ioctl(filp, cmd, arg);
 
 	return ret;

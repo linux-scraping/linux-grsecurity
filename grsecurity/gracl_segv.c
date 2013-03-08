@@ -212,7 +212,7 @@ gr_handle_crash(struct task_struct *task, const int sig)
 	    time_after(curr->expires, get_seconds())) {
 		rcu_read_lock();
 		cred = __task_cred(task);
-		if (!uid_eq(cred->uid, GLOBAL_ROOT_UID) && proc_is_setxid(cred)) {
+		if (gr_is_global_nonroot(cred->uid) && proc_is_setxid(cred)) {
 			gr_log_crash1(GR_DONT_AUDIT, GR_SEGVSTART_ACL_MSG, task, curr->res[GR_CRASH_RES].rlim_max);
 			spin_lock(&gr_uid_lock);
 			gr_insert_uid(cred->uid, curr->expires);

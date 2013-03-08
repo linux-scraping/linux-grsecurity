@@ -129,9 +129,9 @@ int __register_nmi_handler(unsigned int type, struct nmiaction *action)
 	 * event confuses some handlers (kdump uses this flag)
 	 */
 	if (action->flags & NMI_FLAG_FIRST)
-		list_add_rcu(&action->list, &desc->head);
+		pax_list_add_rcu((struct list_head *)&action->list, &desc->head);
 	else
-		list_add_tail_rcu(&action->list, &desc->head);
+		pax_list_add_tail_rcu((struct list_head *)&action->list, &desc->head);
 	
 	spin_unlock_irqrestore(&desc->lock, flags);
 	return 0;
@@ -154,7 +154,7 @@ void unregister_nmi_handler(unsigned int type, const char *name)
 		if (!strcmp(n->name, name)) {
 			WARN(in_nmi(),
 				"Trying to free NMI (%s) from NMI context!\n", n->name);
-			list_del_rcu(&n->list);
+			pax_list_del_rcu((struct list_head *)&n->list);
 			break;
 		}
 	}

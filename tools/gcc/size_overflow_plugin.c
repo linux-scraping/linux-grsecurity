@@ -28,15 +28,10 @@
 #include "tree-flow.h"
 #include "plugin.h"
 #include "gimple.h"
-#include "c-common.h"
 #include "diagnostic.h"
 #include "cfgloop.h"
 
-#if BUILDING_GCC_VERSION >= 4007
-#include "c-tree.h"
-#else
-#define C_DECL_IMPLICIT(EXP) DECL_LANG_FLAG_2 (EXP)
-#endif
+#define C_DECL_IMPLICIT(EXP) DECL_LANG_FLAG_2(EXP)
 
 #if BUILDING_GCC_VERSION >= 4008
 #define TODO_dump_func 0

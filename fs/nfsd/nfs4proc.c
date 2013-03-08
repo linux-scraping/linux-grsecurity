@@ -1097,7 +1097,7 @@ struct nfsd4_operation {
 	nfsd4op_rsize op_rsize_bop;
 	stateid_getter op_get_currentstateid;
 	stateid_setter op_set_currentstateid;
-};
+} __do_const;
 
 static struct nfsd4_operation nfsd4_ops[];
 

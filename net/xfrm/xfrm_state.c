@@ -194,11 +194,13 @@ int xfrm_register_type(const struct xfrm_type *type, unsigned short family)
 
 	if (unlikely(afinfo == NULL))
 		return -EAFNOSUPPORT;
-	typemap = afinfo->type_map;
+	typemap = (const struct xfrm_type **)afinfo->type_map;
 
-	if (likely(typemap[type->proto] == NULL))
+	if (likely(typemap[type->proto] == NULL)) {
+		pax_open_kernel();
 		typemap[type->proto] = type;
-	else
+		pax_close_kernel();
+	} else
 		err = -EEXIST;
 	xfrm_state_unlock_afinfo(afinfo);
 	return err;
@@ -213,12 +215,15 @@ int xfrm_unregister_type(const struct xfrm_type *type, unsigned short family)
 
 	if (unlikely(afinfo == NULL))
 		return -EAFNOSUPPORT;
-	typemap = afinfo->type_map;
+	typemap = (const struct xfrm_type **)afinfo->type_map;
 
 	if (unlikely(typemap[type->proto] != type))
 		err = -ENOENT;
-	else
+	else {
+		pax_open_kernel();
 		typemap[type->proto] = NULL;
+		pax_close_kernel();
+	}
 	xfrm_state_unlock_afinfo(afinfo);
 	return err;
 }
@@ -227,7 +232,6 @@ EXPORT_SYMBOL(xfrm_unregister_type);
 static const struct xfrm_type *xfrm_get_type(u8 proto, unsigned short family)
 {
 	struct xfrm_state_afinfo *afinfo;
-	const struct xfrm_type **typemap;
 	const struct xfrm_type *type;
 	int modload_attempted = 0;
 
@@ -235,9 +239,8 @@ retry:
 	afinfo = xfrm_state_get_afinfo(family);
 	if (unlikely(afinfo == NULL))
 		return NULL;
-	typemap = afinfo->type_map;
 
-	type = typemap[proto];
+	type = afinfo->type_map[proto];
 	if (unlikely(type && !try_module_get(type->owner)))
 		type = NULL;
 	if (!type && !modload_attempted) {
@@ -270,7 +273,7 @@ int xfrm_register_mode(struct xfrm_mode *mode, int family)
 		return -EAFNOSUPPORT;
 
 	err = -EEXIST;
-	modemap = afinfo->mode_map;
+	modemap = (struct xfrm_mode **)afinfo->mode_map;
 	if (modemap[mode->encap])
 		goto out;
 
@@ -279,9 +282,9 @@ int xfrm_register_mode(struct xfrm_mode *mode, int family)
 		goto out;
 
 	pax_open_kernel();
-	*(void **)&mode->afinfo = afinfo;
-	pax_close_kernel();
+	*(const void **)&mode->afinfo = afinfo;
 	modemap[mode->encap] = mode;
+	pax_close_kernel();
 	err = 0;
 
 out:
@@ -304,9 +307,11 @@ int xfrm_unregister_mode(struct xfrm_mode *mode, int family)
 		return -EAFNOSUPPORT;
 
 	err = -ENOENT;
-	modemap = afinfo->mode_map;
+	modemap = (struct xfrm_mode **)afinfo->mode_map;
 	if (likely(modemap[mode->encap] == mode)) {
+		pax_open_kernel();
 		modemap[mode->encap] = NULL;
+		pax_close_kernel();
 		module_put(mode->afinfo->owner);
 		err = 0;
 	}

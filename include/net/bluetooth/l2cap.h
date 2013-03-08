@@ -552,7 +552,7 @@ struct l2cap_ops {
 	void			(*defer) (struct l2cap_chan *chan);
 	struct sk_buff		*(*alloc_skb) (struct l2cap_chan *chan,
 					       unsigned long len, int nb);
-};
+} __do_const;
 
 struct l2cap_conn {
 	struct hci_conn		*hcon;

@@ -25,7 +25,7 @@ gr_handle_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 		task = find_task_by_vpid(shm_lapid);
 
 	if (unlikely(task && (time_before_eq((unsigned long)task->start_time.tv_sec, (unsigned long)shm_createtime) ||
-			      (task->pid == shm_lapid)) &&
+			      (task_pid_nr(task) == shm_lapid)) &&
 		     (task->acl->mode & GR_PROTSHM) &&
 		     (task->acl != current->acl))) {
 		read_unlock(&tasklist_lock);

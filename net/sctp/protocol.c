@@ -835,9 +835,9 @@ int sctp_register_af(struct sctp_af *af)
 	}
 
 	pax_open_kernel();
-	INIT_LIST_HEAD((struct list_head *)&af->list);
+	INIT_LIST_HEAD(&af->list);
 	pax_close_kernel();
-	pax_list_add_tail((struct list_head *)&af->list, &sctp_address_families);
+	pax_list_add_tail(&af->list, &sctp_address_families);
 	return 1;
 }
 
@@ -968,7 +968,7 @@ static inline int sctp_v4_xmit(struct sk_buff *skb,
 
 static struct sctp_af sctp_af_inet;
 
-static struct sctp_pf sctp_pf_inet = {
+static struct sctp_pf sctp_pf_inet __read_only = {
 	.event_msgname = sctp_inet_event_msgname,
 	.skb_msgname   = sctp_inet_skb_msgname,
 	.af_supported  = sctp_inet_af_supported,
@@ -1039,7 +1039,7 @@ static const struct net_protocol sctp_protocol = {
 };
 
 /* IPv4 address related functions.  */
-static struct sctp_af sctp_af_inet = {
+static struct sctp_af sctp_af_inet __read_only = {
 	.sa_family	   = AF_INET,
 	.sctp_xmit	   = sctp_v4_xmit,
 	.setsockopt	   = ip_setsockopt,
@@ -1124,7 +1124,7 @@ static void sctp_v4_pf_init(void)
 
 static void sctp_v4_pf_exit(void)
 {
-	pax_list_del((struct list_head *)&sctp_af_inet.list);
+	pax_list_del(&sctp_af_inet.list);
 }
 
 static int sctp_v4_protosw_init(void)

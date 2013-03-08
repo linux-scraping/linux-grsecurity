@@ -1440,7 +1440,7 @@ static void rcu_boost_kthread_setaffinity(struct rcu_node *rnp, int outgoingcpu)
 	free_cpumask_var(cm);
 }
 
-static struct smp_hotplug_thread rcu_cpu_thread_spec = {
+static struct smp_hotplug_thread rcu_cpu_thread_spec __read_only = {
 	.store			= &rcu_cpu_kthread_task,
 	.thread_should_run	= rcu_cpu_kthread_should_run,
 	.thread_fn		= rcu_cpu_kthread,

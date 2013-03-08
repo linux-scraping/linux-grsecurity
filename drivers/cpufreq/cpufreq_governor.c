@@ -243,7 +243,7 @@ int cpufreq_governor_dbs(struct dbs_data *dbs_data,
 		 * governor, thus we are bound to jiffes/HZ
 		 */
 		if (dbs_data->governor == GOV_CONSERVATIVE) {
-			struct cs_ops *ops = dbs_data->gov_ops;
+			const struct cs_ops *ops = dbs_data->gov_ops;
 
 			cpufreq_register_notifier(ops->notifier_block,
 					CPUFREQ_TRANSITION_NOTIFIER);
@@ -289,7 +289,7 @@ second_time:
 		mutex_destroy(&cpu_cdbs->timer_mutex);
 		dbs_data->enable--;
 		if (!dbs_data->enable) {
-			struct cs_ops *ops = dbs_data->gov_ops;
+			const struct cs_ops *ops = dbs_data->gov_ops;
 
 			sysfs_remove_group(cpufreq_global_kobject,
 					dbs_data->attr_group);
