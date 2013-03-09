@@ -469,6 +469,7 @@ static struct proto dn_proto = {
 	.sysctl_rmem		= sysctl_decnet_rmem,
 	.max_header		= DN_MAX_NSP_DATA_HEADER + 64,
 	.obj_size		= sizeof(struct dn_sock),
+	.slab_flags		= SLAB_USERCOPY,
 };
 
 static struct sock *dn_alloc_sock(struct net *net, struct socket *sock, gfp_t gfp)
