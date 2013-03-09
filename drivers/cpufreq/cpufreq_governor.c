@@ -251,7 +251,7 @@ int cpufreq_governor_dbs(struct dbs_data *dbs_data,
 			dbs_data->min_sampling_rate = MIN_SAMPLING_RATE_RATIO *
 				jiffies_to_usecs(10);
 		} else {
-			struct od_ops *ops = dbs_data->gov_ops;
+			const struct od_ops *ops = dbs_data->gov_ops;
 
 			od_tuners->io_is_busy = ops->io_busy();
 		}
@@ -268,7 +268,7 @@ second_time:
 			cs_dbs_info->enable = 1;
 			cs_dbs_info->requested_freq = policy->cur;
 		} else {
-			struct od_ops *ops = dbs_data->gov_ops;
+			const struct od_ops *ops = dbs_data->gov_ops;
 			od_dbs_info->rate_mult = 1;
 			od_dbs_info->sample_type = OD_NORMAL_SAMPLE;
 			ops->powersave_bias_init_cpu(cpu);

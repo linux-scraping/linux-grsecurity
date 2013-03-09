@@ -821,7 +821,7 @@ static struct pci_dev *pirq_router_dev;
 static void __init pirq_find_router(struct irq_router *r)
 {
 	struct irq_routing_table *rt = pirq_table;
-	struct irq_router_handler *h;
+	const struct irq_router_handler *h;
 
 #ifdef CONFIG_PCI_BIOS
 	if (!rt->signature) {

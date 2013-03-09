@@ -1899,7 +1899,7 @@ static __net_init int devinet_init_net(struct net *net)
 			goto err_alloc_dflt;
 
 #ifdef CONFIG_SYSCTL
-		tbl = kmemdup(tbl, sizeof(ctl_forward_entry), GFP_KERNEL);
+		tbl = kmemdup(ctl_forward_entry, sizeof(ctl_forward_entry), GFP_KERNEL);
 		if (tbl == NULL)
 			goto err_alloc_ctl;
 

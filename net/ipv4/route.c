@@ -2562,7 +2562,7 @@ static __net_init int sysctl_route_net_init(struct net *net)
 	ctl_table_no_const *tbl = NULL;
 
 	if (!net_eq(net, &init_net)) {
-		tbl = kmemdup(tbl, sizeof(ipv4_route_flush_table), GFP_KERNEL);
+		tbl = kmemdup(ipv4_route_flush_table, sizeof(ipv4_route_flush_table), GFP_KERNEL);
 		if (tbl == NULL)
 			goto err_dup;
 

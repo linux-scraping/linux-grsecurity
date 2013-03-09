@@ -91,7 +91,7 @@ static int nf_ct_frag6_sysctl_register(struct net *net)
 	struct ctl_table_header *hdr;
 
 	if (!net_eq(net, &init_net)) {
-		table = kmemdup(table, sizeof(nf_ct_frag6_sysctl_table),
+		table = kmemdup(nf_ct_frag6_sysctl_table, sizeof(nf_ct_frag6_sysctl_table),
 				GFP_KERNEL);
 		if (table == NULL)
 			goto err_alloc;

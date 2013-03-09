@@ -793,7 +793,7 @@ static int __net_init ip4_frags_ns_ctl_register(struct net *net)
 	struct ctl_table_header *hdr;
 
 	if (!net_eq(net, &init_net)) {
-		table = kmemdup(table, sizeof(ip4_frags_ns_ctl_table), GFP_KERNEL);
+		table = kmemdup(ip4_frags_ns_ctl_table, sizeof(ip4_frags_ns_ctl_table), GFP_KERNEL);
 		if (table == NULL)
 			goto err_alloc;
 

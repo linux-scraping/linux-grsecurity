@@ -865,7 +865,7 @@ static __net_init int ipv4_sysctl_init_net(struct net *net)
 	ctl_table_no_const *table = NULL;
 
 	if (!net_eq(net, &init_net)) {
-		table = kmemdup(table, sizeof(ipv4_net_table), GFP_KERNEL);
+		table = kmemdup(ipv4_net_table, sizeof(ipv4_net_table), GFP_KERNEL);
 		if (table == NULL)
 			goto err_alloc;
 

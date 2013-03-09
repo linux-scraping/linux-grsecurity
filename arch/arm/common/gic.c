@@ -81,7 +81,7 @@ static u8 gic_cpu_map[NR_GIC_CPU_IF] __read_mostly;
  * Supported arch specific GIC irq extension.
  * Default make them NULL.
  */
-struct irq_chip gic_arch_extn = {
+irq_chip_no_const gic_arch_extn __read_only = {
 	.irq_eoi	= NULL,
 	.irq_mask	= NULL,
 	.irq_unmask	= NULL,
@@ -329,7 +329,7 @@ static void gic_handle_cascade_irq(unsigned int irq, struct irq_desc *desc)
 	chained_irq_exit(chip, desc);
 }
 
-static struct irq_chip gic_chip = {
+static irq_chip_no_const gic_chip __read_only = {
 	.name			= "GIC",
 	.irq_mask		= gic_mask_irq,
 	.irq_unmask		= gic_unmask_irq,

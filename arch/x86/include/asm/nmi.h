@@ -54,7 +54,7 @@ struct nmiaction {
 	__register_nmi_handler((t), &fn##_na);		\
 })
 
-int __register_nmi_handler(unsigned int, struct nmiaction *);
+int __register_nmi_handler(unsigned int, const struct nmiaction *);
 
 void unregister_nmi_handler(unsigned int, const char *);
 

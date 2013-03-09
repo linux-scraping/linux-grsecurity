@@ -105,7 +105,7 @@ static int __kprobes nmi_handle(unsigned int type, struct pt_regs *regs, bool b2
 	return handled;
 }
 
-int __register_nmi_handler(unsigned int type, struct nmiaction *action)
+int __register_nmi_handler(unsigned int type, const struct nmiaction *action)
 {
 	struct nmi_desc *desc = nmi_to_desc(type);
 	unsigned long flags;
