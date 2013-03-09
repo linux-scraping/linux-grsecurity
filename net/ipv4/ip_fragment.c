@@ -805,7 +805,7 @@ static int __net_init ip4_frags_ns_ctl_register(struct net *net)
 		if (net->user_ns != &init_user_ns)
 			table[0].procname = NULL;
 		hdr = register_net_sysctl(net, "net/ipv4", table);
-	}
+	} else
 		hdr = register_net_sysctl(net, "net/ipv4", ip4_frags_ns_ctl_table);
 
 	if (hdr == NULL)
