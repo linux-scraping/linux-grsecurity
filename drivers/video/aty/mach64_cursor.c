@@ -7,6 +7,7 @@
 #include <linux/string.h>
 
 #include <asm/io.h>
+#include <asm/pgtable.h>
 
 #ifdef __sparc__
 #include <asm/fbio.h>

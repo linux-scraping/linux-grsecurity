@@ -901,6 +901,11 @@ config PAX_LATENT_ENTROPY
 	  there is little 'natural' source of entropy normally.  The cost
 	  is some slowdown of the boot process.
 
+	  When pax_extra_latent_entropy is passed on the kernel command line,
+	  entropy will be extracted from up to the first 4GB of RAM while the
+	  runtime memory allocator is being initialized.  This costs even more
+	  slowdown of the boot process.
+
 	  Note that the implementation requires a gcc with plugin support,
 	  i.e., gcc 4.5 or newer.  You may need to install the supporting
 	  headers explicitly in addition to the normal gcc package.

@@ -58,6 +58,7 @@
 #include <linux/prefetch.h>
 #include <linux/migrate.h>
 #include <linux/page-debug-flags.h>
+#include <linux/random.h>
 
 #include <asm/tlbflush.h>
 #include <asm/div64.h>
@@ -740,6 +741,19 @@ static void __free_pages_ok(struct page *page, unsigned int order)
 	local_irq_restore(flags);
 }
 
+#ifdef CONFIG_PAX_LATENT_ENTROPY
+bool __meminitdata extra_latent_entropy;
+
+static int __init setup_pax_extra_latent_entropy(char *str)
+{
+	extra_latent_entropy = true;
+	return 0;
+}
+early_param("pax_extra_latent_entropy", setup_pax_extra_latent_entropy);
+
+u64 latent_entropy;
+#endif
+
 /*
  * Read access to zone->managed_pages is safe because it's unsigned long,
  * but we still need to serialize writers. Currently all callers of
@@ -761,6 +775,19 @@ void __meminit __free_pages_bootmem(struct page *page, unsigned int order)
 		__ClearPageReserved(p);
 		set_page_count(p, 0);
 	}
+
+#ifdef CONFIG_PAX_LATENT_ENTROPY
+	if (extra_latent_entropy && !PageHighMem(page) && page_to_pfn(page) < 0x100000) {
+		u64 hash = 0;
+		size_t index, end = PAGE_SIZE * nr_pages / sizeof hash;
+		const u64 *data = lowmem_page_address(page);
+
+		for (index = 0; index < end; index++)
+			hash ^= hash + data[index];
+		latent_entropy ^= hash;
+		add_device_randomness(&latent_entropy, sizeof(latent_entropy));
+	}
+#endif
 
 	page_zone(page)->managed_pages += 1 << order;
 	set_page_refcounted(page);

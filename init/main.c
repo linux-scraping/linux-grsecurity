@@ -801,10 +801,6 @@ static char *initcall_level_names[] __initdata = {
 	"late",
 };
 
-#ifdef CONFIG_PAX_LATENT_ENTROPY
-u64 latent_entropy;
-#endif
-
 static void __init do_initcall_level(int level)
 {
 	extern const struct kernel_param __start___param[], __stop___param[];
