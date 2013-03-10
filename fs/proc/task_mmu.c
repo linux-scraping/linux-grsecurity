@@ -77,8 +77,13 @@ void task_mem(struct seq_file *m, struct mm_struct *mm)
 		swap << (PAGE_SHIFT-10)
 
 #ifdef CONFIG_ARCH_TRACK_EXEC_LIMIT
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
 		, PAX_RAND_FLAGS(mm) ? 0 : mm->context.user_cs_base
 		, PAX_RAND_FLAGS(mm) ? 0 : mm->context.user_cs_limit
+#else
+		, mm->context.user_cs_base
+		, mm->context.user_cs_limit
+#endif
 #endif
 
 	);
