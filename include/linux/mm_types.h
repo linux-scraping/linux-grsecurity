@@ -364,7 +364,7 @@ struct mm_struct {
 	unsigned long def_flags;
 	unsigned long nr_ptes;		/* Page table pages */
 	unsigned long start_code, end_code, start_data, end_data;
-	unsigned long brk_gap, start_brk, brk, start_stack;
+	unsigned long aslr_gap, start_brk, brk, start_stack;
 	unsigned long arg_start, arg_end, env_start, env_end;
 
 	unsigned long saved_auxv[AT_VECTOR_SIZE]; /* for /proc/PID/auxv */

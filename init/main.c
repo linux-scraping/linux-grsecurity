@@ -817,7 +817,7 @@ static void __init do_initcall_level(int level)
 		do_one_initcall(*fn);
 
 #ifdef CONFIG_PAX_LATENT_ENTROPY
-		add_device_randomness(&latent_entropy, sizeof(latent_entropy));
+		add_device_randomness((const void *)&latent_entropy, sizeof(latent_entropy));
 #endif
 
 	}
@@ -858,7 +858,7 @@ static void __init do_pre_smp_initcalls(void)
 		do_one_initcall(*fn);
 
 #ifdef CONFIG_PAX_LATENT_ENTROPY
-		add_device_randomness(&latent_entropy, sizeof(latent_entropy));
+		add_device_randomness((const void *)&latent_entropy, sizeof(latent_entropy));
 #endif
 
 	}

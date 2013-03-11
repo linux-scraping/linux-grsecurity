@@ -1066,6 +1066,7 @@ static int load_elf_binary(struct linux_binprm *bprm)
 #ifdef CONFIG_PAX_ASLR
 	current->mm->delta_mmap = 0UL;
 	current->mm->delta_stack = 0UL;
+	current->mm->aslr_gap = 0UL;
 #endif
 
 	current->mm->def_flags = 0;
@@ -1321,7 +1322,7 @@ static int load_elf_binary(struct linux_binprm *bprm)
 			unsigned long prot = PROT_NONE;
 
 			up_read(&current->mm->mmap_sem);
-			current->mm->brk_gap = PAGE_ALIGN(size) >> PAGE_SHIFT;
+			current->mm->aslr_gap += PAGE_ALIGN(size) >> PAGE_SHIFT;
 //			if (current->personality & ADDR_NO_RANDOMIZE)
 //				prot = PROT_READ;
 			start = vm_mmap(NULL, start, size, prot, MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, 0);
