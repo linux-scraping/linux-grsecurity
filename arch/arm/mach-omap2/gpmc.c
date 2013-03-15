@@ -139,7 +139,6 @@ struct omap3_gpmc_regs {
 };
 
 static struct gpmc_client_irq gpmc_client_irq[GPMC_NR_IRQ];
-static struct irq_chip gpmc_irq_chip;
 static unsigned gpmc_irq_start;
 
 static struct resource	gpmc_mem_root;
@@ -700,6 +699,18 @@ static void gpmc_irq_noop(struct irq_data *data) { }
 
 static unsigned int gpmc_irq_noop_ret(struct irq_data *data) { return 0; }
 
+static struct irq_chip gpmc_irq_chip = {
+	.name = "gpmc",
+	.irq_startup = gpmc_irq_noop_ret,
+	.irq_enable = gpmc_irq_enable,
+	.irq_disable = gpmc_irq_disable,
+	.irq_shutdown = gpmc_irq_noop,
+	.irq_ack = gpmc_irq_noop,
+	.irq_mask = gpmc_irq_noop,
+	.irq_unmask = gpmc_irq_noop,
+
+};
+
 static int gpmc_setup_irq(void)
 {
 	int i;
@@ -713,15 +724,6 @@ static int gpmc_setup_irq(void)
 		pr_err("irq_alloc_descs failed\n");
 		return gpmc_irq_start;
 	}
-
-	gpmc_irq_chip.name = "gpmc";
-	gpmc_irq_chip.irq_startup = gpmc_irq_noop_ret;
-	gpmc_irq_chip.irq_enable = gpmc_irq_enable;
-	gpmc_irq_chip.irq_disable = gpmc_irq_disable;
-	gpmc_irq_chip.irq_shutdown = gpmc_irq_noop;
-	gpmc_irq_chip.irq_ack = gpmc_irq_noop;
-	gpmc_irq_chip.irq_mask = gpmc_irq_noop;
-	gpmc_irq_chip.irq_unmask = gpmc_irq_noop;
 
 	gpmc_client_irq[0].bitmask = GPMC_IRQ_FIFOEVENTENABLE;
 	gpmc_client_irq[1].bitmask = GPMC_IRQ_COUNT_EVENT;

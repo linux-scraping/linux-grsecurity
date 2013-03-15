@@ -73,6 +73,7 @@ static struct arm_delay_ops arm_timer_delay_ops = {
 	.delay		= __timer_delay,
 	.const_udelay	= __timer_const_udelay,
 	.udelay		= __timer_udelay,
+	.const_clock	= true,
 };
 
 void __init register_current_timer_delay(const struct delay_timer *timer)
