@@ -1478,6 +1478,9 @@ out:
 	return ret;
 }
 
+extern void gr_handle_exec_args_compat(struct linux_binprm *bprm,
+					compat_uptr_t __user *argv);
+
 /*
  * compat_do_execve() is mostly a copy of do_execve(), with the exception
  * that it processes 32 bit argv and envp pointers.

@@ -15,16 +15,16 @@
 /*
  * Called after updating RLIMIT_CPU to set timer expiration if necessary.
  */
-void update_rlimit_cpu(unsigned long rlim_new)
+void update_rlimit_cpu(struct task_struct *task, unsigned long rlim_new)
 {
 	cputime_t cputime = secs_to_cputime(rlim_new);
-	struct signal_struct *const sig = current->signal;
+	struct signal_struct *const sig = task->signal;
 
 	if (cputime_eq(sig->it[CPUCLOCK_PROF].expires, cputime_zero) ||
 	    cputime_gt(sig->it[CPUCLOCK_PROF].expires, cputime)) {
-		spin_lock_irq(&current->sighand->siglock);
-		set_process_cpu_timer(current, CPUCLOCK_PROF, &cputime, NULL);
-		spin_unlock_irq(&current->sighand->siglock);
+		spin_lock_irq(&task->sighand->siglock);
+		set_process_cpu_timer(task, CPUCLOCK_PROF, &cputime, NULL);
+		spin_unlock_irq(&task->sighand->siglock);
 	}
 }
 
