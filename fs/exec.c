@@ -754,8 +754,11 @@ int setup_arg_pages(struct linux_binprm *bprm,
 
 #ifdef CONFIG_X86
 		if (!ret) {
+			current->mm->aslr_gap += size >> PAGE_SHIFT;
 			size = mmap_min_addr + ((mm->delta_mmap ^ mm->delta_stack) & (0xFFUL << PAGE_SHIFT));
 			ret = 0 != mmap_region(NULL, 0, size, flags, vm_flags, 0);
+			if (!ret)
+				current->mm->aslr_gap += size >> PAGE_SHIFT;
 		}
 #endif
 

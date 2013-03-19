@@ -6709,11 +6709,10 @@ procmpt_iocinfo_read(char *buf, char **start, off_t offset, int request, int *eo
 	len += sprintf(buf+len, "  MaxChainDepth = 0x%02x frames\n", ioc->facts.MaxChainDepth);
 	len += sprintf(buf+len, "  MinBlockSize = 0x%02x bytes\n", 4*ioc->facts.BlockSize);
 
-#ifdef CONFIG_GRKERNSEC_HIDESYM
 	len += sprintf(buf+len, "  RequestFrames @ 0x%p (Dma @ 0x%p)\n",
+#ifdef CONFIG_GRKERNSEC_HIDESYM
 					NULL, NULL);
 #else
-	len += sprintf(buf+len, "  RequestFrames @ 0x%p (Dma @ 0x%p)\n",
 					(void *)ioc->req_frames, (void *)(ulong)ioc->req_frames_dma);
 #endif
 
@@ -6729,7 +6728,11 @@ procmpt_iocinfo_read(char *buf, char **start, off_t offset, int request, int *eo
 					ioc->facts.GlobalCredits);
 
 	len += sprintf(buf+len, "  Frames   @ 0x%p (Dma @ 0x%p)\n",
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+					NULL, NULL);
+#else
 					(void *)ioc->alloc, (void *)(ulong)ioc->alloc_dma);
+#endif
 	sz = (ioc->reply_sz * ioc->reply_depth) + 128;
 	len += sprintf(buf+len, "    {CurRepSz=%d} x {CurRepDepth=%d} = %d bytes ^= 0x%x\n",
 					ioc->reply_sz, ioc->reply_depth, ioc->reply_sz*ioc->reply_depth, sz);

@@ -2750,7 +2750,7 @@ int may_expand_vm(struct mm_struct *mm, unsigned long npages)
 
 #ifdef CONFIG_PAX_RANDMMAP
 	if (mm->pax_flags & MF_PAX_RANDMMAP)
-		cur -= mm->brk_gap;
+		cur -= mm->aslr_gap;
 #endif
 
 	gr_learn_resource(current, RLIMIT_AS, (cur + npages) << PAGE_SHIFT, 1);
