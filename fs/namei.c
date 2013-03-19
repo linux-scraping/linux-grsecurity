@@ -1684,18 +1684,21 @@ static int do_path_lookup(int dfd, const char *name,
 		retval = path_lookupat(dfd, name, flags | LOOKUP_REVAL, nd);
 
 	if (likely(!retval)) {
-		if (*name != '/' && nd->path.dentry && nd->inode) {
-#ifdef CONFIG_GRKERNSEC
-			if (flags & LOOKUP_RCU)
-				return -ECHILD;
-#endif
-			if (!gr_chroot_fchdir(nd->path.dentry, nd->path.mnt))
-				return -ENOENT;
-		}
-
 		if (unlikely(!audit_dummy_context())) {
 			if (nd->path.dentry && nd->inode)
 				audit_inode(name, nd->path.dentry);
+		}
+		if (*name != '/' && nd->path.dentry && nd->inode) {
+#ifdef CONFIG_GRKERNSEC
+			if (flags & LOOKUP_RCU) {
+				path_put(&nd->path);
+				return -ECHILD;
+			}
+#endif
+			if (!gr_chroot_fchdir(nd->path.dentry, nd->path.mnt)) {
+				path_put(&nd->path);
+				return -ENOENT;
+			}
 		}
 	}
 	return retval;

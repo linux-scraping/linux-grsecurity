@@ -9,6 +9,7 @@
 #include <linux/grinternal.h>
 #include <linux/capability.h>
 #include <linux/module.h>
+#include <linux/compat.h>
 
 #include <asm/uaccess.h>
 
@@ -16,6 +17,18 @@
 static char gr_exec_arg_buf[132];
 static DEFINE_MUTEX(gr_exec_arg_mutex);
 #endif
+
+struct user_arg_ptr {
+#ifdef CONFIG_COMPAT
+	bool is_compat;
+#endif
+	union {
+		const char __user *const __user *native;
+#ifdef CONFIG_COMPAT
+		const compat_uptr_t __user *compat;
+#endif
+	} ptr;
+};
 
 extern const char __user *get_user_arg_ptr(struct user_arg_ptr argv, int nr);
 

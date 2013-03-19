@@ -38,6 +38,7 @@
 #include "rtl.h"
 #include "emit-rtl.h"
 #include "tree-flow.h"
+#include "langhooks.h"
 
 #if BUILDING_GCC_VERSION >= 4008
 #define TODO_dump_func 0
@@ -48,7 +49,7 @@ int plugin_is_GPL_compatible;
 static tree latent_entropy_decl;
 
 static struct plugin_info latent_entropy_plugin_info = {
-	.version	= "201302112000",
+	.version	= "201303102320",
 	.help		= NULL
 };
 
@@ -272,6 +273,8 @@ static unsigned int execute_latent_entropy(void)
 
 static void start_unit_callback(void *gcc_data, void *user_data)
 {
+	tree latent_entropy_type;
+
 #if BUILDING_GCC_VERSION >= 4007
 	seed = get_random_seed(false);
 #else
@@ -282,16 +285,19 @@ static void start_unit_callback(void *gcc_data, void *user_data)
 	if (in_lto_p)
 		return;
 
-	// extern u64 latent_entropy
-	latent_entropy_decl = build_decl(UNKNOWN_LOCATION, VAR_DECL, get_identifier("latent_entropy"), unsigned_intDI_type_node);
+	// extern volatile u64 latent_entropy
+	gcc_assert(TYPE_PRECISION(long_long_unsigned_type_node) == 64);
+	latent_entropy_type = build_qualified_type(long_long_unsigned_type_node, TYPE_QUALS(long_long_unsigned_type_node) | TYPE_QUAL_VOLATILE);
+	latent_entropy_decl = build_decl(UNKNOWN_LOCATION, VAR_DECL, get_identifier("latent_entropy"), latent_entropy_type);
 
 	TREE_STATIC(latent_entropy_decl) = 1;
 	TREE_PUBLIC(latent_entropy_decl) = 1;
 	TREE_USED(latent_entropy_decl) = 1;
 	TREE_THIS_VOLATILE(latent_entropy_decl) = 1;
 	DECL_EXTERNAL(latent_entropy_decl) = 1;
-	DECL_ARTIFICIAL(latent_entropy_decl) = 0;
+	DECL_ARTIFICIAL(latent_entropy_decl) = 1;
 	DECL_INITIAL(latent_entropy_decl) = NULL;
+	lang_hooks.decls.pushdecl(latent_entropy_decl);
 //	DECL_ASSEMBLER_NAME(latent_entropy_decl);
 //	varpool_finalize_decl(latent_entropy_decl);
 //	varpool_mark_needed_node(latent_entropy_decl);

@@ -432,6 +432,18 @@ err:
 	return err;
 }
 
+struct user_arg_ptr {
+#ifdef CONFIG_COMPAT
+	bool is_compat;
+#endif
+	union {
+		const char __user *const __user *native;
+#ifdef CONFIG_COMPAT
+		const compat_uptr_t __user *compat;
+#endif
+	} ptr;
+};
+
 const char __user *get_user_arg_ptr(struct user_arg_ptr argv, int nr)
 {
 	const char __user *native;
@@ -1545,6 +1557,9 @@ static inline void increment_exec_counter(void)
 #else
 static inline void increment_exec_counter(void) {}
 #endif
+
+extern void gr_handle_exec_args(struct linux_binprm *bprm,
+				struct user_arg_ptr argv);
 
 /*
  * sys_execve() executes a new program.
