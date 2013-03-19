@@ -19,20 +19,6 @@
 #error "CONFIG_PAX enabled, but no PaX options are enabled."
 #endif
 
-#include <linux/compat.h>
-
-struct user_arg_ptr {
-#ifdef CONFIG_COMPAT
-	bool is_compat;
-#endif
-	union {
-		const char __user *const __user *native;
-#ifdef CONFIG_COMPAT
-		const compat_uptr_t __user *compat;
-#endif
-	} ptr;
-};
-
 void gr_handle_brute_attach(unsigned long mm_flags);
 void gr_handle_brute_check(void);
 void gr_handle_kernel_exploit(void);
@@ -86,7 +72,6 @@ void gr_log_chdir(const struct dentry *dentry,
 			 const struct vfsmount *mnt);
 void gr_log_chroot_exec(const struct dentry *dentry,
 			       const struct vfsmount *mnt);
-void gr_handle_exec_args(struct linux_binprm *bprm, struct user_arg_ptr argv);
 void gr_log_remount(const char *devname, const int retval);
 void gr_log_unmount(const char *devname, const int retval);
 void gr_log_mount(const char *from, const char *to, const int retval);

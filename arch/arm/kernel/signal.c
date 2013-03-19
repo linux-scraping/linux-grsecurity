@@ -433,22 +433,14 @@ setup_return(struct pt_regs *regs, struct k_sigaction *ka,
 		    __put_user(sigreturn_codes[idx+1], rc+1))
 			return 1;
 
-		if (cpsr & MODE32_BIT) {
-			/*
-			 * 32-bit code can use the new high-page
-			 * signal return code support.
-			 */
-			retcode = KERN_SIGRETURN_CODE + (idx << 2) + thumb;
-		} else {
-			/*
-			 * Ensure that the instruction cache sees
-			 * the return code written onto the stack.
-			 */
-			flush_icache_range((unsigned long)rc,
-					   (unsigned long)(rc + 2));
+		/*
+		 * Ensure that the instruction cache sees
+		 * the return code written onto the stack.
+		 */
+		flush_icache_range((unsigned long)rc,
+				   (unsigned long)(rc + 2));
 
-			retcode = ((unsigned long)rc) + thumb;
-		}
+		retcode = ((unsigned long)rc) + thumb;
 	}
 
 	regs->ARM_r0 = usig;

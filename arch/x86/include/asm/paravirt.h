@@ -564,7 +564,7 @@ static inline pmd_t __pmd(pmdval_t val)
 	return (pmd_t) { ret };
 }
 
-static inline pmdval_t pmd_val(pmd_t pmd)
+static inline __intentional_overflow(-1) pmdval_t pmd_val(pmd_t pmd)
 {
 	pmdval_t ret;
 

@@ -3367,7 +3367,7 @@ EXPORT_SYMBOL(wait_for_completion_interruptible);
  * The return value is -ERESTARTSYS if interrupted, 0 if timed out,
  * positive (at least 1, or number of jiffies left till timeout) if completed.
  */
-long __sched
+long __sched __intentional_overflow(-1)
 wait_for_completion_interruptible_timeout(struct completion *x,
 					  unsigned long timeout)
 {
@@ -3384,7 +3384,7 @@ EXPORT_SYMBOL(wait_for_completion_interruptible_timeout);
  *
  * The return value is -ERESTARTSYS if interrupted, 0 if completed.
  */
-int __sched wait_for_completion_killable(struct completion *x)
+int __sched __intentional_overflow(-1) wait_for_completion_killable(struct completion *x)
 {
 	long t = wait_for_common(x, MAX_SCHEDULE_TIMEOUT, TASK_KILLABLE);
 	if (t == -ERESTARTSYS)
@@ -3405,7 +3405,7 @@ EXPORT_SYMBOL(wait_for_completion_killable);
  * The return value is -ERESTARTSYS if interrupted, 0 if timed out,
  * positive (at least 1, or number of jiffies left till timeout) if completed.
  */
-long __sched
+long __sched __intentional_overflow(-1)
 wait_for_completion_killable_timeout(struct completion *x,
 				     unsigned long timeout)
 {

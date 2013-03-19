@@ -848,13 +848,6 @@ void __init early_trap_init(void *vectors_base)
 	 */
 	kuser_get_tls_init(vectors);
 
-	/*
-	 * Copy signal return handlers into the vector page, and
-	 * set sigreturn to be a pointer to these.
-	 */
-	memcpy((void *)(vectors + KERN_SIGRETURN_CODE - CONFIG_VECTORS_BASE),
-	       sigreturn_codes, sizeof(sigreturn_codes));
-
 	flush_icache_range(vectors, vectors + PAGE_SIZE);
 
 #ifndef CONFIG_PAX_MEMORY_UDEREF

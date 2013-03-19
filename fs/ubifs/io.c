@@ -155,7 +155,7 @@ int ubifs_leb_change(struct ubifs_info *c, int lnum, const void *buf, int len)
 	return err;
 }
 
-int ubifs_leb_unmap(struct ubifs_info *c, int lnum)
+int __intentional_overflow(-1) ubifs_leb_unmap(struct ubifs_info *c, int lnum)
 {
 	int err;
 

@@ -396,6 +396,7 @@ static int __init power_supply_class_init(void)
 		return PTR_ERR(power_supply_class);
 
 	power_supply_class->dev_uevent = power_supply_uevent;
+	power_supply_init_attrs();
 
 	return 0;
 }

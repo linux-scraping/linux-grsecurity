@@ -300,7 +300,7 @@ static inline void load_LDT(mm_context_t *pc)
 	preempt_enable();
 }
 
-static inline unsigned long get_desc_base(const struct desc_struct *desc)
+static inline unsigned long __intentional_overflow(-1) get_desc_base(const struct desc_struct *desc)
 {
 	return (unsigned)(desc->base0 | ((desc->base1) << 16) | ((desc->base2) << 24));
 }

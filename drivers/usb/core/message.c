@@ -129,7 +129,7 @@ static int usb_internal_control_msg(struct usb_device *usb_dev,
  * method can wait for it to complete.  Since you don't have a handle on the
  * URB used, you can't cancel the request.
  */
-int usb_control_msg(struct usb_device *dev, unsigned int pipe, __u8 request,
+int __intentional_overflow(-1) usb_control_msg(struct usb_device *dev, unsigned int pipe, __u8 request,
 		    __u8 requesttype, __u16 value, __u16 index, void *data,
 		    __u16 size, int timeout)
 {

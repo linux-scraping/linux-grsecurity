@@ -25,6 +25,7 @@
 #include <linux/percpu.h>
 #include <linux/lglock.h>
 #include <linux/hugetlb.h>
+#include <linux/posix-timers.h>
 #include "../fs/mount.h"
 
 #include <asm/uaccess.h>
@@ -2334,6 +2335,9 @@ gr_set_proc_res(struct task_struct *task)
 
 		task->signal->rlim[i].rlim_cur = proc->res[i].rlim_cur;
 		task->signal->rlim[i].rlim_max = proc->res[i].rlim_max;
+
+		if (i == RLIMIT_CPU)
+			update_rlimit_cpu(task, proc->res[i].rlim_cur);
 	}
 
 	return;

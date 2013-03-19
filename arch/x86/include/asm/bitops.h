@@ -486,7 +486,7 @@ static inline int fls(int x)
  * at position 64.
  */
 #ifdef CONFIG_X86_64
-static __always_inline int fls64(__u64 x)
+static __always_inline long fls64(__u64 x)
 {
 	int bitpos = -1;
 	/*

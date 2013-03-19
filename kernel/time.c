@@ -498,7 +498,7 @@ EXPORT_SYMBOL(usecs_to_jiffies);
  * The >> (NSEC_JIFFIE_SC - SEC_JIFFIE_SC) converts the scaled nsec
  * value to a scaled second value.
  */
-unsigned long
+unsigned long __intentional_overflow(-1)
 timespec_to_jiffies(const struct timespec *value)
 {
 	unsigned long sec = value->tv_sec;

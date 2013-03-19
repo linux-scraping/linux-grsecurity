@@ -421,6 +421,18 @@ err:
 	return err;
 }
 
+struct user_arg_ptr {
+#ifdef CONFIG_COMPAT
+	bool is_compat;
+#endif
+	union {
+		const char __user *const __user *native;
+#ifdef CONFIG_COMPAT
+		const compat_uptr_t __user *compat;
+#endif
+	} ptr;
+};
+
 const char __user *get_user_arg_ptr(struct user_arg_ptr argv, int nr)
 {
 	const char __user *native;
@@ -1534,6 +1546,9 @@ static inline void increment_exec_counter(void)
 static inline void increment_exec_counter(void) {}
 #endif
 
+extern void gr_handle_exec_args(struct linux_binprm *bprm,
+				struct user_arg_ptr argv);
+
 /*
  * sys_execve() executes a new program.
  */
@@ -1972,7 +1987,7 @@ void pax_report_fault(struct pt_regs *regs, void *pc, void *sp)
 	else
 		printk(KERN_ERR "PAX: execution attempt in: %s, %08lx-%08lx %08lx\n", path_fault, start, end, offset);
 	printk(KERN_ERR "PAX: terminating task: %s(%s):%d, uid/euid: %u/%u, PC: %p, SP: %p\n", path_exec, tsk->comm, task_pid_nr(tsk),
-			from_kuid(&init_user_ns, task_uid(tsk)), from_kuid(&init_user_ns, task_euid(tsk)), pc, sp);
+			from_kuid_munged(&init_user_ns, task_uid(tsk)), from_kuid_munged(&init_user_ns, task_euid(tsk)), pc, sp);
 	free_page((unsigned long)buffer_exec);
 	free_page((unsigned long)buffer_fault);
 	pax_report_insns(regs, pc, sp);
@@ -1991,10 +2006,10 @@ void pax_report_refcount_overflow(struct pt_regs *regs)
 	if (current->signal->curr_ip)
 		printk(KERN_ERR "PAX: From %pI4: refcount overflow detected in: %s:%d, uid/euid: %u/%u\n",
 				&current->signal->curr_ip, current->comm, task_pid_nr(current),
-				from_kuid(&init_user_ns, current_uid()), from_kuid(&init_user_ns, current_euid()));
+				from_kuid_munged(&init_user_ns, current_uid()), from_kuid_munged(&init_user_ns, current_euid()));
 	else
 		printk(KERN_ERR "PAX: refcount overflow detected in: %s:%d, uid/euid: %u/%u\n", current->comm, task_pid_nr(current),
-				from_kuid(&init_user_ns, current_uid()), from_kuid(&init_user_ns, current_euid()));
+				from_kuid_munged(&init_user_ns, current_uid()), from_kuid_munged(&init_user_ns, current_euid()));
 	print_symbol(KERN_ERR "PAX: refcount overflow occured at: %s\n", instruction_pointer(regs));
 	show_regs(regs);
 	force_sig_info(SIGKILL, SEND_SIG_FORCED, current);

@@ -27,7 +27,7 @@ unsigned long oprofile_time_slice;
 
 #ifdef CONFIG_OPROFILE_EVENT_MULTIPLEX
 
-static ssize_t timeout_read(struct file *file, char __user *buf,
+static ssize_t __intentional_overflow(-1) timeout_read(struct file *file, char __user *buf,
 		size_t count, loff_t *offset)
 {
 	return oprofilefs_ulong_to_user(jiffies_to_msecs(oprofile_time_slice),

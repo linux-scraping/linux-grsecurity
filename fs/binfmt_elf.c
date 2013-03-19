@@ -1322,15 +1322,16 @@ static int load_elf_binary(struct linux_binprm *bprm)
 			unsigned long prot = PROT_NONE;
 
 			up_read(&current->mm->mmap_sem);
-			current->mm->aslr_gap += PAGE_ALIGN(size) >> PAGE_SHIFT;
 //			if (current->personality & ADDR_NO_RANDOMIZE)
 //				prot = PROT_READ;
 			start = vm_mmap(NULL, start, size, prot, MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, 0);
 			retval = IS_ERR_VALUE(start) ? start : 0;
 		} else
 			up_read(&current->mm->mmap_sem);
-		if (retval == 0)
+		if (retval == 0) {
+			current->mm->aslr_gap += PAGE_ALIGN(size) >> PAGE_SHIFT;
 			retval = set_brk(start + size, start + size + PAGE_SIZE);
+		}
 		if (retval < 0) {
 			send_sig(SIGKILL, current, 0);
 			goto out_free_dentry;

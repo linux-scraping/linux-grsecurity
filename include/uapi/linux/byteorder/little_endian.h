@@ -44,7 +44,7 @@ static inline __le64 __cpu_to_le64p(const __u64 *p)
 {
 	return (__force const __le64)*p;
 }
-static inline __u64 __le64_to_cpup(const __le64 *p)
+static inline __u64 __intentional_overflow(-1) __le64_to_cpup(const __le64 *p)
 {
 	return (__force const __u64)*p;
 }
@@ -76,7 +76,7 @@ static inline __be32 __cpu_to_be32p(const __u32 *p)
 {
 	return (__force const __be32)__swab32p(p);
 }
-static inline __u32 __be32_to_cpup(const __be32 *p)
+static inline __u32 __intentional_overflow(-1) __be32_to_cpup(const __be32 *p)
 {
 	return __swab32p((const __u32 *)p);
 }

@@ -478,7 +478,7 @@ static bool __init numa_meminfo_cover_memory(const struct numa_meminfo *mi)
 	return true;
 }
 
-static int __init numa_register_memblks(struct numa_meminfo *mi)
+static int __init __intentional_overflow(-1) numa_register_memblks(struct numa_meminfo *mi)
 {
 	unsigned long uninitialized_var(pfn_align);
 	int i, nid;

@@ -2043,15 +2043,19 @@ static int filename_lookup(int dfd, struct filename *name,
 						flags | LOOKUP_REVAL, nd);
 
 	if (likely(!retval)) {
+		audit_inode(name, nd->path.dentry, flags & LOOKUP_PARENT);
 		if (name->name[0] != '/' && nd->path.dentry && nd->inode) {
 #ifdef CONFIG_GRKERNSEC
-			if (flags & LOOKUP_RCU)
+			if (flags & LOOKUP_RCU) {
+				path_put(&nd->path);
 				return -ECHILD;
+			}
 #endif
-			if (!gr_chroot_fchdir(nd->path.dentry, nd->path.mnt))
+			if (!gr_chroot_fchdir(nd->path.dentry, nd->path.mnt)) {
+				path_put(&nd->path);
 				return -ENOENT;
+			}
 		}
-		audit_inode(name, nd->path.dentry, flags & LOOKUP_PARENT);
 	}
 	return retval;
 }
