@@ -31,6 +31,7 @@
 #define _ZLIB_H
 
 #include <linux/zconf.h>
+#include <linux/compiler.h>
 
 /* zlib deflate based on ZLIB_VERSION "1.1.3" */
 /* zlib inflate based on ZLIB_VERSION "1.2.3" */
