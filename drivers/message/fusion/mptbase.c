@@ -6772,7 +6772,11 @@ static int mpt_iocinfo_proc_show(struct seq_file *m, void *v)
 					ioc->facts.GlobalCredits);
 
 	seq_printf(m, "  Frames   @ 0x%p (Dma @ 0x%p)\n",
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+					NULL, NULL);
+#else
 					(void *)ioc->alloc, (void *)(ulong)ioc->alloc_dma);
+#endif
 	sz = (ioc->reply_sz * ioc->reply_depth) + 128;
 	seq_printf(m, "    {CurRepSz=%d} x {CurRepDepth=%d} = %d bytes ^= 0x%x\n",
 					ioc->reply_sz, ioc->reply_depth, ioc->reply_sz*ioc->reply_depth, sz);
