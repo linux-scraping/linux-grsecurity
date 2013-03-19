@@ -594,17 +594,12 @@ do_DataAbort(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	if (addr < TASK_SIZE && is_domain_fault(fsr)) {
-<<<<<<< HEAD
 		if (current->signal->curr_ip)
 			printk(KERN_ERR "PAX: From %pI4: %s:%d, uid/euid: %u/%u, attempted to access userland memory at %08lx\n", &current->signal->curr_ip, current->comm, task_pid_nr(current),
-					from_kuid(&init_user_ns, current_uid()), from_kuid(&init_user_ns, current_euid()), addr);
+					from_kuid_munged(&init_user_ns, current_uid()), from_kuid_munged(&init_user_ns, current_euid()), addr);
 		else
 			printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to access userland memory at %08lx\n", current->comm, task_pid_nr(current),
-					from_kuid(&init_user_ns, current_uid()), from_kuid(&init_user_ns, current_euid()), addr);
-=======
-		printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to access userland memory at %08lx\n", current->comm, task_pid_nr(current),
-				from_kuid_munged(&init_user_ns, current_uid()), from_kuid_munged(&init_user_ns, current_euid()), addr);
->>>>>>> c57d8557f5f2d77c2c7fa1f58316819a5e1f9293
+					from_kuid_munged(&init_user_ns, current_uid()), from_kuid_munged(&init_user_ns, current_euid()), addr);
 		goto die;
 	}
 #endif

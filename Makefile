@@ -628,7 +628,7 @@ ifeq ($(call cc-ifversion, -ge, 0405, y), y)
 else
 	$(Q)echo "warning, your gcc version does not support plugins, you should upgrade it to gcc 4.5 at least"
 endif
-	$(Q)echo "PAX_MEMORY_STACKLEAK and other features will be less secure"
+	$(Q)echo "PAX_MEMORY_STACKLEAK, constification, PAX_LATENT_ENTROPY and other features will be less secure.  PAX_SIZE_OVERFLOW will not be active."
 endif
 endif
 

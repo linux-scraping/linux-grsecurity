@@ -179,7 +179,7 @@ typedef z_stream *z_streamp;
 
                         /* basic functions */
 
-extern int zlib_deflate_workspacesize (int windowBits, int memLevel);
+extern int zlib_deflate_workspacesize (int windowBits, int memLevel) __intentional_overflow(0);
 /*
    Returns the number of bytes that needs to be allocated for a per-
    stream workspace with the specified parameters.  A pointer to this
