@@ -1328,6 +1328,7 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 		if (retval == 0) {
 			current->mm->aslr_gap += PAGE_ALIGN(size) >> PAGE_SHIFT;
 			retval = set_brk(start + size, start + size + PAGE_SIZE);
+		}
 		if (retval < 0) {
 			send_sig(SIGKILL, current, 0);
 			goto out_free_dentry;
