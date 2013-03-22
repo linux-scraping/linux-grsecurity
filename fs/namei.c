@@ -2003,12 +2003,6 @@ static int path_lookupat(int dfd, const char *name,
 		err = complete_walk(nd);
 
 	if (!err && !(nd->flags & LOOKUP_PARENT)) {
-#ifdef CONFIG_GRKERNSEC
-		if (flags & LOOKUP_RCU) {
-			path_put(&nd->path);
-			err = -ECHILD;
-		} else
-#endif
 		if (!gr_acl_handle_hidden_file(nd->path.dentry, nd->path.mnt)) {
 			path_put(&nd->path);
 			err = -ENOENT;
@@ -2045,12 +2039,6 @@ static int filename_lookup(int dfd, struct filename *name,
 	if (likely(!retval)) {
 		audit_inode(name, nd->path.dentry, flags & LOOKUP_PARENT);
 		if (name->name[0] != '/' && nd->path.dentry && nd->inode) {
-#ifdef CONFIG_GRKERNSEC
-			if (flags & LOOKUP_RCU) {
-				path_put(&nd->path);
-				return -ECHILD;
-			}
-#endif
 			if (!gr_chroot_fchdir(nd->path.dentry, nd->path.mnt)) {
 				path_put(&nd->path);
 				return -ENOENT;
@@ -2774,12 +2762,6 @@ static int do_last(struct nameidata *nd, struct path *path, struct path *link,
 		error = complete_walk(nd);
 		if (error)
 			return error;
-#ifdef CONFIG_GRKERNSEC
-		if (nd->flags & LOOKUP_RCU) {
-			error = -ECHILD;
-			goto out;
-		}
-#endif
 		if (!gr_acl_handle_hidden_file(nd->path.dentry, nd->path.mnt)) {
 			error = -ENOENT;
 			goto out;
@@ -2798,12 +2780,6 @@ static int do_last(struct nameidata *nd, struct path *path, struct path *link,
 		error = complete_walk(nd);
 		if (error)
 			return error;
-#ifdef CONFIG_GRKERNSEC
-		if (nd->flags & LOOKUP_RCU) {
-			error = -ECHILD;
-			goto out;
-		}
-#endif
 		if (!gr_acl_handle_hidden_file(dir, nd->path.mnt)) {
 			error = -ENOENT;
 			goto out;
@@ -2969,12 +2945,6 @@ finish_lookup:
 		return error;
 	}
 
-#ifdef CONFIG_GRKERNSEC
-	if (nd->flags & LOOKUP_RCU) {
-		error = -ECHILD;
-		goto out;
-	}
-#endif
 	if (!gr_acl_handle_hidden_file(nd->path.dentry, nd->path.mnt)) {
 		error = -ENOENT;
 		goto out;

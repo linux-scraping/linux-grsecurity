@@ -1316,7 +1316,7 @@ static int load_elf_binary(struct linux_binprm *bprm)
 		start = ELF_PAGEALIGN(elf_brk);
 		size = PAGE_SIZE + ((pax_get_random_long() & ((1UL << 22) - 1UL)) << 4);
 		flags = MAP_FIXED | MAP_PRIVATE;
-		vm_flags = VM_NONE | VM_DONTEXPAND | VM_DONTDUMP;
+		vm_flags = VM_DONTEXPAND | VM_DONTDUMP;
 
 		down_write(&current->mm->mmap_sem);
 		start = get_unmapped_area(NULL, start, PAGE_ALIGN(size), 0, flags);
