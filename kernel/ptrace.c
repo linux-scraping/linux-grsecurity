@@ -1075,7 +1075,7 @@ int compat_ptrace_request(struct task_struct *child, compat_long_t request,
 }
 
 asmlinkage long compat_sys_ptrace(compat_long_t request, compat_long_t pid,
-				  compat_long_t addr, compat_long_t data)
+				  compat_ulong_t addr, compat_ulong_t data)
 {
 	struct task_struct *child;
 	long ret;
