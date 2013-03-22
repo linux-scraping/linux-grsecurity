@@ -1347,7 +1347,7 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 	/* Check against address space limit. */
 
 #ifdef CONFIG_PAX_RANDMMAP
-	if (!(mm->pax_flags & MF_PAX_RANDMMAP) || (flags & (VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)))
+	if (!(mm->pax_flags & MF_PAX_RANDMMAP) || (vm_flags & (VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)))
 #endif
 
 	if (!may_expand_vm(mm, len >> PAGE_SHIFT))

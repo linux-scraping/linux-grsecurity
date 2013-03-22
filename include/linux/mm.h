@@ -66,7 +66,6 @@ extern struct rw_semaphore nommu_region_sem;
 extern unsigned int kobjsize(const void *objp);
 #endif
 
-#define VM_NONE		0x00000000
 /*
  * vm_flags in vm_area_struct, see mm_types.h.
  */
