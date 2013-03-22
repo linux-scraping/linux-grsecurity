@@ -649,24 +649,15 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 	}
 
 #if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
-<<<<<<< HEAD
-	if (!user_mode(regs) && (is_domain_fault(ifsr) || is_xn_fault(ifsr))) {
+	else if (is_domain_fault(ifsr) || is_xn_fault(ifsr)) {
 		if (current->signal->curr_ip)
 			printk(KERN_ERR "PAX: From %pI4: %s:%d, uid/euid: %u/%u, attempted to execute %s memory at %08lx\n", &current->signal->curr_ip, current->comm, task_pid_nr(current),
-					from_kuid(&init_user_ns, current_uid()), from_kuid(&init_user_ns, current_euid()),
+					from_kuid_munged(&init_user_ns, current_uid()), from_kuid_munged(&init_user_ns, current_euid()),
 					addr >= TASK_SIZE ? "non-executable kernel" : "userland", addr);
 		else
 			printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to execute %s memory at %08lx\n", current->comm, task_pid_nr(current),
-					from_kuid(&init_user_ns, current_uid()), from_kuid(&init_user_ns, current_euid()),
+					from_kuid_munged(&init_user_ns, current_uid()), from_kuid_munged(&init_user_ns, current_euid()),
 					addr >= TASK_SIZE ? "non-executable kernel" : "userland", addr);
-=======
-	else if (is_domain_fault(ifsr) || is_xn_fault(ifsr)) {
-		printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to execute %s memory at %08lx\n",
-				current->comm, task_pid_nr(current),
-				from_kuid_munged(&init_user_ns, current_uid()),
-				from_kuid_munged(&init_user_ns, current_euid()),
-				addr >= TASK_SIZE ? "non-executable kernel" : "userland", addr);
->>>>>>> c57d8557f5f2d77c2c7fa1f58316819a5e1f9293
 		goto die;
 	}
 #endif

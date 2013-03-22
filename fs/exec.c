@@ -789,7 +789,7 @@ int setup_arg_pages(struct linux_binprm *bprm,
 	current->mm->start_stack = bprm->p;
 	ret = expand_stack(vma, stack_base);
 
-#if !defined(CONFIG_STACK_GROWSUP) && defined(CONFIG_PAX_ASLR)
+#if !defined(CONFIG_STACK_GROWSUP) && defined(CONFIG_PAX_RANDMMAP)
 	if (!ret && (mm->pax_flags & MF_PAX_RANDMMAP) && STACK_TOP <= 0xFFFFFFFFU && STACK_TOP > vma->vm_end) {
 		unsigned long size, flags, vm_flags;
 
@@ -801,11 +801,8 @@ int setup_arg_pages(struct linux_binprm *bprm,
 
 #ifdef CONFIG_X86
 		if (!ret) {
-			current->mm->aslr_gap += size >> PAGE_SHIFT;
 			size = mmap_min_addr + ((mm->delta_mmap ^ mm->delta_stack) & (0xFFUL << PAGE_SHIFT));
-			ret = 0 != mmap_region(NULL, 0, size, flags, vm_flags, 0);
-			if (!ret)
-				current->mm->aslr_gap += size >> PAGE_SHIFT;
+			ret = 0 != mmap_region(NULL, 0, PAGE_ALIGN(size), flags, vm_flags, 0);
 		}
 #endif
 
