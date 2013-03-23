@@ -583,7 +583,7 @@ else
 PLUGINCC := $(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-plugin.sh "$(HOSTCC)" "$(HOSTCXX)" "$(CC)")
 endif
 ifneq ($(PLUGINCC),)
-ifndef CONFIG_UML
+ifdef CONFIG_PAX_CONSTIFY_PLUGIN
 CONSTIFY_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/constify_plugin.so -DCONSTIFY_PLUGIN
 endif
 ifdef CONFIG_PAX_MEMORY_STACKLEAK
