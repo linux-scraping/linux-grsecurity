@@ -45,7 +45,6 @@ long compat_keyctl_instantiate_key_iov(
 		goto no_payload_free;
 
 	ret = keyctl_instantiate_key_common(id, (const struct iovec __force_user *)iov, ioc, ret, ringid);
-
 err:
 	if (iov != iovstack)
 		kfree(iov);
