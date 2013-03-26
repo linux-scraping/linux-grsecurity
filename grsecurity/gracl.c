@@ -294,11 +294,11 @@ d_real_path(const struct dentry *dentry, const struct vfsmount *vfsmnt,
 	/* we can't use real_root.dentry, real_root.mnt, because they belong only to the RBAC system */
 	get_fs_root(reaper->fs, &root);
 
-	write_seqlock(&rename_lock);
 	br_read_lock(&vfsmount_lock);
+	write_seqlock(&rename_lock);
 	res = gen_full_path(&path, &root, buf, buflen);
-	br_read_unlock(&vfsmount_lock);
 	write_sequnlock(&rename_lock);
+	br_read_unlock(&vfsmount_lock);
 
 	path_put(&root);
 	return res;
@@ -308,12 +308,12 @@ static char *
 gr_to_filename_rbac(const struct dentry *dentry, const struct vfsmount *mnt)
 {
 	char *ret;
-	write_seqlock(&rename_lock);
 	br_read_lock(&vfsmount_lock);
+	write_seqlock(&rename_lock);
 	ret = __d_real_path(dentry, mnt, per_cpu_ptr(gr_shared_page[0],smp_processor_id()),
 			     PAGE_SIZE);
-	br_read_unlock(&vfsmount_lock);
 	write_sequnlock(&rename_lock);
+	br_read_unlock(&vfsmount_lock);
 	return ret;
 }
 
@@ -324,8 +324,8 @@ gr_to_proc_filename_rbac(const struct dentry *dentry, const struct vfsmount *mnt
 	char *buf;
 	int buflen;
 
-	write_seqlock(&rename_lock);
 	br_read_lock(&vfsmount_lock);
+	write_seqlock(&rename_lock);
 	buf = per_cpu_ptr(gr_shared_page[0], smp_processor_id());
 	ret = __d_real_path(dentry, mnt, buf, PAGE_SIZE - 6);
 	buflen = (int)(ret - buf);
@@ -333,8 +333,8 @@ gr_to_proc_filename_rbac(const struct dentry *dentry, const struct vfsmount *mnt
 		prepend(&ret, &buflen, "/proc", 5);
 	else
 		ret = strcpy(buf, "<path too long>");
-	br_read_unlock(&vfsmount_lock);
 	write_sequnlock(&rename_lock);
+	br_read_unlock(&vfsmount_lock);
 	return ret;
 }
 
@@ -1881,8 +1881,8 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	struct acl_object_label *retval;
 	struct dentry *parent;
 
-	write_seqlock(&rename_lock);
 	br_read_lock(&vfsmount_lock);
+	write_seqlock(&rename_lock);
 
 	if (unlikely((mnt == shm_mnt && dentry->d_inode->i_nlink == 0) || mnt == pipe_mnt ||
 #ifdef CONFIG_NET
@@ -1929,8 +1929,8 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	if (retval == NULL)
 		retval = full_lookup(l_dentry, l_mnt, real_root.dentry, subj, &path, checkglob);
 out:
-	br_read_unlock(&vfsmount_lock);
 	write_sequnlock(&rename_lock);
+	br_read_unlock(&vfsmount_lock);
 
 	BUG_ON(retval == NULL);
 
@@ -1970,8 +1970,8 @@ chk_subj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	struct acl_subject_label *retval;
 	struct dentry *parent;
 
-	write_seqlock(&rename_lock);
 	br_read_lock(&vfsmount_lock);
+	write_seqlock(&rename_lock);
 
 	for (;;) {
 		if (dentry == real_root.dentry && mnt == real_root.mnt)
@@ -2025,8 +2025,8 @@ chk_subj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 		read_unlock(&gr_inode_lock);
 	}
 out:
-	br_read_unlock(&vfsmount_lock);
 	write_sequnlock(&rename_lock);
+	br_read_unlock(&vfsmount_lock);
 
 	BUG_ON(retval == NULL);
 

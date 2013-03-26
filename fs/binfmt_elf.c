@@ -1325,10 +1325,9 @@ static int load_elf_binary(struct linux_binprm *bprm)
 //			if (current->personality & ADDR_NO_RANDOMIZE)
 //				vm_flags |= VM_READ | VM_MAYREAD;
 			start = mmap_region(NULL, start, PAGE_ALIGN(size), flags, vm_flags, 0);
-			up_write(&current->mm->mmap_sem);
 			retval = IS_ERR_VALUE(start) ? start : 0;
-		} else
-			up_write(&current->mm->mmap_sem);
+		}
+		up_write(&current->mm->mmap_sem);
 		if (retval == 0)
 			retval = set_brk(start + size, start + size + PAGE_SIZE);
 		if (retval < 0) {
