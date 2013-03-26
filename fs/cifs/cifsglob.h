@@ -86,7 +86,6 @@ enum securityEnum {
 	RawNTLMSSP,		/* NTLMSSP without SPNEGO, NTLMv2 hash */
 /*	NTLMSSP, */ /* can use rawNTLMSSP instead of NTLMSSP via SPNEGO */
 	Kerberos,		/* Kerberos via SPNEGO */
-	MSKerberos,		/* MS Kerberos via SPNEGO */
 };
 
 enum protocolEnum {
@@ -183,6 +182,11 @@ struct TCP_Server_Info {
 	struct mac_key mac_signing_key;
 	char ntlmv2_hash[16];
 	unsigned long lstrp; /* when we got last response from this server */
+	/* extended security flavors that server supports */
+	bool	sec_kerberos;		/* supports plain Kerberos */
+	bool	sec_mskerberos;		/* supports legacy MS Kerberos */
+	bool	sec_kerberosu2u;	/* supports U2U Kerberos */
+	bool	sec_ntlmssp;		/* supports NTLMSSP */
 };
 
 /*
