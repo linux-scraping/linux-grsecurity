@@ -30,7 +30,8 @@ struct attribute {
 	struct lock_class_key	*key;
 	struct lock_class_key	skey;
 #endif
-};
+} __do_const;
+typedef struct attribute __no_const attribute_no_const;
 
 /**
  *	sysfs_attr_init - initialize a dynamically allocated sysfs attribute
@@ -58,8 +59,8 @@ struct attribute_group {
 	mode_t			(*is_visible)(struct kobject *,
 					      struct attribute *, int);
 	struct attribute	**attrs;
-};
-
+} __do_const;
+typedef struct attribute_group __no_const attribute_group_no_const;
 
 
 /**
@@ -95,7 +96,8 @@ struct bin_attribute {
 			 char *, loff_t, size_t);
 	int (*mmap)(struct file *, struct kobject *, struct bin_attribute *attr,
 		    struct vm_area_struct *vma);
-};
+} __do_const;
+typedef struct bin_attribute __no_const bin_attribute_no_const;
 
 /**
  *	sysfs_bin_attr_init - initialize a dynamically allocated bin_attribute

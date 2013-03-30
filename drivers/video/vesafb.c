@@ -498,8 +498,11 @@ static int __init vesafb_probe(struct platform_device *dev)
 	info->flags = FBINFO_FLAG_DEFAULT | FBINFO_MISC_FIRMWARE |
 		(ypan ? FBINFO_HWACCEL_YPAN : 0);
 
-	if (!ypan)
-		info->fbops->fb_pan_display = NULL;
+	if (!ypan) {
+		pax_open_kernel();
+		*(void **)&info->fbops->fb_pan_display = NULL;
+		pax_close_kernel();
+	}
 
 	if (fb_alloc_cmap(&info->cmap, 256, 0) < 0) {
 		err = -ENOMEM;

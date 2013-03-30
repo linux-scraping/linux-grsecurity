@@ -2634,13 +2634,16 @@ static void ir_print_prefix(struct irq_data *data, struct seq_file *p)
 
 static void irq_remap_modify_chip_defaults(struct irq_chip *chip)
 {
-	chip->irq_print_chip = ir_print_prefix;
-	chip->irq_ack = ir_ack_apic_edge;
-	chip->irq_eoi = ir_ack_apic_level;
+	pax_open_kernel();
+	*(void **)&chip->irq_print_chip = ir_print_prefix;
+	*(void **)&chip->irq_ack = ir_ack_apic_edge;
+	*(void **)&chip->irq_eoi = ir_ack_apic_level;
 
 #ifdef CONFIG_SMP
-	chip->irq_set_affinity = ir_ioapic_set_affinity;
+	*(void **)&chip->irq_set_affinity = ir_ioapic_set_affinity;
 #endif
+
+	pax_close_kernel();
 }
 #endif /* CONFIG_IRQ_REMAP */
 

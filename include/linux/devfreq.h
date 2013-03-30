@@ -100,7 +100,7 @@ struct devfreq_governor {
 	int (*init)(struct devfreq *this);
 	void (*exit)(struct devfreq *this);
 	const bool no_central_polling;
-};
+} __do_const;
 
 /**
  * struct devfreq - Device devfreq structure

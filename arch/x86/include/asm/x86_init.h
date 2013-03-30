@@ -101,7 +101,7 @@ struct x86_init_timers {
 	void (*tsc_pre_init)(void);
 	void (*timer_init)(void);
 	void (*wallclock_init)(void);
-} __no_const;
+};
 
 /**
  * struct x86_init_iommu - platform specific iommu setup

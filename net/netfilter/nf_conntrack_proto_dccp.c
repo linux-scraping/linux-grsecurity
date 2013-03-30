@@ -391,7 +391,7 @@ struct dccp_net {
 	unsigned int dccp_timeout[CT_DCCP_MAX + 1];
 #ifdef CONFIG_SYSCTL
 	struct ctl_table_header *sysctl_header;
-	struct ctl_table *sysctl_table;
+	ctl_table_no_const *sysctl_table;
 #endif
 };
 

@@ -426,7 +426,7 @@ static inline u32 adjust_key(struct mthca_dev *dev, u32 key)
 		return key;
 }
 
-int mthca_mr_alloc(struct mthca_dev *dev, u32 pd, int buffer_size_shift,
+int __intentional_overflow(-1) mthca_mr_alloc(struct mthca_dev *dev, u32 pd, int buffer_size_shift,
 		   u64 iova, u64 total_size, u32 access, struct mthca_mr *mr)
 {
 	struct mthca_mailbox *mailbox;

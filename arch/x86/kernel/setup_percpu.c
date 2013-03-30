@@ -64,7 +64,7 @@ static bool __init pcpu_need_numa(void)
 {
 #ifdef CONFIG_NEED_MULTIPLE_NODES
 	pg_data_t *last = NULL;
-	unsigned int cpu;
+	int cpu;
 
 	for_each_possible_cpu(cpu) {
 		int node = early_cpu_to_node(cpu);

@@ -809,7 +809,7 @@ static ssize_t pmbus_show_label(struct device *dev,
 
 #define PMBUS_ADD_ATTR(data, _name, _idx, _mode, _type, _show, _set)	\
 do {									\
-	struct sensor_device_attribute *a				\
+	sensor_device_attribute_no_const *a				\
 	    = &data->_type##s[data->num_##_type##s].attribute;		\
 	BUG_ON(data->num_attributes >= data->max_attributes);		\
 	sysfs_attr_init(&a->dev_attr.attr);				\

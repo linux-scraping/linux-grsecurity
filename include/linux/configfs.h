@@ -125,7 +125,7 @@ struct configfs_attribute {
 	const char		*ca_name;
 	struct module 		*ca_owner;
 	mode_t			ca_mode;
-};
+} __do_const;
 
 /*
  * Users often need to create attribute structures for their configurable

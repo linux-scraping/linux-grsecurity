@@ -51,12 +51,12 @@ static inline void name(type val, volatile void __iomem *addr) \
 "m" (*(volatile type __force *)addr) barrier); }
 
 build_mmio_read(readb, "b", unsigned char, "=q", :"memory")
-build_mmio_read(readw, "w", unsigned short, "=r", :"memory")
-build_mmio_read(readl, "l", unsigned int, "=r", :"memory")
+build_mmio_read(__intentional_overflow(-1) readw, "w", unsigned short, "=r", :"memory")
+build_mmio_read(__intentional_overflow(-1) readl, "l", unsigned int, "=r", :"memory")
 
 build_mmio_read(__readb, "b", unsigned char, "=q", )
-build_mmio_read(__readw, "w", unsigned short, "=r", )
-build_mmio_read(__readl, "l", unsigned int, "=r", )
+build_mmio_read(__intentional_overflow(-1) __readw, "w", unsigned short, "=r", )
+build_mmio_read(__intentional_overflow(-1) __readl, "l", unsigned int, "=r", )
 
 build_mmio_write(writeb, "b", unsigned char, "q", :"memory")
 build_mmio_write(writew, "w", unsigned short, "r", :"memory")

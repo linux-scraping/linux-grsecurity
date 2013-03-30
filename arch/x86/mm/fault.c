@@ -287,7 +287,7 @@ void vmalloc_sync_all(void)
 			pmd_t *ret;
 #else
 		list_for_each_entry(page, &pgd_list, lru) {
-			pgd_t *pgd = page_address(page);
+			pgd_t *pgd;
 			spinlock_t *pgt_lock;
 			pmd_t *ret;
 
@@ -295,6 +295,7 @@ void vmalloc_sync_all(void)
 			pgt_lock = &pgd_page_get_mm(page)->page_table_lock;
 
 			spin_lock(pgt_lock);
+			pgd = page_address(page);
 #endif
 
 			ret = vmalloc_sync_one(pgd, address);
@@ -819,9 +820,6 @@ __bad_area_nosemaphore(struct pt_regs *regs, unsigned long error_code,
 				return;
 		}
 #endif
-		/* Kernel addresses are always protection faults: */
-		if (address >= TASK_SIZE)
-			error_code |= PF_PROT;
 
 #if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
 		if (pax_is_fetch_fault(regs, error_code, address)) {

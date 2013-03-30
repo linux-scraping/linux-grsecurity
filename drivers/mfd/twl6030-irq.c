@@ -376,10 +376,12 @@ int twl6030_init_irq(int irq_num, unsigned irq_base, unsigned irq_end)
 	/* install an irq handler for each of the modules;
 	 * clone dummy irq_chip since PIH can't *do* anything
 	 */
-	twl6030_irq_chip = dummy_irq_chip;
-	twl6030_irq_chip.name = "twl6030";
-	twl6030_irq_chip.irq_set_type = NULL;
-	twl6030_irq_chip.irq_set_wake = twl6030_irq_set_wake;
+	pax_open_kernel();
+	memcpy((void *)&twl6030_irq_chip, &dummy_irq_chip, sizeof twl6030_irq_chip);
+	*(const char **)&twl6030_irq_chip.name = "twl6030";
+	*(void **)&twl6030_irq_chip.irq_set_type = NULL;
+	*(void **)&twl6030_irq_chip.irq_set_wake = twl6030_irq_set_wake;
+	pax_close_kernel();
 
 	for (i = irq_base; i < irq_end; i++) {
 		irq_set_chip_and_handler(i, &twl6030_irq_chip,

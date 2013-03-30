@@ -55,12 +55,13 @@ struct module_attribute {
 	int (*test)(struct module *);
 	void (*free)(struct module *);
 };
+typedef struct module_attribute __no_const module_attribute_no_const;
 
 struct module_version_attribute {
 	struct module_attribute mattr;
 	const char *module_name;
 	const char *version;
-} __attribute__ ((__aligned__(sizeof(void *))));
+} __do_const __attribute__ ((__aligned__(sizeof(void *))));
 
 extern ssize_t __modver_version_show(struct module_attribute *,
 				     struct module_kobject *, char *);
@@ -219,7 +220,7 @@ struct module
 
 	/* Sysfs stuff. */
 	struct module_kobject mkobj;
-	struct module_attribute *modinfo_attrs;
+	module_attribute_no_const *modinfo_attrs;
 	const char *version;
 	const char *srcversion;
 	struct kobject *holders_dir;

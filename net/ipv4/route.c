@@ -641,7 +641,7 @@ static void __net_exit ip_rt_do_proc_exit(struct net *net)
 #endif
 }
 
-static struct pernet_operations ip_rt_proc_ops __net_initdata =  {
+static struct pernet_operations ip_rt_proc_ops __net_initconst =  {
 	.init = ip_rt_do_proc_init,
 	.exit = ip_rt_do_proc_exit,
 };
@@ -3221,7 +3221,7 @@ static int ipv4_sysctl_rtcache_flush(ctl_table *__ctl, int write,
 {
 	if (write) {
 		int flush_delay;
-		ctl_table ctl;
+		ctl_table_no_const ctl;
 		struct net *net;
 
 		memcpy(&ctl, __ctl, sizeof(ctl));
@@ -3370,6 +3370,7 @@ static struct ctl_table ipv4_route_flush_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0200,
 		.proc_handler	= ipv4_sysctl_rtcache_flush,
+		.extra1		= &init_net,
 	},
 	{ },
 };
@@ -3383,25 +3384,23 @@ static __net_initdata struct ctl_path ipv4_route_path[] = {
 
 static __net_init int sysctl_route_net_init(struct net *net)
 {
-	struct ctl_table *tbl;
+	ctl_table_no_const *tbl = NULL;
 
-	tbl = ipv4_route_flush_table;
 	if (!net_eq(net, &init_net)) {
-		tbl = kmemdup(tbl, sizeof(ipv4_route_flush_table), GFP_KERNEL);
+		tbl = kmemdup(ipv4_route_flush_table, sizeof(ipv4_route_flush_table), GFP_KERNEL);
 		if (tbl == NULL)
 			goto err_dup;
-	}
-	tbl[0].extra1 = net;
 
-	net->ipv4.route_hdr =
-		register_net_sysctl_table(net, ipv4_route_path, tbl);
+		net->ipv4.route_hdr = register_net_sysctl_table(net, ipv4_route_path, tbl);
+	} else
+		net->ipv4.route_hdr = register_net_sysctl_table(net, ipv4_route_path, ipv4_route_flush_table);
+
 	if (net->ipv4.route_hdr == NULL)
 		goto err_reg;
 	return 0;
 
 err_reg:
-	if (tbl != ipv4_route_flush_table)
-		kfree(tbl);
+	kfree(tbl);
 err_dup:
 	return -ENOMEM;
 }
@@ -3416,7 +3415,7 @@ static __net_exit void sysctl_route_net_exit(struct net *net)
 	kfree(tbl);
 }
 
-static __net_initdata struct pernet_operations sysctl_route_ops = {
+static __net_initconst struct pernet_operations sysctl_route_ops = {
 	.init = sysctl_route_net_init,
 	.exit = sysctl_route_net_exit,
 };
@@ -3431,7 +3430,7 @@ static __net_init int rt_genid_init(struct net *net)
 	return 0;
 }
 
-static __net_initdata struct pernet_operations rt_genid_ops = {
+static __net_initconst struct pernet_operations rt_genid_ops = {
 	.init = rt_genid_init,
 };
 

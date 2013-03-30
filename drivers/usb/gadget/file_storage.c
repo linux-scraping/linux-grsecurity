@@ -3329,18 +3329,20 @@ static int __init fsg_bind(struct usb_gadget *gadget)
 	if ((rc = check_parameters(fsg)) != 0)
 		goto out;
 
+	pax_open_kernel();
 	if (mod_data.removable) {	// Enable the store_xxx attributes
-		dev_attr_file.attr.mode = 0644;
-		dev_attr_file.store = fsg_store_file;
+		*(mode_t *)&dev_attr_file.attr.mode = 0644;
+		*(void **)&dev_attr_file.store = fsg_store_file;
 		if (!mod_data.cdrom) {
-			dev_attr_ro.attr.mode = 0644;
-			dev_attr_ro.store = fsg_store_ro;
+			*(mode_t *)&dev_attr_ro.attr.mode = 0644;
+			*(void **)&dev_attr_ro.store = fsg_store_ro;
 		}
 	}
 
 	/* Only for removable media? */
-	dev_attr_nofua.attr.mode = 0644;
-	dev_attr_nofua.store = fsg_store_nofua;
+	*(mode_t *)&dev_attr_nofua.attr.mode = 0644;
+	*(void **)&dev_attr_nofua.store = fsg_store_nofua;
+	pax_close_kernel();
 
 	/* Find out how many LUNs there should be */
 	i = mod_data.nluns;

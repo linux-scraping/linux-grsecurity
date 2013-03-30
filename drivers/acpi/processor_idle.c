@@ -1036,7 +1036,7 @@ static int acpi_processor_setup_cpuidle_states(struct acpi_processor *pr)
 {
 	int i, count = CPUIDLE_DRIVER_STATE_START;
 	struct acpi_processor_cx *cx;
-	struct cpuidle_state *state;
+	cpuidle_state_no_const *state;
 	struct cpuidle_driver *drv = &acpi_idle_driver;
 
 	if (!pr->flags.power_setup_done)

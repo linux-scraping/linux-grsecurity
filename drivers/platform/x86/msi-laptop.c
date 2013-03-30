@@ -815,12 +815,14 @@ static int __init load_scm_model_init(struct platform_device *sdev)
 	int result;
 
 	/* allow userland write sysfs file  */
-	dev_attr_bluetooth.store = store_bluetooth;
-	dev_attr_wlan.store = store_wlan;
-	dev_attr_threeg.store = store_threeg;
-	dev_attr_bluetooth.attr.mode |= S_IWUSR;
-	dev_attr_wlan.attr.mode |= S_IWUSR;
-	dev_attr_threeg.attr.mode |= S_IWUSR;
+	pax_open_kernel();
+	*(void **)&dev_attr_bluetooth.store = store_bluetooth;
+	*(void **)&dev_attr_wlan.store = store_wlan;
+	*(void **)&dev_attr_threeg.store = store_threeg;
+	*(umode_t *)&dev_attr_bluetooth.attr.mode |= S_IWUSR;
+	*(umode_t *)&dev_attr_wlan.attr.mode |= S_IWUSR;
+	*(umode_t *)&dev_attr_threeg.attr.mode |= S_IWUSR;
+	pax_close_kernel();
 
 	/* disable hardware control by fn key */
 	result = ec_read(MSI_STANDARD_EC_SCM_LOAD_ADDRESS, &data);

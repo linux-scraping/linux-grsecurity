@@ -558,7 +558,7 @@ struct nouveau_vram_engine {
 	void (*put)(struct drm_device *, struct nouveau_mem **);
 
 	bool (*flags_valid)(struct drm_device *, u32 tile_flags);
-} __no_const;
+};
 
 struct nouveau_engine {
 	struct nouveau_instmem_engine instmem;

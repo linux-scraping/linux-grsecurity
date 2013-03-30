@@ -6,13 +6,13 @@ GCCPLUGINS_DIR := $(shell $(CC) -print-file-name=plugin)
 
 ifeq ($(PLUGINCC),$(HOSTCC))
 HOSTLIBS := hostlibs
-HOST_EXTRACFLAGS += -I$(GCCPLUGINS_DIR)/include -I$(GCCPLUGINS_DIR)/include/c-family -std=gnu99 -ggdb
+HOST_EXTRACFLAGS += -I$(GCCPLUGINS_DIR)/include -std=gnu99 -ggdb
 else
 HOSTLIBS := hostcxxlibs
-HOST_EXTRACXXFLAGS += -I$(GCCPLUGINS_DIR)/include -I$(GCCPLUGINS_DIR)/include/c-family -std=gnu++98 -ggdb -Wno-unused-parameter
+HOST_EXTRACXXFLAGS += -I$(GCCPLUGINS_DIR)/include -std=gnu++98 -ggdb -Wno-unused-parameter
 endif
 
-$(HOSTLIBS)-y := constify_plugin.so
+$(HOSTLIBS)-$(CONFIG_PAX_CONSTIFY_PLUGIN) := constify_plugin.so
 $(HOSTLIBS)-$(CONFIG_PAX_MEMORY_STACKLEAK) += stackleak_plugin.so
 $(HOSTLIBS)-$(CONFIG_KALLOCSTAT_PLUGIN) += kallocstat_plugin.so
 $(HOSTLIBS)-$(CONFIG_PAX_KERNEXEC_PLUGIN) += kernexec_plugin.so
@@ -20,6 +20,7 @@ $(HOSTLIBS)-$(CONFIG_CHECKER_PLUGIN) += checker_plugin.so
 $(HOSTLIBS)-y += colorize_plugin.so
 $(HOSTLIBS)-$(CONFIG_PAX_SIZE_OVERFLOW) += size_overflow_plugin.so
 $(HOSTLIBS)-$(CONFIG_PAX_LATENT_ENTROPY) += latent_entropy_plugin.so
+$(HOSTLIBS)-$(CONFIG_PAX_MEMORY_STRUCTLEAK) += structleak_plugin.so
 
 always := $($(HOSTLIBS)-y)
 
@@ -31,6 +32,7 @@ checker_plugin-objs := checker_plugin.o
 colorize_plugin-objs := colorize_plugin.o
 size_overflow_plugin-objs := size_overflow_plugin.o
 latent_entropy_plugin-objs := latent_entropy_plugin.o
+structleak_plugin-objs := structleak_plugin.o
 
 $(obj)/size_overflow_plugin.o: $(objtree)/$(obj)/size_overflow_hash.h
 

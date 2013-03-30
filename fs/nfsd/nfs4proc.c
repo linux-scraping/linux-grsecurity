@@ -1037,7 +1037,7 @@ struct nfsd4_operation {
 	char *op_name;
 	/* Try to get response size before operation */
 	nfsd4op_rsize op_rsize_bop;
-};
+} __do_const;
 
 static struct nfsd4_operation nfsd4_ops[];
 

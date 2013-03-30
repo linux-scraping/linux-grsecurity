@@ -33,6 +33,7 @@
 #include <linux/slab.h>
 
 #include <linux/i2c/twl.h>
+#include <asm/pgtable.h>
 
 #include "twl-core.h"
 
@@ -713,10 +714,12 @@ int twl4030_init_irq(int irq_num, unsigned irq_base, unsigned irq_end)
 	/* install an irq handler for each of the SIH modules;
 	 * clone dummy irq_chip since PIH can't *do* anything
 	 */
-	twl4030_irq_chip = dummy_irq_chip;
-	twl4030_irq_chip.name = "twl4030";
+	pax_open_kernel();
+	memcpy((void *)&twl4030_irq_chip, &dummy_irq_chip, sizeof twl4030_irq_chip);
+	*(const char **)&twl4030_irq_chip.name = "twl4030";
 
-	twl4030_sih_irq_chip.irq_ack = dummy_irq_chip.irq_ack;
+	*(void **)&twl4030_sih_irq_chip.irq_ack = dummy_irq_chip.irq_ack;
+	pax_close_kernel();
 
 	for (i = irq_base; i < irq_end; i++) {
 		irq_set_chip_and_handler(i, &twl4030_irq_chip,

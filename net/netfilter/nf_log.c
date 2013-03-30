@@ -222,7 +222,7 @@ static struct ctl_path nf_log_sysctl_path[] = {
 };
 
 static char nf_log_sysctl_fnames[NFPROTO_NUMPROTO-NFPROTO_UNSPEC][3];
-static struct ctl_table nf_log_sysctl_table[NFPROTO_NUMPROTO+1];
+static ctl_table_no_const nf_log_sysctl_table[NFPROTO_NUMPROTO+1] __read_only;
 static struct ctl_table_header *nf_log_dir_header;
 
 static int nf_log_proc_dostring(ctl_table *table, int write,
@@ -253,14 +253,16 @@ static int nf_log_proc_dostring(ctl_table *table, int write,
 		rcu_assign_pointer(nf_loggers[tindex], logger);
 		mutex_unlock(&nf_log_mutex);
 	} else {
+		ctl_table_no_const nf_log_table = *table;
+
 		mutex_lock(&nf_log_mutex);
 		logger = rcu_dereference_protected(nf_loggers[tindex],
 						   lockdep_is_held(&nf_log_mutex));
 		if (!logger)
-			table->data = "NONE";
+			nf_log_table.data = "NONE";
 		else
-			table->data = logger->name;
-		r = proc_dostring(table, write, buffer, lenp, ppos);
+			nf_log_table.data = logger->name;
+		r = proc_dostring(&nf_log_table, write, buffer, lenp, ppos);
 		mutex_unlock(&nf_log_mutex);
 	}
 

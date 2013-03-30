@@ -740,17 +740,16 @@ void __meminit __free_pages_bootmem(struct page *page, unsigned int order)
 		}
 
 #ifdef CONFIG_PAX_LATENT_ENTROPY
-	if (extra_latent_entropy && !PageHighMem(page) && page_to_pfn(page) < 0x100000) {
-		unsigned int nr_pages = 1 << order;
-		u64 hash = 0;
-		size_t index, end = PAGE_SIZE * nr_pages / sizeof hash;
-		const u64 *data = lowmem_page_address(page);
+		if (extra_latent_entropy && !PageHighMem(page) && page_to_pfn(page) < 0x100000) {
+			u64 hash = 0;
+			size_t index, end = PAGE_SIZE * (1UL << order) / sizeof hash;
+			const u64 *data = lowmem_page_address(page);
 
-		for (index = 0; index < end; index++)
-			hash ^= hash + data[index];
-		latent_entropy ^= hash;
-		add_device_randomness((const void *)&latent_entropy, sizeof(latent_entropy));
-	}
+			for (index = 0; index < end; index++)
+				hash ^= hash + data[index];
+			latent_entropy ^= hash;
+			add_device_randomness((const void *)&latent_entropy, sizeof(latent_entropy));
+		}
 #endif
 
 		set_page_refcounted(page);

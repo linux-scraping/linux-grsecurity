@@ -31,7 +31,7 @@ static bool __list_add_debug(struct list_head *new,
 		"next (%p), but was %p. (prev=%p).\n",
 		next, prev->next, prev) ||
 	    WARN(new == prev || new == next,
-		 "list_add double add: new=%p, prev=%p, next=%p.\n",
+		"list_add double add: new=%p, prev=%p, next=%p.\n",
 		new, prev, next))
 		return false;
 	return true;
@@ -43,6 +43,7 @@ void __list_add(struct list_head *new,
 {
 	if (!__list_add_debug(new, prev, next))
 		return;
+
 	next->prev = new;
 	new->next = next;
 	new->prev = prev;
@@ -97,13 +98,8 @@ void list_del(struct list_head *entry)
 EXPORT_SYMBOL(list_del);
 #endif
 
-void pax_list_add_tail(struct list_head *new, struct list_head *head)
+void __pax_list_add(struct list_head *new, struct list_head *prev, struct list_head *next)
 {
-	struct list_head *prev, *next;
-
-	prev = head->prev;
-	next = head;
-
 #ifdef CONFIG_DEBUG_LIST
 	if (!__list_add_debug(new, prev, next))
 		return;
@@ -116,7 +112,7 @@ void pax_list_add_tail(struct list_head *new, struct list_head *head)
 	prev->next = new;
 	pax_close_kernel();
 }
-EXPORT_SYMBOL(pax_list_add_tail);
+EXPORT_SYMBOL(__pax_list_add);
 
 void pax_list_del(struct list_head *entry)
 {
@@ -132,3 +128,44 @@ void pax_list_del(struct list_head *entry)
 	pax_close_kernel();
 }
 EXPORT_SYMBOL(pax_list_del);
+
+void pax_list_del_init(struct list_head *entry)
+{
+	pax_open_kernel();
+	__list_del(entry->prev, entry->next);
+	INIT_LIST_HEAD(entry);
+	pax_close_kernel();
+}
+EXPORT_SYMBOL(pax_list_del_init);
+
+void __pax_list_add_rcu(struct list_head *new,
+			struct list_head *prev, struct list_head *next)
+{
+#ifdef CONFIG_DEBUG_LIST
+	if (!__list_add_debug(new, prev, next))
+		return;
+#endif
+
+	pax_open_kernel();
+	new->next = next;
+	new->prev = prev;
+	rcu_assign_pointer(list_next_rcu(prev), new);
+	next->prev = new;
+	pax_close_kernel();
+}
+EXPORT_SYMBOL(__pax_list_add_rcu);
+
+void pax_list_del_rcu(struct list_head *entry)
+{
+#ifdef CONFIG_DEBUG_LIST
+	if (!__list_del_entry_debug(entry))
+		return;
+#endif
+
+	pax_open_kernel();
+	__list_del(entry->prev, entry->next);
+	entry->next = LIST_POISON1;
+	entry->prev = LIST_POISON2;
+	pax_close_kernel();
+}
+EXPORT_SYMBOL(pax_list_del_rcu);

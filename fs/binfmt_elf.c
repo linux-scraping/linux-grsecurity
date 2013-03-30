@@ -1085,7 +1085,7 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 #ifdef CONFIG_ARCH_TRACK_EXEC_LIMIT
 	if ((current->mm->pax_flags & MF_PAX_PAGEEXEC) && !(__supported_pte_mask & _PAGE_NX)) {
 		current->mm->context.user_cs_limit = PAGE_SIZE;
-		current->mm->def_flags |= VM_PAGEEXEC;
+		current->mm->def_flags |= VM_PAGEEXEC | VM_NOHUGEPAGE;
 	}
 #endif
 
@@ -1321,7 +1321,7 @@ static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs)
 		retval = -ENOMEM;
 		if (!IS_ERR_VALUE(start) && !find_vma_intersection(current->mm, start, start + size + PAGE_SIZE)) {
 //			if (current->personality & ADDR_NO_RANDOMIZE)
-//				prot = PROT_READ;
+//				vm_flags |= VM_READ | VM_MAYREAD;
 			start = mmap_region(NULL, start, PAGE_ALIGN(size), flags, vm_flags, 0);
 			retval = IS_ERR_VALUE(start) ? start : 0;
 		}

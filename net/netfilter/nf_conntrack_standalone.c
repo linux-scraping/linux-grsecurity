@@ -475,7 +475,7 @@ static struct ctl_path nf_ct_path[] = {
 
 static int nf_conntrack_standalone_init_sysctl(struct net *net)
 {
-	struct ctl_table *table;
+	ctl_table_no_const *table;
 
 	if (net_eq(net, &init_net)) {
 		nf_ct_netfilter_header =

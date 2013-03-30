@@ -420,11 +420,11 @@ static u32 num_counters;
 static struct attribute **all_attrs;
 static u32 acpi_gpe_count;
 
-static struct attribute_group interrupt_stats_attr_group = {
+static attribute_group_no_const interrupt_stats_attr_group = {
 	.name = "interrupts",
 };
 
-static struct kobj_attribute *counter_attrs;
+static kobj_attribute_no_const *counter_attrs;
 
 static void delete_gpe_attr_array(void)
 {

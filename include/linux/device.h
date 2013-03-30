@@ -427,7 +427,7 @@ struct device_type {
 	void (*release)(struct device *dev);
 
 	const struct dev_pm_ops *pm;
-};
+} __do_const;
 
 /* interface for exporting device attributes */
 struct device_attribute {
@@ -437,6 +437,7 @@ struct device_attribute {
 	ssize_t (*store)(struct device *dev, struct device_attribute *attr,
 			 const char *buf, size_t count);
 };
+typedef struct device_attribute __no_const device_attribute_no_const;
 
 #define DEVICE_ATTR(_name, _mode, _show, _store) \
 struct device_attribute dev_attr_##_name = __ATTR(_name, _mode, _show, _store)

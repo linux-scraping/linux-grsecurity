@@ -63,8 +63,10 @@ static int __init init_nls_koi8_ru(void)
 	p_nls = load_nls("koi8-u");
 
 	if (p_nls) {
-		table.charset2upper = p_nls->charset2upper;
-		table.charset2lower = p_nls->charset2lower;
+		pax_open_kernel();
+		*(const unsigned char **)&table.charset2upper = p_nls->charset2upper;
+		*(const unsigned char **)&table.charset2lower = p_nls->charset2lower;
+		pax_close_kernel();
 		return register_nls(&table);
 	}
 

@@ -71,7 +71,7 @@ EXPORT_SYMBOL_GPL(net_ipv6_ctl_path);
 
 static int __net_init ipv6_sysctl_net_init(struct net *net)
 {
-	struct ctl_table *ipv6_table;
+	ctl_table_no_const *ipv6_table;
 	struct ctl_table *ipv6_route_table;
 	struct ctl_table *ipv6_icmp_table;
 	int err;

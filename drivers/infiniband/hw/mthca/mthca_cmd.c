@@ -772,7 +772,7 @@ static void mthca_setup_cmd_doorbells(struct mthca_dev *dev, u64 base)
 	mthca_dbg(dev, "Mapped doorbell page for posting FW commands\n");
 }
 
-int mthca_QUERY_FW(struct mthca_dev *dev)
+int __intentional_overflow(-1) mthca_QUERY_FW(struct mthca_dev *dev)
 {
 	struct mthca_mailbox *mailbox;
 	u32 *outbox;

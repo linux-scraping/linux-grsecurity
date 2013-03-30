@@ -1061,7 +1061,7 @@ static __net_exit void raw_exit_net(struct net *net)
 	proc_net_remove(net, "raw");
 }
 
-static __net_initdata struct pernet_operations raw_net_ops = {
+static __net_initconst struct pernet_operations raw_net_ops = {
 	.init = raw_init_net,
 	.exit = raw_exit_net,
 };

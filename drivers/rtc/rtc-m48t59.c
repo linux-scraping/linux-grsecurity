@@ -482,7 +482,9 @@ static int __devinit m48t59_rtc_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	m48t59_nvram_attr.size = pdata->offset;
+	pax_open_kernel();
+	*(size_t *)&m48t59_nvram_attr.size = pdata->offset;
+	pax_close_kernel();
 
 	ret = sysfs_create_bin_file(&pdev->dev.kobj, &m48t59_nvram_attr);
 	if (ret) {

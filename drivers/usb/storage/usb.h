@@ -63,7 +63,7 @@ struct us_unusual_dev {
 	__u8  useProtocol;
 	__u8  useTransport;
 	int (*initFunction)(struct us_data *);
-};
+} __do_const;
 
 
 /* Dynamic bitflag definitions (us->dflags): used in set_bit() etc. */

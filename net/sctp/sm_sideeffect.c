@@ -441,7 +441,7 @@ static void sctp_generate_sack_event(unsigned long data)
 	sctp_generate_timeout_event(asoc, SCTP_EVENT_TIMEOUT_SACK);
 }
 
-sctp_timer_event_t *sctp_timer_events[SCTP_NUM_TIMEOUT_TYPES] = {
+sctp_timer_event_t * const sctp_timer_events[SCTP_NUM_TIMEOUT_TYPES] = {
 	NULL,
 	sctp_generate_t1_cookie_event,
 	sctp_generate_t1_init_event,

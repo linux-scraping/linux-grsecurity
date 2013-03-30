@@ -194,7 +194,7 @@ typedef struct user_regs_struct32 compat_elf_gregset_t;
  * as pointers because the syscall entry code will have
  * appropriately converted them already.
  */
-typedef	u32		compat_uptr_t;
+typedef u32		__user compat_uptr_t;
 
 static inline void __user *compat_ptr(compat_uptr_t uptr)
 {

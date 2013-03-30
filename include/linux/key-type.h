@@ -92,7 +92,7 @@ struct key_type {
 
 	/* internal fields */
 	struct list_head	link;		/* link in types list */
-};
+} __do_const;
 
 extern struct key_type key_type_keyring;
 

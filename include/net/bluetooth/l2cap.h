@@ -387,7 +387,7 @@ struct l2cap_ops {
 	int			(*recv) (void *data, struct sk_buff *skb);
 	void			(*close) (void *data);
 	void			(*state_change) (void *data, int state);
-};
+} __do_const;
 
 struct l2cap_conn {
 	struct hci_conn	*hcon;

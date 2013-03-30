@@ -260,7 +260,7 @@ struct proc_ns_operations {
 	void *(*get)(struct task_struct *task);
 	void (*put)(void *ns);
 	int (*install)(struct nsproxy *nsproxy, void *ns);
-};
+} __do_const;
 extern const struct proc_ns_operations netns_operations;
 extern const struct proc_ns_operations utsns_operations;
 extern const struct proc_ns_operations ipcns_operations;

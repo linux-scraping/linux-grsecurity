@@ -3638,7 +3638,7 @@ struct data_cmd {
 	int expect_payload;
 	size_t pkt_size;
 	drbd_cmd_handler_f function;
-};
+} __do_const;
 
 static struct data_cmd drbd_cmd_handler[] = {
 	[P_DATA]	    = { 1, sizeof(struct p_data), receive_Data },
@@ -4493,7 +4493,7 @@ static int got_skip(struct drbd_conf *mdev, struct p_header80 *h)
 struct asender_cmd {
 	size_t pkt_size;
 	int (*process)(struct drbd_conf *mdev, struct p_header80 *h);
-};
+} __do_const;
 
 static struct asender_cmd *get_asender_cmd(int cmd)
 {

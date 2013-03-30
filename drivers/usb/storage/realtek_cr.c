@@ -430,7 +430,7 @@ static int rts51x_read_status(struct us_data *us,
 
 	buf = kmalloc(len, GFP_NOIO);
 	if (buf == NULL)
-		return USB_STOR_TRANSPORT_ERROR;
+		return -ENOMEM;
 
 	US_DEBUGP("%s, lun = %d\n", __func__, lun);
 

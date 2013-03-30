@@ -316,7 +316,7 @@ static int __kprobes __copy_instruction(u8 *dest, u8 *src, int recover)
 							 (unsigned long)src);
 			if (ret)
 				return 0;
-			kernel_insn_init(&insn, buf);
+			kernel_insn_init(&insn, ktva_ktla(buf));
 		}
 	}
 	insn_get_length(&insn);
@@ -1317,7 +1317,7 @@ static int __kprobes can_optimize(unsigned long paddr)
 			ret = recover_probed_instruction(buf, addr);
 			if (ret)
 				return 0;
-			kernel_insn_init(&insn, buf);
+			kernel_insn_init(&insn, ktva_ktla(buf));
 		}
 		insn_get_length(&insn);
 		/* Recover address */

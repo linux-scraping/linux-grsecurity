@@ -965,8 +965,6 @@ extern void sysctl_head_finish(struct ctl_table_header *prev);
 extern int sysctl_perm(struct ctl_table_root *root,
 		struct ctl_table *table, int op);
 
-typedef struct ctl_table ctl_table;
-
 typedef int proc_handler (struct ctl_table *ctl, int write,
 			  void __user *buffer, size_t *lenp, loff_t *ppos);
 
@@ -1051,7 +1049,9 @@ struct ctl_table
 	struct ctl_table_poll *poll;
 	void *extra1;
 	void *extra2;
-};
+} __do_const;
+typedef struct ctl_table __no_const ctl_table_no_const;
+typedef struct ctl_table ctl_table;
 
 struct ctl_table_root {
 	struct list_head root_list;

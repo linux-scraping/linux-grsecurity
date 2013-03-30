@@ -1679,7 +1679,7 @@ done:
 	return ret;
 }
 
-static struct nf_sockopt_ops so_set __read_mostly = {
+static struct nf_sockopt_ops so_set = {
 	.pf		= PF_INET,
 	.get_optmin	= SO_IP_SET,
 	.get_optmax	= SO_IP_SET + 1,

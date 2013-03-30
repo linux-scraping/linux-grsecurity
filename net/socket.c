@@ -1730,6 +1730,8 @@ SYSCALL_DEFINE3(getpeername, int, fd, struct sockaddr __user *, usockaddr,
  *	the protocol.
  */
 
+asmlinkage long sys_sendto(int, void *, size_t, unsigned, struct sockaddr *, int);
+
 SYSCALL_DEFINE6(sendto, int, fd, void __user *, buff, size_t, len,
 		unsigned, flags, struct sockaddr __user *, addr,
 		int, addr_len)
@@ -2150,7 +2152,7 @@ static int __sys_recvmsg(struct socket *sock, struct msghdr __user *msg,
 	int err, iov_size, total_len, len;
 
 	/* kernel mode address */
-	struct sockaddr_storage addr;
+	struct sockaddr_storage addr = { };
 
 	/* user mode address pointers */
 	struct sockaddr __user *uaddr;

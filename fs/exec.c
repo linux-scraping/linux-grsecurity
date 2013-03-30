@@ -104,8 +104,8 @@ int __register_binfmt(struct linux_binfmt * fmt, int insert)
 	if (!fmt)
 		return -EINVAL;
 	write_lock(&binfmt_lock);
-	insert ? list_add(&fmt->lh, &formats) :
-		 list_add_tail(&fmt->lh, &formats);
+	insert ? pax_list_add((struct list_head *)&fmt->lh, &formats) :
+		 pax_list_add_tail((struct list_head *)&fmt->lh, &formats);
 	write_unlock(&binfmt_lock);
 	return 0;	
 }
@@ -115,7 +115,7 @@ EXPORT_SYMBOL(__register_binfmt);
 void unregister_binfmt(struct linux_binfmt * fmt)
 {
 	write_lock(&binfmt_lock);
-	list_del(&fmt->lh);
+	pax_list_del((struct list_head *)&fmt->lh);
 	write_unlock(&binfmt_lock);
 }
 

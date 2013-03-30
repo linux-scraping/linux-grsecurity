@@ -29,33 +29,22 @@
 #endif
 extern void __chk_user_ptr(const volatile void __user *);
 extern void __chk_io_ptr(const volatile void __iomem *);
-#elif defined(CHECKER_PLUGIN)
-//# define __user
-//# define __force_user
-//# define __kernel
-//# define __force_kernel
-# define __safe
-# define __force
-# define __nocast
-# define __iomem
-# define __force_iomem
-# define __chk_user_ptr(x) (void)0
-# define __chk_io_ptr(x) (void)0
-# define __builtin_warning(x, y...) (1)
-# define __acquires(x)
-# define __releases(x)
-# define __acquire(x) (void)0
-# define __release(x) (void)0
-# define __cond_lock(x,c) (c)
-# define __percpu
-# define __force_percpu
-# define __rcu
-# define __force_rcu
 #else
-# define __user
-# define __force_user
-# define __kernel
-# define __force_kernel
+# ifdef CHECKER_PLUGIN
+//#  define __user
+//#  define __force_user
+//#  define __kernel
+//#  define __force_kernel
+# else
+#  ifdef STRUCTLEAK_PLUGIN
+#   define __user __attribute__((user))
+#  else
+#   define __user
+#  endif
+#  define __force_user
+#  define __kernel
+#  define __force_kernel
+# endif
 # define __safe
 # define __force
 # define __nocast

@@ -2586,7 +2586,7 @@ static inline int netif_is_bond_slave(struct net_device *dev)
 	return dev->flags & IFF_SLAVE && dev->priv_flags & IFF_BONDING;
 }
 
-extern struct pernet_operations __net_initdata loopback_net_ops;
+extern struct pernet_operations __net_initconst loopback_net_ops;
 
 static inline u32 dev_ethtool_get_rx_csum(struct net_device *dev)
 {

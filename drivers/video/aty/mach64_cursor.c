@@ -7,6 +7,7 @@
 #include <linux/string.h>
 
 #include <asm/io.h>
+#include <asm/pgtable.h>
 
 #ifdef __sparc__
 #include <asm/fbio.h>
@@ -208,7 +209,9 @@ int __devinit aty_init_cursor(struct fb_info *info)
 	info->sprite.buf_align = 16; 	/* and 64 lines tall. */
 	info->sprite.flags = FB_PIXMAP_IO;
 
-	info->fbops->fb_cursor = atyfb_cursor;
+	pax_open_kernel();
+	*(void **)&info->fbops->fb_cursor = atyfb_cursor;
+	pax_close_kernel();
 
 	return 0;
 }

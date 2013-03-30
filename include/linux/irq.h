@@ -328,7 +328,7 @@ struct irq_chip {
 #ifdef CONFIG_IRQ_RELEASE_METHOD
 	void		(*release)(unsigned int irq, void *dev_id);
 #endif
-};
+} __do_const;
 
 /*
  * irq_chip specific flags

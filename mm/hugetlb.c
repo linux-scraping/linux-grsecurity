@@ -1973,15 +1973,17 @@ static int hugetlb_sysctl_handler_common(bool obey_mempolicy,
 	struct hstate *h = &default_hstate;
 	unsigned long tmp;
 	int ret;
+	ctl_table_no_const hugetlb_table;
 
 	tmp = h->max_huge_pages;
 
 	if (write && h->order >= MAX_ORDER)
 		return -EINVAL;
 
-	table->data = &tmp;
-	table->maxlen = sizeof(unsigned long);
-	ret = proc_doulongvec_minmax(table, write, buffer, length, ppos);
+	hugetlb_table = *table;
+	hugetlb_table.data = &tmp;
+	hugetlb_table.maxlen = sizeof(unsigned long);
+	ret = proc_doulongvec_minmax(&hugetlb_table, write, buffer, length, ppos);
 	if (ret)
 		goto out;
 
@@ -2038,15 +2040,17 @@ int hugetlb_overcommit_handler(struct ctl_table *table, int write,
 	struct hstate *h = &default_hstate;
 	unsigned long tmp;
 	int ret;
+	ctl_table_no_const hugetlb_table;
 
 	tmp = h->nr_overcommit_huge_pages;
 
 	if (write && h->order >= MAX_ORDER)
 		return -EINVAL;
 
-	table->data = &tmp;
-	table->maxlen = sizeof(unsigned long);
-	ret = proc_doulongvec_minmax(table, write, buffer, length, ppos);
+	hugetlb_table = *table;
+	hugetlb_table.data = &tmp;
+	hugetlb_table.maxlen = sizeof(unsigned long);
+	ret = proc_doulongvec_minmax(&hugetlb_table, write, buffer, length, ppos);
 	if (ret)
 		goto out;
 
@@ -2092,8 +2096,12 @@ int hugetlb_report_node_meminfo(int nid, char *buf)
 /* Return the number pages of memory we physically have, in PAGE_SIZE units. */
 unsigned long hugetlb_total_pages(void)
 {
-	struct hstate *h = &default_hstate;
-	return h->nr_huge_pages * pages_per_huge_page(h);
+	struct hstate *h;
+	unsigned long nr_total_pages = 0;
+
+	for_each_hstate(h)
+		nr_total_pages += h->nr_huge_pages * pages_per_huge_page(h);
+	return nr_total_pages;
 }
 
 static int hugetlb_acct_memory(struct hstate *h, long delta)

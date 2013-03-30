@@ -585,6 +585,7 @@ void macvlan_common_setup(struct net_device *dev)
 	ether_setup(dev);
 
 	dev->priv_flags	       &= ~(IFF_XMIT_DST_RELEASE | IFF_TX_SKB_SHARING);
+	dev->priv_flags	       |= IFF_UNICAST_FLT;
 	dev->netdev_ops		= &macvlan_netdev_ops;
 	dev->destructor		= free_netdev;
 	dev->header_ops		= &macvlan_hard_header_ops,
@@ -788,13 +789,15 @@ static const struct nla_policy macvlan_policy[IFLA_MACVLAN_MAX + 1] = {
 int macvlan_link_register(struct rtnl_link_ops *ops)
 {
 	/* common fields */
-	ops->priv_size		= sizeof(struct macvlan_dev);
-	ops->validate		= macvlan_validate;
-	ops->maxtype		= IFLA_MACVLAN_MAX;
-	ops->policy		= macvlan_policy;
-	ops->changelink		= macvlan_changelink;
-	ops->get_size		= macvlan_get_size;
-	ops->fill_info		= macvlan_fill_info;
+	pax_open_kernel();
+	*(size_t *)&ops->priv_size	= sizeof(struct macvlan_dev);
+	*(void **)&ops->validate	= macvlan_validate;
+	*(int *)&ops->maxtype		= IFLA_MACVLAN_MAX;
+	*(const void **)&ops->policy	= macvlan_policy;
+	*(void **)&ops->changelink	= macvlan_changelink;
+	*(void **)&ops->get_size	= macvlan_get_size;
+	*(void **)&ops->fill_info	= macvlan_fill_info;
+	pax_close_kernel();
 
 	return rtnl_link_register(ops);
 };

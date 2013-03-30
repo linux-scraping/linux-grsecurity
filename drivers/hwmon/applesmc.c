@@ -1056,7 +1056,7 @@ static int applesmc_create_nodes(struct applesmc_node_group *groups, int num)
 {
 	struct applesmc_node_group *grp;
 	struct applesmc_dev_attr *node;
-	struct attribute *attr;
+	attribute_no_const *attr;
 	int ret, i;
 
 	for (grp = groups; grp->format; grp++) {

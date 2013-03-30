@@ -118,7 +118,7 @@
    Alexey Kuznetsov.
  */
 
-static struct rtnl_link_ops ipgre_link_ops __read_mostly;
+static struct rtnl_link_ops ipgre_link_ops;
 static int ipgre_tunnel_init(struct net_device *dev);
 static void ipgre_tunnel_setup(struct net_device *dev);
 static int ipgre_tunnel_bind_dev(struct net_device *dev);
@@ -1669,7 +1669,7 @@ static const struct nla_policy ipgre_policy[IFLA_GRE_MAX + 1] = {
 	[IFLA_GRE_PMTUDISC]	= { .type = NLA_U8 },
 };
 
-static struct rtnl_link_ops ipgre_link_ops __read_mostly = {
+static struct rtnl_link_ops ipgre_link_ops = {
 	.kind		= "gre",
 	.maxtype	= IFLA_GRE_MAX,
 	.policy		= ipgre_policy,
@@ -1682,7 +1682,7 @@ static struct rtnl_link_ops ipgre_link_ops __read_mostly = {
 	.fill_info	= ipgre_fill_info,
 };
 
-static struct rtnl_link_ops ipgre_tap_ops __read_mostly = {
+static struct rtnl_link_ops ipgre_tap_ops = {
 	.kind		= "gretap",
 	.maxtype	= IFLA_GRE_MAX,
 	.policy		= ipgre_policy,

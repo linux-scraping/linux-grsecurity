@@ -196,7 +196,7 @@ struct bfa_hwif_s {
 				       u32 *end);
 	int	cpe_vec_q0;
 	int	rme_vec_q0;
-} __no_const;
+};
 typedef void (*bfa_cb_iocfc_t) (void *cbarg, enum bfa_status status);
 
 struct bfa_faa_cbfn_s {

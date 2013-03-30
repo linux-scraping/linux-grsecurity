@@ -87,7 +87,7 @@ int cpuidle_register_governor(struct cpuidle_governor *gov)
 	mutex_lock(&cpuidle_lock);
 	if (__cpuidle_find_governor(gov->name) == NULL) {
 		ret = 0;
-		list_add_tail(&gov->governor_list, &cpuidle_governors);
+		pax_list_add_tail((struct list_head *)&gov->governor_list, &cpuidle_governors);
 		if (!cpuidle_curr_governor ||
 		    cpuidle_curr_governor->rating < gov->rating)
 			cpuidle_switch_governor(gov);
@@ -135,7 +135,7 @@ void cpuidle_unregister_governor(struct cpuidle_governor *gov)
 		new_gov = cpuidle_replace_governor(gov->rating);
 		cpuidle_switch_governor(new_gov);
 	}
-	list_del(&gov->governor_list);
+	pax_list_del((struct list_head *)&gov->governor_list);
 	mutex_unlock(&cpuidle_lock);
 }
 

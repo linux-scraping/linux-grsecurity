@@ -542,6 +542,7 @@ void kfree(const void *block)
 		return;
 	kmemleak_free(block);
 
+	VM_BUG_ON(!virt_addr_valid(block));
 	sp = slob_page(block);
 	if (is_slob_page(sp)) {
 		int align = max(ARCH_KMALLOC_MINALIGN, ARCH_SLAB_MINALIGN);

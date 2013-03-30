@@ -1920,7 +1920,8 @@ void rt6_purge_dflt_routers(struct net *net)
 restart:
 	read_lock_bh(&table->tb6_lock);
 	for (rt = table->tb6_root.leaf; rt; rt = rt->dst.rt6_next) {
-		if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ADDRCONF)) {
+		if (rt->rt6i_flags & (RTF_DEFAULT | RTF_ADDRCONF) &&
+		    (!rt->rt6i_idev || rt->rt6i_idev->cnf.accept_ra != 2)) {
 			dst_hold(&rt->dst);
 			read_unlock_bh(&table->tb6_lock);
 			ip6_del_rt(rt);
@@ -2805,7 +2806,7 @@ ctl_table ipv6_route_table_template[] = {
 
 struct ctl_table * __net_init ipv6_route_sysctl_init(struct net *net)
 {
-	struct ctl_table *table;
+	ctl_table_no_const *table;
 
 	table = kmemdup(ipv6_route_table_template,
 			sizeof(ipv6_route_table_template),

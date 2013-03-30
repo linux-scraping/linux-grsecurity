@@ -31,7 +31,7 @@ static int min_ds_timeout[1],		max_ds_timeout[] = {65535000};
 
 static struct ctl_table_header *ax25_table_header;
 
-static ctl_table *ax25_table;
+static ctl_table_no_const *ax25_table;
 static int ax25_table_size;
 
 static struct ctl_path ax25_path[] = {
@@ -174,7 +174,7 @@ void ax25_register_sysctl(void)
 	}
 
 	for (n = 0, ax25_dev = ax25_dev_list; ax25_dev != NULL; ax25_dev = ax25_dev->next) {
-		struct ctl_table *child = kmemdup(ax25_param_table,
+		ctl_table_no_const *child = kmemdup(ax25_param_table,
 						  sizeof(ax25_param_table),
 						  GFP_ATOMIC);
 		if (!child) {

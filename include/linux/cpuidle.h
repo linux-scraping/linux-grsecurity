@@ -49,7 +49,8 @@ struct cpuidle_state {
 	int (*enter)	(struct cpuidle_device *dev,
 			struct cpuidle_driver *drv,
 			int index);
-};
+} __do_const;
+typedef struct cpuidle_state __no_const cpuidle_state_no_const;
 
 /* Idle State Flags */
 #define CPUIDLE_FLAG_TIME_VALID	(0x01) /* is residency time measurable? */
@@ -181,7 +182,7 @@ struct cpuidle_governor {
 	void (*reflect)		(struct cpuidle_device *dev, int index);
 
 	struct module 		*owner;
-};
+} __do_const;
 
 #ifdef CONFIG_CPU_IDLE
 

@@ -1795,7 +1795,9 @@ int sysctl_perm(struct ctl_table_root *root, struct ctl_table *table, int op)
 static void sysctl_set_parent(struct ctl_table *parent, struct ctl_table *table)
 {
 	for (; table->procname; table++) {
-		table->parent = parent;
+		pax_open_kernel();
+		*(void **)&table->parent = (ctl_table_no_const *)parent;
+		pax_close_kernel();
 		if (table->child)
 			sysctl_set_parent(table, table->child);
 	}
@@ -1919,7 +1921,8 @@ struct ctl_table_header *__register_sysctl_paths(
 	const struct ctl_path *path, struct ctl_table *table)
 {
 	struct ctl_table_header *header;
-	struct ctl_table *new, **prevp;
+	struct ctl_table **prevp;
+	ctl_table_no_const *new;
 	unsigned int n, npath;
 	struct ctl_table_set *set;
 
@@ -1940,7 +1943,7 @@ struct ctl_table_header *__register_sysctl_paths(
 	if (!header)
 		return NULL;
 
-	new = (struct ctl_table *) (header + 1);
+	new = (ctl_table_no_const *) (header + 1);
 
 	/* Now connect the dots */
 	prevp = &header->ctl_table;
@@ -2468,7 +2471,7 @@ int proc_dointvec(struct ctl_table *table, int write,
 static int proc_taint(struct ctl_table *table, int write,
 			       void __user *buffer, size_t *lenp, loff_t *ppos)
 {
-	struct ctl_table t;
+	ctl_table_no_const t;
 	unsigned long tmptaint = get_taint();
 	int err;
 

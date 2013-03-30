@@ -422,7 +422,7 @@ static int __register_pernet_operations(struct list_head *list,
 	int error;
 	LIST_HEAD(net_exit_list);
 
-	list_add_tail(&ops->list, list);
+	pax_list_add_tail((struct list_head *)&ops->list, list);
 	if (ops->init || (ops->id && ops->size)) {
 		for_each_net(net) {
 			error = ops_init(ops, net);
@@ -435,7 +435,7 @@ static int __register_pernet_operations(struct list_head *list,
 
 out_undo:
 	/* If I have an error cleanup all namespaces I initialized */
-	list_del(&ops->list);
+	pax_list_del((struct list_head *)&ops->list);
 	ops_exit_list(ops, &net_exit_list);
 	ops_free_list(ops, &net_exit_list);
 	return error;
@@ -446,7 +446,7 @@ static void __unregister_pernet_operations(struct pernet_operations *ops)
 	struct net *net;
 	LIST_HEAD(net_exit_list);
 
-	list_del(&ops->list);
+	pax_list_del((struct list_head *)&ops->list);
 	for_each_net(net)
 		list_add_tail(&net->exit_list, &net_exit_list);
 	ops_exit_list(ops, &net_exit_list);
@@ -580,7 +580,7 @@ int register_pernet_device(struct pernet_operations *ops)
 	mutex_lock(&net_mutex);
 	error = register_pernet_operations(&pernet_list, ops);
 	if (!error && (first_device == &pernet_list))
-		first_device = &ops->list;
+		first_device = (struct list_head *)&ops->list;
 	mutex_unlock(&net_mutex);
 	return error;
 }

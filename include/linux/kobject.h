@@ -134,6 +134,7 @@ struct kobj_attribute {
 	ssize_t (*store)(struct kobject *kobj, struct kobj_attribute *attr,
 			 const char *buf, size_t count);
 };
+typedef struct kobj_attribute __no_const kobj_attribute_no_const;
 
 extern const struct sysfs_ops kobj_sysfs_ops;
 

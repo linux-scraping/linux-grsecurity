@@ -98,7 +98,7 @@ struct sysdev_attribute {
 	ssize_t (*store)(struct sys_device *, struct sysdev_attribute *,
 			 const char *, size_t);
 };
-
+typedef struct sysdev_attribute __no_const sysdev_attribute_no_const;
 
 #define _SYSDEV_ATTR(_name, _mode, _show, _store)		\
 {								\

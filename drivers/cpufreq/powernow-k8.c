@@ -1341,8 +1341,11 @@ static int __cpuinit powernowk8_cpu_init(struct cpufreq_policy *pol)
 	}
 
 	/* Check for APERF/MPERF support in hardware */
-	if (cpu_has(c, X86_FEATURE_APERFMPERF))
-		cpufreq_amd64_driver.getavg = cpufreq_get_measured_perf;
+	if (cpu_has(c, X86_FEATURE_APERFMPERF)) {
+		pax_open_kernel();
+		*(void **)&cpufreq_amd64_driver.getavg = cpufreq_get_measured_perf;
+		pax_close_kernel();
+	}
 
 	cpufreq_frequency_table_get_attr(data->powernow_table, pol->cpu);
 

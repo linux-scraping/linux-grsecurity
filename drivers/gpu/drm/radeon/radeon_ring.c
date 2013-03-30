@@ -487,16 +487,20 @@ int radeon_debugfs_ib_init(struct radeon_device *rdev)
 	unsigned i;
 	int r;
 
-	radeon_debugfs_ib_bogus_info_list[0].data = rdev;
+	pax_open_kernel();
+	*(void **)&radeon_debugfs_ib_bogus_info_list[0].data = rdev;
+	pax_close_kernel();
 	r = radeon_debugfs_add_files(rdev, radeon_debugfs_ib_bogus_info_list, 1);
 	if (r)
 		return r;
 	for (i = 0; i < RADEON_IB_POOL_SIZE; i++) {
 		sprintf(radeon_debugfs_ib_names[i], "radeon_ib_%04u", i);
-		radeon_debugfs_ib_list[i].name = radeon_debugfs_ib_names[i];
-		radeon_debugfs_ib_list[i].show = &radeon_debugfs_ib_info;
-		radeon_debugfs_ib_list[i].driver_features = 0;
-		radeon_debugfs_ib_list[i].data = &rdev->ib_pool.ibs[i];
+		pax_open_kernel();
+		*(void **)&radeon_debugfs_ib_list[i].name = radeon_debugfs_ib_names[i];
+		*(void **)&radeon_debugfs_ib_list[i].show = &radeon_debugfs_ib_info;
+		*(u32 *)&radeon_debugfs_ib_list[i].driver_features = 0;
+		*(void **)&radeon_debugfs_ib_list[i].data = &rdev->ib_pool.ibs[i];
+		pax_close_kernel();
 	}
 	return radeon_debugfs_add_files(rdev, radeon_debugfs_ib_list,
 					RADEON_IB_POOL_SIZE);

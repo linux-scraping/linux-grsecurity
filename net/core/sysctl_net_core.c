@@ -25,7 +25,7 @@ static int rps_sock_flow_sysctl(ctl_table *table, int write,
 {
 	unsigned int orig_size, size;
 	int ret, i;
-	ctl_table tmp = {
+	ctl_table_no_const tmp = {
 		.data = &size,
 		.maxlen = sizeof(size),
 		.mode = table->mode
@@ -205,29 +205,27 @@ __net_initdata struct ctl_path net_core_path[] = {
 
 static __net_init int sysctl_core_net_init(struct net *net)
 {
-	struct ctl_table *tbl;
+	ctl_table_no_const *tbl = NULL;
 
 	net->core.sysctl_somaxconn = SOMAXCONN;
 
-	tbl = netns_core_table;
 	if (!net_eq(net, &init_net)) {
-		tbl = kmemdup(tbl, sizeof(netns_core_table), GFP_KERNEL);
+		tbl = kmemdup(netns_core_table, sizeof(netns_core_table), GFP_KERNEL);
 		if (tbl == NULL)
 			goto err_dup;
 
 		tbl[0].data = &net->core.sysctl_somaxconn;
-	}
+		net->core.sysctl_hdr = register_net_sysctl_table(net, net_core_path, tbl);
+	} else
+		net->core.sysctl_hdr = register_net_sysctl_table(net, net_core_path, netns_core_table);
 
-	net->core.sysctl_hdr = register_net_sysctl_table(net,
-			net_core_path, tbl);
 	if (net->core.sysctl_hdr == NULL)
 		goto err_reg;
 
 	return 0;
 
 err_reg:
-	if (tbl != netns_core_table)
-		kfree(tbl);
+	kfree(tbl);
 err_dup:
 	return -ENOMEM;
 }
@@ -242,7 +240,7 @@ static __net_exit void sysctl_core_net_exit(struct net *net)
 	kfree(tbl);
 }
 
-static __net_initdata struct pernet_operations sysctl_core_ops = {
+static __net_initconst struct pernet_operations sysctl_core_ops = {
 	.init = sysctl_core_net_init,
 	.exit = sysctl_core_net_exit,
 };

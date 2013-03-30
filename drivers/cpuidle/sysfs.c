@@ -131,7 +131,7 @@ static struct attribute *cpuclass_switch_attrs[] = {
 	NULL
 };
 
-static struct attribute_group cpuclass_attr_group = {
+static attribute_group_no_const cpuclass_attr_group = {
 	.attrs = cpuclass_default_attrs,
 	.name = "cpuidle",
 };

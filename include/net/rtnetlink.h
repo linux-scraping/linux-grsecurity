@@ -78,7 +78,7 @@ struct rtnl_link_ops {
 	int			(*get_tx_queues)(struct net *net, struct nlattr *tb[],
 						 unsigned int *tx_queues,
 						 unsigned int *real_tx_queues);
-};
+} __do_const;
 
 extern int	__rtnl_link_register(struct rtnl_link_ops *ops);
 extern void	__rtnl_link_unregister(struct rtnl_link_ops *ops);

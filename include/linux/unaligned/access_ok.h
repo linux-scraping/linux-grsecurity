@@ -4,32 +4,32 @@
 #include <linux/kernel.h>
 #include <asm/byteorder.h>
 
-static inline u16 get_unaligned_le16(const void *p)
+static inline u16 __intentional_overflow(-1) get_unaligned_le16(const void *p)
 {
 	return le16_to_cpup((const __le16 *)p);
 }
 
-static inline u32 get_unaligned_le32(const void *p)
+static inline u32 __intentional_overflow(-1) get_unaligned_le32(const void *p)
 {
 	return le32_to_cpup((const __le32 *)p);
 }
 
-static inline u64 get_unaligned_le64(const void *p)
+static inline u64 __intentional_overflow(-1) get_unaligned_le64(const void *p)
 {
 	return le64_to_cpup((const __le64 *)p);
 }
 
-static inline u16 get_unaligned_be16(const void *p)
+static inline u16 __intentional_overflow(-1) get_unaligned_be16(const void *p)
 {
 	return be16_to_cpup((const __be16 *)p);
 }
 
-static inline u32 get_unaligned_be32(const void *p)
+static inline u32 __intentional_overflow(-1) get_unaligned_be32(const void *p)
 {
 	return be32_to_cpup((const __be32 *)p);
 }
 
-static inline u64 get_unaligned_be64(const void *p)
+static inline u64 __intentional_overflow(-1) get_unaligned_be64(const void *p)
 {
 	return be64_to_cpup((const __be64 *)p);
 }

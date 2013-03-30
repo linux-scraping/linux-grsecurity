@@ -116,7 +116,7 @@ struct genl_ops {
 					 struct netlink_callback *cb);
 	int		       (*done)(struct netlink_callback *cb);
 	struct list_head	ops_list;
-};
+} __do_const;
 
 extern int genl_register_family(struct genl_family *family);
 extern int genl_register_family_with_ops(struct genl_family *family,

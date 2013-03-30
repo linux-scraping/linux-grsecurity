@@ -101,7 +101,7 @@ struct pci_vpd_ops {
 struct pci_vpd {
 	unsigned int len;
 	const struct pci_vpd_ops *ops;
-	struct bin_attribute *attr; /* descriptor for sysfs VPD entry */
+	bin_attribute_no_const *attr; /* descriptor for sysfs VPD entry */
 };
 
 extern int pci_vpd_pci22_init(struct pci_dev *dev);

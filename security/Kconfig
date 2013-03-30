@@ -174,15 +174,17 @@ config GRKERNSEC_CONFIG_PRIORITY_PERF
 	help
 	  Choose this option if performance is of highest priority for this deployment
 	  of grsecurity.  Features like UDEREF on a 64bit kernel, kernel stack clearing,
-	  and freed memory sanitizing will be disabled.
+	  clearing of structures intended for userland, and freed memory sanitizing will
+	  be disabled.
 
 config GRKERNSEC_CONFIG_PRIORITY_SECURITY
 	bool "Security"
 	help
 	  Choose this option if security is of highest priority for this deployment of
-	  grsecurity.  UDEREF, kernel stack clearing, and freed memory sanitizing will
-	  be enabled for this kernel.  In a worst-case scenario, these features can
-	  introduce a 20% performance hit (UDEREF on x64 contributing half of this hit).
+	  grsecurity.  UDEREF, kernel stack clearing, clearing of structures intended
+	  for userland, and freed memory sanitizing will be enabled for this kernel.
+	  In a worst-case scenario, these features can introduce a 20% performance hit
+	  (UDEREF on x64 contributing half of this hit).
 
 endchoice
 
@@ -778,6 +780,23 @@ config PAX_MEMORY_STACKLEAK
 	  frames may leave uninitialized memory behind that may be exposed
 	  to a later syscall leaking the stack.
 
+config PAX_MEMORY_STRUCTLEAK
+	bool "Forcibly initialize local variables copied to userland"
+	default y if (GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_PRIORITY_SECURITY)
+	help
+	  By saying Y here the kernel will zero initialize some local
+	  variables that are going to be copied to userland.  This in
+	  turn prevents unintended information leakage from the kernel
+	  stack should later code forget to explicitly set all parts of
+	  the copied variable.
+
+	  The tradeoff is less performance impact than PAX_MEMORY_STACKLEAK
+	  at a much smaller coverage.
+
+	  Note that the implementation requires a gcc with plugin support,
+	  i.e., gcc 4.5 or newer.  You may need to install the supporting
+	  headers explicitly in addition to the normal gcc package.
+
 config PAX_MEMORY_UDEREF
 	bool "Prevent invalid userland pointer dereference"
 	default y if GRKERNSEC_CONFIG_AUTO && (X86_32 || (X86_64 && GRKERNSEC_CONFIG_PRIORITY_SECURITY)) && (GRKERNSEC_CONFIG_VIRT_NONE || GRKERNSEC_CONFIG_VIRT_EPT)
@@ -849,11 +868,29 @@ config PAX_USERCOPY
 	  Since this has a negligible performance impact, you should enable
 	  this feature.
 
-
 config PAX_USERCOPY_DEBUG
 	bool
 	depends on X86 && PAX_USERCOPY
 	default n
+
+config PAX_CONSTIFY_PLUGIN
+	bool "Automatically constify eligible structures"
+	default y if GRKERNSEC_CONFIG_AUTO
+	depends on !UML
+	help
+	  By saying Y here the compiler will automatically constify a class
+	  of types that contain only function pointers.  This reduces the
+	  kernel's attack surface and also produces a better memory layout.
+
+	  Note that the implementation requires a gcc with plugin support,
+	  i.e., gcc 4.5 or newer.  You may need to install the supporting
+	  headers explicitly in addition to the normal gcc package
+
+	  Note that if some code really has to modify constified variables
+	  then the source code will have to be patched to allow it.  Examples
+	  can be found in PaX itself (the no_const attribute) and for some
+	  out-of-tree modules at http://www.grsecurity.net/~paxguy1/ .
+
 
 config PAX_SIZE_OVERFLOW
 	bool "Prevent various integer overflows in function size parameters"
