@@ -2062,7 +2062,7 @@ SYSCALL_DEFINE3(recvmsg, int, fd, struct msghdr __user *, msg,
 	int fput_needed;
 
 	/* kernel mode address */
-	struct sockaddr_storage addr;
+	struct sockaddr_storage addr = { };
 
 	/* user mode address pointers */
 	struct sockaddr __user *uaddr;
