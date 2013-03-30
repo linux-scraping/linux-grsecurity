@@ -1087,7 +1087,7 @@ static int load_elf_binary(struct linux_binprm *bprm)
 #ifdef CONFIG_ARCH_TRACK_EXEC_LIMIT
 	if ((current->mm->pax_flags & MF_PAX_PAGEEXEC) && !(__supported_pte_mask & _PAGE_NX)) {
 		current->mm->context.user_cs_limit = PAGE_SIZE;
-		current->mm->def_flags |= VM_PAGEEXEC;
+		current->mm->def_flags |= VM_PAGEEXEC | VM_NOHUGEPAGE;
 	}
 #endif
 

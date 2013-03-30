@@ -41,7 +41,7 @@ typedef s64 __attribute__((aligned(4))) compat_s64;
 typedef u32		compat_uint_t;
 typedef u32		compat_ulong_t;
 typedef u64 __attribute__((aligned(4))) compat_u64;
-typedef u32		compat_uptr_t;
+typedef u32		__user compat_uptr_t;
 
 struct compat_timespec {
 	compat_time_t	tv_sec;

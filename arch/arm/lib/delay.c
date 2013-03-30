@@ -32,6 +32,7 @@ static struct arm_delay_ops arm_loop_delay_ops = {
 	.delay		= __loop_delay,
 	.const_udelay	= __loop_const_udelay,
 	.udelay		= __loop_udelay,
+	.const_clock	= false,
 };
 
 struct arm_delay_ops *arm_delay_ops __read_only = &arm_loop_delay_ops;

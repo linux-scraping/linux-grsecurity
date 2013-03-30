@@ -229,8 +229,7 @@ static __net_init int sysctl_core_net_init(struct net *net)
 	return 0;
 
 err_reg:
-	if (tbl)
-		kfree(tbl);
+	kfree(tbl);
 err_dup:
 	return -ENOMEM;
 }

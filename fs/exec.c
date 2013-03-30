@@ -2061,21 +2061,21 @@ static noinline int check_stack_object(const void *obj, unsigned long len)
 #endif
 }
 
-static __noreturn void pax_report_usercopy(const void *ptr, unsigned long len, bool to, const char *type)
+static __noreturn void pax_report_usercopy(const void *ptr, unsigned long len, bool to_user, const char *type)
 {
 	if (current->signal->curr_ip)
 		printk(KERN_ERR "PAX: From %pI4: kernel memory %s attempt detected %s %p (%s) (%lu bytes)\n",
-			&current->signal->curr_ip, to ? "leak" : "overwrite", to ? "from" : "to", ptr, type ? : "unknown", len);
+			&current->signal->curr_ip, to_user ? "leak" : "overwrite", to_user ? "from" : "to", ptr, type ? : "unknown", len);
 	else
 		printk(KERN_ERR "PAX: kernel memory %s attempt detected %s %p (%s) (%lu bytes)\n",
-			to ? "leak" : "overwrite", to ? "from" : "to", ptr, type ? : "unknown", len);
+			to_user ? "leak" : "overwrite", to_user ? "from" : "to", ptr, type ? : "unknown", len);
 	dump_stack();
 	gr_handle_kernel_exploit();
 	do_group_exit(SIGKILL);
 }
 #endif
 
-void __check_object_size(const void *ptr, unsigned long n, bool to)
+void __check_object_size(const void *ptr, unsigned long n, bool to_user)
 {
 
 #ifdef CONFIG_PAX_USERCOPY
@@ -2091,7 +2091,7 @@ void __check_object_size(const void *ptr, unsigned long n, bool to)
 		type = "<process stack>";
 	}
 
-	pax_report_usercopy(ptr, n, to, type);
+	pax_report_usercopy(ptr, n, to_user, type);
 #endif
 
 }

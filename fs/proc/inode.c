@@ -496,7 +496,7 @@ struct inode *proc_get_inode(struct super_block *sb, struct proc_dir_entry *de)
 	} else
 	       pde_put(de);
 	return inode;
-}			
+}
 
 int proc_fill_super(struct super_block *s)
 {
@@ -513,6 +513,5 @@ int proc_fill_super(struct super_block *s)
 		return 0;
 
 	printk("proc_read_super: get root inode failed\n");
-	pde_put(&proc_root);
 	return -ENOMEM;
 }

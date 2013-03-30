@@ -313,7 +313,7 @@ asmlinkage long sys32_sched_rr_get_interval(compat_pid_t pid,
 asmlinkage long sys32_rt_sigpending(compat_sigset_t __user *set,
 				    compat_size_t sigsetsize)
 {
-	sigset_t s;
+	sigset_t s = { };
 	compat_sigset_t s32;
 	int ret;
 	mm_segment_t old_fs = get_fs();

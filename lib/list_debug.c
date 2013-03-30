@@ -34,8 +34,8 @@ static bool __list_add_debug(struct list_head *new,
 		"next (%p), but was %p. (prev=%p).\n",
 		next, prev->next, prev) ||
 	    WARN(new == prev || new == next,
-	     "list_add double add: new=%p, prev=%p, next=%p.\n",
-	     new, prev, next))
+		"list_add double add: new=%p, prev=%p, next=%p.\n",
+		new, prev, next))
 		return false;
 	return true;
 }

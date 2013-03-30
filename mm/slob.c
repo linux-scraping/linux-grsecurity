@@ -512,6 +512,7 @@ void kfree(const void *block)
 		return;
 	kmemleak_free(block);
 
+	VM_BUG_ON(!virt_addr_valid(block));
 	sp = virt_to_page(block);
 	VM_BUG_ON(!PageSlab(sp));
 	if (!sp->private) {
