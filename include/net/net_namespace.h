@@ -245,7 +245,11 @@ static inline struct net *read_pnet(struct net * const *pnet)
 #define __net_init	__init
 #define __net_exit	__exit_refok
 #define __net_initdata	__initdata
+#ifdef CONSTIFY_PLUGIN
 #define __net_initconst	__initconst
+#else
+#define __net_initconst	__initdata
+#endif
 #endif
 
 struct pernet_operations {

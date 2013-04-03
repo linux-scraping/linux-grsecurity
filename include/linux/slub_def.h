@@ -262,7 +262,6 @@ static __always_inline __size_overflow(1) void *kmalloc_large(size_t size, gfp_t
 	return kmalloc_order_trace(size, flags, order);
 }
 
-static __always_inline void *kmalloc(size_t size, gfp_t flags) __size_overflow(1);
 static __always_inline void *kmalloc(size_t size, gfp_t flags)
 {
 	if (__builtin_constant_p(size)) {

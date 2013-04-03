@@ -132,7 +132,6 @@ static inline size_t slab_buffer_size(struct kmem_cache *cachep)
 }
 #endif
 
-static __always_inline void *kmalloc(size_t size, gfp_t flags) __size_overflow(1);
 static __always_inline void *kmalloc(size_t size, gfp_t flags)
 {
 	struct kmem_cache *cachep;

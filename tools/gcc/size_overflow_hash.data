@@ -245,9 +245,9 @@ aligned_kmalloc_3628 aligned_kmalloc 1 3628 NULL
 cm_copy_private_data_3649 cm_copy_private_data 2 3649 NULL
 i915_compat_ioctl_3656 i915_compat_ioctl 2 3656 NULL
 kmem_cache_alloc_3690 kmem_cache_alloc 0 3690 NULL
-create_irq_3703 create_irq 0 3703 NULL nohasharray
-btmrvl_psmode_write_3703 btmrvl_psmode_write 3 3703 &create_irq_3703 nohasharray
-snd_m3_assp_read_3703 snd_m3_assp_read 0 3703 &btmrvl_psmode_write_3703
+btmrvl_psmode_write_3703 btmrvl_psmode_write 3 3703 NULL nohasharray
+snd_m3_assp_read_3703 snd_m3_assp_read 0 3703 &btmrvl_psmode_write_3703 nohasharray
+create_irq_3703 create_irq 0 3703 &snd_m3_assp_read_3703
 videobuf_pages_to_sg_3708 videobuf_pages_to_sg 2 3708 NULL
 ci_ll_write_3740 ci_ll_write 4 3740 NULL
 sctp_setsockopt_auth_key_3793 sctp_setsockopt_auth_key 3 3793 NULL
@@ -489,8 +489,8 @@ event_enable_read_7074 event_enable_read 3 7074 NULL
 beacon_interval_read_7091 beacon_interval_read 3 7091 NULL
 lp_compat_ioctl_7098 lp_compat_ioctl 3 7098 NULL
 check_header_7108 check_header 0 7108 NULL
-utf16_strsize_7203 utf16_strsize 0 7203 NULL nohasharray
-__alloc_objio_seg_7203 __alloc_objio_seg 1 7203 &utf16_strsize_7203
+__alloc_objio_seg_7203 __alloc_objio_seg 1 7203 NULL nohasharray
+utf16_strsize_7203 utf16_strsize 0 7203 &__alloc_objio_seg_7203
 sys32_ipc_7238 sys32_ipc 3-5-6 7238 NULL
 dma_ops_alloc_addresses_7272 dma_ops_alloc_addresses 3-4-5 7272 NULL
 mgmt_control_7349 mgmt_control 3 7349 NULL
@@ -619,8 +619,8 @@ seq_bitmap_list_8963 seq_bitmap_list 3 8963 NULL
 usb_allocate_stream_buffers_8964 usb_allocate_stream_buffers 3 8964 NULL
 qib_qsfp_dump_8966 qib_qsfp_dump 0-3 8966 NULL
 venus_mkdir_8967 venus_mkdir 4 8967 NULL
-seq_open_net_8968 seq_open_net 4 8968 NULL nohasharray
-vol_cdev_read_8968 vol_cdev_read 3 8968 &seq_open_net_8968
+vol_cdev_read_8968 vol_cdev_read 3 8968 NULL nohasharray
+seq_open_net_8968 seq_open_net 4 8968 &vol_cdev_read_8968
 bio_integrity_get_tag_8974 bio_integrity_get_tag 3 8974 NULL nohasharray
 selinux_proc_get_sid_8974 selinux_proc_get_sid 2 8974 &bio_integrity_get_tag_8974
 snd_emu10k1_ptr_read_9026 snd_emu10k1_ptr_read 0-2 9026 NULL
@@ -683,8 +683,8 @@ ks8842_read16_9676 ks8842_read16 0 9676 NULL nohasharray
 dns_query_9676 dns_query 3 9676 &ks8842_read16_9676
 qib_7322_handle_hwerrors_9678 qib_7322_handle_hwerrors 3 9678 NULL
 __erst_read_from_storage_9690 __erst_read_from_storage 0 9690 NULL
-x25_asy_compat_ioctl_9694 x25_asy_compat_ioctl 4 9694 NULL nohasharray
-is_hole_9694 is_hole 2 9694 &x25_asy_compat_ioctl_9694
+is_hole_9694 is_hole 2 9694 NULL nohasharray
+x25_asy_compat_ioctl_9694 x25_asy_compat_ioctl 4 9694 &is_hole_9694
 fnb_9703 fnb 2-3 9703 NULL
 ieee80211_if_read_aid_9705 ieee80211_if_read_aid 3 9705 NULL
 ddb_input_read_9743 ddb_input_read 3 9743 NULL
@@ -742,8 +742,8 @@ mirror_status_10435 mirror_status 4 10435 NULL
 event_phy_transmit_error_read_10471 event_phy_transmit_error_read 3 10471 NULL
 ca91cx42_alloc_resource_10502 ca91cx42_alloc_resource 2 10502 NULL
 qib_alloc_fast_reg_page_list_10507 qib_alloc_fast_reg_page_list 2 10507 NULL
-sel_write_disable_10511 sel_write_disable 3 10511 NULL nohasharray
-rbd_get_segment_10511 rbd_get_segment 0-3-4 10511 &sel_write_disable_10511
+rbd_get_segment_10511 rbd_get_segment 0-3-4 10511 NULL nohasharray
+sel_write_disable_10511 sel_write_disable 3 10511 &rbd_get_segment_10511
 osd_req_write_sg_kern_10514 osd_req_write_sg_kern 5 10514 NULL
 rds_message_alloc_10517 rds_message_alloc 1 10517 NULL
 ocfs2_add_refcounted_extent_10526 ocfs2_add_refcounted_extent 6 10526 NULL
@@ -1056,8 +1056,8 @@ snd_emu10k1_proc_spdif_status_14457 snd_emu10k1_proc_spdif_status 4-5 14457 NULL
 udplite_getfrag_14479 udplite_getfrag 3-4 14479 NULL
 ieee80211_if_read_dot11MeshGateAnnouncementProtocol_14486 ieee80211_if_read_dot11MeshGateAnnouncementProtocol 3 14486 NULL
 ocfs2_debug_read_14507 ocfs2_debug_read 3 14507 NULL
-dataflash_read_user_otp_14536 dataflash_read_user_otp 2-3 14536 NULL nohasharray
-ep0_write_14536 ep0_write 3 14536 &dataflash_read_user_otp_14536
+ep0_write_14536 ep0_write 3 14536 NULL nohasharray
+dataflash_read_user_otp_14536 dataflash_read_user_otp 2-3 14536 &ep0_write_14536
 picolcd_debug_eeprom_read_14549 picolcd_debug_eeprom_read 3 14549 NULL
 drm_vmalloc_dma_14550 drm_vmalloc_dma 1 14550 NULL
 usb_dump_desc_14553 usb_dump_desc 0 14553 NULL
@@ -1078,8 +1078,8 @@ sta_dev_read_14782 sta_dev_read 3 14782 NULL
 cp_tm1217_read_14792 cp_tm1217_read 3 14792 NULL
 ext4_kvmalloc_14796 ext4_kvmalloc 1 14796 NULL
 nfs_parse_server_name_14800 nfs_parse_server_name 2 14800 NULL
-snd_als300_gcr_read_14801 snd_als300_gcr_read 0 14801 NULL nohasharray
-hpet_readl_14801 hpet_readl 0 14801 &snd_als300_gcr_read_14801
+hpet_readl_14801 hpet_readl 0 14801 NULL nohasharray
+snd_als300_gcr_read_14801 snd_als300_gcr_read 0 14801 &hpet_readl_14801
 bcma_scan_read32_14802 bcma_scan_read32 0 14802 NULL
 do_tune_cpucache_14828 do_tune_cpucache 2 14828 NULL
 __mutex_fastpath_lock_retval_14844 __mutex_fastpath_lock_retval 0 14844 NULL
@@ -1468,6 +1468,7 @@ alloc_coherent_19649 alloc_coherent 2 19649 NULL
 usbvision_rvmalloc_19655 usbvision_rvmalloc 1 19655 NULL
 LoadBitmap_19658 LoadBitmap 2 19658 NULL
 rbd_snap_add_19678 rbd_snap_add 4 19678 NULL
+delay_status_19685 delay_status 4 19685 NULL
 au_ibusy_compat_ioctl_19723 au_ibusy_compat_ioctl 2 19723 NULL nohasharray
 read_reg_19723 read_reg 0 19723 &au_ibusy_compat_ioctl_19723
 memcpy_toiovecend_19736 memcpy_toiovecend 4-3 19736 NULL
@@ -1891,6 +1892,7 @@ vfs_writev_25278 vfs_writev 3 25278 NULL
 l2tp_session_create_25286 l2tp_session_create 1 25286 NULL
 snd_seq_ioctl_compat_25307 snd_seq_ioctl_compat 3 25307 NULL
 ath9k_debugfs_read_buf_25316 ath9k_debugfs_read_buf 3 25316 NULL
+rng_buffer_size_25348 rng_buffer_size 0 25348 NULL
 i915_gem_execbuffer_relocate_slow_25355 i915_gem_execbuffer_relocate_slow 7 25355 NULL
 unix_mkname_25368 unix_mkname 0-2 25368 NULL
 sel_read_mls_25369 sel_read_mls 3 25369 NULL
@@ -1944,6 +1946,7 @@ video_register_device_25971 video_register_device 3 25971 NULL
 udp_setsockopt_25985 udp_setsockopt 5 25985 NULL
 ebt_compat_entry_padsize_26001 ebt_compat_entry_padsize 0 26001 NULL
 lpfc_sli_probe_sriov_nr_virtfn_26004 lpfc_sli_probe_sriov_nr_virtfn 2 26004 NULL
+cap_file_mmap_26018 cap_file_mmap 0 26018 NULL
 xfs_xattr_acl_set_26028 xfs_xattr_acl_set 4 26028 NULL
 skb_mac_header_26034 skb_mac_header 0 26034 NULL
 mptscsih_change_queue_depth_26036 mptscsih_change_queue_depth 2 26036 NULL
@@ -2086,6 +2089,7 @@ tracing_clock_write_27961 tracing_clock_write 3 27961 NULL
 mic_rx_pkts_read_27972 mic_rx_pkts_read 3 27972 NULL
 snd_rawmidi_write_28008 snd_rawmidi_write 3 28008 NULL
 serial8250_port_size_28019 serial8250_port_size 0 28019 NULL
+raid_status_28025 raid_status 4 28025 NULL
 sctp_setsockopt_maxburst_28041 sctp_setsockopt_maxburst 3 28041 NULL
 cx231xx_init_vbi_isoc_28053 cx231xx_init_vbi_isoc 3-2 28053 NULL
 lpfc_idiag_mbxacc_read_28061 lpfc_idiag_mbxacc_read 3 28061 NULL
@@ -2818,8 +2822,8 @@ vhost_net_compat_ioctl_38237 vhost_net_compat_ioctl 3 38237 NULL
 _ipw_read_reg32_38245 _ipw_read_reg32 0 38245 NULL
 ieee80211_if_read_auto_open_plinks_38268 ieee80211_if_read_auto_open_plinks 3 38268 NULL nohasharray
 mthca_alloc_icm_table_38268 mthca_alloc_icm_table 4-3 38268 &ieee80211_if_read_auto_open_plinks_38268
-xfs_bmbt_to_bmdr_38275 xfs_bmbt_to_bmdr 3 38275 NULL nohasharray
-xfs_bmdr_to_bmbt_38275 xfs_bmdr_to_bmbt 5 38275 &xfs_bmbt_to_bmdr_38275
+xfs_bmdr_to_bmbt_38275 xfs_bmdr_to_bmbt 5 38275 NULL nohasharray
+xfs_bmbt_to_bmdr_38275 xfs_bmbt_to_bmdr 3 38275 &xfs_bmdr_to_bmbt_38275
 isr_rx_headers_read_38325 isr_rx_headers_read 3 38325 NULL
 ida_simple_get_38326 ida_simple_get 2 38326 NULL
 __snd_gf1_look8_38333 __snd_gf1_look8 0 38333 NULL
@@ -3086,6 +3090,7 @@ portnames_read_41958 portnames_read 3 41958 NULL
 dst_mtu_41969 dst_mtu 0 41969 NULL
 cx24116_writeregN_41975 cx24116_writeregN 4 41975 NULL
 ubi_io_is_bad_41983 ubi_io_is_bad 0 41983 NULL
+flakey_status_42000 flakey_status 4 42000 NULL
 lguest_map_42008 lguest_map 1-2 42008 NULL
 pool_allocate_42012 pool_allocate 3 42012 NULL
 spidev_sync_read_42014 spidev_sync_read 0 42014 NULL
@@ -3110,7 +3115,8 @@ get_znodes_to_commit_42201 get_znodes_to_commit 0 42201 NULL
 btmrvl_hsmode_write_42252 btmrvl_hsmode_write 3 42252 NULL
 netxen_nic_map_indirect_address_128M_42257 netxen_nic_map_indirect_address_128M 2 42257 NULL
 snd_pcm_hw_param_value_max_42280 snd_pcm_hw_param_value_max 0 42280 NULL
-sel_read_perm_42302 sel_read_perm 3 42302 NULL
+sel_read_perm_42302 sel_read_perm 3 42302 NULL nohasharray
+crypt_status_42302 crypt_status 4 42302 &sel_read_perm_42302
 sctp_setsockopt_del_key_42304 sctp_setsockopt_del_key 3 42304 NULL nohasharray
 ulong_read_file_42304 ulong_read_file 3 42304 &sctp_setsockopt_del_key_42304
 hysdn_conf_read_42324 hysdn_conf_read 3 42324 NULL
@@ -3197,8 +3203,8 @@ __ext4_get_inode_loc_43332 __ext4_get_inode_loc 0 43332 NULL
 xenfb_write_43412 xenfb_write 3 43412 NULL
 __alloc_bootmem_low_43423 __alloc_bootmem_low 1 43423 NULL
 usb_alloc_urb_43436 usb_alloc_urb 1 43436 NULL
-usemap_size_43443 usemap_size 0-2-1 43443 NULL nohasharray
-usb_string_43443 usb_string 0 43443 &usemap_size_43443
+usb_string_43443 usb_string 0 43443 NULL nohasharray
+usemap_size_43443 usemap_size 0-2-1 43443 &usb_string_43443
 alloc_new_reservation_43480 alloc_new_reservation 4 43480 NULL
 nf_nat_ftp_fmt_cmd_43495 nf_nat_ftp_fmt_cmd 0 43495 NULL
 ieee80211_if_fmt_dot11MeshHWMPnetDiameterTraversalTime_43505 ieee80211_if_fmt_dot11MeshHWMPnetDiameterTraversalTime 3 43505 NULL
@@ -3303,8 +3309,8 @@ read_block_bitmap_45021 read_block_bitmap 2 45021 NULL nohasharray
 ptrace_writedata_45021 ptrace_writedata 4-3 45021 &read_block_bitmap_45021
 vhci_get_user_45039 vhci_get_user 3 45039 NULL
 sel_write_user_45060 sel_write_user 3 45060 NULL
-do_video_ioctl_45069 do_video_ioctl 3 45069 NULL nohasharray
-snd_mixart_BA0_read_45069 snd_mixart_BA0_read 5 45069 &do_video_ioctl_45069
+snd_mixart_BA0_read_45069 snd_mixart_BA0_read 5 45069 NULL nohasharray
+do_video_ioctl_45069 do_video_ioctl 3 45069 &snd_mixart_BA0_read_45069
 orig_hash_del_if_45080 orig_hash_del_if 2 45080 NULL
 au_sbend_45097 au_sbend 0 45097 NULL
 alternate_node_alloc_45100 alternate_node_alloc 0 45100 NULL
@@ -3525,8 +3531,8 @@ nf_nat_ftp_47948 nf_nat_ftp 5 47948 NULL
 iwl_dbgfs_ucode_tracing_read_47983 iwl_dbgfs_ucode_tracing_read 3 47983 NULL nohasharray
 mempool_resize_47983 mempool_resize 2 47983 &iwl_dbgfs_ucode_tracing_read_47983
 pnpacpi_parse_allocated_irqresource_47986 pnpacpi_parse_allocated_irqresource 2 47986 NULL
-mgmt_pending_add_47990 mgmt_pending_add 5 47990 NULL nohasharray
-dbg_port_buf_47990 dbg_port_buf 2 47990 &mgmt_pending_add_47990
+dbg_port_buf_47990 dbg_port_buf 2 47990 NULL nohasharray
+mgmt_pending_add_47990 mgmt_pending_add 5 47990 &dbg_port_buf_47990
 ib_umad_write_47993 ib_umad_write 3 47993 NULL
 ffs_epfile_write_48014 ffs_epfile_write 3 48014 NULL
 bio_integrity_set_tag_48035 bio_integrity_set_tag 3 48035 NULL
@@ -3564,8 +3570,8 @@ tun_recvmsg_48463 tun_recvmsg 4 48463 NULL
 r8712_usbctrl_vendorreq_48489 r8712_usbctrl_vendorreq 6 48489 NULL
 send_control_msg_48498 send_control_msg 6 48498 NULL
 mlx4_en_create_tx_ring_48501 mlx4_en_create_tx_ring 4 48501 NULL
-diva_os_copy_to_user_48508 diva_os_copy_to_user 4 48508 NULL nohasharray
-iwl_legacy_dbgfs_status_read_48508 iwl_legacy_dbgfs_status_read 3 48508 &diva_os_copy_to_user_48508
+iwl_legacy_dbgfs_status_read_48508 iwl_legacy_dbgfs_status_read 3 48508 NULL nohasharray
+diva_os_copy_to_user_48508 diva_os_copy_to_user 4 48508 &iwl_legacy_dbgfs_status_read_48508
 phantom_get_free_48514 phantom_get_free 0 48514 NULL
 ubi_dbg_check_write_48525 ubi_dbg_check_write 5 48525 NULL
 wiimote_hid_send_48528 wiimote_hid_send 3 48528 NULL
@@ -3604,6 +3610,7 @@ sel_write_enforce_48998 sel_write_enforce 3 48998 NULL
 xd_rw_49020 xd_rw 3-4 49020 NULL
 transient_status_49027 transient_status 4 49027 NULL
 ubi_read_49061 ubi_read 0 49061 NULL
+mirror_status_49073 mirror_status 4 49073 NULL
 vmx_set_msr_49090 vmx_set_msr 3 49090 NULL
 scsi_register_49094 scsi_register 2 49094 NULL
 compat_do_readv_writev_49102 compat_do_readv_writev 4 49102 NULL
@@ -3701,8 +3708,8 @@ cifs_readdata_alloc_50318 cifs_readdata_alloc 1 50318 NULL
 do_launder_page_50329 do_launder_page 0 50329 NULL
 lpfc_idiag_pcicfg_read_50334 lpfc_idiag_pcicfg_read 3 50334 NULL
 ocfs2_block_to_cluster_group_50337 ocfs2_block_to_cluster_group 2 50337 NULL nohasharray
-au_br_alloc_50337 au_br_alloc 2 50337 &ocfs2_block_to_cluster_group_50337 nohasharray
-snd_pcm_lib_writev_50337 snd_pcm_lib_writev 0-3 50337 &au_br_alloc_50337
+snd_pcm_lib_writev_50337 snd_pcm_lib_writev 0-3 50337 &ocfs2_block_to_cluster_group_50337 nohasharray
+au_br_alloc_50337 au_br_alloc 2 50337 &snd_pcm_lib_writev_50337
 tpm_read_50344 tpm_read 3 50344 NULL
 isdn_ppp_read_50356 isdn_ppp_read 4 50356 NULL
 unpack_u16_chunk_50357 unpack_u16_chunk 0 50357 NULL
@@ -3871,6 +3878,7 @@ ocfs2_extend_no_holes_52483 ocfs2_extend_no_holes 3-4 52483 NULL
 skb_cow_head_52495 skb_cow_head 2 52495 NULL
 int_tasklet_entry_52500 int_tasklet_entry 3 52500 NULL
 pm_qos_power_write_52513 pm_qos_power_write 3 52513 NULL
+dup_variable_bug_52525 dup_variable_bug 3 52525 NULL
 dccpprobe_read_52549 dccpprobe_read 3 52549 NULL
 ocfs2_make_right_split_rec_52562 ocfs2_make_right_split_rec 3 52562 NULL
 emit_code_52583 emit_code 0-3 52583 NULL
@@ -3945,6 +3953,7 @@ __kfifo_dma_in_prepare_r_53792 __kfifo_dma_in_prepare_r 4-5 53792 NULL
 regmap_raw_write_53803 regmap_raw_write 4 53803 NULL
 lpfc_idiag_ctlacc_read_reg_53809 lpfc_idiag_ctlacc_read_reg 0-3 53809 NULL
 nls_nullsize_53815 nls_nullsize 0 53815 NULL
+multipath_status_53836 multipath_status 4 53836 NULL
 ieee80211_if_fmt_dropped_frames_congestion_53883 ieee80211_if_fmt_dropped_frames_congestion 3 53883 NULL
 ocfs2_rm_xattr_cluster_53900 ocfs2_rm_xattr_cluster 5-4-3 53900 NULL
 proc_file_read_53905 proc_file_read 3 53905 NULL
@@ -3981,8 +3990,8 @@ dlm_alloc_pagevec_54296 dlm_alloc_pagevec 1 54296 NULL
 sprintf_54306 sprintf 0 54306 NULL
 br_fdb_fillbuf_54339 br_fdb_fillbuf 0 54339 NULL
 __alloc_dev_table_54343 __alloc_dev_table 2 54343 NULL
-_osd_realloc_seg_54352 _osd_realloc_seg 3 54352 NULL nohasharray
-__get_free_pages_54352 __get_free_pages 0 54352 &_osd_realloc_seg_54352
+__get_free_pages_54352 __get_free_pages 0 54352 NULL nohasharray
+_osd_realloc_seg_54352 _osd_realloc_seg 3 54352 &__get_free_pages_54352
 tcf_hash_create_54360 tcf_hash_create 4 54360 NULL
 read_file_credit_dist_stats_54367 read_file_credit_dist_stats 3 54367 NULL
 vfs_readlink_54368 vfs_readlink 3 54368 NULL
@@ -4179,6 +4188,7 @@ cx2341x_ctrl_new_std_57061 cx2341x_ctrl_new_std 4 57061 NULL
 sca3000_read_data_57064 sca3000_read_data 4 57064 NULL
 pcmcia_replace_cis_57066 pcmcia_replace_cis 3 57066 NULL
 sis190_try_rx_copy_57069 sis190_try_rx_copy 3 57069 NULL
+thin_status_57084 thin_status 4 57084 NULL
 tracing_set_trace_write_57096 tracing_set_trace_write 3 57096 NULL
 crypto_compress_ctxsize_57109 crypto_compress_ctxsize 0 57109 NULL
 sysfs_write_file_57116 sysfs_write_file 3 57116 NULL
@@ -4249,6 +4259,7 @@ key_algorithm_read_57946 key_algorithm_read 3 57946 NULL
 ip_set_alloc_57953 ip_set_alloc 1 57953 NULL nohasharray
 ioat3_dca_count_dca_slots_57953 ioat3_dca_count_dca_slots 0 57953 &ip_set_alloc_57953
 i915_cache_sharing_write_57961 i915_cache_sharing_write 3 57961 NULL
+stripe_status_57985 stripe_status 4 57985 NULL
 rx_reset_counter_read_58001 rx_reset_counter_read 3 58001 NULL
 regcache_rbtree_insert_to_block_58009 regcache_rbtree_insert_to_block 5 58009 NULL
 iwl_dbgfs_ucode_rx_stats_read_58023 iwl_dbgfs_ucode_rx_stats_read 3 58023 NULL
@@ -4391,8 +4402,8 @@ xlog_bread_offset_60030 xlog_bread_offset 3 60030 NULL
 sys_sched_getaffinity_60033 sys_sched_getaffinity 2 60033 NULL
 bio_integrity_hw_sectors_60039 bio_integrity_hw_sectors 0-2 60039 NULL
 do_ip6t_set_ctl_60040 do_ip6t_set_ctl 4 60040 NULL
-pin_2_irq_60050 pin_2_irq 0-3 60050 NULL nohasharray
-vcs_size_60050 vcs_size 0 60050 &pin_2_irq_60050
+vcs_size_60050 vcs_size 0 60050 NULL nohasharray
+pin_2_irq_60050 pin_2_irq 0-3 60050 &vcs_size_60050
 load_module_60056 load_module 2 60056 NULL nohasharray
 gru_alloc_gts_60056 gru_alloc_gts 3-2 60056 &load_module_60056
 compat_writev_60063 compat_writev 3 60063 NULL
@@ -4447,6 +4458,7 @@ acl_alloc_num_60778 acl_alloc_num 1-2 60778 NULL
 snd_pcm_oss_readv3_60792 snd_pcm_oss_readv3 3 60792 NULL
 mtd_compat_ioctl_60850 mtd_compat_ioctl 3 60850 NULL
 pwr_tx_with_ps_read_60851 pwr_tx_with_ps_read 3 60851 NULL
+pool_status_60861 pool_status 4 60861 NULL
 alloc_irq_from_60868 alloc_irq_from 1 60868 NULL
 generic_writepages_60871 generic_writepages 0 60871 NULL
 mgt_set_varlen_60916 mgt_set_varlen 4 60916 NULL
@@ -4619,6 +4631,7 @@ snd_info_entry_write_63474 snd_info_entry_write 3 63474 NULL
 read_kcore_63488 read_kcore 3 63488 NULL
 snd_pcm_plug_write_transfer_63503 snd_pcm_plug_write_transfer 0-3 63503 NULL
 ubi_more_leb_change_data_63534 ubi_more_leb_change_data 4 63534 NULL
+snapshot_status_63538 snapshot_status 4 63538 NULL
 if_sdio_read_scratch_63540 if_sdio_read_scratch 0 63540 NULL
 append_to_buffer_63550 append_to_buffer 3 63550 NULL
 kvm_write_guest_page_63555 kvm_write_guest_page 5 63555 NULL
@@ -4764,6 +4777,7 @@ trace_seq_to_user_65398 trace_seq_to_user 3 65398 NULL
 iio_device_add_channel_sysfs_65406 iio_device_add_channel_sysfs 0 65406 NULL
 ocfs2_write_begin_nolock_65410 ocfs2_write_begin_nolock 3-4 65410 NULL
 drm_calloc_large_65421 drm_calloc_large 1-2 65421 NULL
+cap_capable_65430 cap_capable 0 65430 NULL
 xpc_kzalloc_cacheline_aligned_65433 xpc_kzalloc_cacheline_aligned 1 65433 NULL
 usb_alloc_coherent_65444 usb_alloc_coherent 2 65444 NULL
 ath_rx_edma_init_65483 ath_rx_edma_init 2 65483 NULL

@@ -15,7 +15,6 @@
 #define _LINUX_SYSRQ_H
 
 #include <linux/errno.h>
-#include <linux/compiler.h>
 #include <linux/types.h>
 #include <linux/compiler.h>
 
