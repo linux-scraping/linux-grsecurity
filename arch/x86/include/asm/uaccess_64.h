@@ -49,11 +49,11 @@ copy_user_generic(void *to, const void *from, unsigned len)
 }
 
 static __always_inline __must_check unsigned long
-__copy_to_user(void __user *to, const void *from, unsigned long len) __size_overflow(3);
+__copy_to_user(void __user *to, const void *from, unsigned long len);
 static __always_inline __must_check unsigned long
-__copy_from_user(void *to, const void __user *from, unsigned long len) __size_overflow(3);
+__copy_from_user(void *to, const void __user *from, unsigned long len);
 __must_check unsigned long
-copy_in_user(void __user *to, const void __user *from, unsigned long len) __size_overflow(3);
+copy_in_user(void __user *to, const void __user *from, unsigned long len);
 
 extern void copy_to_user_overflow(void)
 #ifdef CONFIG_DEBUG_STRICT_USER_COPY_CHECKS
