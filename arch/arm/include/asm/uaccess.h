@@ -22,8 +22,6 @@
 #define VERIFY_READ 0
 #define VERIFY_WRITE 1
 
-extern void check_object_size(const void *ptr, unsigned long n, bool to);
-
 /*
  * The exception table consists of pairs of addresses: the first is the
  * address of an instruction that is allowed to fault, and the second is

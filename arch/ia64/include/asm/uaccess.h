@@ -42,8 +42,6 @@
 #include <asm/pgtable.h>
 #include <asm/io.h>
 
-extern void check_object_size(const void *ptr, unsigned long n, bool to);
-
 /*
  * For historical reasons, the following macros are grossly misnamed:
  */

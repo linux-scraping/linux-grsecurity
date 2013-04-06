@@ -197,6 +197,20 @@ static int us3_freq_cpu_exit(struct cpufreq_policy *policy)
 	return 0;
 }
 
+static int __init us3_freq_init(void);
+static void __exit us3_freq_exit(void);
+
+static struct cpufreq_driver _cpufreq_us3_driver = {
+	.init	= us3_freq_cpu_init,
+	.verify	= us3_freq_verify,
+	.target	= us3_freq_target,
+	.get	= us3_freq_get,
+	.exit	= us3_freq_cpu_exit,
+	.owner	= THIS_MODULE,
+	.name	= "UltraSPARC-III",
+
+};
+
 static int __init us3_freq_init(void)
 {
 	unsigned long manuf, impl, ver;
@@ -214,39 +228,22 @@ static int __init us3_freq_init(void)
 	     impl == CHEETAH_PLUS_IMPL ||
 	     impl == JAGUAR_IMPL ||
 	     impl == PANTHER_IMPL)) {
-		struct cpufreq_driver *driver;
-
 		ret = -ENOMEM;
-		driver = kzalloc(sizeof(struct cpufreq_driver), GFP_KERNEL);
-		if (!driver)
-			goto err_out;
-
 		us3_freq_table = kzalloc(
 			(NR_CPUS * sizeof(struct us3_freq_percpu_info)),
 			GFP_KERNEL);
 		if (!us3_freq_table)
 			goto err_out;
 
-		driver->init = us3_freq_cpu_init;
-		driver->verify = us3_freq_verify;
-		driver->target = us3_freq_target;
-		driver->get = us3_freq_get;
-		driver->exit = us3_freq_cpu_exit;
-		driver->owner = THIS_MODULE,
-		strcpy(driver->name, "UltraSPARC-III");
-
-		cpufreq_us3_driver = driver;
-		ret = cpufreq_register_driver(driver);
+		cpufreq_us3_driver = &_cpufreq_us3_driver;
+		ret = cpufreq_register_driver(cpufreq_us3_driver);
 		if (ret)
 			goto err_out;
 
 		return 0;
 
 err_out:
-		if (driver) {
-			kfree(driver);
-			cpufreq_us3_driver = NULL;
-		}
+		cpufreq_us3_driver = NULL;
 		kfree(us3_freq_table);
 		us3_freq_table = NULL;
 		return ret;
@@ -259,7 +256,6 @@ static void __exit us3_freq_exit(void)
 {
 	if (cpufreq_us3_driver) {
 		cpufreq_unregister_driver(cpufreq_us3_driver);
-		kfree(cpufreq_us3_driver);
 		cpufreq_us3_driver = NULL;
 		kfree(us3_freq_table);
 		us3_freq_table = NULL;
