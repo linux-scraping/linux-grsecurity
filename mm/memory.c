@@ -4103,9 +4103,9 @@ int __pmd_alloc_kernel(struct mm_struct *mm, pud_t *pud, unsigned long address)
 }
 #endif /* __PAGETABLE_PMD_FOLDED */
 
-int make_pages_present(unsigned long addr, unsigned long end)
+ssize_t make_pages_present(unsigned long addr, unsigned long end)
 {
-	int ret, len, write;
+	ssize_t ret, len, write;
 	struct vm_area_struct * vma;
 
 	vma = find_vma(current->mm, addr);
@@ -4272,8 +4272,8 @@ out:
 	return ret;
 }
 
-int generic_access_phys(struct vm_area_struct *vma, unsigned long addr,
-			void *buf, int len, int write)
+ssize_t generic_access_phys(struct vm_area_struct *vma, unsigned long addr,
+			void *buf, size_t len, int write)
 {
 	resource_size_t phys_addr;
 	unsigned long prot = 0;
@@ -4298,8 +4298,8 @@ int generic_access_phys(struct vm_area_struct *vma, unsigned long addr,
  * Access another process' address space as given in mm.  If non-NULL, use the
  * given task for page fault accounting.
  */
-static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
-		unsigned long addr, void *buf, int len, int write)
+static ssize_t __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
+		unsigned long addr, void *buf, size_t len, int write)
 {
 	struct vm_area_struct *vma;
 	void *old_buf = buf;
@@ -4307,7 +4307,7 @@ static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
 	down_read(&mm->mmap_sem);
 	/* ignore errors, just check how much was successfully transferred */
 	while (len) {
-		int bytes, ret, offset;
+		ssize_t bytes, ret, offset;
 		void *maddr;
 		struct page *page = NULL;
 
@@ -4366,8 +4366,8 @@ static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
  *
  * The caller must hold a reference on @mm.
  */
-int access_remote_vm(struct mm_struct *mm, unsigned long addr,
-		void *buf, int len, int write)
+ssize_t access_remote_vm(struct mm_struct *mm, unsigned long addr,
+		void *buf, size_t len, int write)
 {
 	return __access_remote_vm(NULL, mm, addr, buf, len, write);
 }
@@ -4377,11 +4377,11 @@ int access_remote_vm(struct mm_struct *mm, unsigned long addr,
  * Source/target buffer must be kernel space,
  * Do not walk the page table directly, use get_user_pages
  */
-int access_process_vm(struct task_struct *tsk, unsigned long addr,
-		void *buf, int len, int write)
+ssize_t access_process_vm(struct task_struct *tsk, unsigned long addr,
+		void *buf, size_t len, int write)
 {
 	struct mm_struct *mm;
-	int ret;
+	ssize_t ret;
 
 	mm = get_task_mm(tsk);
 	if (!mm)

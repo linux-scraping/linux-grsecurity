@@ -2136,12 +2136,12 @@ static u8 bnx2x_dcbnl_get_cap(struct net_device *netdev, int capid, u8 *cap)
 			break;
 		default:
 			BNX2X_ERR("Non valid capability ID\n");
-			rval = -EINVAL;
+			rval = 1;
 			break;
 		}
 	} else {
 		DP(BNX2X_MSG_DCB, "DCB disabled\n");
-		rval = -EINVAL;
+		rval = 1;
 	}
 
 	DP(BNX2X_MSG_DCB, "capid %d:%x\n", capid, *cap);
@@ -2167,12 +2167,12 @@ static int bnx2x_dcbnl_get_numtcs(struct net_device *netdev, int tcid, u8 *num)
 			break;
 		default:
 			BNX2X_ERR("Non valid TC-ID\n");
-			rval = -EINVAL;
+			rval = 1;
 			break;
 		}
 	} else {
 		DP(BNX2X_MSG_DCB, "DCB disabled\n");
-		rval = -EINVAL;
+		rval = 1;
 	}
 
 	return rval;
@@ -2185,7 +2185,7 @@ static int bnx2x_dcbnl_set_numtcs(struct net_device *netdev, int tcid, u8 num)
 	return -EINVAL;
 }
 
-static u8  bnx2x_dcbnl_get_pfc_state(struct net_device *netdev)
+static u8 bnx2x_dcbnl_get_pfc_state(struct net_device *netdev)
 {
 	struct bnx2x *bp = netdev_priv(netdev);
 	DP(BNX2X_MSG_DCB, "state = %d\n", bp->dcbx_local_feat.pfc.enabled);
@@ -2387,12 +2387,12 @@ static u8 bnx2x_dcbnl_get_featcfg(struct net_device *netdev, int featid,
 			break;
 		default:
 			BNX2X_ERR("Non valid featrue-ID\n");
-			rval = -EINVAL;
+			rval = 1;
 			break;
 		}
 	} else {
 		DP(BNX2X_MSG_DCB, "DCB disabled\n");
-		rval = -EINVAL;
+		rval = 1;
 	}
 
 	return rval;
@@ -2428,12 +2428,12 @@ static u8 bnx2x_dcbnl_set_featcfg(struct net_device *netdev, int featid,
 			break;
 		default:
 			BNX2X_ERR("Non valid featrue-ID\n");
-			rval = -EINVAL;
+			rval = 1;
 			break;
 		}
 	} else {
 		DP(BNX2X_MSG_DCB, "dcbnl call not valid\n");
-		rval = -EINVAL;
+		rval = 1;
 	}
 
 	return rval;
