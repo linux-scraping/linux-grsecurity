@@ -2365,6 +2365,9 @@ static inline void nf_reset(struct sk_buff *skb)
 	nf_bridge_put(skb->nf_bridge);
 	skb->nf_bridge = NULL;
 #endif
+#if defined(CONFIG_NETFILTER_XT_TARGET_TRACE) || defined(CONFIG_NETFILTER_XT_TARGET_TRACE_MODULE)
+	skb->nf_trace = 0;
+#endif
 }
 
 /* Note: This doesn't put any conntrack and bridge info in dst. */

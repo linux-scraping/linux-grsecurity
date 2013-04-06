@@ -348,7 +348,9 @@ static void scrub_print_warning(const char *errstr, struct scrub_bio *sbio,
 				ret < 0 ? -1 : ref_level,
 				ret < 0 ? -1 : ref_root);
 		} while (ret != 1);
+		btrfs_release_path(path);
 	} else {
+		btrfs_release_path(path);
 		swarn.path = path;
 		iterate_extent_inodes(fs_info, path, found_key.objectid,
 					extent_offset,
