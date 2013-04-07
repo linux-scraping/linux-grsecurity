@@ -1902,7 +1902,7 @@ SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, ubuf, size_t, size,
 	struct socket *sock;
 	struct iovec iov;
 	struct msghdr msg;
-	struct sockaddr_storage address;
+	struct sockaddr_storage address = { };
 	int err, err2;
 	int fput_needed;
 
