@@ -33,6 +33,7 @@ foreach my $file (@files) {
 		$line =~ s/([\s(])__user\s/$1/g;
 		$line =~ s/([\s(])__force\s/$1/g;
 		$line =~ s/([\s(])__iomem\s/$1/g;
+		$line =~ s/(\s?)__intentional_overflow\([-\d\s,]*\)\s?/$1/g;
 		$line =~ s/\s__attribute_const__\s/ /g;
 		$line =~ s/\s__attribute_const__$//g;
 		$line =~ s/\b__packed\b/__attribute__((packed))/g;

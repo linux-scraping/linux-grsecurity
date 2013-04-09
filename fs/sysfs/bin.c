@@ -233,13 +233,13 @@ static int bin_page_mkwrite(struct vm_area_struct *vma, struct vm_fault *vmf)
 	return ret;
 }
 
-static int bin_access(struct vm_area_struct *vma, unsigned long addr,
-		  void *buf, int len, int write)
+static ssize_t bin_access(struct vm_area_struct *vma, unsigned long addr,
+		  void *buf, size_t len, int write)
 {
 	struct file *file = vma->vm_file;
 	struct bin_buffer *bb = file->private_data;
 	struct sysfs_dirent *attr_sd = file->f_path.dentry->d_fsdata;
-	int ret;
+	ssize_t ret;
 
 	if (!bb->vm_ops)
 		return -EINVAL;

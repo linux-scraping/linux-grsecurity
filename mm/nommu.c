@@ -1952,8 +1952,8 @@ int filemap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 }
 EXPORT_SYMBOL(filemap_fault);
 
-static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
-		unsigned long addr, void *buf, int len, int write)
+static ssize_t __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
+		unsigned long addr, void *buf, size_t len, int write)
 {
 	struct vm_area_struct *vma;
 
@@ -1994,8 +1994,8 @@ static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
  *
  * The caller must hold a reference on @mm.
  */
-int access_remote_vm(struct mm_struct *mm, unsigned long addr,
-		void *buf, int len, int write)
+ssize_t access_remote_vm(struct mm_struct *mm, unsigned long addr,
+		void *buf, size_t len, int write)
 {
 	return __access_remote_vm(NULL, mm, addr, buf, len, write);
 }
@@ -2004,7 +2004,7 @@ int access_remote_vm(struct mm_struct *mm, unsigned long addr,
  * Access another process' address space.
  * - source/target buffer must be kernel space
  */
-int access_process_vm(struct task_struct *tsk, unsigned long addr, void *buf, int len, int write)
+ssize_t access_process_vm(struct task_struct *tsk, unsigned long addr, void *buf, size_t len, int write)
 {
 	struct mm_struct *mm;
 

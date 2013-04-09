@@ -220,8 +220,8 @@ struct vm_operations_struct {
 	/* called by access_process_vm when get_user_pages() fails, typically
 	 * for use by special VMAs that can switch between memory and hardware
 	 */
-	int (*access)(struct vm_area_struct *vma, unsigned long addr,
-		      void *buf, int len, int write);
+	ssize_t (*access)(struct vm_area_struct *vma, unsigned long addr,
+		      void *buf, size_t len, int write);
 #ifdef CONFIG_NUMA
 	/*
 	 * set_policy() op must add a reference to any non-NULL @new mempolicy
@@ -948,8 +948,8 @@ int follow_pfn(struct vm_area_struct *vma, unsigned long address,
 	unsigned long *pfn);
 int follow_phys(struct vm_area_struct *vma, unsigned long address,
 		unsigned int flags, unsigned long *prot, resource_size_t *phys);
-int generic_access_phys(struct vm_area_struct *vma, unsigned long addr,
-			void *buf, int len, int write);
+ssize_t generic_access_phys(struct vm_area_struct *vma, unsigned long addr,
+			void *buf, size_t len, int write);
 
 static inline void unmap_shared_mapping_range(struct address_space *mapping,
 		loff_t const holebegin, loff_t const holelen)
@@ -991,10 +991,10 @@ static inline int fixup_user_fault(struct task_struct *tsk,
 }
 #endif
 
-extern int make_pages_present(unsigned long addr, unsigned long end);
-extern int access_process_vm(struct task_struct *tsk, unsigned long addr, void *buf, int len, int write);
-extern int access_remote_vm(struct mm_struct *mm, unsigned long addr,
-		void *buf, int len, int write);
+extern ssize_t make_pages_present(unsigned long addr, unsigned long end);
+extern ssize_t access_process_vm(struct task_struct *tsk, unsigned long addr, void *buf, size_t len, int write);
+extern ssize_t access_remote_vm(struct mm_struct *mm, unsigned long addr,
+		void *buf, size_t len, int write);
 
 int __get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 		     unsigned long start, int len, unsigned int foll_flags,
