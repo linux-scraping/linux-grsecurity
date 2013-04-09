@@ -1,9 +1,12 @@
 /*
- * Copyright 2011, 2012 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011, 2012, 2013 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2, or (at your option) v3
  *
  * Homepage:
  * http://www.grsecurity.net/~ephox/overflow_plugin/
+ *
+ * Documentation:
+ * http://forums.grsecurity.net/viewtopic.php?f=7&t=3043
  *
  * This plugin recomputes expressions of function arguments marked by a size_overflow attribute
  * with double integer precision (DImode/TImode for 32/64 bit integer types).
@@ -84,7 +87,7 @@ static tree dup_assign(struct pointer_set_t *visited, gimple oldstmt, const_tree
 static void print_missing_msg(tree func, unsigned int argnum);
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20130316beta",
+	.version	= "20130410beta",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
@@ -889,6 +892,61 @@ static tree create_cast_assign(struct pointer_set_t *visited, gimple stmt)
 	return create_assign(visited, stmt, rhs1, AFTER_STMT);
 }
 
+static bool no_uses(tree node)
+{
+	imm_use_iterator imm_iter;
+	use_operand_p use_p;
+
+	FOR_EACH_IMM_USE_FAST(use_p, imm_iter, node) {
+		const_gimple use_stmt = USE_STMT(use_p);
+		if (use_stmt == NULL)
+			return true;
+		if (is_gimple_debug(use_stmt))
+			continue;
+		if (!(gimple_bb(use_stmt)->flags & BB_REACHABLE))
+			continue;
+		return false;
+	}
+	return true;
+}
+
+// 3.8.5 mm/page-writeback.c __ilog2_u64(): ret, uint + uintmax; uint -> int; int max
+static bool is_const_plus_unsigned_signed_truncation(const_tree lhs)
+{
+	tree rhs1, lhs_type, rhs_type, rhs2, not_const_rhs;
+	gimple def_stmt = get_def_stmt(lhs);
+
+	if (!def_stmt || !gimple_assign_cast_p(def_stmt))
+		return false;
+
+	rhs1 = gimple_assign_rhs1(def_stmt);
+	rhs_type = TREE_TYPE(rhs1);
+	lhs_type = TREE_TYPE(lhs);
+	if (TYPE_UNSIGNED(lhs_type) || !TYPE_UNSIGNED(rhs_type))
+		return false;
+	if (TYPE_MODE(lhs_type) != TYPE_MODE(rhs_type))
+		return false;
+
+	def_stmt = get_def_stmt(rhs1);
+	if (!def_stmt || gimple_code(def_stmt) != GIMPLE_ASSIGN || gimple_num_ops(def_stmt) != 3)
+		return false;
+
+	if (gimple_assign_rhs_code(def_stmt) != PLUS_EXPR)
+		return false;
+
+	rhs1 = gimple_assign_rhs1(def_stmt);
+	rhs2 = gimple_assign_rhs2(def_stmt);
+	if (!is_gimple_constant(rhs1) && !is_gimple_constant(rhs2))
+		return false;
+
+	if (is_gimple_constant(rhs2))
+		not_const_rhs = rhs1;
+	else
+		not_const_rhs = rhs2;
+
+	return no_uses(not_const_rhs);
+}
+
 static bool skip_lhs_cast_check(const_gimple stmt)
 {
 	const_tree rhs = gimple_assign_rhs1(stmt);
@@ -896,6 +954,9 @@ static bool skip_lhs_cast_check(const_gimple stmt)
 
 	// 3.8.2 kernel/futex_compat.c compat_exit_robust_list(): get_user() 64 ulong -> int (compat_long_t), int max
 	if (gimple_code(def_stmt) == GIMPLE_ASM)
+		return true;
+
+	if (is_const_plus_unsigned_signed_truncation(rhs))
 		return true;
 
 	return false;
@@ -1146,6 +1207,9 @@ static void check_size_overflow(gimple stmt, tree size_overflow_type, tree cast_
 		return;
 
 	gcc_assert(TREE_CODE(rhs_type) == INTEGER_TYPE || TREE_CODE(rhs_type) == ENUMERAL_TYPE);
+
+	if (is_const_plus_unsigned_signed_truncation(rhs))
+		return;
 
 	type_max = cast_a_tree(size_overflow_type, TYPE_MAX_VALUE(rhs_type));
 	// typemax (-1) < typemin (0)
