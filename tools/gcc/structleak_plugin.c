@@ -55,7 +55,7 @@ int plugin_is_GPL_compatible;
 void debug_gimple_stmt(gimple gs);
 
 static struct plugin_info structleak_plugin_info = {
-	.version	= "201303270300",
+	.version	= "201304082245",
 	.help		= "disable\tdo not activate plugin\n",
 };
 
@@ -137,18 +137,19 @@ static void initialize(tree var)
 	// first check if the variable is already initialized, warn otherwise
 	for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
 		gimple stmt = gsi_stmt(gsi);
+		tree rhs1 = gimple_assign_rhs1(stmt);
 
-		// we're looking for an assignment...
-		if (!(is_gimple_assign(stmt)))
+		// we're looking for an assignment of a single rhs...
+		if (!gimple_assign_single_p(stmt))
 			continue;
-		// ... of a single rhs (unary op)...
-		if (gimple_num_ops(stmt) != 2)
+		// ... of a non-clobbering expression...
+		if (TREE_CLOBBER_P(rhs1))
 			continue;
 		// ... to our variable...
 		if (gimple_get_lhs(stmt) != var)
 			continue;
 		// if it's an initializer then we're good
-		if (TREE_CODE(gimple_assign_rhs1(stmt)) == CONSTRUCTOR)
+		if (TREE_CODE(rhs1) == CONSTRUCTOR)
 			return;
 	}
 
@@ -190,7 +191,7 @@ static unsigned int handle_function(void)
 		tree type = TREE_TYPE(var);
 
 		gcc_assert(DECL_P(var));
-		if (is_global_var(var))
+		if (!auto_var_in_fn_p(var, current_function_decl))
 			continue;
 
 		// only care about structure types

@@ -18,14 +18,12 @@
 #include <asm/head.h>
 #include <asm/timer.h>
 
-static struct cpufreq_driver *cpufreq_us3_driver;
-
 struct us3_freq_percpu_info {
 	struct cpufreq_frequency_table table[4];
 };
 
 /* Indexed by cpu number. */
-static struct us3_freq_percpu_info *us3_freq_table;
+static struct us3_freq_percpu_info us3_freq_table[NR_CPUS];
 
 /* UltraSPARC-III has three dividers: 1, 2, and 32.  These are controlled
  * in the Safari config register.
@@ -191,8 +189,7 @@ static int __init us3_freq_cpu_init(struct cpufreq_policy *policy)
 
 static int us3_freq_cpu_exit(struct cpufreq_policy *policy)
 {
-	if (cpufreq_us3_driver)
-		us3_set_cpu_divider_index(policy->cpu, 0);
+	us3_set_cpu_divider_index(policy->cpu, 0);
 
 	return 0;
 }
@@ -200,7 +197,7 @@ static int us3_freq_cpu_exit(struct cpufreq_policy *policy)
 static int __init us3_freq_init(void);
 static void __exit us3_freq_exit(void);
 
-static struct cpufreq_driver _cpufreq_us3_driver = {
+static struct cpufreq_driver cpufreq_us3_driver = {
 	.init	= us3_freq_cpu_init,
 	.verify	= us3_freq_verify,
 	.target	= us3_freq_target,
@@ -227,39 +224,15 @@ static int __init us3_freq_init(void)
 	    (impl == CHEETAH_IMPL ||
 	     impl == CHEETAH_PLUS_IMPL ||
 	     impl == JAGUAR_IMPL ||
-	     impl == PANTHER_IMPL)) {
-		ret = -ENOMEM;
-		us3_freq_table = kzalloc(
-			(NR_CPUS * sizeof(struct us3_freq_percpu_info)),
-			GFP_KERNEL);
-		if (!us3_freq_table)
-			goto err_out;
-
-		cpufreq_us3_driver = &_cpufreq_us3_driver;
-		ret = cpufreq_register_driver(cpufreq_us3_driver);
-		if (ret)
-			goto err_out;
-
-		return 0;
-
-err_out:
-		cpufreq_us3_driver = NULL;
-		kfree(us3_freq_table);
-		us3_freq_table = NULL;
-		return ret;
-	}
+	     impl == PANTHER_IMPL))
+		return cpufreq_register_driver(cpufreq_us3_driver);
 
 	return -ENODEV;
 }
 
 static void __exit us3_freq_exit(void)
 {
-	if (cpufreq_us3_driver) {
-		cpufreq_unregister_driver(cpufreq_us3_driver);
-		cpufreq_us3_driver = NULL;
-		kfree(us3_freq_table);
-		us3_freq_table = NULL;
-	}
+	cpufreq_unregister_driver(cpufreq_us3_driver);
 }
 
 MODULE_AUTHOR("David S. Miller <davem@redhat.com>");
