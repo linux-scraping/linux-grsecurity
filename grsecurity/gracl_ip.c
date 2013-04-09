@@ -104,7 +104,7 @@ gr_search_socket(const int domain, const int type, const int protocol)
 
 	curr = current->acl;
 
-	if (curr->sock_families[domain / 32] & (1 << (domain % 32))) {
+	if (curr->sock_families[domain / 32] & (1U << (domain % 32))) {
 		/* the family is allowed, if this is PF_INET allow it only if
 		   the extra sock type/protocol checks pass */
 		if (domain == PF_INET)
@@ -131,8 +131,8 @@ inet_check:
 	if (!curr->ips)
 		goto exit;
 
-	if ((curr->ip_type & (1 << type)) &&
-	    (curr->ip_proto[protocol / 32] & (1 << (protocol % 32))))
+	if ((curr->ip_type & (1U << type)) &&
+	    (curr->ip_proto[protocol / 32] & (1U << (protocol % 32))))
 		goto exit;
 
 	if (curr->mode & (GR_LEARN | GR_INHERITLEARN)) {
@@ -169,6 +169,9 @@ exit_fail:
 		gr_log_str3(GR_DONT_AUDIT, GR_SOCK_MSG, gr_sockfamily_to_name(domain), 
 			    gr_socktype_to_name(type), gr_proto_to_name(protocol));
 	else
+#ifndef CONFIG_IPV6
+		if (domain != PF_INET6)
+#endif
 		gr_log_str2_int(GR_DONT_AUDIT, GR_SOCK_NOINET_MSG, gr_sockfamily_to_name(domain), 
 			    gr_socktype_to_name(type), protocol);
 
@@ -184,8 +187,8 @@ int check_ip_policy(struct acl_ip_label *ip, __u32 ip_addr, __u16 ip_port, __u8 
 	    (ip_port <= ip->high) &&
 	    ((ntohl(ip_addr) & our_netmask) ==
 	     (ntohl(our_addr) & our_netmask))
-	    && (ip->proto[protocol / 32] & (1 << (protocol % 32)))
-	    && (ip->type & (1 << type))) {
+	    && (ip->proto[protocol / 32] & (1U << (protocol % 32)))
+	    && (ip->type & (1U << type))) {
 		if (ip->mode & GR_INVERT)
 			return 2; // specifically denied
 		else
