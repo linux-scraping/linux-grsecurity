@@ -2296,7 +2296,7 @@ gr_set_proc_res(struct task_struct *task)
 		return;
 
 	for (i = 0; i < RLIM_NLIMITS; i++) {
-		if (!(proc->resmask & (1 << i)))
+		if (!(proc->resmask & (1U << i)))
 			continue;
 
 		task->signal->rlim[i].rlim_cur = proc->res[i].rlim_cur;
@@ -3479,7 +3479,7 @@ gr_learn_resource(const struct task_struct *task,
 	acl = task->acl;
 
 	if (likely(!acl || !(acl->mode & (GR_LEARN | GR_INHERITLEARN)) ||
-		   !(acl->resmask & (1 << (unsigned short) res))))
+		   !(acl->resmask & (1U << (unsigned short) res))))
 		return;
 
 	if (wanted >= acl->res[res].rlim_cur) {

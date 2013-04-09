@@ -176,7 +176,7 @@ gr_handle_crash(struct task_struct *task, const int sig)
 
 	curr = task->acl;
 
-	if (!(curr->resmask & (1 << GR_CRASH_RES)))
+	if (!(curr->resmask & (1U << GR_CRASH_RES)))
 		return;
 
 	if (time_before_eq(curr->expires, get_seconds())) {
@@ -242,7 +242,7 @@ gr_check_crash_exec(const struct file *filp)
 				     current->role);
 	read_unlock(&gr_inode_lock);
 
-	if (!curr || !(curr->resmask & (1 << GR_CRASH_RES)) ||
+	if (!curr || !(curr->resmask & (1U << GR_CRASH_RES)) ||
 	    (!curr->crashes && !curr->expires))
 		return 0;
 
