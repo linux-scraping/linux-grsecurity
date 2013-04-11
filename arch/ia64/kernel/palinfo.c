@@ -977,7 +977,7 @@ create_palinfo_proc_entries(unsigned int cpu)
 	struct proc_dir_entry **pdir;
 	struct proc_dir_entry *cpu_dir;
 	int j;
-	char cpustr[sizeof(CPUSTR)];
+	char cpustr[3+4+1];
 
 
 	/*
