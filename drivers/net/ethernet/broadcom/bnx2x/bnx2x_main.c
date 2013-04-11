@@ -4767,7 +4767,7 @@ static void bnx2x_after_function_update(struct bnx2x *bp)
 				  q);
 	}
 
-	if (!NO_FCOE(bp)) {
+	if (!NO_FCOE(bp) && CNIC_ENABLED(bp)) {
 		fp = &bp->fp[FCOE_IDX(bp)];
 		queue_params.q_obj = &bnx2x_sp_obj(bp, fp).q_obj;
 
@@ -13047,6 +13047,7 @@ static int bnx2x_unregister_cnic(struct net_device *dev)
 	RCU_INIT_POINTER(bp->cnic_ops, NULL);
 	mutex_unlock(&bp->cnic_mutex);
 	synchronize_rcu();
+	bp->cnic_enabled = false;
 	kfree(bp->cnic_kwq);
 	bp->cnic_kwq = NULL;
 
