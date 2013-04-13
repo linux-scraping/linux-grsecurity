@@ -1059,6 +1059,8 @@ static struct file_system_type rpc_pipe_fs_type = {
 	.mount		= rpc_mount,
 	.kill_sb	= kill_litter_super,
 };
+MODULE_ALIAS_FS("rpc_pipefs");
+MODULE_ALIAS("rpc_pipefs");
 
 static void
 init_once(void *foo)
@@ -1104,6 +1106,3 @@ void unregister_rpc_pipefs(void)
 	kmem_cache_destroy(rpc_inode_cachep);
 	unregister_filesystem(&rpc_pipe_fs_type);
 }
-
-/* Make 'mount -t rpc_pipefs ...' autoload this module. */
-MODULE_ALIAS("rpc_pipefs");

@@ -1102,6 +1102,7 @@ static struct file_system_type nfsd_fs_type = {
 	.mount		= nfsd_mount,
 	.kill_sb	= kill_litter_super,
 };
+MODULE_ALIAS_FS("nfsd");
 
 #ifdef CONFIG_PROC_FS
 static int create_proc_exports_entry(void)

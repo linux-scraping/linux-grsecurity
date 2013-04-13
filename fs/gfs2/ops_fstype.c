@@ -19,6 +19,7 @@
 #include <linux/mount.h>
 #include <linux/gfs2_ondisk.h>
 #include <linux/quotaops.h>
+#include <linux/module.h>
 
 #include "gfs2.h"
 #include "incore.h"
@@ -1395,6 +1396,7 @@ struct file_system_type gfs2_fs_type = {
 	.kill_sb = gfs2_kill_sb,
 	.owner = THIS_MODULE,
 };
+MODULE_ALIAS_FS("gfs2");
 
 struct file_system_type gfs2meta_fs_type = {
 	.name = "gfs2meta",
@@ -1402,4 +1404,4 @@ struct file_system_type gfs2meta_fs_type = {
 	.mount = gfs2_mount_meta,
 	.owner = THIS_MODULE,
 };
-
+MODULE_ALIAS_FS("gfs2meta");

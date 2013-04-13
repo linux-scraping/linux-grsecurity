@@ -282,6 +282,7 @@ static struct file_system_type nfs_fs_type = {
 	.kill_sb	= nfs_kill_super,
 	.fs_flags	= FS_RENAME_DOES_D_MOVE|FS_REVAL_DOT|FS_BINARY_MOUNTDATA,
 };
+MODULE_ALIAS_FS("nfs");
 
 struct file_system_type nfs_xdev_fs_type = {
 	.owner		= THIS_MODULE,
@@ -338,6 +339,8 @@ static struct file_system_type nfs4_remote_fs_type = {
 	.kill_sb	= nfs4_kill_super,
 	.fs_flags	= FS_RENAME_DOES_D_MOVE|FS_REVAL_DOT|FS_BINARY_MOUNTDATA,
 };
+MODULE_ALIAS_FS("nfs4");
+MODULE_ALIAS("nfs4");
 
 struct file_system_type nfs4_xdev_fs_type = {
 	.owner		= THIS_MODULE,
@@ -3088,7 +3091,5 @@ static struct dentry *nfs4_referral_mount(struct file_system_type *fs_type,
 			IS_ERR(res) ? " [error]" : "");
 	return res;
 }
-
-MODULE_ALIAS("nfs4");
 
 #endif /* CONFIG_NFS_V4 */
