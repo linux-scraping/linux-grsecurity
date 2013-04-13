@@ -142,9 +142,11 @@ static void initialize(tree var)
 		// we're looking for an assignment of a single rhs...
 		if (!gimple_assign_single_p(stmt))
 			continue;
+#if BUILDING_GCC_VERSION >= 4007
 		// ... of a non-clobbering expression...
 		if (TREE_CLOBBER_P(rhs1))
 			continue;
+#endif
 		// ... to our variable...
 		if (gimple_get_lhs(stmt) != var)
 			continue;
@@ -154,8 +156,7 @@ static void initialize(tree var)
 	}
 
 	// build the initializer expression
-	initializer = make_node(CONSTRUCTOR);
-	TREE_TYPE(initializer) = TREE_TYPE(var);
+	initializer = build_constructor(TREE_TYPE(var), NULL);
 
 	// build the initializer stmt
 	init_stmt = gimple_build_assign(var, initializer);
