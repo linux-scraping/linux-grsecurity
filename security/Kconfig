@@ -752,7 +752,7 @@ config PAX_MEMORY_SANITIZE
 
 config PAX_MEMORY_STACKLEAK
 	bool "Sanitize kernel stack"
-	default y if (GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_PRIORITY_SECURITY && !(GRKERNSEC_CONFIG_VIRT_HOST && GRKERNSEC_CONFIG_VIRT_XEN))
+	default y if (GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_PRIORITY_SECURITY)
 	depends on X86
 	help
 	  By saying Y here the kernel will erase the kernel stack before it

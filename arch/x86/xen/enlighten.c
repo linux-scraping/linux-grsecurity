@@ -334,7 +334,7 @@ static void xen_load_gdt(const struct desc_ptr *dtr)
 {
 	unsigned long va = dtr->address;
 	unsigned int size = dtr->size + 1;
-	unsigned long frames[65536 / PAGE_SIZE];
+	unsigned long frames[(GDT_SIZE + PAGE_SIZE - 1) / PAGE_SIZE];
 	int f;
 
 	/*
@@ -342,7 +342,7 @@ static void xen_load_gdt(const struct desc_ptr *dtr)
 	 * 8-byte entries, or 16 4k pages..
 	 */
 
-	BUG_ON(size > 65536);
+	BUG_ON(size > GDT_SIZE);
 	BUG_ON(va & ~PAGE_MASK);
 
 	for (f = 0; va < dtr->address + size; va += PAGE_SIZE, f++) {
@@ -1137,7 +1137,7 @@ asmlinkage void __init xen_start_kernel(void)
 		pv_mmu_ops.ptep_modify_prot_commit = xen_ptep_modify_prot_commit;
 	}
 
-	memcpy((void *)&machine_ops, &xen_machine_ops, sizeof machine_ops);
+	machine_ops = xen_machine_ops;
 
 	xen_smp_init();
 
