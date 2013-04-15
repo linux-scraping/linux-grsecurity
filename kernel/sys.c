@@ -1009,9 +1009,6 @@ SYSCALL_DEFINE1(setfsuid, uid_t, uid)
 	if (!uid_valid(kuid))
 		return old_fsuid;
 
-	if (gr_check_user_change(INVALID_UID, INVALID_UID, kuid))
-		goto error;
-
 	new = prepare_creds();
 	if (!new)
 		return old_fsuid;
@@ -1020,6 +1017,9 @@ SYSCALL_DEFINE1(setfsuid, uid_t, uid)
 	    uid_eq(kuid, old->suid) || uid_eq(kuid, old->fsuid) ||
 	    nsown_capable(CAP_SETUID)) {
 		if (!uid_eq(kuid, old->fsuid)) {
+			if (gr_check_user_change(INVALID_UID, INVALID_UID, kuid))
+				goto error;
+
 			new->fsuid = kuid;
 			if (security_task_fix_setuid(new, old, LSM_SETID_FS) == 0)
 				goto change_okay;

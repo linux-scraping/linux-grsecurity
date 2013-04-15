@@ -344,7 +344,7 @@ ENTRY(pax_enter_kernel)
 	pax_force_retaddr
 	retq
 
-2:	ljmpq __KERNEL_CS,1f
+2:	ljmpq __KERNEL_CS,1b
 3:	ljmpq __KERNEXEC_KERNEL_CS,4f
 4:	SET_RDI_INTO_CR0
 	jmp 1b
@@ -2102,14 +2102,13 @@ nested_nmi:
 
 1:
 	/* Set up the interrupted NMIs stack to jump to repeat_nmi */
-	leaq -1*8(%rsp), %rdx
-	movq %rdx, %rsp
+	subq $8, %rsp
 	CFI_ADJUST_CFA_OFFSET 1*8
 	leaq -10*8(%rsp), %rdx
 	pushq_cfi $__KERNEL_DS
 	pushq_cfi %rdx
 	pushfq_cfi
-	pushq_cfi $__KERNEL_CS
+	pushq_cfi 6*8(%rsp)
 	pushq_cfi $repeat_nmi
 
 	/* Put stack back */
@@ -2121,6 +2120,7 @@ nested_nmi_out:
 	CFI_RESTORE rdx
 
 	/* No need to check faults here */
+	pax_force_retaddr_bts
 	INTERRUPT_RETURN
 
 	CFI_RESTORE_STATE
