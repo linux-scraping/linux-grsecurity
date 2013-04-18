@@ -1555,7 +1555,6 @@ config KEXEC_JUMP
 config PHYSICAL_START
 	hex "Physical address where the kernel is loaded" if (EXPERT || CRASH_DUMP)
 	default "0x1000000"
-	range 0x400000 0x40000000
 	---help---
 	  This gives the physical address where the kernel is loaded.
 
@@ -1619,7 +1618,8 @@ config X86_NEED_RELOCS
 config PHYSICAL_ALIGN
 	hex "Alignment value to which kernel should be aligned" if X86_32
 	default "0x1000000"
-	range 0x400000 0x1000000 if PAX_KERNEXEC
+	range 0x200000 0x1000000 if PAX_KERNEXEC && X86_PAE
+	range 0x400000 0x1000000 if PAX_KERNEXEC && !X86_PAE
 	range 0x2000 0x1000000
 	---help---
 	  This value puts the alignment restrictions on physical address
