@@ -1595,7 +1595,7 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, u32 msr, u64 data)
 		gpa_offset = data & ~(PAGE_MASK | 1);
 
 		/* Check that address+len does not cross page boundary */
-		if ((gpa_offset & (sizeof(struct pvclock_vcpu_time_info) - 1)
+		if ((gpa_offset + sizeof(struct pvclock_vcpu_time_info) - 1)
 		    & PAGE_MASK)
 			break;
 
