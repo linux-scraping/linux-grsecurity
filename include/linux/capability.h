@@ -35,6 +35,7 @@ struct cpu_vfs_cap_data {
 #define _KERNEL_CAP_T_SIZE     (sizeof(kernel_cap_t))
 
 
+struct file;
 struct inode;
 struct dentry;
 struct user_namespace;
@@ -211,6 +212,7 @@ extern bool capable(int cap);
 extern bool ns_capable(struct user_namespace *ns, int cap);
 extern bool nsown_capable(int cap);
 extern bool inode_capable(const struct inode *inode, int cap);
+extern bool file_ns_capable(const struct file *file, struct user_namespace *ns, int cap);
 extern bool capable_nolog(int cap);
 extern bool ns_capable_nolog(struct user_namespace *ns, int cap);
 extern bool inode_capable_nolog(const struct inode *inode, int cap);
