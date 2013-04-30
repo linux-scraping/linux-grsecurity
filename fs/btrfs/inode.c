@@ -17,6 +17,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/bio.h>
 #include <linux/buffer_head.h>
 #include <linux/file.h>
