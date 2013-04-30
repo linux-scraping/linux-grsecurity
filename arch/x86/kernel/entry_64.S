@@ -360,6 +360,9 @@ ENTRY(pax_exit_kernel)
 	mov %cs,%rdi
 	cmp $__KERNEXEC_KERNEL_CS,%edi
 	jz 2f
+	GET_CR0_INTO_RDI
+	bts $16,%rdi
+	jnc 4f
 1:
 
 #ifdef CONFIG_PARAVIRT
@@ -372,9 +375,12 @@ ENTRY(pax_exit_kernel)
 
 2:	GET_CR0_INTO_RDI
 	btr $16,%rdi
+	jnc 4f
 	ljmpq __KERNEL_CS,3f
 3:	SET_RDI_INTO_CR0
 	jmp 1b
+4:	ud2
+	jmp 4b
 ENDPROC(pax_exit_kernel)
 #endif
 
@@ -464,6 +470,7 @@ ENTRY(pax_exit_kernel_user)
 #ifdef CONFIG_PAX_KERNEXEC
 	GET_CR0_INTO_RDI
 	btr $16,%rdi
+	jnc 3f
 	SET_RDI_INTO_CR0
 #endif
 
@@ -501,6 +508,8 @@ ENTRY(pax_exit_kernel_user)
 	popq %rdi
 	pax_force_retaddr
 	retq
+3:	ud2
+	jmp 3b
 ENDPROC(pax_exit_kernel_user)
 #endif
 
@@ -2108,7 +2117,7 @@ nested_nmi:
 	pushq_cfi $__KERNEL_DS
 	pushq_cfi %rdx
 	pushfq_cfi
-	pushq_cfi 6*8(%rsp)
+	pushq_cfi $__KERNEL_CS
 	pushq_cfi $repeat_nmi
 
 	/* Put stack back */

@@ -132,6 +132,7 @@ static void initialize(tree var)
 	gimple init_stmt;
 
 	// this is the original entry bb before the forced split
+	// TODO: check further BBs in case more splits occured before us
 	bb = ENTRY_BLOCK_PTR->next_bb->next_bb;
 
 	// first check if the variable is already initialized, warn otherwise
@@ -154,6 +155,9 @@ static void initialize(tree var)
 		if (TREE_CODE(rhs1) == CONSTRUCTOR)
 			return;
 	}
+
+	// these aren't the 0days you're looking for
+//	inform(DECL_SOURCE_LOCATION(var), "userspace variable will be forcibly initialized");
 
 	// build the initializer expression
 	initializer = build_constructor(TREE_TYPE(var), NULL);
