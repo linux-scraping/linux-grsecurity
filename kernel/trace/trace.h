@@ -820,7 +820,7 @@ extern const char *__start___trace_bprintk_fmt[];
 extern const char *__stop___trace_bprintk_fmt[];
 
 int trace_keep_overwrite(struct tracer *tracer, u32 mask, int set);
-int set_tracer_flag(unsigned int mask, int enabled);
+int set_tracer_flag(unsigned long mask, int enabled);
 
 #undef FTRACE_ENTRY
 #define FTRACE_ENTRY(call, struct_name, id, tstruct, print)		\

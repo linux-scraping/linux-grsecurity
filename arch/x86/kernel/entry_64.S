@@ -237,7 +237,7 @@ ENTRY(pax_enter_kernel)
 	pax_force_retaddr
 	retq
 
-2:	ljmpq __KERNEL_CS,1f
+2:	ljmpq __KERNEL_CS,1b
 3:	ljmpq __KERNEXEC_KERNEL_CS,4f
 4:	SET_RDI_INTO_CR0
 	jmp 1b
@@ -253,6 +253,9 @@ ENTRY(pax_exit_kernel)
 	mov %cs,%rdi
 	cmp $__KERNEXEC_KERNEL_CS,%edi
 	jz 2f
+	GET_CR0_INTO_RDI
+	bts $16,%rdi
+	jnc 4f
 1:
 
 #ifdef CONFIG_PARAVIRT
@@ -265,9 +268,12 @@ ENTRY(pax_exit_kernel)
 
 2:	GET_CR0_INTO_RDI
 	btr $16,%rdi
+	jnc 4f
 	ljmpq __KERNEL_CS,3f
 3:	SET_RDI_INTO_CR0
 	jmp 1b
+4:	ud2
+	jmp 4b
 ENDPROC(pax_exit_kernel)
 #endif
 
@@ -357,6 +363,7 @@ ENTRY(pax_exit_kernel_user)
 #ifdef CONFIG_PAX_KERNEXEC
 	GET_CR0_INTO_RDI
 	btr $16,%rdi
+	jnc 3f
 	SET_RDI_INTO_CR0
 #endif
 
@@ -394,6 +401,8 @@ ENTRY(pax_exit_kernel_user)
 	popq %rdi
 	pax_force_retaddr
 	retq
+3:	ud2
+	jmp 3b
 ENDPROC(pax_exit_kernel_user)
 #endif
 

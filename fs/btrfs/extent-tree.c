@@ -5642,7 +5642,7 @@ again:
 
 	if (ret == -ENOSPC && num_bytes > min_alloc_size) {
 		num_bytes = num_bytes >> 1;
-		num_bytes = num_bytes & ~(root->sectorsize - 1);
+		num_bytes = num_bytes & ~((u64)root->sectorsize - 1);
 		num_bytes = max(num_bytes, min_alloc_size);
 		do_chunk_alloc(trans, root->fs_info->extent_root,
 			       num_bytes, data, CHUNK_ALLOC_FORCE);
