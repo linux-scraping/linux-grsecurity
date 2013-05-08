@@ -3791,13 +3791,7 @@ static int pageblock_is_reserved(unsigned long start_pfn, unsigned long end_pfn)
 	unsigned long pfn;
 
 	for (pfn = start_pfn; pfn < end_pfn; pfn++) {
-#ifdef CONFIG_X86_32
-		/* boot failures in VMware 8 on 32bit vanilla since
-		   this change */
-		if (!pfn_valid(pfn) || PageReserved(pfn_to_page(pfn)))
-#else
 		if (!pfn_valid_within(pfn) || PageReserved(pfn_to_page(pfn)))
-#endif
 			return 1;
 	}
 	return 0;

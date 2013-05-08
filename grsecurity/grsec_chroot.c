@@ -9,14 +9,27 @@
 #include <linux/grsecurity.h>
 #include <linux/grinternal.h>
 
+#ifdef CONFIG_GRKERNSEC_CHROOT_INITRD
+static int gr_init_ran;
+#endif
+
 void gr_set_chroot_entries(struct task_struct *task, struct path *path)
 {
 #ifdef CONFIG_GRKERNSEC
 	if (task_pid_nr(task) > 1 && path->dentry != init_task.fs->root.dentry &&
-	    		     path->dentry != task->nsproxy->mnt_ns->root->mnt.mnt_root)
+	    		     path->dentry != task->nsproxy->mnt_ns->root->mnt.mnt_root
+#ifdef CONFIG_GRKERNSEC_CHROOT_INITRD
+			     && gr_init_ran
+#endif
+	   )
 		task->gr_is_chrooted = 1;
-	else
+	else {
+#ifdef CONFIG_GRKERNSEC_CHROOT_INITRD
+		if (task_pid_nr(task) == 1 && !gr_init_ran)
+			gr_init_ran = 1;
+#endif
 		task->gr_is_chrooted = 0;
+	}
 
 	task->gr_chroot_dentry = path->dentry;
 #endif
