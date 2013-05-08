@@ -544,6 +544,16 @@ config GRKERNSEC_CHROOT_CAPS
 	  tasks.  If the sysctl option is enabled, a sysctl option with
 	  name "chroot_caps" is created.
 
+config GRKERNSEC_CHROOT_INITRD
+	bool "Exempt initrd tasks from restrictions"
+	default y if GRKERNSEC_CONFIG_AUTO
+	depends on GRKERNSEC_CHROOT && BLK_DEV_RAM
+	help
+	  If you say Y here, tasks started prior to init will be exempted from
+	  grsecurity's chroot restrictions.  This option is mainly meant to
+	  resolve Plymouth's performing privileged operations unnecessarily
+	  in a chroot.
+
 endmenu
 menu "Kernel Auditing"
 depends on GRKERNSEC
