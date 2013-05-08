@@ -41,7 +41,7 @@ static struct phonet_protocol *phonet_proto_get(unsigned int protocol)
 {
 	struct phonet_protocol *pp;
 
-	if (protocol < 0 || protocol >= PHONET_NPROTO)
+	if (protocol >= PHONET_NPROTO)
 		return NULL;
 
 	rcu_read_lock();
