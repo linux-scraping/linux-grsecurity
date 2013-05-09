@@ -1591,6 +1591,13 @@ int do_prlimit(struct task_struct *tsk, unsigned int resource,
 			 */
 			new_rlim->rlim_cur = 1;
 		}
+		/* Handle the case where a fork and setuid occur and then RLIMIT_NPROC
+		   is changed to a lower value.  Since tasks can be created by the same
+		   user in between this limit change and an execve by this task, force
+		   a recheck only for this task by setting PF_NPROC_EXCEEDED
+		*/
+		if (resource == RLIMIT_NPROC)
+			tsk->flags |= PF_NPROC_EXCEEDED;
 	}
 	if (!retval) {
 		if (old_rlim)
