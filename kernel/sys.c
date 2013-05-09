@@ -1314,6 +1314,14 @@ SYSCALL_DEFINE2(setrlimit, unsigned int, resource, struct rlimit __user *, rlim)
 	if (resource != RLIMIT_CPU)
 		goto out;
 
+	/* Handle the case where a fork and setuid occur and then RLIMIT_NPROC
+	   is changed to a lower value.  Since tasks can be created by the same
+	   user in between this limit change and an execve by this task, force
+	   a recheck only for this task by setting PF_NPROC_EXCEEDED
+	*/
+	if (resource == RLIMIT_NPROC)
+		current->flags |= PF_NPROC_EXCEEDED;
+
 	/*
 	 * RLIMIT_CPU handling.   Note that the kernel fails to return an error
 	 * code if it rejected the user's attempt to set RLIMIT_CPU.  This is a
