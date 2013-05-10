@@ -2084,7 +2084,12 @@ static inline bool check_kernel_text_object(unsigned long low, unsigned long hig
 {
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
 	unsigned long textlow = ktla_ktva((unsigned long)_stext);
+#ifdef CONFIG_MODULES
+	unsigned long texthigh = (unsigned long)MODULES_EXEC_VADDR;
+#else
 	unsigned long texthigh = ktla_ktva((unsigned long)_etext);
+#endif
+
 #else
 	unsigned long textlow = _stext;
 	unsigned long texthigh = _etext;	
