@@ -17,7 +17,6 @@
  */
 
 #include <linux/kernel.h>
-#include <linux/module.h>
 #include <linux/bio.h>
 #include <linux/buffer_head.h>
 #include <linux/file.h>
@@ -5414,7 +5413,7 @@ fail:
 	return -ENOMEM;
 }
 
-int btrfs_getattr(struct vfsmount *mnt,
+static int btrfs_getattr(struct vfsmount *mnt,
 			 struct dentry *dentry, struct kstat *stat)
 {
 	struct inode *inode = dentry->d_inode;
@@ -5425,14 +5424,6 @@ int btrfs_getattr(struct vfsmount *mnt,
 			BTRFS_I(inode)->delalloc_bytes) >> 9;
 	return 0;
 }
-
-EXPORT_SYMBOL(btrfs_getattr);
-
-dev_t get_btrfs_dev_from_inode(struct inode *inode)
-{
-	return BTRFS_I(inode)->root->anon_super.s_dev;
-}
-EXPORT_SYMBOL(get_btrfs_dev_from_inode);
 
 static int btrfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 			   struct inode *new_dir, struct dentry *new_dentry)

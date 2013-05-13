@@ -16,6 +16,13 @@
 #include <linux/gracl.h>
 #include <linux/grsecurity.h>
 #include <linux/grinternal.h>
+#if defined(CONFIG_BTRFS_FS) || defined(CONFIG_BTRFS_FS_MODULE)
+#include <linux/magic.h>
+#include <linux/pagemap.h>
+#include "../fs/btrfs/async-thread.h"
+#include "../fs/btrfs/ctree.h"
+#include "../fs/btrfs/btrfs_inode.h"
+#endif
 
 static struct crash_uid *uid_set;
 static unsigned short uid_used;
@@ -25,6 +32,16 @@ extern struct acl_subject_label *
 	lookup_acl_subj_label(const ino_t inode, const dev_t dev,
 			      struct acl_role_label *role);
 extern int gr_fake_force_sig(int sig, struct task_struct *t);
+
+static inline dev_t __get_dev(const struct dentry *dentry)
+{
+#if defined(CONFIG_BTRFS_FS) || defined(CONFIG_BTRFS_FS_MODULE)
+	if (dentry->d_sb->s_magic == BTRFS_SUPER_MAGIC)
+		return BTRFS_I(dentry->d_inode)->root->anon_super.s_dev;
+	else
+#endif
+		return dentry->d_sb->s_dev;
+}
 
 int
 gr_init_uidset(void)
@@ -238,7 +255,7 @@ gr_check_crash_exec(const struct file *filp)
 
 	read_lock(&gr_inode_lock);
 	curr = lookup_acl_subj_label(filp->f_path.dentry->d_inode->i_ino,
-				     filp->f_path.dentry->d_inode->i_sb->s_dev,
+				     __get_dev(filp->f_path.dentry),
 				     current->role);
 	read_unlock(&gr_inode_lock);
 
