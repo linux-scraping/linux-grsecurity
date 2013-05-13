@@ -162,6 +162,8 @@ __setup("grsec_proc_gid=", setup_grsec_proc_gid);
 #endif
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+unsigned long pax_user_shadow_base __read_only = 1UL << TASK_SIZE_MAX_SHIFT;
+EXPORT_SYMBOL(pax_user_shadow_base);
 extern char pax_enter_kernel_user[];
 extern char pax_exit_kernel_user[];
 extern pgdval_t clone_pgd_mask;
@@ -188,6 +190,7 @@ static int __init setup_pax_nouderef(char *str)
 	memcpy(pax_enter_kernel_user, (unsigned char []){0xc3}, 1);
 	memcpy(pax_exit_kernel_user, (unsigned char []){0xc3}, 1);
 	clone_pgd_mask = ~(pgdval_t)0UL;
+	pax_user_shadow_base = 0UL;
 #endif
 
 	return 0;

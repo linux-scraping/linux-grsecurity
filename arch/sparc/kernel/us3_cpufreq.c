@@ -225,14 +225,14 @@ static int __init us3_freq_init(void)
 	     impl == CHEETAH_PLUS_IMPL ||
 	     impl == JAGUAR_IMPL ||
 	     impl == PANTHER_IMPL))
-		return cpufreq_register_driver(cpufreq_us3_driver);
+		return cpufreq_register_driver(&cpufreq_us3_driver);
 
 	return -ENODEV;
 }
 
 static void __exit us3_freq_exit(void)
 {
-	cpufreq_unregister_driver(cpufreq_us3_driver);
+	cpufreq_unregister_driver(&cpufreq_us3_driver);
 }
 
 MODULE_AUTHOR("David S. Miller <davem@redhat.com>");

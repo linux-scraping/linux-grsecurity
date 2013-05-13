@@ -61,7 +61,7 @@ ENTRY(__put_user_1)
 	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	mov $PAX_USER_SHADOW_BASE,%_ASM_BX
+	mov pax_user_shadow_base,%_ASM_BX
 	cmp %_ASM_BX,%_ASM_CX
 	jb 1234f
 	xor %ebx,%ebx
@@ -87,7 +87,7 @@ ENTRY(__put_user_2)
 	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	mov $PAX_USER_SHADOW_BASE,%_ASM_BX
+	mov pax_user_shadow_base,%_ASM_BX
 	cmp %_ASM_BX,%_ASM_CX
 	jb 1234f
 	xor %ebx,%ebx
@@ -113,7 +113,7 @@ ENTRY(__put_user_4)
 	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	mov $PAX_USER_SHADOW_BASE,%_ASM_BX
+	mov pax_user_shadow_base,%_ASM_BX
 	cmp %_ASM_BX,%_ASM_CX
 	jb 1234f
 	xor %ebx,%ebx
@@ -139,7 +139,7 @@ ENTRY(__put_user_8)
 	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	mov $PAX_USER_SHADOW_BASE,%_ASM_BX
+	mov pax_user_shadow_base,%_ASM_BX
 	cmp %_ASM_BX,%_ASM_CX
 	jb 1234f
 	xor %ebx,%ebx

@@ -259,7 +259,7 @@ nfsd_cache_update(struct svc_rqst *rqstp, int cachetype, __be32 *statp)
 {
 	struct svc_cacherep *rp;
 	struct kvec	*resv = &rqstp->rq_res.head[0], *cachv;
-	int		len;
+	long		len;
 
 	if (!(rp = rqstp->rq_cacherep) || cache_disabled)
 		return;

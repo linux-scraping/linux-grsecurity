@@ -55,7 +55,7 @@ ENTRY(__get_user_1)
 	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	mov $PAX_USER_SHADOW_BASE,%_ASM_DX
+	mov pax_user_shadow_base,%_ASM_DX
 	cmp %_ASM_DX,%_ASM_AX
 	jae 1234f
 	add %_ASM_DX,%_ASM_AX
@@ -84,7 +84,7 @@ ENTRY(__get_user_2)
 	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	mov $PAX_USER_SHADOW_BASE,%_ASM_DX
+	mov pax_user_shadow_base,%_ASM_DX
 	cmp %_ASM_DX,%_ASM_AX
 	jae 1234f
 	add %_ASM_DX,%_ASM_AX
@@ -113,7 +113,7 @@ ENTRY(__get_user_4)
 	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	mov $PAX_USER_SHADOW_BASE,%_ASM_DX
+	mov pax_user_shadow_base,%_ASM_DX
 	cmp %_ASM_DX,%_ASM_AX
 	jae 1234f
 	add %_ASM_DX,%_ASM_AX
@@ -140,7 +140,7 @@ ENTRY(__get_user_8)
 	jae	bad_get_user
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	mov $PAX_USER_SHADOW_BASE,%_ASM_DX
+	mov pax_user_shadow_base,%_ASM_DX
 	cmp %_ASM_DX,%_ASM_AX
 	jae 1234f
 	add %_ASM_DX,%_ASM_AX

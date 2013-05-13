@@ -37,6 +37,9 @@ struct xattr {
 };
 
 ssize_t xattr_getsecurity(struct inode *, const char *, void *, size_t);
+#ifdef CONFIG_PAX_XATTR_PAX_FLAGS
+ssize_t pax_getxattr(struct dentry *, void *, size_t);
+#endif
 ssize_t vfs_getxattr(struct dentry *, const char *, void *, size_t);
 ssize_t vfs_listxattr(struct dentry *d, char *list, size_t size);
 int __vfs_setxattr_noperm(struct dentry *, const char *, const void *, size_t, int);

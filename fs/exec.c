@@ -2095,7 +2095,7 @@ static inline bool check_kernel_text_object(unsigned long low, unsigned long hig
 	unsigned long texthigh = _etext;	
 #endif
 
-	if (high < textlow || low > texthigh)
+	if (high <= textlow || low > texthigh)
 		return false;
 	else
 		return true;

@@ -143,7 +143,7 @@ static int iio_read_first_n_sw_rb(struct iio_buffer *r,
 
 	u8 *initial_read_p, *initial_write_p, *current_read_p, *end_read_p;
 	u8 *data;
-	int ret, max_copied, bytes_to_rip, dead_offset;
+	long ret, max_copied, bytes_to_rip, dead_offset;
 	size_t data_available, buffer_size;
 
 	/* A userspace program has probably made an error if it tries to

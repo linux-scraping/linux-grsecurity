@@ -26,6 +26,13 @@
 #include <linux/lglock.h>
 #include <linux/hugetlb.h>
 #include <linux/posix-timers.h>
+#if defined(CONFIG_BTRFS_FS) || defined(CONFIG_BTRFS_FS_MODULE)
+#include <linux/magic.h>
+#include <linux/pagemap.h>
+#include "../fs/btrfs/async-thread.h"
+#include "../fs/btrfs/ctree.h"
+#include "../fs/btrfs/btrfs_inode.h"
+#endif
 #include "../fs/mount.h"
 
 #include <asm/uaccess.h>
@@ -99,19 +106,14 @@ gr_acl_is_enabled(void)
 	return (gr_status & GR_READY);
 }
 
-#ifdef CONFIG_BTRFS_FS
-extern dev_t get_btrfs_dev_from_inode(struct inode *inode);
-extern int btrfs_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat *stat);
-#endif
-
 static inline dev_t __get_dev(const struct dentry *dentry)
 {
-#ifdef CONFIG_BTRFS_FS
-	if (dentry->d_inode->i_op && dentry->d_inode->i_op->getattr == &btrfs_getattr)
-		return get_btrfs_dev_from_inode(dentry->d_inode);
+#if defined(CONFIG_BTRFS_FS) || defined(CONFIG_BTRFS_FS_MODULE)
+	if (dentry->d_sb->s_magic == BTRFS_SUPER_MAGIC)
+		return BTRFS_I(dentry->d_inode)->root->anon_dev;
 	else
 #endif
-		return dentry->d_inode->i_sb->s_dev;
+		return dentry->d_sb->s_dev;
 }
 
 dev_t gr_get_dev_from_dentry(struct dentry *dentry)

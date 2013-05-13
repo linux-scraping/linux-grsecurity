@@ -79,6 +79,7 @@ found:
 /* Insert a move instruction which sets a pointer to eax/rdi (1st arg). */
 static void __kprobes synthesize_set_arg1(kprobe_opcode_t *addr, unsigned long val)
 {
+	pax_open_kernel();
 #ifdef CONFIG_X86_64
 	*addr++ = 0x48;
 	*addr++ = 0xbf;
@@ -86,6 +87,7 @@ static void __kprobes synthesize_set_arg1(kprobe_opcode_t *addr, unsigned long v
 	*addr++ = 0xb8;
 #endif
 	*(unsigned long *)addr = val;
+	pax_close_kernel();
 }
 
 static void __used __kprobes kprobes_optinsn_template_holder(void)
@@ -353,7 +355,9 @@ int __kprobes arch_prepare_optimized_kprobe(struct optimized_kprobe *op)
 	op->optinsn.size = ret;
 
 	/* Copy arch-dep-instance from template */
+	pax_open_kernel();
 	memcpy(buf, ktla_ktva(&optprobe_template_entry), TMPL_END_IDX);
+	pax_close_kernel();
 
 	/* Set probe information */
 	synthesize_set_arg1(buf + TMPL_MOVE_IDX, (unsigned long)op);
