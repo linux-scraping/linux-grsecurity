@@ -1599,14 +1599,20 @@ static void handle_port_status(struct xhci_hcd *xhci,
 	max_ports = HCS_MAX_PORTS(xhci->hcs_params1);
 	if ((port_id <= 0) || (port_id > max_ports)) {
 		xhci_warn(xhci, "Invalid port id %d\n", port_id);
-		bogus_port_status = true;
-		goto cleanup;
+		inc_deq(xhci, xhci->event_ring);
+		return;
 	}
 
 	/* Figure out which usb_hcd this port is attached to:
 	 * is it a USB 3.0 port or a USB 2.0/1.1 port?
 	 */
 	major_revision = xhci->port_array[port_id - 1];
+
+	/* Find the right roothub. */
+	hcd = xhci_to_hcd(xhci);
+	if ((major_revision == 0x03) != (hcd->speed == HCD_USB3))
+		hcd = xhci->shared_hcd;
+
 	if (major_revision == 0) {
 		xhci_warn(xhci, "Event for port %u not in "
 				"Extended Capabilities, ignoring.\n",
@@ -1629,10 +1635,6 @@ static void handle_port_status(struct xhci_hcd *xhci,
 	 * into the index into the ports on the correct split roothub, and the
 	 * correct bus_state structure.
 	 */
-	/* Find the right roothub. */
-	hcd = xhci_to_hcd(xhci);
-	if ((major_revision == 0x03) != (hcd->speed == HCD_USB3))
-		hcd = xhci->shared_hcd;
 	bus_state = &xhci->bus_state[hcd_index(hcd)];
 	if (hcd->speed == HCD_USB3)
 		port_array = xhci->usb3_ports;
@@ -2715,13 +2717,11 @@ irqreturn_t xhci_irq(struct usb_hcd *hcd)
 {
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
 	u32 status;
-	union xhci_trb *trb;
 	u64 temp_64;
 	union xhci_trb *event_ring_deq;
 	dma_addr_t deq;
 
 	spin_lock(&xhci->lock);
-	trb = xhci->event_ring->dequeue;
 	/* Check if the xHC generated the interrupt, or the irq is shared */
 	status = xhci_readl(xhci, &xhci->op_regs->status);
 	if (status == 0xffffffff)

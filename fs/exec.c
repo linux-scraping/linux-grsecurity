@@ -147,7 +147,7 @@ SYSCALL_DEFINE1(uselib, const char __user *, library)
 		goto out;
 
 	error = -EINVAL;
-	if (!S_ISREG(file->f_path.dentry->d_inode->i_mode))
+	if (!S_ISREG(file_inode(file)->i_mode))
 		goto exit;
 
 	error = -EACCES;
@@ -393,7 +393,7 @@ static bool valid_arg_len(struct linux_binprm *bprm, long len)
  * flags, permissions, and offset, so we use temporary values.  We'll update
  * them later in setup_arg_pages().
  */
-int bprm_mm_init(struct linux_binprm *bprm)
+static int bprm_mm_init(struct linux_binprm *bprm)
 {
 	int err;
 	struct mm_struct *mm = NULL;
@@ -792,18 +792,18 @@ int setup_arg_pages(struct linux_binprm *bprm,
 
 #if !defined(CONFIG_STACK_GROWSUP) && defined(CONFIG_PAX_RANDMMAP)
 	if (!ret && (mm->pax_flags & MF_PAX_RANDMMAP) && STACK_TOP <= 0xFFFFFFFFU && STACK_TOP > vma->vm_end) {
-		unsigned long size, flags, vm_flags;
+		unsigned long size;
+		vm_flags_t vm_flags;
 
 		size = STACK_TOP - vma->vm_end;
-		flags = MAP_FIXED | MAP_PRIVATE;
 		vm_flags = VM_NONE | VM_DONTEXPAND | VM_DONTDUMP;
 
-		ret = vma->vm_end != mmap_region(NULL, vma->vm_end, size, flags, vm_flags, 0);
+		ret = vma->vm_end != mmap_region(NULL, vma->vm_end, size, vm_flags, 0);
 
 #ifdef CONFIG_X86
 		if (!ret) {
 			size = mmap_min_addr + ((mm->delta_mmap ^ mm->delta_stack) & (0xFFUL << PAGE_SHIFT));
-			ret = 0 != mmap_region(NULL, 0, PAGE_ALIGN(size), flags, vm_flags, 0);
+			ret = 0 != mmap_region(NULL, 0, PAGE_ALIGN(size), vm_flags, 0);
 		}
 #endif
 
@@ -837,7 +837,7 @@ struct file *open_exec(const char *name)
 		goto out;
 
 	err = -EACCES;
-	if (!S_ISREG(file->f_path.dentry->d_inode->i_mode))
+	if (!S_ISREG(file_inode(file)->i_mode))
 		goto exit;
 
 	if (file->f_path.mnt->mnt_flags & MNT_NOEXEC)
@@ -1176,7 +1176,7 @@ EXPORT_SYMBOL(flush_old_exec);
 
 void would_dump(struct linux_binprm *bprm, struct file *file)
 {
-	if (inode_permission(file->f_path.dentry->d_inode, MAY_READ) < 0)
+	if (inode_permission(file_inode(file), MAY_READ) < 0)
 		bprm->interp_flags |= BINPRM_FLAGS_ENFORCE_NONDUMP;
 }
 EXPORT_SYMBOL(would_dump);
@@ -1189,7 +1189,7 @@ void setup_new_exec(struct linux_binprm * bprm)
 	current->sas_ss_sp = current->sas_ss_size = 0;
 
 	if (uid_eq(current_euid(), current_uid()) && gid_eq(current_egid(), current_gid()))
-		set_dumpable(current->mm, SUID_DUMPABLE_ENABLED);
+		set_dumpable(current->mm, SUID_DUMP_USER);
 	else
 		set_dumpable(current->mm, suid_dumpable);
 
@@ -1348,7 +1348,7 @@ static int check_unsafe_exec(struct linux_binprm *bprm)
 int prepare_binprm(struct linux_binprm *bprm)
 {
 	umode_t mode;
-	struct inode * inode = bprm->file->f_path.dentry->d_inode;
+	struct inode * inode = file_inode(bprm->file);
 	int retval;
 
 	mode = inode->i_mode;
@@ -1627,7 +1627,7 @@ static int do_execve_common(const char *filename,
 		goto out_file;
 	}
 
-	if (!gr_acl_handle_execve(file->f_dentry, file->f_vfsmnt)) {
+	if (!gr_acl_handle_execve(file->f_path.dentry, file->f_path.mnt)) {
 		retval = -EACCES;
 		goto out_file;
 	}
@@ -1674,7 +1674,7 @@ static int do_execve_common(const char *filename,
 		goto out_fail;
 	}
 
-	retval = gr_set_proc_label(file->f_dentry, file->f_vfsmnt,
+	retval = gr_set_proc_label(file->f_path.dentry, file->f_path.mnt,
 					bprm->unsafe);
 	if (retval < 0)
 		goto out_fail;
@@ -1692,7 +1692,7 @@ static int do_execve_common(const char *filename,
 	if (retval < 0)
 		goto out_fail;
 
-	gr_log_chroot_exec(file->f_dentry, file->f_vfsmnt);
+	gr_log_chroot_exec(file->f_path.dentry, file->f_path.mnt);
 
 	gr_handle_exec_args(bprm, argv);
 
@@ -1813,17 +1813,17 @@ EXPORT_SYMBOL(set_binfmt);
 void set_dumpable(struct mm_struct *mm, int value)
 {
 	switch (value) {
-	case SUID_DUMPABLE_DISABLED:
+	case SUID_DUMP_DISABLE:
 		clear_bit(MMF_DUMPABLE, &mm->flags);
 		smp_wmb();
 		clear_bit(MMF_DUMP_SECURELY, &mm->flags);
 		break;
-	case SUID_DUMPABLE_ENABLED:
+	case SUID_DUMP_USER:
 		set_bit(MMF_DUMPABLE, &mm->flags);
 		smp_wmb();
 		clear_bit(MMF_DUMP_SECURELY, &mm->flags);
 		break;
-	case SUID_DUMPABLE_SAFE:
+	case SUID_DUMP_ROOT:
 		set_bit(MMF_DUMP_SECURELY, &mm->flags);
 		smp_wmb();
 		set_bit(MMF_DUMPABLE, &mm->flags);
@@ -1836,7 +1836,7 @@ int __get_dumpable(unsigned long mm_flags)
 	int ret;
 
 	ret = mm_flags & MMF_DUMPABLE_MASK;
-	return (ret > SUID_DUMPABLE_ENABLED) ? SUID_DUMPABLE_SAFE : ret;
+	return (ret > SUID_DUMP_USER) ? SUID_DUMP_ROOT : ret;
 }
 
 int get_dumpable(struct mm_struct *mm)

@@ -239,6 +239,7 @@ static unsigned long hugetlb_get_unmapped_area_bottomup(struct file *file,
 	info.high_limit = TASK_SIZE;
 	info.align_mask = PAGE_MASK & ~huge_page_mask(h);
 	info.align_offset = 0;
+	info.threadstack_offset = 0;
 	return vm_unmapped_area(&info);
 }
 
@@ -256,6 +257,7 @@ static unsigned long hugetlb_get_unmapped_area_topdown(struct file *file,
 	info.high_limit = current->mm->mmap_base;
 	info.align_mask = PAGE_MASK & ~huge_page_mask(h);
 	info.align_offset = 0;
+	info.threadstack_offset = 0;
 	addr = vm_unmapped_area(&info);
 
 	/*

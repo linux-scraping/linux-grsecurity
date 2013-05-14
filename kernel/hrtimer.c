@@ -44,6 +44,8 @@
 #include <linux/err.h>
 #include <linux/debugobjects.h>
 #include <linux/sched.h>
+#include <linux/sched/sysctl.h>
+#include <linux/sched/rt.h>
 #include <linux/timer.h>
 
 #include <asm/uaccess.h>
@@ -274,6 +276,10 @@ ktime_t ktime_add_ns(const ktime_t kt, u64 nsec)
 	} else {
 		unsigned long rem = do_div(nsec, NSEC_PER_SEC);
 
+		/* Make sure nsec fits into long */
+		if (unlikely(nsec > KTIME_SEC_MAX))
+			return (ktime_t){ .tv64 = KTIME_MAX };
+
 		tmp = ktime_set((long)nsec, rem);
 	}
 
@@ -297,10 +303,6 @@ ktime_t ktime_sub_ns(const ktime_t kt, u64 nsec)
 		tmp.tv64 = nsec;
 	} else {
 		unsigned long rem = do_div(nsec, NSEC_PER_SEC);
-
-		/* Make sure nsec fits into long */
-		if (unlikely(nsec > KTIME_SEC_MAX))
-			return (ktime_t){ .tv64 = KTIME_MAX };
 
 		tmp = ktime_set((long)nsec, rem);
 	}

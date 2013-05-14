@@ -256,9 +256,7 @@ copy_to_user(void __user *to, const void *from, unsigned long n)
 	if ((long)n < 0)
 		return n;
 
-	if (access_ok(VERIFY_WRITE, to, n))
-		n = __copy_to_user(to, from, n);
-	return n;
+	return __copy_to_user(to, from, n);
 }
 
 /**
@@ -326,11 +324,7 @@ copy_from_user(void *to, const void __user *from, unsigned long n)
 		copy_from_user_overflow();
 		return n;
 	}
-	if (access_ok(VERIFY_READ, from, n))
-		n = __copy_from_user(to, from, n);
-	else
-		memset(to, 0, n);
-	return n;
+	return __copy_from_user(to, from, n);
 }
 
 static inline unsigned long __must_check
@@ -343,9 +337,7 @@ static inline unsigned long __must_check
 copy_in_user(void __user *to, const void __user *from, unsigned long n)
 {
 	might_fault();
-	if (__access_ok(from,n) && __access_ok(to,n))
-		n = __copy_in_user(to, from, n);
-	return n;
+	return __copy_in_user(to, from, n);
 }
 
 /*
@@ -354,11 +346,8 @@ copy_in_user(void __user *to, const void __user *from, unsigned long n)
 static inline long __must_check
 strncpy_from_user(char *dst, const char __user *src, long count)
 {
-        long res = -EFAULT;
 	might_fault();
-        if (access_ok(VERIFY_READ, src, 1))
-		res = uaccess.strncpy_from_user(count, src, dst);
-        return res;
+	return uaccess.strncpy_from_user(count, src, dst);
 }
 
 static inline unsigned long
@@ -398,9 +387,7 @@ static inline unsigned long __must_check
 clear_user(void __user *to, unsigned long n)
 {
 	might_fault();
-	if (access_ok(VERIFY_WRITE, to, n))
-		n = uaccess.clear_user(n, to);
-	return n;
+	return uaccess.clear_user(n, to);
 }
 
 extern int copy_to_user_real(void __user *dest, void *src, size_t count);

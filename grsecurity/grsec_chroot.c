@@ -13,7 +13,7 @@
 static int gr_init_ran;
 #endif
 
-void gr_set_chroot_entries(struct task_struct *task, struct path *path)
+void gr_set_chroot_entries(struct task_struct *task, const struct path *path)
 {
 #ifdef CONFIG_GRKERNSEC
 	if (task_pid_nr(task) > 1 && path->dentry != init_task.fs->root.dentry &&
@@ -344,7 +344,7 @@ gr_handle_chroot_sysctl(const int op)
 }
 
 void
-gr_handle_chroot_chdir(struct path *path)
+gr_handle_chroot_chdir(const struct path *path)
 {
 #ifdef CONFIG_GRKERNSEC_CHROOT_CHDIR
 	if (grsec_enable_chroot_chdir)

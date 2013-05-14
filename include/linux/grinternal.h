@@ -93,19 +93,19 @@ extern rwlock_t grsec_exec_file_lock;
 
 #define gr_task_fullpath(tsk) ((tsk)->exec_file ? \
 			gr_to_filename2((tsk)->exec_file->f_path.dentry, \
-			(tsk)->exec_file->f_vfsmnt) : "/")
+			(tsk)->exec_file->f_path.mnt) : "/")
 
 #define gr_parent_task_fullpath(tsk) ((tsk)->real_parent->exec_file ? \
 			gr_to_filename3((tsk)->real_parent->exec_file->f_path.dentry, \
-			(tsk)->real_parent->exec_file->f_vfsmnt) : "/")
+			(tsk)->real_parent->exec_file->f_path.mnt) : "/")
 
 #define gr_task_fullpath0(tsk) ((tsk)->exec_file ? \
 			gr_to_filename((tsk)->exec_file->f_path.dentry, \
-			(tsk)->exec_file->f_vfsmnt) : "/")
+			(tsk)->exec_file->f_path.mnt) : "/")
 
 #define gr_parent_task_fullpath0(tsk) ((tsk)->real_parent->exec_file ? \
 			gr_to_filename1((tsk)->real_parent->exec_file->f_path.dentry, \
-			(tsk)->real_parent->exec_file->f_vfsmnt) : "/")
+			(tsk)->real_parent->exec_file->f_path.mnt) : "/")
 
 #define proc_is_chrooted(tsk_a)  ((tsk_a)->gr_is_chrooted)
 

@@ -42,7 +42,7 @@ int gr_handle_chroot_setpriority(struct task_struct *p,
 int gr_chroot_fchdir(struct dentry *u_dentry, struct vfsmount *u_mnt);
 int gr_handle_chroot_chroot(const struct dentry *dentry,
 				   const struct vfsmount *mnt);
-void gr_handle_chroot_chdir(struct path *path);
+void gr_handle_chroot_chdir(const struct path *path);
 int gr_handle_chroot_chmod(const struct dentry *dentry,
 				  const struct vfsmount *mnt, const int mode);
 int gr_handle_chroot_mknod(const struct dentry *dentry,
@@ -62,7 +62,7 @@ umode_t gr_acl_umask(void);
 
 int gr_tpe_allow(const struct file *file);
 
-void gr_set_chroot_entries(struct task_struct *task, struct path *path);
+void gr_set_chroot_entries(struct task_struct *task, const struct path *path);
 void gr_clear_chroot_entries(struct task_struct *task);
 
 void gr_log_forkfail(const int retval);

@@ -1135,23 +1135,6 @@ int_restore_rest:
 	CFI_ENDPROC
 ENDPROC(system_call)
 
-/*
- * Certain special system calls that need to save a complete full stack frame.
- */
-	.macro PTREGSCALL label,func,arg
-ENTRY(\label)
-	PARTIAL_FRAME 1 8		/* offset 8: return address */
-	subq $REST_SKIP, %rsp
-	CFI_ADJUST_CFA_OFFSET REST_SKIP
-	call save_rest
-	DEFAULT_FRAME 0 8		/* offset 8: return address */
-	leaq 8(%rsp), \arg	/* pt_regs pointer */
-	call \func
-	jmp ptregscall_common
-	CFI_ENDPROC
-ENDPROC(\label)
-	.endm
-
 	.macro FORK_LIKE func
 ENTRY(stub_\func)
 	CFI_STARTPROC
@@ -1169,10 +1152,23 @@ ENTRY(stub_\func)
 ENDPROC(stub_\func)
 	.endm
 
+	.macro FIXED_FRAME label,func
+ENTRY(\label)
+	CFI_STARTPROC
+	PARTIAL_FRAME 0 8		/* offset 8: return address */
+	FIXUP_TOP_OF_STACK %r11, 8-ARGOFFSET
+	call \func
+	RESTORE_TOP_OF_STACK %r11, 8-ARGOFFSET
+	pax_force_retaddr
+	ret
+	CFI_ENDPROC
+ENDPROC(\label)
+	.endm
+
 	FORK_LIKE  clone
 	FORK_LIKE  fork
 	FORK_LIKE  vfork
-	PTREGSCALL stub_iopl, sys_iopl, %rsi
+	FIXED_FRAME stub_iopl, sys_iopl
 
 ENTRY(ptregscall_common)
 	DEFAULT_FRAME 1 8	/* offset 8: return address */
@@ -1195,7 +1191,6 @@ ENTRY(stub_execve)
 	SAVE_REST
 	FIXUP_TOP_OF_STACK %r11
 	call sys_execve
-	RESTORE_TOP_OF_STACK %r11
 	movq %rax,RAX(%rsp)
 	RESTORE_REST
 	jmp int_ret_from_sys_call
@@ -1211,7 +1206,6 @@ ENTRY(stub_rt_sigreturn)
 	addq $8, %rsp
 	PARTIAL_FRAME 0
 	SAVE_REST
-	movq %rsp,%rdi
 	FIXUP_TOP_OF_STACK %r11
 	call sys_rt_sigreturn
 	movq %rax,RAX(%rsp) # fixme, this could be done at the higher layer
@@ -1226,14 +1220,13 @@ ENTRY(stub_x32_rt_sigreturn)
 	addq $8, %rsp
 	PARTIAL_FRAME 0
 	SAVE_REST
-	movq %rsp,%rdi
 	FIXUP_TOP_OF_STACK %r11
 	call sys32_x32_rt_sigreturn
 	movq %rax,RAX(%rsp) # fixme, this could be done at the higher layer
 	RESTORE_REST
 	jmp int_ret_from_sys_call
 	CFI_ENDPROC
-END(stub_x32_rt_sigreturn)
+ENDPROC(stub_x32_rt_sigreturn)
 
 ENTRY(stub_x32_execve)
 	CFI_STARTPROC
@@ -1247,7 +1240,7 @@ ENTRY(stub_x32_execve)
 	RESTORE_REST
 	jmp int_ret_from_sys_call
 	CFI_ENDPROC
-END(stub_x32_execve)
+ENDPROC(stub_x32_execve)
 
 #endif
 
@@ -1835,10 +1828,15 @@ ENTRY(xen_failsafe_callback)
 	CFI_ENDPROC
 ENDPROC(xen_failsafe_callback)
 
-apicinterrupt XEN_HVM_EVTCHN_CALLBACK \
+apicinterrupt HYPERVISOR_CALLBACK_VECTOR \
 	xen_hvm_callback_vector xen_evtchn_do_upcall
 
 #endif /* CONFIG_XEN */
+
+#if IS_ENABLED(CONFIG_HYPERV)
+apicinterrupt HYPERVISOR_CALLBACK_VECTOR \
+	hyperv_callback_vector hyperv_vector_handler
+#endif /* CONFIG_HYPERV */
 
 /*
  * Some functions should be protected against kprobes

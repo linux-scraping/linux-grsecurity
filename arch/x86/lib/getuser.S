@@ -15,11 +15,10 @@
  * __get_user_X
  *
  * Inputs:	%[r|e]ax contains the address.
- *		The register is modified, but all changes are undone
- *		before returning because the C code doesn't know about it.
  *
  * Outputs:	%[r|e]ax is error code (0 or -EFAULT)
  *		%[r|e]dx contains zero-extended value
+ *		%ecx contains the high half for 32-bit __get_user_8
  *
  *
  * These functions should not modify any other registers,
@@ -64,7 +63,7 @@ ENTRY(__get_user_1)
 
 #endif
 
-1:	__copyuser_seg movzb (%_ASM_AX),%edx
+1:	__copyuser_seg movzbl (%_ASM_AX),%edx
 	xor %eax,%eax
 	ASM_CLAC
 	pax_force_retaddr
@@ -122,7 +121,7 @@ ENTRY(__get_user_4)
 
 #endif
 
-3:	__copyuser_seg mov -3(%_ASM_AX),%edx
+3:	__copyuser_seg movl -3(%_ASM_AX),%edx
 	xor %eax,%eax
 	ASM_CLAC
 	pax_force_retaddr
@@ -130,14 +129,14 @@ ENTRY(__get_user_4)
 	CFI_ENDPROC
 ENDPROC(__get_user_4)
 
-#ifdef CONFIG_X86_64
 ENTRY(__get_user_8)
 	CFI_STARTPROC
+#ifdef CONFIG_X86_64
 	add $7,%_ASM_AX
 	jc bad_get_user
 	GET_THREAD_INFO(%_ASM_DX)
 	cmp TI_addr_limit(%_ASM_DX),%_ASM_AX
-	jae	bad_get_user
+	jae bad_get_user
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	mov pax_user_shadow_base,%_ASM_DX
@@ -148,14 +147,28 @@ ENTRY(__get_user_8)
 #endif
 
 	ASM_STAC
-4:	movq -7(%_ASM_AX),%_ASM_DX
+4:	movq -7(%_ASM_AX),%rdx
 	xor %eax,%eax
 	ASM_CLAC
 	pax_force_retaddr
 	ret
+#else
+	add $7,%_ASM_AX
+	jc bad_get_user_8
+	GET_THREAD_INFO(%_ASM_DX)
+	cmp TI_addr_limit(%_ASM_DX),%_ASM_AX
+	jae bad_get_user_8
+	ASM_STAC
+4:	movl -7(%_ASM_AX),%edx
+5:	movl -3(%_ASM_AX),%ecx
+	xor %eax,%eax
+	ASM_CLAC
+	pax_force_retaddr
+	ret
+#endif
 	CFI_ENDPROC
 ENDPROC(__get_user_8)
-#endif
+
 
 bad_get_user:
 	CFI_STARTPROC
@@ -167,9 +180,25 @@ bad_get_user:
 	CFI_ENDPROC
 END(bad_get_user)
 
+#ifdef CONFIG_X86_32
+bad_get_user_8:
+	CFI_STARTPROC
+	xor %edx,%edx
+	xor %ecx,%ecx
+	mov $(-EFAULT),%_ASM_AX
+	ASM_CLAC
+	pax_force_retaddr
+	ret
+	CFI_ENDPROC
+END(bad_get_user_8)
+#endif
+
 	_ASM_EXTABLE(1b,bad_get_user)
 	_ASM_EXTABLE(2b,bad_get_user)
 	_ASM_EXTABLE(3b,bad_get_user)
 #ifdef CONFIG_X86_64
 	_ASM_EXTABLE(4b,bad_get_user)
+#else
+	_ASM_EXTABLE(4b,bad_get_user_8)
+	_ASM_EXTABLE(5b,bad_get_user_8)
 #endif

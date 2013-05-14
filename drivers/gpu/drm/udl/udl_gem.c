@@ -137,7 +137,7 @@ static int udl_gem_get_pages(struct udl_gem_object *obj, gfp_t gfpmask)
 	if (obj->pages == NULL)
 		return -ENOMEM;
 
-	inode = obj->base.filp->f_path.dentry->d_inode;
+	inode = file_inode(obj->base.filp);
 	mapping = inode->i_mapping;
 	gfpmask |= mapping_gfp_mask(mapping);
 
@@ -303,6 +303,8 @@ struct drm_gem_object *udl_gem_prime_import(struct drm_device *dev,
 	if (IS_ERR(attach))
 		return ERR_CAST(attach);
 
+	get_dma_buf(dma_buf);
+
 	sg = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(sg)) {
 		ret = PTR_ERR(sg);
@@ -322,5 +324,7 @@ fail_unmap:
 	dma_buf_unmap_attachment(attach, sg, DMA_BIDIRECTIONAL);
 fail_detach:
 	dma_buf_detach(dma_buf, attach);
+	dma_buf_put(dma_buf);
+
 	return ERR_PTR(ret);
 }

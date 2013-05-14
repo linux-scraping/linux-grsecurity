@@ -34,6 +34,9 @@
  * The ASID is used to tag entries in the CPU caches and TLBs.
  * The context ID is used by debuggers and trace logic, and
  * should be unique within all running processes.
+ *
+ * In big endian operation, the two 32 bit words are swapped if accesed by
+ * non 64-bit operations.
  */
 #define ASID_FIRST_VERSION	(1ULL << ASID_BITS)
 #define NUM_USER_ASIDS		(ASID_FIRST_VERSION - 1)
@@ -210,6 +213,7 @@ void check_and_switch_context(struct mm_struct *mm, struct task_struct *tsk)
 	}
 
 	if (cpumask_test_and_clear_cpu(cpu, &tlb_flush_pending)) {
+		local_flush_bp_all();
 		local_flush_tlb_all();
 		dummy_flush_tlb_a15_erratum();
 	}

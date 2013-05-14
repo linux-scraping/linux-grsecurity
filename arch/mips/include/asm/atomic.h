@@ -1,5 +1,5 @@
 /*
- * Atomic operations that C can't guarantee us.  Useful for
+ * Atomic operations that C can't guarantee us.	 Useful for
  * resource counting etc..
  *
  * But use these as seldom as possible since they are much more slower
@@ -25,7 +25,7 @@
 #include <asm-generic/atomic64.h>
 #endif
 
-#define ATOMIC_INIT(i)    { (i) }
+#define ATOMIC_INIT(i)	  { (i) }
 
 /*
  * atomic_read - read atomic variable

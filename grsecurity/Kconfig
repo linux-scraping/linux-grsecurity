@@ -86,7 +86,7 @@ config GRKERNSEC_JIT_HARDEN
 config GRKERNSEC_RAND_THREADSTACK
 	bool "Insert random gaps between thread stacks"
 	default y if GRKERNSEC_CONFIG_AUTO
-	depends on PAX_RANDMMAP && !PPC
+	depends on PAX_RANDMMAP && !PPC && BROKEN
 	help
 	  If you say Y here, a random-sized gap will be enforced between allocated
 	  thread stacks.  Glibc's NPTL and other threading libraries that

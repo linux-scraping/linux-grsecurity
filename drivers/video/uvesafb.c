@@ -2014,7 +2014,8 @@ static int uvesafb_init(void)
 			err = -ENOMEM;
 
 		if (err) {
-			platform_device_put(uvesafb_device);
+			if (uvesafb_device)
+				platform_device_put(uvesafb_device);
 			platform_driver_unregister(&uvesafb_driver);
 			cn_del_callback(&uvesafb_cn_id);
 			return err;

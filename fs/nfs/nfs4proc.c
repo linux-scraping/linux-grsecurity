@@ -93,6 +93,8 @@ static int nfs4_map_errors(int err)
 		return err;
 	switch (err) {
 	case -NFS4ERR_RESOURCE:
+	case -NFS4ERR_LAYOUTTRYLATER:
+	case -NFS4ERR_RECALLCONFLICT:
 		return -EREMOTEIO;
 	case -NFS4ERR_WRONGSEC:
 		return -EPERM;
@@ -896,6 +898,8 @@ static int can_open_delegated(struct nfs_delegation *delegation, fmode_t fmode)
 		return 0;
 	if (test_bit(NFS_DELEGATION_NEED_RECLAIM, &delegation->flags))
 		return 0;
+	if (test_bit(NFS_DELEGATION_RETURNING, &delegation->flags))
+		return 0;
 	nfs_mark_delegation_referenced(delegation);
 	return 1;
 }
@@ -973,6 +977,7 @@ static int update_open_stateid(struct nfs4_state *state, nfs4_stateid *open_stat
 
 	spin_lock(&deleg_cur->lock);
 	if (nfsi->delegation != deleg_cur ||
+	   test_bit(NFS_DELEGATION_RETURNING, &deleg_cur->flags) ||
 	    (deleg_cur->type & fmode) != fmode)
 		goto no_delegation_unlock;
 
@@ -1041,6 +1046,7 @@ static struct nfs4_state *nfs4_try_open_cached(struct nfs4_opendata *opendata)
 		/* Save the delegation */
 		nfs4_stateid_copy(&stateid, &delegation->stateid);
 		rcu_read_unlock();
+		nfs_release_seqid(opendata->o_arg.seqid);
 		ret = nfs_may_open(state->inode, state->owner->so_cred, open_mode);
 		if (ret != 0)
 			goto out;
@@ -1155,6 +1161,7 @@ _nfs4_opendata_to_nfs4_state(struct nfs4_opendata *data)
 			data->o_arg.fmode);
 	iput(inode);
 out:
+	nfs_release_seqid(data->o_arg.seqid);
 	return state;
 err_put_inode:
 	iput(inode);
@@ -1352,19 +1359,18 @@ int nfs4_open_delegation_recall(struct nfs_open_context *ctx, struct nfs4_state 
 			case -NFS4ERR_BAD_HIGH_SLOT:
 			case -NFS4ERR_CONN_NOT_BOUND_TO_SESSION:
 			case -NFS4ERR_DEADSESSION:
+				set_bit(NFS_DELEGATED_STATE, &state->flags);
 				nfs4_schedule_session_recovery(server->nfs_client->cl_session, err);
+				err = -EAGAIN;
 				goto out;
 			case -NFS4ERR_STALE_CLIENTID:
 			case -NFS4ERR_STALE_STATEID:
+				set_bit(NFS_DELEGATED_STATE, &state->flags);
 			case -NFS4ERR_EXPIRED:
 				/* Don't recall a delegation if it was lost */
 				nfs4_schedule_lease_recovery(server->nfs_client);
+				err = -EAGAIN;
 				goto out;
-			case -ERESTARTSYS:
-				/*
-				 * The show must go on: exit, but mark the
-				 * stateid as needing recovery.
-				 */
 			case -NFS4ERR_DELEG_REVOKED:
 			case -NFS4ERR_ADMIN_REVOKED:
 			case -NFS4ERR_BAD_STATEID:
@@ -1381,6 +1387,7 @@ int nfs4_open_delegation_recall(struct nfs_open_context *ctx, struct nfs4_state 
 				err = -EAGAIN;
 				goto out;
 		}
+		set_bit(NFS_DELEGATED_STATE, &state->flags);
 		err = nfs4_handle_exception(server, err, &exception);
 	} while (exception.retry);
 out:
@@ -1852,6 +1859,43 @@ static inline void nfs4_exclusive_attrset(struct nfs4_opendata *opendata, struct
 		sattr->ia_valid |= ATTR_MTIME;
 }
 
+static int _nfs4_open_and_get_state(struct nfs4_opendata *opendata,
+		fmode_t fmode,
+		int flags,
+		struct nfs4_state **res)
+{
+	struct nfs4_state_owner *sp = opendata->owner;
+	struct nfs_server *server = sp->so_server;
+	struct nfs4_state *state;
+	unsigned int seq;
+	int ret;
+
+	seq = raw_seqcount_begin(&sp->so_reclaim_seqcount);
+
+	ret = _nfs4_proc_open(opendata);
+	if (ret != 0)
+		goto out;
+
+	state = nfs4_opendata_to_nfs4_state(opendata);
+	ret = PTR_ERR(state);
+	if (IS_ERR(state))
+		goto out;
+	if (server->caps & NFS_CAP_POSIX_LOCK)
+		set_bit(NFS_STATE_POSIX_LOCKS, &state->flags);
+
+	ret = nfs4_opendata_access(sp->so_cred, opendata, state, fmode, flags);
+	if (ret != 0)
+		goto out;
+
+	if (read_seqcount_retry(&sp->so_reclaim_seqcount, seq)) {
+		nfs4_schedule_stateid_recovery(server, state);
+		nfs4_wait_clnt_recover(server->nfs_client);
+	}
+	*res = state;
+out:
+	return ret;
+}
+
 /*
  * Returns a referenced nfs4_state
  */
@@ -1896,18 +1940,7 @@ static int _nfs4_do_open(struct inode *dir,
 	if (dentry->d_inode != NULL)
 		opendata->state = nfs4_get_open_state(dentry->d_inode, sp);
 
-	status = _nfs4_proc_open(opendata);
-	if (status != 0)
-		goto err_opendata_put;
-
-	state = nfs4_opendata_to_nfs4_state(opendata);
-	status = PTR_ERR(state);
-	if (IS_ERR(state))
-		goto err_opendata_put;
-	if (server->caps & NFS_CAP_POSIX_LOCK)
-		set_bit(NFS_STATE_POSIX_LOCKS, &state->flags);
-
-	status = nfs4_opendata_access(cred, opendata, state, fmode, flags);
+	status = _nfs4_open_and_get_state(opendata, fmode, flags, &state);
 	if (status != 0)
 		goto err_opendata_put;
 
@@ -2095,7 +2128,7 @@ static void nfs4_free_closedata(void *data)
 	nfs4_put_open_state(calldata->state);
 	nfs_free_seqid(calldata->arg.seqid);
 	nfs4_put_state_owner(sp);
-	nfs_sb_deactive_async(sb);
+	nfs_sb_deactive(sb);
 	kfree(calldata);
 }
 
@@ -2606,7 +2639,7 @@ nfs4_proc_setattr(struct dentry *dentry, struct nfs_fattr *fattr,
 	int status;
 
 	if (pnfs_ld_layoutret_on_setattr(inode))
-		pnfs_return_layout(inode);
+		pnfs_commit_and_return_layout(inode);
 
 	nfs_fattr_init(fattr);
 	
@@ -4494,7 +4527,9 @@ static struct rpc_task *nfs4_do_unlck(struct file_lock *fl,
 
 static int nfs4_proc_unlck(struct nfs4_state *state, int cmd, struct file_lock *request)
 {
-	struct nfs_inode *nfsi = NFS_I(state->inode);
+	struct inode *inode = state->inode;
+	struct nfs4_state_owner *sp = state->owner;
+	struct nfs_inode *nfsi = NFS_I(inode);
 	struct nfs_seqid *seqid;
 	struct nfs4_lock_state *lsp;
 	struct rpc_task *task;
@@ -4504,12 +4539,17 @@ static int nfs4_proc_unlck(struct nfs4_state *state, int cmd, struct file_lock *
 	status = nfs4_set_lock_state(state, request);
 	/* Unlock _before_ we do the RPC call */
 	request->fl_flags |= FL_EXISTS;
+	/* Exclude nfs_delegation_claim_locks() */
+	mutex_lock(&sp->so_delegreturn_mutex);
+	/* Exclude nfs4_reclaim_open_stateid() - note nesting! */
 	down_read(&nfsi->rwsem);
 	if (do_vfs_lock(request->fl_file, request) == -ENOENT) {
 		up_read(&nfsi->rwsem);
+		mutex_unlock(&sp->so_delegreturn_mutex);
 		goto out;
 	}
 	up_read(&nfsi->rwsem);
+	mutex_unlock(&sp->so_delegreturn_mutex);
 	if (status != 0)
 		goto out;
 	/* Is this a delegated lock? */
@@ -4827,8 +4867,10 @@ static int nfs41_lock_expired(struct nfs4_state *state, struct file_lock *reques
 
 static int _nfs4_proc_setlk(struct nfs4_state *state, int cmd, struct file_lock *request)
 {
+	struct nfs4_state_owner *sp = state->owner;
 	struct nfs_inode *nfsi = NFS_I(state->inode);
 	unsigned char fl_flags = request->fl_flags;
+	unsigned int seq;
 	int status = -ENOLCK;
 
 	if ((fl_flags & FL_POSIX) &&
@@ -4850,9 +4892,16 @@ static int _nfs4_proc_setlk(struct nfs4_state *state, int cmd, struct file_lock 
 		status = do_vfs_lock(request->fl_file, request);
 		goto out_unlock;
 	}
+	seq = raw_seqcount_begin(&sp->so_reclaim_seqcount);
+	up_read(&nfsi->rwsem);
 	status = _nfs4_do_setlk(state, cmd, request, NFS_LOCK_NEW);
 	if (status != 0)
+		goto out;
+	down_read(&nfsi->rwsem);
+	if (read_seqcount_retry(&sp->so_reclaim_seqcount, seq)) {
+		status = -NFS4ERR_DELAY;
 		goto out_unlock;
+	}
 	/* Note: we always want to sleep here! */
 	request->fl_flags = fl_flags | FL_SLEEP;
 	if (do_vfs_lock(request->fl_file, request) < 0)
@@ -4959,24 +5008,22 @@ int nfs4_lock_delegation_recall(struct nfs4_state *state, struct file_lock *fl)
 			case 0:
 			case -ESTALE:
 				goto out;
-			case -NFS4ERR_EXPIRED:
-				nfs4_schedule_stateid_recovery(server, state);
 			case -NFS4ERR_STALE_CLIENTID:
 			case -NFS4ERR_STALE_STATEID:
+				set_bit(NFS_DELEGATED_STATE, &state->flags);
+			case -NFS4ERR_EXPIRED:
 				nfs4_schedule_lease_recovery(server->nfs_client);
+				err = -EAGAIN;
 				goto out;
 			case -NFS4ERR_BADSESSION:
 			case -NFS4ERR_BADSLOT:
 			case -NFS4ERR_BAD_HIGH_SLOT:
 			case -NFS4ERR_CONN_NOT_BOUND_TO_SESSION:
 			case -NFS4ERR_DEADSESSION:
+				set_bit(NFS_DELEGATED_STATE, &state->flags);
 				nfs4_schedule_session_recovery(server->nfs_client->cl_session, err);
+				err = -EAGAIN;
 				goto out;
-			case -ERESTARTSYS:
-				/*
-				 * The show must go on: exit, but mark the
-				 * stateid as needing recovery.
-				 */
 			case -NFS4ERR_DELEG_REVOKED:
 			case -NFS4ERR_ADMIN_REVOKED:
 			case -NFS4ERR_BAD_STATEID:
@@ -4984,14 +5031,19 @@ int nfs4_lock_delegation_recall(struct nfs4_state *state, struct file_lock *fl)
 				nfs4_schedule_stateid_recovery(server, state);
 				err = 0;
 				goto out;
+			case -NFS4ERR_DELAY:
+			case -NFS4ERR_GRACE:
+				set_bit(NFS_DELEGATED_STATE, &state->flags);
+				ssleep(1);
+				err = -EAGAIN;
+				goto out;
 			case -ENOMEM:
 			case -NFS4ERR_DENIED:
 				/* kill_proc(fl->fl_pid, SIGLOST, 1); */
 				err = 0;
 				goto out;
-			case -NFS4ERR_DELAY:
-				break;
 		}
+		set_bit(NFS_DELEGATED_STATE, &state->flags);
 		err = nfs4_handle_exception(server, err, &exception);
 	} while (exception.retry);
 out:
@@ -6009,6 +6061,7 @@ static void nfs4_layoutget_done(struct rpc_task *task, void *calldata)
 	struct nfs_server *server = NFS_SERVER(inode);
 	struct pnfs_layout_hdr *lo;
 	struct nfs4_state *state = NULL;
+	unsigned long timeo, giveup;
 
 	dprintk("--> %s\n", __func__);
 
@@ -6020,7 +6073,10 @@ static void nfs4_layoutget_done(struct rpc_task *task, void *calldata)
 		goto out;
 	case -NFS4ERR_LAYOUTTRYLATER:
 	case -NFS4ERR_RECALLCONFLICT:
-		task->tk_status = -NFS4ERR_DELAY;
+		timeo = rpc_get_timeout(task->tk_client);
+		giveup = lgp->args.timestamp + timeo;
+		if (time_after(giveup, jiffies))
+			task->tk_status = -NFS4ERR_DELAY;
 		break;
 	case -NFS4ERR_EXPIRED:
 	case -NFS4ERR_BAD_STATEID:
@@ -6141,6 +6197,7 @@ nfs4_proc_layoutget(struct nfs4_layoutget *lgp, gfp_t gfp_flags)
 		return ERR_PTR(-ENOMEM);
 	}
 	lgp->args.layout.pglen = max_pages * PAGE_SIZE;
+	lgp->args.timestamp = jiffies;
 
 	lgp->res.layoutp = &lgp->args.layout;
 	lgp->res.seq_res.sr_slot = NULL;

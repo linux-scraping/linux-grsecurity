@@ -1,6 +1,8 @@
 #ifndef _ASM_X86_PGTABLE_64_DEFS_H
 #define _ASM_X86_PGTABLE_64_DEFS_H
 
+#include <asm/sparsemem.h>
+
 #ifndef __ASSEMBLY__
 #include <linux/types.h>
 
@@ -64,5 +66,7 @@ typedef struct { pteval_t pte; } pte_t;
 
 #define ktla_ktva(addr)		(addr)
 #define ktva_ktla(addr)		(addr)
+
+#define EARLY_DYNAMIC_PAGE_TABLES	64
 
 #endif /* _ASM_X86_PGTABLE_64_DEFS_H */

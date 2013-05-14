@@ -11,7 +11,7 @@
  * Replace the fs->{rootmnt,root} with {mnt,dentry}. Put the old values.
  * It can block.
  */
-void set_fs_root(struct fs_struct *fs, struct path *path)
+void set_fs_root(struct fs_struct *fs, const struct path *path)
 {
 	struct path old_root;
 
@@ -31,7 +31,7 @@ void set_fs_root(struct fs_struct *fs, struct path *path)
  * Replace the fs->{pwdmnt,pwd} with {mnt,dentry}. Put the old values.
  * It can block.
  */
-void set_fs_pwd(struct fs_struct *fs, struct path *path)
+void set_fs_pwd(struct fs_struct *fs, const struct path *path)
 {
 	struct path old_pwd;
 
@@ -55,22 +55,7 @@ static inline int replace_path(struct path *p, const struct path *old, const str
 	return 1;
 }
 
-static inline int replace_root_path(struct task_struct *task, struct path *p, const struct path *old, struct path *new)
-{
-	if (likely(p->dentry != old->dentry || p->mnt != old->mnt))
-		return 0;
-	*p = *new;
-
-	/* This function is only called from pivot_root().  Leave our
-	   gr_chroot_dentry and is_chrooted flags as-is, so that a
-	   pivoted root isn't treated as a chroot
-	*/
-	//gr_set_chroot_entries(task, new);
-
-	return 1;
-}
-
-void chroot_fs_refs(struct path *old_root, struct path *new_root)
+void chroot_fs_refs(const struct path *old_root, const struct path *new_root)
 {
 	struct task_struct *g, *p;
 	struct fs_struct *fs;
@@ -84,7 +69,11 @@ void chroot_fs_refs(struct path *old_root, struct path *new_root)
 			int hits = 0;
 			spin_lock(&fs->lock);
 			write_seqcount_begin(&fs->seq);
-			hits += replace_root_path(p, &fs->root, old_root, new_root);
+			/* this root replacement is only done by pivot_root,
+			   leave grsec's chroot tagging alone for this task
+			   so that a pivoted root isn't treated as a chroot
+			*/
+			hits += replace_path(&fs->root, old_root, new_root);
 			hits += replace_path(&fs->pwd, old_root, new_root);
 			write_seqcount_end(&fs->seq);
 			while (hits--) {

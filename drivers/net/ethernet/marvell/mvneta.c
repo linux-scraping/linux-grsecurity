@@ -12,7 +12,6 @@
  */
 
 #include <linux/kernel.h>
-#include <linux/version.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/platform_device.h>
@@ -2772,15 +2771,16 @@ static int mvneta_probe(struct platform_device *pdev)
 
 	netif_napi_add(dev, &pp->napi, mvneta_poll, pp->weight);
 
+	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM;
+	dev->hw_features |= NETIF_F_SG | NETIF_F_IP_CSUM;
+	dev->vlan_features |= NETIF_F_SG | NETIF_F_IP_CSUM;
+	dev->priv_flags |= IFF_UNICAST_FLT;
+
 	err = register_netdev(dev);
 	if (err < 0) {
 		dev_err(&pdev->dev, "failed to register\n");
 		goto err_deinit;
 	}
-
-	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM;
-	dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM;
-	dev->priv_flags |= IFF_UNICAST_FLT;
 
 	netdev_info(dev, "mac: %pM\n", dev->dev_addr);
 

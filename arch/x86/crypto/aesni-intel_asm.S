@@ -1263,7 +1263,6 @@ TMP7 XMM1 XMM2 XMM3 XMM4 XMMDst
 * poly = x^128 + x^127 + x^126 + x^121 + 1
 *
 *****************************************************************************/
-
 ENTRY(aesni_gcm_dec)
 	push	%r12
 	push	%r13
@@ -1709,6 +1708,7 @@ ENDPROC(aesni_gcm_enc)
 #endif
 
 
+.align 4
 _key_expansion_128:
 _key_expansion_256a:
 	pshufd $0b11111111, %xmm1, %xmm1
@@ -1721,6 +1721,8 @@ _key_expansion_256a:
 	add $0x10, TKEYP
 	pax_force_retaddr_bts
 	ret
+ENDPROC(_key_expansion_128)
+ENDPROC(_key_expansion_256a)
 
 .align 4
 _key_expansion_192a:
@@ -1746,6 +1748,7 @@ _key_expansion_192a:
 	add $0x20, TKEYP
 	pax_force_retaddr_bts
 	ret
+ENDPROC(_key_expansion_192a)
 
 .align 4
 _key_expansion_192b:
@@ -1766,6 +1769,7 @@ _key_expansion_192b:
 	add $0x10, TKEYP
 	pax_force_retaddr_bts
 	ret
+ENDPROC(_key_expansion_192b)
 
 .align 4
 _key_expansion_256b:
@@ -1779,6 +1783,7 @@ _key_expansion_256b:
 	add $0x10, TKEYP
 	pax_force_retaddr_bts
 	ret
+ENDPROC(_key_expansion_256b)
 
 /*
  * int aesni_set_key(struct crypto_aes_ctx *ctx, const u8 *in_key,
@@ -1974,6 +1979,7 @@ _aesni_enc1:
 	AESENCLAST KEY STATE
 	pax_force_retaddr_bts
 	ret
+ENDPROC(_aesni_enc1)
 
 /*
  * _aesni_enc4:	internal ABI
@@ -2083,6 +2089,7 @@ _aesni_enc4:
 	AESENCLAST KEY STATE4
 	pax_force_retaddr_bts
 	ret
+ENDPROC(_aesni_enc4)
 
 /*
  * void aesni_dec (struct crypto_aes_ctx *ctx, u8 *dst, const u8 *src)
@@ -2165,6 +2172,7 @@ _aesni_dec1:
 	AESDECLAST KEY STATE
 	pax_force_retaddr_bts
 	ret
+ENDPROC(_aesni_dec1)
 
 /*
  * _aesni_dec4:	internal ABI
@@ -2274,6 +2282,7 @@ _aesni_dec4:
 	AESDECLAST KEY STATE4
 	pax_force_retaddr_bts
 	ret
+ENDPROC(_aesni_dec4)
 
 /*
  * void aesni_ecb_enc(struct crypto_aes_ctx *ctx, const u8 *dst, u8 *src,
@@ -2555,6 +2564,7 @@ _aesni_inc_init:
 	MOVQ_R64_XMM CTR TCTR_LOW
 	pax_force_retaddr_bts
 	ret
+ENDPROC(_aesni_inc_init)
 
 /*
  * _aesni_inc:		internal ABI
@@ -2584,6 +2594,7 @@ _aesni_inc:
 	PSHUFB_XMM BSWAP_MASK IV
 	pax_force_retaddr_bts
 	ret
+ENDPROC(_aesni_inc)
 
 /*
  * void aesni_ctr_enc(struct crypto_aes_ctx *ctx, const u8 *dst, u8 *src,

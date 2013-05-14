@@ -32,6 +32,7 @@
 #include <linux/khugepaged.h>
 #include <linux/uprobes.h>
 #include <linux/rbtree_augmented.h>
+#include <linux/sched/sysctl.h>
 #include <linux/random.h>
 
 #include <asm/uaccess.h>
@@ -164,7 +165,7 @@ int __vm_enough_memory(struct mm_struct *mm, long pages, int cap_sys_admin)
 		 */
 		free -= global_page_state(NR_SHMEM);
 
-		free += nr_swap_pages;
+		free += get_nr_swap_pages();
 
 		/*
 		 * Any slabs which are created with the
@@ -223,7 +224,7 @@ static void __remove_shared_vm_struct(struct vm_area_struct *vma,
 		struct file *file, struct address_space *mapping)
 {
 	if (vma->vm_flags & VM_DENYWRITE)
-		atomic_inc(&file->f_path.dentry->d_inode->i_writecount);
+		atomic_inc(&file_inode(file)->i_writecount);
 	if (vma->vm_flags & VM_SHARED)
 		mapping->i_mmap_writable--;
 
@@ -277,6 +278,7 @@ SYSCALL_DEFINE1(brk, unsigned long, brk)
 	unsigned long newbrk, oldbrk;
 	struct mm_struct *mm = current->mm;
 	unsigned long min_brk;
+	bool populate;
 
 	down_write(&mm->mmap_sem);
 
@@ -327,8 +329,15 @@ SYSCALL_DEFINE1(brk, unsigned long, brk)
 	/* Ok, looks good - let it rip. */
 	if (do_brk(oldbrk, newbrk-oldbrk) != oldbrk)
 		goto out;
+
 set_brk:
 	mm->brk = brk;
+	populate = newbrk > oldbrk && (mm->def_flags & VM_LOCKED) != 0;
+	up_write(&mm->mmap_sem);
+	if (populate)
+		mm_populate(oldbrk, newbrk - oldbrk);
+	return brk;
+
 out:
 	retval = mm->brk;
 	up_write(&mm->mmap_sem);
@@ -590,7 +599,7 @@ static void __vma_link_file(struct vm_area_struct *vma)
 		struct address_space *mapping = file->f_mapping;
 
 		if (vma->vm_flags & VM_DENYWRITE)
-			atomic_dec(&file->f_path.dentry->d_inode->i_writecount);
+			atomic_dec(&file_inode(file)->i_writecount);
 		if (vma->vm_flags & VM_SHARED)
 			mapping->i_mmap_writable++;
 
@@ -823,7 +832,7 @@ again:			remove_next = 1 + (end > next->vm_end);
 		anon_vma_interval_tree_post_update_vma(vma);
 		if (adjust_next)
 			anon_vma_interval_tree_post_update_vma(next);
-		anon_vma_unlock(anon_vma);
+		anon_vma_unlock_write(anon_vma);
 	}
 	if (mapping)
 		mutex_unlock(&mapping->i_mmap_mutex);
@@ -1236,11 +1245,14 @@ static inline unsigned long round_hint_to_min(unsigned long hint)
 
 unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 			unsigned long len, unsigned long prot,
-			unsigned long flags, unsigned long pgoff)
+			unsigned long flags, unsigned long pgoff,
+			unsigned long *populate)
 {
 	struct mm_struct * mm = current->mm;
 	struct inode *inode;
 	vm_flags_t vm_flags;
+
+	*populate = 0;
 
 	/*
 	 * Does the application expect PROT_READ to imply PROT_EXEC?
@@ -1331,7 +1343,7 @@ unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 			return -EAGAIN;
 	}
 
-	inode = file ? file->f_path.dentry->d_inode : NULL;
+	inode = file ? file_inode(file) : NULL;
 
 	if (file) {
 		switch (flags & MAP_TYPE) {
@@ -1393,10 +1405,29 @@ unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 		}
 	}
 
+	/*
+	 * Set 'VM_NORESERVE' if we should not account for the
+	 * memory use of this mapping.
+	 */
+	if (flags & MAP_NORESERVE) {
+		/* We honor MAP_NORESERVE if allowed to overcommit */
+		if (sysctl_overcommit_memory != OVERCOMMIT_NEVER)
+			vm_flags |= VM_NORESERVE;
+
+		/* hugetlb applies strict overcommit unless MAP_NORESERVE */
+		if (file && is_file_hugepages(file))
+			vm_flags |= VM_NORESERVE;
+	}
+
 	if (!gr_acl_handle_mmap(file, prot))
 		return -EACCES;
-
-	return mmap_region(file, addr, len, flags, vm_flags, pgoff);
+	
+	addr = mmap_region(file, addr, len, vm_flags, pgoff);
+	if (!IS_ERR_VALUE(addr) &&
+	    ((vm_flags & VM_LOCKED) ||
+	     (flags & (MAP_POPULATE | MAP_NONBLOCK)) == MAP_POPULATE))
+		*populate = len;
+	return addr;
 }
 
 SYSCALL_DEFINE6(mmap_pgoff, unsigned long, addr, unsigned long, len,
@@ -1516,8 +1547,7 @@ static inline int accountable_mapping(struct file *file, vm_flags_t vm_flags)
 }
 
 unsigned long mmap_region(struct file *file, unsigned long addr,
-			  unsigned long len, unsigned long flags,
-			  vm_flags_t vm_flags, unsigned long pgoff)
+		unsigned long len, vm_flags_t vm_flags, unsigned long pgoff)
 {
 	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma, *prev;
@@ -1525,7 +1555,7 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 	int error;
 	struct rb_node **rb_link, *rb_parent;
 	unsigned long charged = 0;
-	struct inode *inode =  file ? file->f_path.dentry->d_inode : NULL;
+	struct inode *inode =  file ? file_inode(file) : NULL;
 
 #ifdef CONFIG_PAX_SEGMEXEC
 	struct vm_area_struct *vma_m = NULL;
@@ -1553,20 +1583,6 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 
 	if (!may_expand_vm(mm, len >> PAGE_SHIFT))
 		return -ENOMEM;
-
-	/*
-	 * Set 'VM_NORESERVE' if we should not account for the
-	 * memory use of this mapping.
-	 */
-	if ((flags & MAP_NORESERVE)) {
-		/* We honor MAP_NORESERVE if allowed to overcommit */
-		if (sysctl_overcommit_memory != OVERCOMMIT_NEVER)
-			vm_flags |= VM_NORESERVE;
-
-		/* hugetlb applies strict overcommit unless MAP_NORESERVE */
-		if (file && is_file_hugepages(file))
-			vm_flags |= VM_NORESERVE;
-	}
 
 	/*
 	 * Private writable mapping: check memory availability
@@ -1689,10 +1705,12 @@ out:
 	vm_stat_account(mm, vm_flags, file, len >> PAGE_SHIFT);
 	track_exec_limit(mm, addr, addr + len, vm_flags);
 	if (vm_flags & VM_LOCKED) {
-		if (!mlock_vma_pages_range(vma, addr, addr + len))
+		if (!((vm_flags & VM_SPECIAL) || is_vm_hugetlb_page(vma) ||
+					vma == get_gate_vma(current->mm)))
 			mm->locked_vm += (len >> PAGE_SHIFT);
-	} else if ((flags & MAP_POPULATE) && !(flags & MAP_NONBLOCK))
-		make_pages_present(addr, addr + len);
+		else
+			vma->vm_flags &= ~VM_LOCKED;
+	}
 
 	if (file)
 		uprobe_mmap(vma);
@@ -2027,6 +2045,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 
 	info.high_limit = TASK_SIZE;
 	info.align_mask = 0;
+	info.threadstack_offset = offset;
 	return vm_unmapped_area(&info);
 }
 #endif	
@@ -2086,6 +2105,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	info.low_limit = PAGE_SIZE;
 	info.high_limit = mm->mmap_base;
 	info.align_mask = 0;
+	info.threadstack_offset = offset;
 	addr = vm_unmapped_area(&info);
 
 	/*
@@ -2528,9 +2548,8 @@ find_extend_vma(struct mm_struct *mm, unsigned long addr)
 		return vma;
 	if (!prev || expand_stack(prev, addr))
 		return NULL;
-	if (prev->vm_flags & VM_LOCKED) {
-		mlock_vma_pages_range(prev, addr, prev->vm_end);
-	}
+	if (prev->vm_flags & VM_LOCKED)
+		__mlock_vma_pages_range(prev, addr, prev->vm_end, NULL);
 	return prev;
 }
 #else
@@ -2564,9 +2583,8 @@ find_extend_vma(struct mm_struct * mm, unsigned long addr)
 	start = vma->vm_start;
 	if (expand_stack(vma, addr))
 		return NULL;
-	if (vma->vm_flags & VM_LOCKED) {
-		mlock_vma_pages_range(vma, addr, start);
-	}
+	if (vma->vm_flags & VM_LOCKED)
+		__mlock_vma_pages_range(vma, addr, start, NULL);
 	return vma;
 }
 #endif
@@ -3070,10 +3088,8 @@ static unsigned long do_brk(unsigned long addr, unsigned long len)
 out:
 	perf_event_mmap(vma);
 	mm->total_vm += charged;
-	if (flags & VM_LOCKED) {
-		if (!mlock_vma_pages_range(vma, addr, addr + len))
-			mm->locked_vm += charged;
-	}
+	if (flags & VM_LOCKED)
+		mm->locked_vm += charged;
 	track_exec_limit(mm, addr, addr + len, flags);
 	return addr;
 }
@@ -3082,10 +3098,14 @@ unsigned long vm_brk(unsigned long addr, unsigned long len)
 {
 	struct mm_struct *mm = current->mm;
 	unsigned long ret;
+	bool populate;
 
 	down_write(&mm->mmap_sem);
 	ret = do_brk(addr, len);
+	populate = ((mm->def_flags & VM_LOCKED) != 0);
 	up_write(&mm->mmap_sem);
+	if (populate)
+		mm_populate(addr, len);
 	return ret;
 }
 EXPORT_SYMBOL(vm_brk);
@@ -3557,7 +3577,7 @@ static void vm_unlock_anon_vma(struct anon_vma *anon_vma)
 		if (!__test_and_clear_bit(0, (unsigned long *)
 					  &anon_vma->root->rb_root.rb_node))
 			BUG();
-		anon_vma_unlock(anon_vma);
+		anon_vma_unlock_write(anon_vma);
 	}
 }
 

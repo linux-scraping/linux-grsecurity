@@ -49,7 +49,6 @@ struct trace_entry {
 	unsigned char		flags;
 	unsigned char		preempt_count;
 	int			pid;
-	int			padding;
 };
 
 #define FTRACE_MAX_EVENT						\
@@ -84,6 +83,9 @@ struct trace_iterator {
 	long			idx;
 
 	cpumask_var_t		started;
+
+	/* it's true when current open file is snapshot */
+	bool			snapshot;
 };
 
 enum trace_iter_flags {

@@ -544,7 +544,7 @@ char *symbol_string(char *buf, char *end, void *ptr,
 	char sym[KSYM_SYMBOL_LEN];
 	if (ext == 'B')
 		sprint_backtrace(sym, value);
-	else if (ext != 'f' && ext != 's' && ext != 'a')
+	else if (ext != 'f' && ext != 's')
 		sprint_symbol(sym, value);
 	else
 		sprint_symbol_no_offset(sym, value);
@@ -1039,6 +1039,7 @@ int kptr_restrict __read_mostly;
  *              N no separator
  *            The maximum supported length is 64 bytes of the input. Consider
  *            to use print_hex_dump() for the larger input.
+ * - 'a' For a phys_addr_t type and its derivative types (passed by reference)
  *
  * Note: The difference between 'S' and 'F' is that on ia64 and ppc64
  * function pointers are really function descriptors, which contain a
@@ -1073,7 +1074,6 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 		return symbol_string(buf, end, ptr, spec, *fmt);
 #endif
 	case 'A':
-	case 'a':
 	case 'B':
 		return symbol_string(buf, end, ptr, spec, *fmt);
 	case 'R':
@@ -1138,6 +1138,12 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 			return netdev_feature_string(buf, end, ptr, spec);
 		}
 		break;
+	case 'a':
+		spec.flags |= SPECIAL | SMALL | ZEROPAD;
+		spec.field_width = sizeof(phys_addr_t) * 2 + 2;
+		spec.base = 16;
+		return number(buf, end,
+			      (unsigned long long) *((phys_addr_t *)ptr), spec);
 	}
 
 #ifdef CONFIG_GRKERNSEC_HIDESYM

@@ -23,6 +23,7 @@
 #include <linux/mmu_notifier.h>
 #include <linux/migrate.h>
 #include <linux/perf_event.h>
+#include <linux/sched/sysctl.h>
 
 #ifdef CONFIG_PAX_MPROTECT
 #include <linux/elf.h>

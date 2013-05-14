@@ -1139,6 +1139,7 @@ struct rusage32 {
 SYSCALL_DEFINE2(osf_getrusage, int, who, struct rusage32 __user *, ru)
 {
 	struct rusage32 r;
+	cputime_t utime, stime;
 
 	if (who != RUSAGE_SELF && who != RUSAGE_CHILDREN)
 		return -EINVAL;
@@ -1146,8 +1147,9 @@ SYSCALL_DEFINE2(osf_getrusage, int, who, struct rusage32 __user *, ru)
 	memset(&r, 0, sizeof(r));
 	switch (who) {
 	case RUSAGE_SELF:
-		jiffies_to_timeval32(current->utime, &r.ru_utime);
-		jiffies_to_timeval32(current->stime, &r.ru_stime);
+		task_cputime(current, &utime, &stime);
+		jiffies_to_timeval32(utime, &r.ru_utime);
+		jiffies_to_timeval32(stime, &r.ru_stime);
 		r.ru_minflt = current->min_flt;
 		r.ru_majflt = current->maj_flt;
 		break;
@@ -1298,17 +1300,17 @@ static unsigned long
 arch_get_unmapped_area_1(struct file *filp, unsigned long addr, unsigned long len,
 		         unsigned long limit, unsigned long flags)
 {
-	struct vm_area_struct *vma = find_vma(current->mm, addr);
+	struct vm_unmapped_area_info info;
 	unsigned long offset = gr_rand_threadstack_offset(current->mm, filp, flags);
-	while (1) {
-		/* At this point:  (!vma || addr < vma->vm_end). */
-		if (limit - len < addr)
-			return -ENOMEM;
-		if (check_heap_stack_gap(vma, addr, len, offset))
-			return addr;
-		addr = vma->vm_end;
-		vma = vma->vm_next;
-	}
+
+	info.flags = 0;
+	info.length = len;
+	info.low_limit = addr;
+	info.high_limit = limit;
+	info.align_mask = 0;
+	info.align_offset = 0;
+	info.threadstack_offset = offset;
+	return vm_unmapped_area(&info);
 }
 
 unsigned long

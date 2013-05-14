@@ -412,32 +412,32 @@ static inline int within_module_range(unsigned long addr, void *start, unsigned 
 	return ((void *)addr >= start && (void *)addr < start + size);
 }
 
-static inline int within_module_core_rx(unsigned long addr, struct module *mod)
+static inline int within_module_core_rx(unsigned long addr, const struct module *mod)
 {
 	return within_module_range(addr, mod->module_core_rx, mod->core_size_rx);
 }
 
-static inline int within_module_core_rw(unsigned long addr, struct module *mod)
+static inline int within_module_core_rw(unsigned long addr, const struct module *mod)
 {
 	return within_module_range(addr, mod->module_core_rw, mod->core_size_rw);
 }
 
-static inline int within_module_init_rx(unsigned long addr, struct module *mod)
+static inline int within_module_init_rx(unsigned long addr, const struct module *mod)
 {
 	return within_module_range(addr, mod->module_init_rx, mod->init_size_rx);
 }
 
-static inline int within_module_init_rw(unsigned long addr, struct module *mod)
+static inline int within_module_init_rw(unsigned long addr, const struct module *mod)
 {
 	return within_module_range(addr, mod->module_init_rw, mod->init_size_rw);
 }
 
-static inline int within_module_core(unsigned long addr, struct module *mod)
+static inline int within_module_core(unsigned long addr, const struct module *mod)
 {
 	return within_module_core_rx(addr, mod) || within_module_core_rw(addr, mod);
 }
 
-static inline int within_module_init(unsigned long addr, struct module *mod)
+static inline int within_module_init(unsigned long addr, const struct module *mod)
 {
 	return within_module_init_rx(addr, mod) || within_module_init_rw(addr, mod);
 }

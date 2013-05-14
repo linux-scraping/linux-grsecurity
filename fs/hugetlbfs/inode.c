@@ -97,7 +97,7 @@ static void huge_pagevec_release(struct pagevec *pvec)
 
 static int hugetlbfs_file_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	struct inode *inode = file->f_path.dentry->d_inode;
+	struct inode *inode = file_inode(file);
 	loff_t len, vma_len;
 	int ret;
 	struct hstate *h = hstate_file(file);
@@ -906,6 +906,7 @@ static struct file_system_type hugetlbfs_fs_type = {
 	.mount		= hugetlbfs_mount,
 	.kill_sb	= kill_litter_super,
 };
+MODULE_ALIAS_FS("hugetlbfs");
 
 struct vfsmount *hugetlbfs_vfsmount[HUGE_MAX_HSTATE];
 
@@ -925,6 +926,16 @@ static int get_hstate_idx(int page_size_log)
 	return h - hstates;
 }
 
+static char *hugetlb_dname(struct dentry *dentry, char *buffer, int buflen)
+{
+	return dynamic_dname(dentry, buffer, buflen, "/%s (deleted)",
+				dentry->d_name.name);
+}
+
+static struct dentry_operations anon_ops = {
+	.d_dname = hugetlb_dname
+};
+
 /*
  * Note that size should be aligned to proper hugepage size in caller side,
  * otherwise hugetlb_reserve_pages reserves one less hugepages than intended.
@@ -933,11 +944,10 @@ struct file *hugetlb_file_setup(const char *name, size_t size,
 				vm_flags_t acctflag, struct user_struct **user,
 				int creat_flags, int page_size_log)
 {
-	int error = -ENOMEM;
-	struct file *file;
+	struct file *file = ERR_PTR(-ENOMEM);
 	struct inode *inode;
 	struct path path;
-	struct dentry *root;
+	struct super_block *sb;
 	struct qstr quick_string;
 	int hstate_idx;
 
@@ -963,21 +973,22 @@ struct file *hugetlb_file_setup(const char *name, size_t size,
 		}
 	}
 
-	root = hugetlbfs_vfsmount[hstate_idx]->mnt_root;
+	sb = hugetlbfs_vfsmount[hstate_idx]->mnt_sb;
 	quick_string.name = name;
 	quick_string.len = strlen(quick_string.name);
 	quick_string.hash = 0;
-	path.dentry = d_alloc(root, &quick_string);
+	path.dentry = d_alloc_pseudo(sb, &quick_string);
 	if (!path.dentry)
 		goto out_shm_unlock;
 
+	d_set_d_op(path.dentry, &anon_ops);
 	path.mnt = mntget(hugetlbfs_vfsmount[hstate_idx]);
-	error = -ENOSPC;
-	inode = hugetlbfs_get_inode(root->d_sb, NULL, S_IFREG | S_IRWXUGO, 0);
+	file = ERR_PTR(-ENOSPC);
+	inode = hugetlbfs_get_inode(sb, NULL, S_IFREG | S_IRWXUGO, 0);
 	if (!inode)
 		goto out_dentry;
 
-	error = -ENOMEM;
+	file = ERR_PTR(-ENOMEM);
 	if (hugetlb_reserve_pages(inode, 0,
 			size >> huge_page_shift(hstate_inode(inode)), NULL,
 			acctflag))
@@ -987,10 +998,9 @@ struct file *hugetlb_file_setup(const char *name, size_t size,
 	inode->i_size = size;
 	clear_nlink(inode);
 
-	error = -ENFILE;
 	file = alloc_file(&path, FMODE_WRITE | FMODE_READ,
 			&hugetlbfs_file_operations);
-	if (!file)
+	if (IS_ERR(file))
 		goto out_dentry; /* inode is already attached */
 
 	return file;
@@ -1004,7 +1014,7 @@ out_shm_unlock:
 		user_shm_unlock(size, *user);
 		*user = NULL;
 	}
-	return ERR_PTR(error);
+	return file;
 }
 
 static int __init init_hugetlbfs_fs(void)

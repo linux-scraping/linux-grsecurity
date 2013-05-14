@@ -104,6 +104,7 @@ static unsigned long arch_get_unmapped_area_common(struct file *filp,
 	info.length = len;
 	info.align_mask = do_color_align ? (PAGE_MASK & shm_align_mask) : 0;
 	info.align_offset = pgoff << PAGE_SHIFT;
+	info.threadstack_offset = offset;
 
 	if (dir == DOWN) {
 		info.flags = VM_UNMAPPED_AREA_TOPDOWN;

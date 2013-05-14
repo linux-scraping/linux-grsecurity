@@ -24,8 +24,8 @@
  *
  */
 
+#include <linux/linkage.h>
 #include <asm/alternative-asm.h>
-
 #include "glue_helper-asm-avx.S"
 
 .file "serpent-avx-x86_64-asm_64.S"
@@ -568,8 +568,6 @@
 	transpose_4x4(x0, x1, x2, x3, t0, t1, t2)
 
 .align 8
-.type   __serpent_enc_blk8_avx,@function;
-
 __serpent_enc_blk8_avx:
 	/* input:
 	 *	%rdi: ctx, CTX
@@ -622,10 +620,9 @@ __serpent_enc_blk8_avx:
 
 	pax_force_retaddr
 	ret;
+ENDPROC(__serpent_enc_blk8_avx)
 
 .align 8
-.type   __serpent_dec_blk8_avx,@function;
-
 __serpent_dec_blk8_avx:
 	/* input:
 	 *	%rdi: ctx, CTX
@@ -678,12 +675,9 @@ __serpent_dec_blk8_avx:
 
 	pax_force_retaddr
 	ret;
+ENDPROC(__serpent_dec_blk8_avx)
 
-.align 8
-.global serpent_ecb_enc_8way_avx
-.type   serpent_ecb_enc_8way_avx,@function;
-
-serpent_ecb_enc_8way_avx:
+ENTRY(serpent_ecb_enc_8way_avx)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -698,12 +692,9 @@ serpent_ecb_enc_8way_avx:
 
 	pax_force_retaddr
 	ret;
+ENDPROC(serpent_ecb_enc_8way_avx)
 
-.align 8
-.global serpent_ecb_dec_8way_avx
-.type   serpent_ecb_dec_8way_avx,@function;
-
-serpent_ecb_dec_8way_avx:
+ENTRY(serpent_ecb_dec_8way_avx)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -718,12 +709,9 @@ serpent_ecb_dec_8way_avx:
 
 	pax_force_retaddr
 	ret;
+ENDPROC(serpent_ecb_dec_8way_avx)
 
-.align 8
-.global serpent_cbc_dec_8way_avx
-.type   serpent_cbc_dec_8way_avx,@function;
-
-serpent_cbc_dec_8way_avx:
+ENTRY(serpent_cbc_dec_8way_avx)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -738,12 +726,9 @@ serpent_cbc_dec_8way_avx:
 
 	pax_force_retaddr
 	ret;
+ENDPROC(serpent_cbc_dec_8way_avx)
 
-.align 8
-.global serpent_ctr_8way_avx
-.type   serpent_ctr_8way_avx,@function;
-
-serpent_ctr_8way_avx:
+ENTRY(serpent_ctr_8way_avx)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -760,3 +745,4 @@ serpent_ctr_8way_avx:
 
 	pax_force_retaddr
 	ret;
+ENDPROC(serpent_ctr_8way_avx)

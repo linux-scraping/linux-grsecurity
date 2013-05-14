@@ -464,6 +464,7 @@ static inline pgd_t *get_cpu_pgd(unsigned int cpu)
 #endif
 
 #include <linux/mm_types.h>
+#include <linux/log2.h>
 
 static inline int pte_none(pte_t pte)
 {
@@ -710,6 +711,8 @@ extern unsigned long pax_user_shadow_base;
 #ifndef __ASSEMBLY__
 
 extern int direct_gbpages;
+void init_mem_mapping(void);
+void early_alloc_pgt_buf(void);
 
 /* local pte updates need not use xchg for locking */
 static inline pte_t native_local_ptep_get_and_clear(pte_t *ptep)
@@ -888,6 +891,33 @@ extern void __shadow_user_pgds(pgd_t *dst, const pgd_t *src);
 #else
 static inline void __shadow_user_pgds(pgd_t *dst, const pgd_t *src) {}
 #endif
+
+#define PTE_SHIFT ilog2(PTRS_PER_PTE)
+static inline int page_level_shift(enum pg_level level)
+{
+	return (PAGE_SHIFT - PTE_SHIFT) + level * PTE_SHIFT;
+}
+static inline unsigned long page_level_size(enum pg_level level)
+{
+	return 1UL << page_level_shift(level);
+}
+static inline unsigned long page_level_mask(enum pg_level level)
+{
+	return ~(page_level_size(level) - 1);
+}
+
+/*
+ * The x86 doesn't have any external MMU info: the kernel page
+ * tables contain all the necessary information.
+ */
+static inline void update_mmu_cache(struct vm_area_struct *vma,
+		unsigned long addr, pte_t *ptep)
+{
+}
+static inline void update_mmu_cache_pmd(struct vm_area_struct *vma,
+		unsigned long addr, pmd_t *pmd)
+{
+}
 
 #include <asm-generic/pgtable.h>
 #endif	/* __ASSEMBLY__ */

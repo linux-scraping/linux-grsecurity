@@ -141,6 +141,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	info.high_limit = end;
 	info.align_mask = filp ? get_align_mask() : 0;
 	info.align_offset = pgoff << PAGE_SHIFT;
+	info.threadstack_offset = offset;
 	return vm_unmapped_area(&info);
 }
 
@@ -153,6 +154,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	struct mm_struct *mm = current->mm;
 	unsigned long addr = addr0;
 	struct vm_unmapped_area_info info;
+	unsigned long offset = gr_rand_threadstack_offset(mm, filp, flags);
 
 	/* requested length too big for entire address space */
 	if (len > TASK_SIZE)
@@ -161,7 +163,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	if (flags & MAP_FIXED)
 		return addr;
 
-	/* for MAP_32BIT mappings we force the legact mmap base */
+	/* for MAP_32BIT mappings we force the legacy mmap base */
 	if (!test_thread_flag(TIF_ADDR32) && (flags & MAP_32BIT))
 		goto bottomup;
 
@@ -184,6 +186,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	info.high_limit = mm->mmap_base;
 	info.align_mask = filp ? get_align_mask() : 0;
 	info.align_offset = pgoff << PAGE_SHIFT;
+	info.threadstack_offset = offset;
 	addr = vm_unmapped_area(&info);
 	if (!(addr & ~PAGE_MASK))
 		return addr;

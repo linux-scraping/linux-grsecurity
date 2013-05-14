@@ -65,6 +65,11 @@ static inline void ipi_flush_tlb_kernel_range(void *arg)
 	local_flush_tlb_kernel_range(ta->ta_start, ta->ta_end);
 }
 
+static inline void ipi_flush_bp_all(void *ignored)
+{
+	local_flush_bp_all();
+}
+
 #ifdef CONFIG_ARM_ERRATA_798181
 static int erratum_a15_798181(void)
 {
@@ -193,3 +198,10 @@ void flush_tlb_kernel_range(unsigned long start, unsigned long end)
 	broadcast_tlb_a15_erratum();
 }
 
+void flush_bp_all(void)
+{
+	if (tlb_ops_need_broadcast())
+		on_each_cpu(ipi_flush_bp_all, NULL, 1);
+	else
+		local_flush_bp_all();
+}

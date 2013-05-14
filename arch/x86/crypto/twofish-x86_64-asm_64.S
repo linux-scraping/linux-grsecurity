@@ -20,6 +20,7 @@
 .file "twofish-x86_64-asm.S"
 .text
 
+#include <linux/linkage.h>
 #include <asm/asm-offsets.h>
 #include <asm/alternative-asm.h>
 
@@ -215,11 +216,7 @@
 	xor	%r8d,		d ## D;\
 	ror	$1,		d ## D;
 
-.align 8
-.global twofish_enc_blk
-.global twofish_dec_blk
-
-twofish_enc_blk:
+ENTRY(twofish_enc_blk)
 	pushq    R1
 
 	/* %rdi contains the ctx address */
@@ -271,8 +268,9 @@ twofish_enc_blk:
 	movq	$1,%rax
 	pax_force_retaddr 0, 1
 	ret
+ENDPROC(twofish_enc_blk)
 
-twofish_dec_blk:
+ENTRY(twofish_dec_blk)
 	pushq    R1
 
 	/* %rdi contains the ctx address */
@@ -323,3 +321,4 @@ twofish_dec_blk:
 	movq	$1,%rax
 	pax_force_retaddr 0, 1
 	ret
+ENDPROC(twofish_dec_blk)

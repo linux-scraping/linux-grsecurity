@@ -34,24 +34,20 @@
 #include <linux/personality.h>
 
 static unsigned long get_unshared_area(struct file *filp, unsigned long addr, unsigned long len,
-				       unsigned long flags)
+					unsigned long flags)
 {
-	struct vm_area_struct *vma;
+	struct vm_unmapped_area_info info;
 	unsigned long offset = gr_rand_threadstack_offset(current->mm, filp, flags);
 
-	addr = PAGE_ALIGN(addr);
-
-	for (vma = find_vma(current->mm, addr); ; vma = vma->vm_next) {
-		/* At this point:  (!vma || addr < vma->vm_end). */
-		if (TASK_SIZE - len < addr)
-			return -ENOMEM;
-		if (check_heap_stack_gap(vma, addr, len, offset))
-			return addr;
-		addr = vma->vm_end;
-	}
+	info.flags = 0;
+	info.length = len;
+	info.low_limit = PAGE_ALIGN(addr);
+	info.high_limit = TASK_SIZE;
+	info.align_mask = 0;
+	info.align_offset = 0;
+	info.threadstack_offset = offset;
+	return vm_unmapped_area(&info);
 }
-
-#define DCACHE_ALIGN(addr) (((addr) + (SHMLBA - 1)) &~ (SHMLBA - 1))
 
 /*
  * We need to know the offset to use.  Old scheme was to look for
@@ -65,31 +61,23 @@ static unsigned long get_unshared_area(struct file *filp, unsigned long addr, un
  */
 static int get_offset(struct address_space *mapping)
 {
-	int offset = (unsigned long) mapping << (PAGE_SHIFT - 8);
-	return offset & 0x3FF000;
+	return (unsigned long) mapping >> 8;
 }
 
 static unsigned long get_shared_area(struct file *filp, struct address_space *mapping,
 		unsigned long addr, unsigned long len, unsigned long pgoff, unsigned long flags)
 {
-	struct vm_area_struct *vma;
-	int offset = mapping ? get_offset(mapping) : 0;
-	unsigned long rand_offset = gr_rand_threadstack_offset(current->mm, filp, flags);
+	struct vm_unmapped_area_info info;
+	unsigned long offset = gr_rand_threadstack_offset(current->mm, filp, flags);
 
-	offset = (offset + (pgoff << PAGE_SHIFT)) & 0x3FF000;
-
-	addr = DCACHE_ALIGN(addr - offset) + offset;
-
-	for (vma = find_vma(current->mm, addr); ; vma = vma->vm_next) {
-		/* At this point:  (!vma || addr < vma->vm_end). */
-		if (TASK_SIZE - len < addr)
-			return -ENOMEM;
-		if (check_heap_stack_gap(vma, addr, len, rand_offset))
-			return addr;
-		addr = DCACHE_ALIGN(vma->vm_end - offset) + offset;
-		if (addr < vma->vm_end) /* handle wraparound */
-			return -ENOMEM;
-	}
+	info.flags = 0;
+	info.length = len;
+	info.low_limit = PAGE_ALIGN(addr);
+	info.high_limit = TASK_SIZE;
+	info.align_mask = PAGE_MASK & (SHMLBA - 1);
+	info.align_offset = (get_offset(mapping) + pgoff) << PAGE_SHIFT;
+	info.threadstack_offset = offset;
+	return vm_unmapped_area(&info);
 }
 
 unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
@@ -97,13 +85,21 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 {
 	if (len > TASK_SIZE)
 		return -ENOMEM;
-	/* Might want to check for cache aliasing issues for MAP_FIXED case
-	 * like ARM or MIPS ??? --BenH.
-	 */
-	if (flags & MAP_FIXED)
+	if (flags & MAP_FIXED) {
+		if ((flags & MAP_SHARED) &&
+		    (addr - (pgoff << PAGE_SHIFT)) & (SHMLBA - 1))
+			return -EINVAL;
 		return addr;
-	if (!addr)
-		addr = current->mm->mmap_base;
+	}
+	if (!addr) {
+		addr = TASK_UNMAPPED_BASE;
+
+#ifdef CONFIG_PAX_RANDMMAP
+		if (current->mm->pax_flags & MF_PAX_RANDMMAP)
+			addr += current->mm->delta_mmap;
+#endif
+
+	}
 
 	if (filp) {
 		addr = get_shared_area(filp, filp->f_mapping, addr, len, pgoff, flags);
@@ -213,6 +209,13 @@ asmlinkage long parisc_sync_file_range(int fd,
 {
 	return sys_sync_file_range(fd, (loff_t)hi_off << 32 | lo_off,
 			(loff_t)hi_nbytes << 32 | lo_nbytes, flags);
+}
+
+asmlinkage long parisc_fallocate(int fd, int mode, u32 offhi, u32 offlo,
+				u32 lenhi, u32 lenlo)
+{
+        return sys_fallocate(fd, mode, ((u64)offhi << 32) | offlo,
+                             ((u64)lenhi << 32) | lenlo);
 }
 
 asmlinkage unsigned long sys_alloc_hugepages(int key, unsigned long addr, unsigned long len, int prot, int flag)
