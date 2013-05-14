@@ -44,8 +44,8 @@ __strncpy_from_user(char *dst, const char __user *src, long count)
 	long res;
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	if ((unsigned long)src < PAX_USER_SHADOW_BASE)
-		src += PAX_USER_SHADOW_BASE;
+	if ((unsigned long)src < pax_user_shadow_base)
+		src += pax_user_shadow_base;
 #endif
 
 	__do_strncpy_from_user(dst, src, count, res);

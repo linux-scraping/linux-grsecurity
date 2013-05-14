@@ -775,11 +775,11 @@ static unsigned long pax_parse_xattr_pax(struct file * const file)
 
 #ifdef CONFIG_PAX_XATTR_PAX_FLAGS
 	ssize_t xattr_size, i;
-	unsigned char xattr_value[5];
+	unsigned char xattr_value[sizeof("pemrs") - 1];
 	unsigned long pax_flags_hardmode = 0UL, pax_flags_softmode = 0UL;
 
-	xattr_size = vfs_getxattr(file->f_path.dentry, XATTR_NAME_PAX_FLAGS, xattr_value, sizeof xattr_value);
-	if (xattr_size <= 0 || xattr_size > 5)
+	xattr_size = pax_getxattr(file->f_path.dentry, xattr_value, sizeof xattr_value);
+	if (xattr_size <= 0 || xattr_size > sizeof xattr_value)
 		return ~0UL;
 
 	for (i = 0; i < xattr_size; i++)

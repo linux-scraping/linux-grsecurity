@@ -685,9 +685,11 @@ static inline int pgd_none(pgd_t pgd)
 #define USER_PGD_PTRS		(_AC(1,UL) << (TASK_SIZE_MAX_SHIFT - PGDIR_SHIFT))
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-#define PAX_USER_SHADOW_BASE	(_AC(1,UL) << TASK_SIZE_MAX_SHIFT)
+#ifdef __ASSEMBLY__
+#define pax_user_shadow_base	pax_user_shadow_base(%rip)
 #else
-#define PAX_USER_SHADOW_BASE	(_AC(0,UL))
+extern unsigned long pax_user_shadow_base;
+#endif
 #endif
 
 #endif

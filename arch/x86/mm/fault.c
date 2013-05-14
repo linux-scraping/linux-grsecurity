@@ -1203,17 +1203,17 @@ do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	unsigned long address = read_cr2();
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	if (!user_mode(regs) && address < 2 * PAX_USER_SHADOW_BASE) {
+	if (!user_mode(regs) && address < 2 * pax_user_shadow_base) {
 		if (!search_exception_tables(regs->ip)) {
 			bad_area_nosemaphore(regs, error_code, address);
 			return;
 		}
-		if (address < PAX_USER_SHADOW_BASE) {
+		if (address < pax_user_shadow_base) {
 			printk(KERN_ERR "PAX: please report this to pageexec@freemail.hu\n");
 			printk(KERN_ERR "PAX: faulting IP: %pS\n", (void *)regs->ip);
 			show_trace_log_lvl(NULL, NULL, (void *)regs->sp, regs->bp, KERN_ERR);
 		} else
-			address -= PAX_USER_SHADOW_BASE;
+			address -= pax_user_shadow_base;
 	}
 #endif
 

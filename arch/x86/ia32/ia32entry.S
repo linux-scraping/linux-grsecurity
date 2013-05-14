@@ -183,7 +183,7 @@ ENTRY(ia32_sysenter_target)
  	   32bit zero extended */ 
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	mov $PAX_USER_SHADOW_BASE,%r11
+	mov pax_user_shadow_base,%r11
 	add %r11,%rbp
 #endif
 
@@ -362,7 +362,7 @@ ENTRY(ia32_cstar_target)
 	/* hardware stack frame is complete now */	
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	mov $PAX_USER_SHADOW_BASE,%r11
+	mov pax_user_shadow_base,%r11
 	add %r11,%r8
 #endif
 

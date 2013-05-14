@@ -473,9 +473,9 @@ struct __large_struct { unsigned long buf[100]; };
 #define ____m(x)					\
 ({							\
 	unsigned long ____x = (unsigned long)(x);	\
-	if (____x < PAX_USER_SHADOW_BASE)		\
-		____x += PAX_USER_SHADOW_BASE;		\
-	(void __user *)____x;				\
+	if (____x < pax_user_shadow_base)		\
+		____x += pax_user_shadow_base;		\
+	(typeof(x))____x;				\
 })
 #else
 #define ____m(x) (x)

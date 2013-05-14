@@ -54,7 +54,7 @@ ENTRY(__copy_user_nocache)
 	CFI_STARTPROC
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	mov $PAX_USER_SHADOW_BASE,%rcx
+	mov pax_user_shadow_base,%rcx
 	cmp %rcx,%rsi
 	jae 1f
 	add %rcx,%rsi
