@@ -1002,8 +1002,8 @@ static struct ctl_table kern_table[] = {
 	 */
 	{
 		.procname	= "perf_event_paranoid",
-		.data		= &sysctl_perf_event_paranoid,
-		.maxlen		= sizeof(sysctl_perf_event_paranoid),
+		.data		= &sysctl_perf_event_legitimately_concerned,
+		.maxlen		= sizeof(sysctl_perf_event_legitimately_concerned),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
 	},

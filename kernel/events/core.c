@@ -146,7 +146,11 @@ static struct srcu_struct pmus_srcu;
  *   1 - disallow cpu events for unpriv
  *   2 - disallow kernel profiling for unpriv
  */
-int sysctl_perf_event_paranoid __read_mostly = 1;
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+int sysctl_perf_event_legitimately_concerned __read_mostly = 2;
+#else
+int sysctl_perf_event_legitimately_concerned __read_mostly = 1;
+#endif
 
 /* Minimum for 512 kiB + 1 user control page */
 int sysctl_perf_event_mlock __read_mostly = 512 + (PAGE_SIZE / 1024); /* 'free' kiB per user */
@@ -5164,7 +5168,7 @@ static void sw_perf_event_destroy(struct perf_event *event)
 
 static int perf_swevent_init(struct perf_event *event)
 {
-	int event_id = event->attr.config;
+	u64 event_id = event->attr.config;
 
 	if (event->attr.type != PERF_TYPE_SOFTWARE)
 		return -ENOENT;
@@ -5756,6 +5760,7 @@ skip_type:
 	if (pmu->pmu_cpu_context)
 		goto got_cpu_context;
 
+	ret = -ENOMEM;
 	pmu->pmu_cpu_context = alloc_percpu(struct perf_cpu_context);
 	if (!pmu->pmu_cpu_context)
 		goto free_dev;

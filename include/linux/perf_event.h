@@ -1101,7 +1101,7 @@ static inline void perf_callchain_store(struct perf_callchain_entry *entry, u64 
 		entry->ip[entry->nr++] = ip;
 }
 
-extern int sysctl_perf_event_paranoid;
+extern int sysctl_perf_event_legitimately_concerned;
 extern int sysctl_perf_event_mlock;
 extern int sysctl_perf_event_sample_rate;
 
@@ -1111,17 +1111,17 @@ extern int perf_proc_update_handler(struct ctl_table *table, int write,
 
 static inline bool perf_paranoid_tracepoint_raw(void)
 {
-	return sysctl_perf_event_paranoid > -1;
+	return sysctl_perf_event_legitimately_concerned > -1;
 }
 
 static inline bool perf_paranoid_cpu(void)
 {
-	return sysctl_perf_event_paranoid > 0;
+	return sysctl_perf_event_legitimately_concerned > 0;
 }
 
 static inline bool perf_paranoid_kernel(void)
 {
-	return sysctl_perf_event_paranoid > 1;
+	return sysctl_perf_event_legitimately_concerned > 1;
 }
 
 extern void perf_event_init(void);
