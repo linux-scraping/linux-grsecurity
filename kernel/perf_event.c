@@ -52,7 +52,11 @@ static atomic_t nr_task_events __read_mostly;
  *   1 - disallow cpu events for unpriv
  *   2 - disallow kernel profiling for unpriv
  */
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+int sysctl_perf_event_paranoid __read_mostly = 2;
+#else
 int sysctl_perf_event_paranoid __read_mostly = 1;
+#endif
 
 static inline bool perf_paranoid_tracepoint_raw(void)
 {

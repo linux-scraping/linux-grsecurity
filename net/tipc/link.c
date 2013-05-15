@@ -2800,7 +2800,7 @@ int tipc_link_recv_fragment(struct sk_buff **pending, struct sk_buff **fb,
 		u32 msg_sz = msg_size(imsg);
 		u32 fragm_sz = msg_data_sz(fragm);
 		u32 exp_fragm_cnt;
-		u32 max =  TIPC_MAX_USER_MSG_SIZE + NAMED_H_SIZE;
+		u32 max =  TIPC_MAX_USER_MSG_SIZE + LONG_H_SIZE;
 
 		if (msg_type(imsg) == TIPC_MCAST_MSG)
 			max = TIPC_MAX_USER_MSG_SIZE + MCAST_H_SIZE;
