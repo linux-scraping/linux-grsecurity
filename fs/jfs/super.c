@@ -225,7 +225,7 @@ static const match_table_t tokens = {
 static int parse_options(char *options, struct super_block *sb, s64 *newLVSize,
 			 int *flag)
 {
-	const void *nls_map = (const void *)-1;	/* -1: no change;  NULL: none */
+	void *nls_map = (void *)-1;	/* -1: no change;  NULL: none */
 	char *p;
 	struct jfs_sb_info *sbi = JFS_SBI(sb);
 
@@ -253,7 +253,7 @@ static int parse_options(char *options, struct super_block *sb, s64 *newLVSize,
 			/* Don't do anything ;-) */
 			break;
 		case Opt_iocharset:
-			if (nls_map && nls_map != (const void *) -1)
+			if (nls_map && nls_map != (void *) -1)
 				unload_nls(nls_map);
 			if (!strcmp(args[0].from, "none"))
 				nls_map = NULL;

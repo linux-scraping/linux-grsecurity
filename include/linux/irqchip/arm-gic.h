@@ -59,6 +59,8 @@
 
 #ifndef __ASSEMBLY__
 
+#include <linux/irq.h>
+
 struct device_node;
 
 extern irq_chip_no_const gic_arch_extn;

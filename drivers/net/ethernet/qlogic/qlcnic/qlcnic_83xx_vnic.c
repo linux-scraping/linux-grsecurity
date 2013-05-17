@@ -200,15 +200,21 @@ int qlcnic_83xx_config_vnic_opmode(struct qlcnic_adapter *adapter)
 	if (priv_level == QLCNIC_NON_PRIV_FUNC) {
 		ahw->op_mode = QLCNIC_NON_PRIV_FUNC;
 		ahw->idc.state_entry = qlcnic_83xx_idc_ready_state_entry;
-		nic_ops->init_driver = qlcnic_83xx_init_non_privileged_vnic;
+		pax_open_kernel();
+		*(void **)&nic_ops->init_driver = qlcnic_83xx_init_non_privileged_vnic;
+		pax_close_kernel();
 	} else if (priv_level == QLCNIC_PRIV_FUNC) {
 		ahw->op_mode = QLCNIC_PRIV_FUNC;
 		ahw->idc.state_entry = qlcnic_83xx_idc_vnic_pf_entry;
-		nic_ops->init_driver = qlcnic_83xx_init_privileged_vnic;
+		pax_open_kernel();
+		*(void **)&nic_ops->init_driver = qlcnic_83xx_init_privileged_vnic;
+		pax_close_kernel();
 	} else if (priv_level == QLCNIC_MGMT_FUNC) {
 		ahw->op_mode = QLCNIC_MGMT_FUNC;
 		ahw->idc.state_entry = qlcnic_83xx_idc_ready_state_entry;
-		nic_ops->init_driver = qlcnic_83xx_init_mgmt_vnic;
+		pax_open_kernel();
+		*(void **)&nic_ops->init_driver = qlcnic_83xx_init_mgmt_vnic;
+		pax_close_kernel();
 	} else {
 		return -EIO;
 	}

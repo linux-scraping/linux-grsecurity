@@ -24,7 +24,7 @@
 #include <asm/opcodes-virt.h>
 #include <asm/psci.h>
 
-struct psci_operations psci_ops;
+struct psci_operations psci_ops __read_only;
 
 static int (*invoke_psci_fn)(u32, u32, u32, u32);
 

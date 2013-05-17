@@ -1894,7 +1894,9 @@ int qlcnic_83xx_config_default_opmode(struct qlcnic_adapter *adapter)
 	op_mode = QLCRDX(ahw, QLC_83XX_DRV_OP_MODE);
 
 	if (op_mode == QLC_83XX_DEFAULT_OPMODE) {
-		adapter->nic_ops->init_driver = qlcnic_83xx_init_default_driver;
+		pax_open_kernel();
+		*(void **)&adapter->nic_ops->init_driver = qlcnic_83xx_init_default_driver;
+		pax_close_kernel();
 		ahw->idc.state_entry = qlcnic_83xx_idc_ready_state_entry;
 	} else {
 		return -EIO;

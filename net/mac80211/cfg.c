@@ -3297,8 +3297,8 @@ static int ieee80211_cfg_get_channel(struct wiphy *wiphy,
 	if (chanctx_conf) {
 		*chandef = chanctx_conf->def;
 		ret = 0;
-	} else if (atomic_read(&local->open_count) > 0 &&
-		   atomic_read(&local->open_count) == local->monitors &&
+	} else if (local_read(&local->open_count) > 0 &&
+		   local_read(&local->open_count) == local->monitors &&
 		   sdata->vif.type == NL80211_IFTYPE_MONITOR) {
 		if (local->use_chanctx)
 			*chandef = local->monitor_chandef;

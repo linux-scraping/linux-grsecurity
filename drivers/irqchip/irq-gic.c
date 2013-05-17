@@ -83,7 +83,7 @@ static u8 gic_cpu_map[NR_GIC_CPU_IF] __read_mostly;
  * Supported arch specific GIC irq extension.
  * Default make them NULL.
  */
-irq_chip_no_const gic_arch_extn __read_only = {
+irq_chip_no_const gic_arch_extn = {
 	.irq_eoi	= NULL,
 	.irq_mask	= NULL,
 	.irq_unmask	= NULL,

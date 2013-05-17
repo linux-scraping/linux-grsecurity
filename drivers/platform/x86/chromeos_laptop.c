@@ -301,7 +301,7 @@ static int __init setup_tsl2563_als(const struct dmi_system_id *id)
 	return 0;
 }
 
-static struct dmi_system_id __initdata chromeos_laptop_dmi_table[] = {
+static struct dmi_system_id __initconst chromeos_laptop_dmi_table[] = {
 	{
 		.ident = "Samsung Series 5 550 - Touchpad",
 		.matches = {
