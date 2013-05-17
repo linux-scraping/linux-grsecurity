@@ -804,6 +804,7 @@ static void do_signal(struct pt_regs *regs)
 
 	signr = get_signal_to_deliver(&info, &ka, regs, NULL);
 	if (signr > 0) {
+		sigset_t sigcopy = *oldset;
 		/*
 		 * Re-enable any watchpoints before delivering the
 		 * signal to user space. The processor register will
@@ -814,7 +815,7 @@ static void do_signal(struct pt_regs *regs)
 			set_debugreg(current->thread.debugreg7, 7);
 
 		/* Whee! Actually deliver the signal.  */
-		if (handle_signal(signr, &info, &ka, oldset, regs) == 0) {
+		if (handle_signal(signr, &info, &ka, &sigcopy, regs) == 0) {
 			/*
 			 * A signal was successfully delivered; the saved
 			 * sigmask will have been stored in the signal frame,
