@@ -658,19 +658,22 @@ setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 {
 	int usig = signr_convert(sig);
 	sigset_t *set = &current->blocked;
+	sigset_t sigcopy;
 	int ret;
 
 	if (current_thread_info()->status & TS_RESTORE_SIGMASK)
 		set = &current->saved_sigmask;
 
+	sigcopy = *set;
+
 	/* Set up the stack frame */
 	if (is_ia32) {
 		if (ka->sa.sa_flags & SA_SIGINFO)
-			ret = ia32_setup_rt_frame(usig, ka, info, set, regs);
+			ret = ia32_setup_rt_frame(usig, ka, info, &sigcopy, regs);
 		else
-			ret = ia32_setup_frame(usig, ka, set, regs);
+			ret = ia32_setup_frame(usig, ka, &sigcopy, regs);
 	} else
-		ret = __setup_rt_frame(sig, ka, info, set, regs);
+		ret = __setup_rt_frame(sig, ka, info, &sigcopy, regs);
 
 	if (ret) {
 		force_sigsegv(sig, current);
