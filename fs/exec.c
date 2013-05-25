@@ -1569,7 +1569,7 @@ static int do_execve_common(const char *filename,
 	int retval;
 	const struct cred *cred = current_cred();
 
-	gr_learn_resource(current, RLIMIT_NPROC, atomic_read(&current->cred->user->processes), 1);
+	gr_learn_resource(current, RLIMIT_NPROC, atomic_read(&cred->user->processes), 1);
 
 	/*
 	 * We move the actual failure in case of RLIMIT_NPROC excess from

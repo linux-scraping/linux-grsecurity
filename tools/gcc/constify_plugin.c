@@ -44,7 +44,7 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info const_plugin_info = {
-	.version	= "201303270300",
+	.version	= "201305231310",
 	.help		= "no-constify\tturn off constification\n",
 };
 
@@ -375,6 +375,41 @@ static void finish_type(void *event_data, void *data)
 	TYPE_CONSTIFY_VISITED(type) = 1;
 }
 
+static void check_global_variables(void)
+{
+	struct varpool_node *node;
+
+#if BUILDING_GCC_VERSION <= 4007
+	for (node = varpool_nodes; node; node = node->next) {
+		tree var = node->decl;
+#else
+	FOR_EACH_VARIABLE(node) {
+		tree var = node->symbol.decl;
+#endif
+		tree type = TREE_TYPE(var);
+
+		if (TREE_CODE(type) != RECORD_TYPE && TREE_CODE(type) != UNION_TYPE)
+			continue;
+
+		if (!TYPE_READONLY(type) || !C_TYPE_FIELDS_READONLY(type))
+			continue;
+
+		if (!TYPE_CONSTIFY_VISITED(type))
+			continue;
+
+		if (DECL_EXTERNAL(var))
+			continue;
+
+		if (DECL_INITIAL(var))
+			continue;
+
+		// this works around a gcc bug/feature where uninitialized globals
+		// are moved into the .bss section regardless of any constification
+		DECL_INITIAL(var) = build_constructor(type, NULL);
+//		inform(DECL_SOURCE_LOCATION(var), "constified variable %qE moved into .rodata", var);
+	}
+}
+
 static unsigned int check_local_variables(void)
 {
 	unsigned int ret = 0;
@@ -413,15 +448,22 @@ static unsigned int check_local_variables(void)
 	return ret;
 }
 
+static unsigned int check_variables(void)
+{
+	check_global_variables();
+	return check_local_variables();
+}
+
+	unsigned int ret = 0;
 static struct gimple_opt_pass pass_local_variable = {
 	{
 		.type			= GIMPLE_PASS,
-		.name			= "check_local_variables",
+		.name			= "check_variables",
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
 		.gate			= NULL,
-		.execute		= check_local_variables,
+		.execute		= check_variables,
 		.sub			= NULL,
 		.next			= NULL,
 		.static_pass_number	= 0,
