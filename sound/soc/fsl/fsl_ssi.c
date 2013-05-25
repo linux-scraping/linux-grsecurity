@@ -608,7 +608,7 @@ static int __devinit fsl_ssi_probe(struct platform_device *pdev)
 {
 	struct fsl_ssi_private *ssi_private;
 	int ret = 0;
-	struct device_attribute *dev_attr = NULL;
+	device_attribute_no_const *dev_attr = NULL;
 	struct device_node *np = pdev->dev.of_node;
 	const char *p, *sprop;
 	const uint32_t *iprop;

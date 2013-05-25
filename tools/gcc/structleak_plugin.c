@@ -138,11 +138,12 @@ static void initialize(tree var)
 	// first check if the variable is already initialized, warn otherwise
 	for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
 		gimple stmt = gsi_stmt(gsi);
-		tree rhs1 = gimple_assign_rhs1(stmt);
+		tree rhs1;
 
 		// we're looking for an assignment of a single rhs...
 		if (!gimple_assign_single_p(stmt))
 			continue;
+		rhs1 = gimple_assign_rhs1(stmt);
 #if BUILDING_GCC_VERSION >= 4007
 		// ... of a non-clobbering expression...
 		if (TREE_CLOBBER_P(rhs1))
