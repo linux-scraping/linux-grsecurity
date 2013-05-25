@@ -559,6 +559,11 @@ int call_usermodehelper_exec(struct subprocess_info *sub_info,
 	validate_creds(sub_info->cred);
 
 	helper_lock();
+	if (!sub_info->path) {
+		retval = -EINVAL;
+		goto out;
+	}
+
 	if (sub_info->path[0] == '\0')
 		goto out;
 
