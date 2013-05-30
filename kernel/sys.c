@@ -1502,7 +1502,7 @@ int do_prlimit(struct task_struct *tsk, unsigned int resource,
 		   user in between this limit change and an execve by this task, force
 		   a recheck only for this task by setting PF_NPROC_EXCEEDED
 		*/
-		if (resource == RLIMIT_NPROC)
+		if (resource == RLIMIT_NPROC && tsk->real_cred->user != INIT_USER)
 			tsk->flags |= PF_NPROC_EXCEEDED;
 	}
 	if (!retval) {
