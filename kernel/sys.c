@@ -1319,7 +1319,7 @@ SYSCALL_DEFINE2(setrlimit, unsigned int, resource, struct rlimit __user *, rlim)
 	   user in between this limit change and an execve by this task, force
 	   a recheck only for this task by setting PF_NPROC_EXCEEDED
 	*/
-	if (resource == RLIMIT_NPROC)
+	if (resource == RLIMIT_NPROC && current->real_cred->user != INIT_USER)
 		current->flags |= PF_NPROC_EXCEEDED;
 
 	/*
