@@ -185,7 +185,7 @@ static int v9fs_vfs_writepage_locked(struct page *page)
 
 	retval = v9fs_file_write_internal(inode,
 					  v9inode->writeback_fid,
-					  (__force const char __user *)buffer,
+					  (const char __force_user *)buffer,
 					  len, &offset, 0);
 	if (retval > 0)
 		retval = 0;

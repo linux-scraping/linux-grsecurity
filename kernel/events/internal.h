@@ -77,10 +77,10 @@ static inline unsigned long perf_data_size(struct ring_buffer *rb)
 	return rb->nr_pages << (PAGE_SHIFT + page_order(rb));
 }
 
-#define DEFINE_OUTPUT_COPY(func_name, memcpy_func)			\
+#define DEFINE_OUTPUT_COPY(func_name, memcpy_func, user)		\
 static inline unsigned int						\
 func_name(struct perf_output_handle *handle,				\
-	  const void *buf, unsigned int len)				\
+	  const void user *buf, unsigned int len)			\
 {									\
 	unsigned long size, written;					\
 									\
@@ -112,17 +112,17 @@ static inline int memcpy_common(void *dst, const void *src, size_t n)
 	return n;
 }
 
-DEFINE_OUTPUT_COPY(__output_copy, memcpy_common)
+DEFINE_OUTPUT_COPY(__output_copy, memcpy_common, )
 
 #define MEMCPY_SKIP(dst, src, n) (n)
 
-DEFINE_OUTPUT_COPY(__output_skip, MEMCPY_SKIP)
+DEFINE_OUTPUT_COPY(__output_skip, MEMCPY_SKIP, )
 
 #ifndef arch_perf_out_copy_user
 #define arch_perf_out_copy_user __copy_from_user_inatomic
 #endif
 
-DEFINE_OUTPUT_COPY(__output_copy_user, arch_perf_out_copy_user)
+DEFINE_OUTPUT_COPY(__output_copy_user, arch_perf_out_copy_user, __user)
 
 /* Callchain handling */
 extern struct perf_callchain_entry *

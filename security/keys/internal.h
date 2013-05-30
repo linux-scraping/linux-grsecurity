@@ -240,7 +240,7 @@ extern long keyctl_instantiate_key_iov(key_serial_t,
 extern long keyctl_invalidate_key(key_serial_t);
 
 extern long keyctl_instantiate_key_common(key_serial_t,
-					  const struct iovec *,
+					  const struct iovec __user *,
 					  unsigned, size_t, key_serial_t);
 
 /*

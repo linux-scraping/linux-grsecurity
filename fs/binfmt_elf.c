@@ -641,7 +641,7 @@ static unsigned long pax_parse_xattr_pax_softmode(unsigned long pax_flags_softmo
 #endif
 
 #ifdef CONFIG_PAX_EMUTRAMP
-	if (pax_flags_softmode & MF_PAX_EMUTRAMP)
+	if ((pax_flags_softmode & MF_PAX_EMUTRAMP) && (pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)))
 		pax_flags |= MF_PAX_EMUTRAMP;
 #endif
 
@@ -1841,7 +1841,7 @@ static void fill_siginfo_note(struct memelfnote *note, user_siginfo_t *csigdata,
 {
 	mm_segment_t old_fs = get_fs();
 	set_fs(KERNEL_DS);
-	copy_siginfo_to_user((user_siginfo_t __user *) csigdata, siginfo);
+	copy_siginfo_to_user((user_siginfo_t __force_user *) csigdata, siginfo);
 	set_fs(old_fs);
 	fill_note(note, "CORE", NT_SIGINFO, sizeof(*csigdata), csigdata);
 }

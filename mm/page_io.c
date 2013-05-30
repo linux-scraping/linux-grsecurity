@@ -205,7 +205,7 @@ int swap_writepage(struct page *page, struct writeback_control *wbc)
 		struct file *swap_file = sis->swap_file;
 		struct address_space *mapping = swap_file->f_mapping;
 		struct iovec iov = {
-			.iov_base = kmap(page),
+			.iov_base = (void __force_user *)kmap(page),
 			.iov_len  = PAGE_SIZE,
 		};
 

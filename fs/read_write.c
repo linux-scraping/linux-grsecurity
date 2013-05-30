@@ -429,7 +429,7 @@ ssize_t __kernel_write(struct file *file, const char *buf, size_t count, loff_t 
 
 	old_fs = get_fs();
 	set_fs(get_ds());
-	p = (__force const char __user *)buf;
+	p = (const char __force_user *)buf;
 	if (count > MAX_RW_COUNT)
 		count =  MAX_RW_COUNT;
 	if (file->f_op->write)

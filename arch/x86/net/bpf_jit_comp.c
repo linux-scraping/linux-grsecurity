@@ -83,6 +83,7 @@ do { 											\
 		case 0x25: /* and eax, imm32 */						\
 		case 0x0d: /* or eax, imm32 */						\
 		case 0xb8: /* mov eax, imm32 */						\
+		case 0x35: /* xor eax, imm32 */						\
 		case 0x3d: /* cmp eax, imm32 */						\
 		case 0xa9: /* test eax, imm32 */					\
 			DILUTE_CONST_SEQUENCE(_off, randkey);				\
@@ -98,6 +99,10 @@ do { 											\
 			/* mov esi, ecx	*/						\
 			EMIT2(0x89, 0xce);						\
 			break;								\
+		case 0xe8: /* call rel imm32, always to known funcs */			\
+			EMIT1(b1);							\
+			EMIT(_off, 4);							\
+			break;								\
 		case 0xe9: /* jmp rel imm32 */						\
 			EMIT1(b1);							\
 			EMIT(_off, 4);							\
@@ -106,8 +111,7 @@ do { 											\
 			EMIT(0xcccccccc, 4);						\
 			break;								\
 		default:								\
-			EMIT1(b1);							\
-			EMIT(_off, 4);							\
+			BUILD_BUG();							\
 	}										\
 } while (0)
 
@@ -123,8 +127,7 @@ do { 									\
 		/* imul eax, ecx */					\
 		EMIT3(0x0f, 0xaf, 0xc1);				\
 	} else {							\
-		EMIT2(b1, b2);						\
-		EMIT(_off, 4);						\
+		BUILD_BUG();						\
 	}								\
 } while (0)
 #else
