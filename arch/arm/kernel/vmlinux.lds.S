@@ -103,6 +103,8 @@ SECTIONS
 			ARM_CPU_KEEP(PROC_INFO)
 	}
 
+	_etext = .;			/* End of text section */
+
 	RO_DATA(PAGE_SIZE)
 
 #ifdef CONFIG_ARM_UNWIND
@@ -121,8 +123,6 @@ SECTIONS
 		__stop_unwind_tab = .;
 	}
 #endif
-
-	_etext = .;			/* End of text and rodata section */
 
 #ifndef CONFIG_XIP_KERNEL
 	. = ALIGN(PAGE_SIZE);

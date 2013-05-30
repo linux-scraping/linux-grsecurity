@@ -67,6 +67,7 @@
 #include <trace/events/fs.h>
 
 #include <asm/uaccess.h>
+#include <asm/sections.h>
 #include <asm/mmu_context.h>
 #include <asm/tlb.h>
 #include "internal.h"
@@ -2203,7 +2204,30 @@ static __noreturn void pax_report_usercopy(const void *ptr, unsigned long len, b
 }
 #endif
 
-void __check_object_size(const void *ptr, unsigned long n, bool to)
+#ifdef CONFIG_PAX_USERCOPY
+static inline bool check_kernel_text_object(unsigned long low, unsigned long high)
+{
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+	unsigned long textlow = ktla_ktva((unsigned long)_stext);
+#ifdef CONFIG_MODULES
+	unsigned long texthigh = (unsigned long)MODULES_EXEC_VADDR;
+#else
+	unsigned long texthigh = ktla_ktva((unsigned long)_etext);
+#endif
+
+#else
+	unsigned long textlow = _stext;
+	unsigned long texthigh = _etext;	
+#endif
+
+	if (high <= textlow || low > texthigh)
+		return false;
+	else
+		return true;
+}
+#endif
+
+void __check_object_size(const void *ptr, unsigned long n, bool to_user)
 {
 
 #ifdef CONFIG_PAX_USERCOPY
@@ -2214,12 +2238,19 @@ void __check_object_size(const void *ptr, unsigned long n, bool to)
 
 	type = check_heap_object(ptr, n);
 	if (!type) {
-		if (check_stack_object(ptr, n) != -1)
+		int ret = check_stack_object(ptr, n);
+		if (ret == 1 || ret == 2)
 			return;
-		type = "<process stack>";
+		if (ret == 0) {
+			if (check_kernel_text_object((unsigned long)ptr, (unsigned long)ptr + n))
+				type = "<kernel text>";
+			else
+				return;
+		} else
+			type = "<process stack>";
 	}
 
-	pax_report_usercopy(ptr, n, to, type);
+	pax_report_usercopy(ptr, n, to_user, type);
 #endif
 
 }

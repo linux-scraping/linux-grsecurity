@@ -94,6 +94,10 @@ do { 											\
 			/* mov esi, ecx	*/						\
 			EMIT2(0x89, 0xce);						\
 			break;								\
+		case 0xe8: /* call rel imm32, always to known funcs */			\
+			EMIT1(b1);							\
+			EMIT(_off, 4);							\
+			break;								\
 		case 0xe9: /* jmp rel imm32 */						\
 			EMIT1(b1);							\
 			EMIT(_off, 4);							\
@@ -102,25 +106,18 @@ do { 											\
 			EMIT(0xcccccccc, 4);						\
 			break;								\
 		default:								\
-			EMIT1(b1);							\
-			EMIT(_off, 4);							\
+			BUILD_BUG_ON(1);						\
 	}										\
 } while (0)
 
 #define EMIT2_off32(b1, b2, _off) 					\
 do { 									\
-	if ((b1) == 0x8d && (b2) == 0xb3) { /* lea esi, [rbx+imm32] */	\
-		EMIT2(0x8d, 0xb3); /* lea esi, [rbx+randkey] */		\
-		EMIT(randkey, 4);					\
-		EMIT2(0x8d, 0xb6); /* lea esi, [esi+off-randkey] */	\
-		EMIT((_off) - randkey, 4);				\
-	} else if ((b1) == 0x69 && (b2) == 0xc0) { /* imul eax, imm32 */\
+	if ((b1) == 0x69 && (b2) == 0xc0) { /* imul eax, imm32 */	\
 		DILUTE_CONST_SEQUENCE(_off, randkey);			\
 		/* imul eax, ecx */					\
 		EMIT3(0x0f, 0xaf, 0xc1);				\
 	} else {							\
-		EMIT2(b1, b2);						\
-		EMIT(_off, 4);						\
+		BUILD_BUG_ON(1);					\
 	}								\
 } while (0)
 #else
