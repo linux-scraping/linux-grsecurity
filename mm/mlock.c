@@ -549,7 +549,6 @@ static int do_mlockall(int flags)
 			break;
 #endif
 
-		BUG_ON(vma->vm_end > TASK_SIZE);
 		newflags = vma->vm_flags | VM_LOCKED;
 		if (!(flags & MCL_CURRENT))
 			newflags &= ~VM_LOCKED;
