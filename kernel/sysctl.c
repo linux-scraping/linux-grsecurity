@@ -1005,7 +1005,14 @@ static struct ctl_table kern_table[] = {
 		.data		= &sysctl_perf_event_legitimately_concerned,
 		.maxlen		= sizeof(sysctl_perf_event_legitimately_concerned),
 		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
+		/* go ahead, be a hero */
+		.proc_handler	= proc_dointvec_minmax_sysadmin,
+		.extra1		= &zero,
+#ifdef CONFIG_GRKERNSEC_PERF_HARDEN
+		.extra2		= &three,
+#else
+		.extra2		= &two,
+#endif
 	},
 	{
 		.procname	= "perf_event_mlock_kb",
