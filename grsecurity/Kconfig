@@ -83,6 +83,25 @@ config GRKERNSEC_JIT_HARDEN
 	  If you're using KERNEXEC, it's recommended that you enable this option
 	  to supplement the hardening of the kernel.
   
+config GRKERNSEC_PERF_HARDEN
+	bool "Disable unprivileged PERF_EVENTS usage by default"
+	default y if GRKERNSEC_CONFIG_AUTO
+	depends on PERF_EVENTS
+	help
+	  If you say Y here, the range of acceptable values for the
+	  /proc/sys/kernel/perf_event_paranoid sysctl will be expanded to allow and
+	  default to a new value: 3.  When the sysctl is set to this value, no
+	  unprivileged use of the PERF_EVENTS syscall interface will be permitted.
+
+	  Though PERF_EVENTS can be used legitimately for performance monitoring
+	  and low-level application profiling, it is forced on regardless of
+	  configuration, has been at fault for several vulnerabilities, and
+	  creates new opportunities for side channels and other information leaks.
+
+	  This feature puts PERF_EVENTS into a secure default state and permits
+	  the administrator to change out of it temporarily if unprivileged
+	  application profiling is needed.
+
 config GRKERNSEC_RAND_THREADSTACK
 	bool "Insert random gaps between thread stacks"
 	default y if GRKERNSEC_CONFIG_AUTO
@@ -192,6 +211,9 @@ config GRKERNSEC_HIDESYM
 	  If the above conditions are met, this option will aid in providing a
 	  useful protection against local kernel exploitation of overflows
 	  and arbitrary read/write vulnerabilities.
+
+	  It is highly recommended that you enable GRKERNSEC_PERF_HARDEN
+	  in addition to this feature.
 
 config GRKERNSEC_KERN_LOCKOUT
 	bool "Active kernel exploit response"
