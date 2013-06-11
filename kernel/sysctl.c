@@ -119,18 +119,18 @@ extern int blk_iopoll_enabled;
 
 /* Constants used for minimum and  maximum */
 #ifdef CONFIG_LOCKUP_DETECTOR
-static int sixty = 60;
-static int neg_one = -1;
+static int sixty __read_only = 60;
 #endif
 
-static int zero;
-static int __maybe_unused one = 1;
-static int __maybe_unused two = 2;
-static int __maybe_unused three = 3;
-static unsigned long one_ul = 1;
-static int one_hundred = 100;
+static int neg_one __read_only = -1;
+static int zero __read_only = 0;
+static int __maybe_unused one __read_only = 1;
+static int __maybe_unused two __read_only = 2;
+static int __maybe_unused three __read_only = 3;
+static unsigned long one_ul __read_only = 1;
+static int one_hundred __read_only = 100;
 #ifdef CONFIG_PRINTK
-static int ten_thousand = 10000;
+static int ten_thousand __read_only = 10000;
 #endif
 
 /* this is needed for the proc_doulongvec_minmax of vm_dirty_bytes */
@@ -1007,7 +1007,7 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		/* go ahead, be a hero */
 		.proc_handler	= proc_dointvec_minmax_sysadmin,
-		.extra1		= &zero,
+		.extra1		= &neg_one,
 #ifdef CONFIG_GRKERNSEC_PERF_HARDEN
 		.extra2		= &three,
 #else
