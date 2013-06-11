@@ -1001,12 +1001,12 @@ mext_check_arguments(struct inode *orig_inode,
 		return -EINVAL;
 	}
 
-	if ((orig_start > EXT_MAX_BLOCK) ||
-	    (donor_start > EXT_MAX_BLOCK) ||
-	    (*len > EXT_MAX_BLOCK) ||
-	    (orig_start + *len > EXT_MAX_BLOCK))  {
+	if ((orig_start >= EXT_MAX_BLOCKS) ||
+	    (donor_start >= EXT_MAX_BLOCKS) ||
+	    (*len > EXT_MAX_BLOCKS) ||
+	    (orig_start + *len >= EXT_MAX_BLOCKS))  {
 		ext4_debug("ext4 move extent: Can't handle over [%u] blocks "
-			"[ino:orig %lu, donor %lu]\n", EXT_MAX_BLOCK,
+			"[ino:orig %lu, donor %lu]\n", EXT_MAX_BLOCKS,
 			orig_inode->i_ino, donor_inode->i_ino);
 		return -EINVAL;
 	}
@@ -1208,7 +1208,12 @@ ext4_move_extents(struct file *o_filp, struct file *d_filp,
 			orig_inode->i_ino, donor_inode->i_ino);
 		return -EINVAL;
 	}
-
+	/* TODO: This is non obvious task to swap blocks for inodes with full
+	   jornaling enabled */
+	if (ext4_should_journal_data(orig_inode) ||
+	    ext4_should_journal_data(donor_inode)) {
+		return -EINVAL;
+	}
 	/* Protect orig and donor inodes against a truncate */
 	ret1 = mext_inode_double_lock(orig_inode, donor_inode);
 	if (ret1 < 0)

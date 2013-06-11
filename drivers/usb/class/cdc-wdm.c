@@ -54,6 +54,7 @@ MODULE_DEVICE_TABLE (usb, wdm_ids);
 #define WDM_POLL_RUNNING	6
 #define WDM_OVERFLOW		10
 
+
 #define WDM_MAX			16
 
 

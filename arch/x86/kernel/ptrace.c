@@ -1473,7 +1473,7 @@ extern void gr_delayed_cred_worker(void);
  * We must return the syscall number to actually look up in the table.
  * This can be -1L to skip running any syscall at all.
  */
-long syscall_trace_enter(struct pt_regs *regs)
+asmregparm long syscall_trace_enter(struct pt_regs *regs)
 {
 	long ret = 0;
 
@@ -1523,7 +1523,7 @@ long syscall_trace_enter(struct pt_regs *regs)
 	return ret ?: regs->orig_ax;
 }
 
-void syscall_trace_leave(struct pt_regs *regs)
+asmregparm void syscall_trace_leave(struct pt_regs *regs)
 {
 #ifdef CONFIG_GRKERNSEC_SETXID
 	if (unlikely(test_and_clear_thread_flag(TIF_GRSEC_SETXID)))

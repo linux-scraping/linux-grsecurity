@@ -81,14 +81,18 @@ void __ptrace_unlink(struct task_struct *child)
 }
 
 /* Ensure that nothing can wake it up, even SIGKILL */
-static bool ptrace_freeze_traced(struct task_struct *task)
+static bool ptrace_freeze_traced(struct task_struct *task, int kill)
 {
-	bool ret = false;
+	bool ret = true;
 
 	spin_lock_irq(&task->sighand->siglock);
-	if (task_is_traced(task) && !__fatal_signal_pending(task)) {
+	if (task_is_stopped(task) && !__fatal_signal_pending(task))
 		task->state = __TASK_TRACED;
-		ret = true;
+	else if (!kill) {
+		if (task_is_traced(task) && !__fatal_signal_pending(task))
+			task->state = __TASK_TRACED;
+		else
+			ret = false;
 	}
 	spin_unlock_irq(&task->sighand->siglock);
 
@@ -110,24 +114,10 @@ static void ptrace_unfreeze_traced(struct task_struct *task)
 	spin_unlock_irq(&task->sighand->siglock);
 }
 
-/**
- * ptrace_check_attach - check whether ptracee is ready for ptrace operation
- * @child: ptracee to check for
- * @ignore_state: don't check whether @child is currently %TASK_TRACED
- *
- * Check whether @child is being ptraced by %current and ready for further
- * ptrace operations.  If @ignore_state is %false, @child also should be in
- * %TASK_TRACED state and on return the child is guaranteed to be traced
- * and not executing.  If @ignore_state is %true, @child can be in any
- * state.
- *
- * CONTEXT:
- * Grabs and releases tasklist_lock and @child->sighand->siglock.
- *
- * RETURNS:
- * 0 on success, -ESRCH if %child is not ready.
+/*
+ * Check that we have indeed attached to the thing..
  */
-int ptrace_check_attach(struct task_struct *child, bool ignore_state)
+int ptrace_check_attach(struct task_struct *child, int kill)
 {
 	int ret = -ESRCH;
 
@@ -145,12 +135,12 @@ int ptrace_check_attach(struct task_struct *child, bool ignore_state)
 		 * child->sighand can't be NULL, release_task()
 		 * does ptrace_unlink() before __exit_signal().
 		 */
-		if (ignore_state || ptrace_freeze_traced(child))
+		if (ptrace_freeze_traced(child, kill))
 			ret = 0;
 	}
 	read_unlock(&tasklist_lock);
 
-	if (!ret && !ignore_state) {
+	if (!ret && !kill) {
 		if (!wait_task_inactive(child, __TASK_TRACED)) {
 			/*
 			 * This can only happen if may_ptrace_stop() fails and
