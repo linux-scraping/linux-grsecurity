@@ -783,7 +783,7 @@ static void __init trim_bios_range(void)
 /* called before trim_bios_range() to spare extra sanitize */
 static void __init e820_add_kernel_range(void)
 {
-	u64 start = __pa_symbol(_text);
+	u64 start = __pa_symbol(ktla_ktva(_text));
 	u64 size = __pa_symbol(_end) - start;
 
 	/*
