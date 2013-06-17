@@ -149,7 +149,7 @@ static struct srcu_struct pmus_srcu;
  */
 #ifdef CONFIG_GRKERNSEC_PERF_HARDEN
 int sysctl_perf_event_legitimately_concerned __read_mostly = 3;
-#elif CONFIG_GRKERNSEC_HIDESYM
+#elif defined(CONFIG_GRKERNSEC_HIDESYM)
 int sysctl_perf_event_legitimately_concerned __read_mostly = 2;
 #else
 int sysctl_perf_event_legitimately_concerned __read_mostly = 1;
