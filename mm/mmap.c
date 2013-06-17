@@ -2492,7 +2492,6 @@ int expand_downwards(struct vm_area_struct *vma,
 				vma->vm_pgoff -= grow;
 				anon_vma_interval_tree_post_update_vma(vma);
 				vma_gap_update(vma);
-				track_exec_limit(vma->vm_mm, vma->vm_start, vma->vm_end, vma->vm_flags);
 
 #ifdef CONFIG_PAX_SEGMEXEC
 				if (vma_m) {
@@ -2506,11 +2505,14 @@ int expand_downwards(struct vm_area_struct *vma,
 
 				spin_unlock(&vma->vm_mm->page_table_lock);
 
+				track_exec_limit(vma->vm_mm, vma->vm_start, vma->vm_end, vma->vm_flags);
 				perf_event_mmap(vma);
 			}
 		}
 	}
 	vma_unlock_anon_vma(vma);
+	if (lockprev)
+		vma_unlock_anon_vma(prev);
 	khugepaged_enter_vma_merge(vma);
 	validate_mm(vma->vm_mm);
 	return error;
