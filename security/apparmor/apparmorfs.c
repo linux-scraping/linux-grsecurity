@@ -229,10 +229,10 @@ static int __init aa_create_aafs(void)
 	error = aafs_create("features", 0444, &aa_fs_features_fops);
 	if (error)
 		goto error;
-#endif
 	error = aafs_create("profiles", 0440, &aa_fs_profiles_fops);
 	if (error)
 		goto error;
+#endif
 	error = aafs_create(".load", 0640, &aa_fs_profile_load);
 	if (error)
 		goto error;
