@@ -392,11 +392,11 @@ asmlinkage long sys_sync(void);
 asmlinkage long sys_fsync(unsigned int fd);
 asmlinkage long sys_fdatasync(unsigned int fd);
 asmlinkage long sys_bdflush(int func, long data);
-asmlinkage long sys_mount(char __user *dev_name, char __user *dir_name,
-				char __user *type, unsigned long flags,
+asmlinkage long sys_mount(const char __user *dev_name, const char __user *dir_name,
+				const char __user *type, unsigned long flags,
 				void __user *data);
-asmlinkage long sys_umount(char __user *name, int flags);
-asmlinkage long sys_oldumount(char __user *name);
+asmlinkage long sys_umount(const char __user *name, int flags);
+asmlinkage long sys_oldumount(const char __user *name);
 asmlinkage long sys_truncate(const char __user *path, long length);
 asmlinkage long sys_ftruncate(unsigned int fd, unsigned long length);
 asmlinkage long sys_stat(const char __user *filename,

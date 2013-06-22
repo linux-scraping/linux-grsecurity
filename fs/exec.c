@@ -597,7 +597,7 @@ int copy_strings_kernel(int argc, const char *const *__argv,
 	int r;
 	mm_segment_t oldfs = get_fs();
 	struct user_arg_ptr argv = {
-		.ptr.native = (const char __force_user *const  __force_user *)__argv,
+		.ptr.native = (const char __force_user * const __force_user *)__argv,
 	};
 
 	set_fs(KERNEL_DS);

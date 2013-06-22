@@ -372,7 +372,7 @@ struct devfreq *devfreq_add_device(struct device *dev,
 			      = msecs_to_jiffies(devfreq->profile->polling_ms);
 	devfreq->nb.notifier_call = devfreq_notifier_call;
 
-	dev_set_name(&devfreq->dev, dev_name(dev));
+	dev_set_name(&devfreq->dev, "%s", dev_name(dev));
 	err = device_register(&devfreq->dev);
 	if (err) {
 		put_device(&devfreq->dev);

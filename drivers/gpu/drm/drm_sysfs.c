@@ -495,7 +495,7 @@ EXPORT_SYMBOL(drm_sysfs_hotplug_event);
 int drm_sysfs_device_add(struct drm_minor *minor)
 {
 	int err;
-	char *minor_str;
+	const char *minor_str;
 
 	minor->kdev.parent = minor->dev->dev;
 

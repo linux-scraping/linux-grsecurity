@@ -407,7 +407,7 @@ static ssize_t read_oldmem(struct file *file, char __user *buf,
 		else
 			csize = count;
 
-		rc = copy_oldmem_page(pfn, buf, csize, offset, 1);
+		rc = copy_oldmem_page(pfn, (char __force_kernel *)buf, csize, offset, 1);
 		if (rc < 0)
 			return rc;
 		buf += csize;
@@ -986,7 +986,7 @@ static int __init chr_dev_init(void)
 		if (!devlist[minor].name)
 			continue;
 		device_create(mem_class, NULL, MKDEV(MEM_MAJOR, minor),
-			      NULL, devlist[minor].name);
+			      NULL, "%s", devlist[minor].name);
 	}
 
 	return tty_init();

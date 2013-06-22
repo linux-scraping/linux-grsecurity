@@ -474,21 +474,24 @@ static char *bdevt_str(dev_t devt, char *buf)
 
 /*
  * Register device numbers dev..(dev+range-1)
- * range must be nonzero
+ * Noop if @range is zero.
  * The hash chain is sorted on range, so that subranges can override.
  */
 void blk_register_region(dev_t devt, unsigned long range, struct module *module,
 			 struct kobject *(*probe)(dev_t, int *, void *),
 			 int (*lock)(dev_t, void *), void *data)
 {
-	kobj_map(bdev_map, devt, range, module, probe, lock, data);
+	if (range)
+		kobj_map(bdev_map, devt, range, module, probe, lock, data);
 }
 
 EXPORT_SYMBOL(blk_register_region);
 
+/* undo blk_register_region(), noop if @range is zero */
 void blk_unregister_region(dev_t devt, unsigned long range)
 {
-	kobj_unmap(bdev_map, devt, range);
+	if (range)
+		kobj_unmap(bdev_map, devt, range);
 }
 
 EXPORT_SYMBOL(blk_unregister_region);
@@ -519,7 +522,7 @@ void register_disk(struct gendisk *disk)
 
 	ddev->parent = disk->driverfs_dev;
 
-	dev_set_name(ddev, disk->disk_name);
+	dev_set_name(ddev, "%s", disk->disk_name);
 
 	/* delay uevents, until we scanned partition table */
 	dev_set_uevent_suppress(ddev, 1);

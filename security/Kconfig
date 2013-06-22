@@ -624,15 +624,16 @@ config PAX_KERNEXEC_MODULE_TEXT
 	int "Minimum amount of memory reserved for module code"
 	default "4" if (!GRKERNSEC_CONFIG_AUTO || GRKERNSEC_CONFIG_SERVER)
 	default "12" if (GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_DESKTOP)
-	depends on PAX_KERNEXEC && X86_32 && MODULES
+	depends on PAX_KERNEXEC && X86_32
 	help
 	  Due to implementation details the kernel must reserve a fixed
-	  amount of memory for module code at compile time that cannot be
-	  changed at runtime.  Here you can specify the minimum amount
-	  in MB that will be reserved.  Due to the same implementation
-	  details this size will always be rounded up to the next 2/4 MB
-	  boundary (depends on PAE) so the actually available memory for
-	  module code will usually be more than this minimum.
+	  amount of memory for runtime allocated code (such as modules)
+	  at compile time that cannot be changed at runtime.  Here you
+	  can specify the minimum amount in MB that will be reserved.
+	  Due to the same implementation details this size will always
+	  be rounded up to the next 2/4 MB boundary (depends on PAE) so
+	  the actually available memory for runtime allocated code will
+	  usually be more than this minimum.
 
 	  The default 4 MB should be enough for most users but if you have
 	  an excessive number of modules (e.g., most distribution configs

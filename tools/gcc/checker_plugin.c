@@ -51,6 +51,7 @@ int plugin_is_GPL_compatible;
 
 static struct plugin_info checker_plugin_info = {
 	.version	= "201111150100",
+	.help		= NULL,
 };
 
 #define ADDR_SPACE_KERNEL		0

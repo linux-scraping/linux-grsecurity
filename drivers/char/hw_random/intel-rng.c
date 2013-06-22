@@ -314,7 +314,7 @@ PFX "RNG, try using the 'no_fwh_detect' option.\n";
 
 		if (no_fwh_detect)
 			return -ENODEV;
-		printk(warning);
+		printk("%s", warning);
 		return -EBUSY;
 	}
 

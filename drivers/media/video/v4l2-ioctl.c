@@ -2197,7 +2197,7 @@ static unsigned long cmd_input_size(unsigned int cmd)
 }
 
 static int check_array_args(unsigned int cmd, void *parg, size_t *array_size,
-			    void * __user *user_ptr, void ***kernel_ptr)
+			    void __user **user_ptr, void ***kernel_ptr)
 {
 	int ret = 0;
 
@@ -2212,7 +2212,7 @@ static int check_array_args(unsigned int cmd, void *parg, size_t *array_size,
 				ret = -EINVAL;
 				break;
 			}
-			*user_ptr = (void __user *)buf->m.planes;
+			*user_ptr = (void __force_user *)buf->m.planes;
 			*kernel_ptr = (void *)&buf->m.planes;
 			*array_size = sizeof(struct v4l2_plane) * buf->length;
 			ret = 1;
@@ -2230,7 +2230,7 @@ static int check_array_args(unsigned int cmd, void *parg, size_t *array_size,
 				ret = -EINVAL;
 				break;
 			}
-			*user_ptr = (void __user *)ctrls->controls;
+			*user_ptr = (void __force_user *)ctrls->controls;
 			*kernel_ptr = (void *)&ctrls->controls;
 			*array_size = sizeof(struct v4l2_ext_control)
 				    * ctrls->count;

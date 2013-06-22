@@ -73,7 +73,7 @@ static int read_mmp_block(struct super_block *sb, struct buffer_head **bh,
 void __dump_mmp_msg(struct super_block *sb, struct mmp_struct *mmp,
 		    const char *function, unsigned int line, const char *msg)
 {
-	__ext4_warning(sb, function, line, msg);
+	__ext4_warning(sb, function, line, "%s", msg);
 	__ext4_warning(sb, function, line,
 		       "MMP failure info: last update time: %llu, last update "
 		       "node: %s, last update device: %s\n",

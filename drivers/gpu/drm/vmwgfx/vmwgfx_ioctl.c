@@ -135,7 +135,7 @@ int vmw_present_ioctl(struct drm_device *dev, void *data,
 	int ret;
 
 	num_clips = arg->num_clips;
-	clips_ptr = (struct drm_vmw_rect *)(unsigned long)arg->clips_ptr;
+	clips_ptr = (struct drm_vmw_rect __user *)(unsigned long)arg->clips_ptr;
 
 	if (unlikely(num_clips == 0))
 		return 0;
@@ -221,7 +221,7 @@ int vmw_present_readback_ioctl(struct drm_device *dev, void *data,
 	int ret;
 
 	num_clips = arg->num_clips;
-	clips_ptr = (struct drm_vmw_rect *)(unsigned long)arg->clips_ptr;
+	clips_ptr = (struct drm_vmw_rect __user *)(unsigned long)arg->clips_ptr;
 
 	if (unlikely(num_clips == 0))
 		return 0;

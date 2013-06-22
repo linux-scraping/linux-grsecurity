@@ -634,7 +634,7 @@ static unsigned long pax_parse_xattr_pax_softmode(unsigned long pax_flags_softmo
 #endif
 
 #ifdef CONFIG_PAX_EMUTRAMP
-	if (pax_flags_softmode & MF_PAX_EMUTRAMP)
+	if ((pax_flags_softmode & MF_PAX_EMUTRAMP) && (pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)))
 		pax_flags |= MF_PAX_EMUTRAMP;
 #endif
 

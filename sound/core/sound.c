@@ -87,7 +87,7 @@ static void snd_request_other(int minor)
 	case SNDRV_MINOR_TIMER:		str = "snd-timer";	break;
 	default:			return;
 	}
-	request_module(str);
+	request_module("%s", str);
 }
 
 #endif	/* modular kernel */
