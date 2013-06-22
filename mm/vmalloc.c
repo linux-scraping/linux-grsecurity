@@ -40,7 +40,7 @@ static void vunmap_pte_range(pmd_t *pmd, unsigned long addr, unsigned long end)
 	pte = pte_offset_kernel(pmd, addr);
 	do {
 
-#if defined(CONFIG_MODULES) && defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
 		if ((unsigned long)MODULES_EXEC_VADDR <= addr && addr < (unsigned long)MODULES_EXEC_END) {
 			BUG_ON(!pte_exec(*pte));
 			set_pte_at(&init_mm, addr, pte, pfn_pte(__pa(addr) >> PAGE_SHIFT, PAGE_KERNEL_EXEC));
@@ -116,7 +116,7 @@ static int vmap_pte_range(pmd_t *pmd, unsigned long addr,
 	do {
 		struct page *page = pages[*nr];
 
-#if defined(CONFIG_MODULES) && defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
 		if (pgprot_val(prot) & _PAGE_NX)
 #endif
 
@@ -215,8 +215,7 @@ int is_vmalloc_or_module_addr(const void *x)
 	 * and fall back on vmalloc() if that fails. Others
 	 * just put it in the vmalloc space.
 	 */
-#ifdef CONFIG_MODULES
-#ifdef MODULES_VADDR
+#if defined(CONFIG_MODULES) && defined(MODULES_VADDR)
 	unsigned long addr = (unsigned long)x;
 	if (addr >= MODULES_VADDR && addr < MODULES_END)
 		return 1;
@@ -225,8 +224,6 @@ int is_vmalloc_or_module_addr(const void *x)
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
 	if (x >= (const void *)MODULES_EXEC_VADDR && x < (const void *)MODULES_EXEC_END)
 		return 1;
-#endif
-
 #endif
 
 	return is_vmalloc_addr(x);
@@ -1368,7 +1365,7 @@ static struct vm_struct *__get_vm_area_node(unsigned long size,
 
 	BUG_ON(in_interrupt());
 
-#if defined(CONFIG_MODULES) && defined(CONFIG_X86) && defined(CONFIG_PAX_KERNEXEC)
+#if defined(CONFIG_X86) && defined(CONFIG_PAX_KERNEXEC)
 	if (flags & VM_KERNEXEC) {
 		if (start != VMALLOC_START || end != VMALLOC_END)
 			return NULL;
@@ -1618,7 +1615,7 @@ void *vmap(struct page **pages, unsigned int count,
 	if (count > totalram_pages)
 		return NULL;
 
-#if defined(CONFIG_MODULES) && defined(CONFIG_X86) && defined(CONFIG_PAX_KERNEXEC)
+#if defined(CONFIG_X86) && defined(CONFIG_PAX_KERNEXEC)
 	if (!(pgprot_val(prot) & _PAGE_NX))
 		flags |= VM_KERNEXEC;
 #endif
@@ -1724,7 +1721,7 @@ void *__vmalloc_node_range(unsigned long size, unsigned long align,
 	if (!size || (size >> PAGE_SHIFT) > totalram_pages)
 		goto fail;
 
-#if defined(CONFIG_MODULES) && defined(CONFIG_X86) && defined(CONFIG_PAX_KERNEXEC)
+#if defined(CONFIG_X86) && defined(CONFIG_PAX_KERNEXEC)
 	if (!(pgprot_val(prot) & _PAGE_NX))
 		area = __get_vm_area_node(size, align, VM_ALLOC | VM_UNLIST | VM_KERNEXEC,
 					  VMALLOC_START, VMALLOC_END, node, gfp_mask, caller);

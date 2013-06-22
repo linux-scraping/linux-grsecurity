@@ -440,7 +440,7 @@ static int pcrypt_sysfs_add(struct padata_instance *pinst, const char *name)
 	int ret;
 
 	pinst->kobj.kset = pcrypt_kset;
-	ret = kobject_add(&pinst->kobj, NULL, name);
+	ret = kobject_add(&pinst->kobj, NULL, "%s", name);
 	if (!ret)
 		kobject_uevent(&pinst->kobj, KOBJ_ADD);
 
@@ -455,8 +455,8 @@ static int pcrypt_init_padata(struct padata_pcrypt *pcrypt,
 
 	get_online_cpus();
 
-	pcrypt->wq = alloc_workqueue(name,
-				     WQ_MEM_RECLAIM | WQ_CPU_INTENSIVE, 1);
+	pcrypt->wq = alloc_workqueue("%s",
+				     WQ_MEM_RECLAIM | WQ_CPU_INTENSIVE, 1, name);
 	if (!pcrypt->wq)
 		goto err;
 

@@ -348,7 +348,7 @@ int setup_hpet_msi_remapped(unsigned int irq, unsigned int id)
 void panic_if_irq_remap(const char *msg)
 {
 	if (irq_remapping_enabled)
-		panic(msg);
+		panic("%s", msg);
 }
 
 static void ir_ack_apic_edge(struct irq_data *data)

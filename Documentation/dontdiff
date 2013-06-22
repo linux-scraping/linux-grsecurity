@@ -79,6 +79,7 @@ PERF*
 SCCS
 System.map*
 TAGS
+TRACEEVENT-CFLAGS
 aconf
 af_names.h
 aic7*reg.h*

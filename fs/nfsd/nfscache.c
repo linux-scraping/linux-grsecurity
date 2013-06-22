@@ -467,7 +467,8 @@ nfsd_cache_update(struct svc_rqst *rqstp, int cachetype, __be32 *statp)
 		return;
 
 	if (statp) {
-		len = resv->iov_len - ((char*)statp - (char*)resv->iov_base);
+		len = (char*)statp - (char*)resv->iov_base;
+		len = resv->iov_len - len;
 		len >>= 2;
 	}
 
