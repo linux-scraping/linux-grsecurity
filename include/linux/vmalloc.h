@@ -15,7 +15,7 @@ struct vm_area_struct;		/* vma defining user mapping in mm_types.h */
 #define VM_VPAGES	0x00000010	/* buffer for pages was vmalloc'ed */
 #define VM_UNLIST	0x00000020	/* vm_struct is not listed in vmlist */
 
-#if defined(CONFIG_MODULES) && defined(CONFIG_X86) && defined(CONFIG_PAX_KERNEXEC)
+#if defined(CONFIG_X86) && defined(CONFIG_PAX_KERNEXEC)
 #define VM_KERNEXEC	0x00000040	/* allocate from executable kernel memory range */
 #endif
 
