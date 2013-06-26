@@ -479,7 +479,6 @@ ENTRY(phys_base)
 ENTRY(idt_table)
 	.fill 512,8,0
 
-	__PAGE_ALIGNED_BSS
 	.align PAGE_SIZE
 ENTRY(empty_zero_page)
 	.skip PAGE_SIZE
