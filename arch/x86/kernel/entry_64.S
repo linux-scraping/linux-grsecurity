@@ -482,7 +482,6 @@ ENTRY(pax_exit_kernel_user)
 	sub phys_base(%rip),%rbx
 
 #ifdef CONFIG_PARAVIRT
-	pushq %rdi
 	cmpl $0, pv_info+PARAVIRT_enabled
 	jz 1f
 	i = 0
@@ -493,7 +492,6 @@ ENTRY(pax_exit_kernel_user)
 	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_set_pgd_batched)
 	i = i + 1
 	.endr
-	popq %rdi
 	PV_RESTORE_REGS(CLBR_RDI)
 	jmp 2f
 1:
@@ -524,8 +522,8 @@ ENDPROC(pax_exit_kernel_user)
 #ifdef CONFIG_PAX_KERNEXEC
 	GET_CR0_INTO_RDI
 	bts $16,%rdi
-	SET_RDI_INTO_CR0
 	jc 110f
+	SET_RDI_INTO_CR0
 	or $2,%ebx
 110:
 #endif
@@ -533,8 +531,8 @@ ENDPROC(pax_exit_kernel_user)
 
 	.macro pax_exit_kernel_nmi
 #ifdef CONFIG_PAX_KERNEXEC
-	test $2,%ebx
-	jz 110f
+	btr $1,%ebx
+	jnc 110f
 	GET_CR0_INTO_RDI
 	btr $16,%rdi
 	SET_RDI_INTO_CR0

@@ -172,12 +172,6 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 		VM_BUG_ON(addr != -ENOMEM);
 		info.flags = 0;
 		info.low_limit = mm->mmap_base;
-
-#ifdef CONFIG_PAX_RANDMMAP
-		if (mm->pax_flags & MF_PAX_RANDMMAP)
-			info.low_limit += mm->delta_mmap;
-#endif
-
 		info.high_limit = TASK_SIZE;
 		addr = vm_unmapped_area(&info);
 	}

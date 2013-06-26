@@ -18,6 +18,7 @@
 #include <linux/file.h>
 #include <linux/utsname.h>
 #include <linux/ipc.h>
+#include <linux/elf.h>
 
 #include <linux/uaccess.h>
 #include <linux/unistd.h>
@@ -40,13 +41,28 @@ int i386_mmap_check(unsigned long addr, unsigned long len, unsigned long flags)
 	return 0;
 }
 
+/*
+ * Align a virtual address to avoid aliasing in the I$ on AMD F15h.
+ */
+static unsigned long get_align_mask(void)
+{
+	if (va_align.flags < 0 || !(va_align.flags & ALIGN_VA_32))
+		return 0;
+
+	if (!(current->flags & PF_RANDOMIZE))
+		return 0;
+
+	return va_align.mask;
+}
+
 unsigned long
 arch_get_unmapped_area(struct file *filp, unsigned long addr,
 		unsigned long len, unsigned long pgoff, unsigned long flags)
 {
 	struct mm_struct *mm = current->mm;
 	struct vm_area_struct *vma;
-	unsigned long start_addr, pax_task_size = TASK_SIZE;
+	unsigned long pax_task_size = TASK_SIZE;
+	struct vm_unmapped_area_info info;
 	unsigned long offset = gr_rand_threadstack_offset(mm, filp, flags);
 
 #ifdef CONFIG_PAX_SEGMEXEC
@@ -74,61 +90,35 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 				return addr;
 		}
 	}
-	if (len > mm->cached_hole_size) {
-		start_addr = addr = mm->free_area_cache;
-	} else {
-		start_addr = addr = mm->mmap_base;
-		mm->cached_hole_size = 0;
-	}
+
+	info.flags = 0;
+	info.length = len;
+	info.align_mask = filp ? get_align_mask() : 0;
+	info.align_offset = pgoff << PAGE_SHIFT;
+	info.threadstack_offset = offset;
 
 #ifdef CONFIG_PAX_PAGEEXEC
-	if (!(__supported_pte_mask & _PAGE_NX) && (mm->pax_flags & MF_PAX_PAGEEXEC) && (flags & MAP_EXECUTABLE) && start_addr >= mm->mmap_base) {
-		start_addr = 0x00110000UL;
+	if (!(__supported_pte_mask & _PAGE_NX) && (mm->pax_flags & MF_PAX_PAGEEXEC) && (flags & MAP_EXECUTABLE)) {
+		info.low_limit = 0x00110000UL;
+		info.high_limit = mm->start_code;
 
 #ifdef CONFIG_PAX_RANDMMAP
 		if (mm->pax_flags & MF_PAX_RANDMMAP)
-			start_addr += mm->delta_mmap & 0x03FFF000UL;
+			info.low_limit += mm->delta_mmap & 0x03FFF000UL;
 #endif
 
-		if (mm->start_brk <= start_addr && start_addr < mm->mmap_base)
-			start_addr = addr = mm->mmap_base;
-		else
-			addr = start_addr;
-	}
+		if (info.low_limit < info.high_limit) {
+			addr = vm_unmapped_area(&info);
+			if (!IS_ERR_VALUE(addr))
+				return addr;
+		}
+	} else
 #endif
 
-full_search:
-	for (vma = find_vma(mm, addr); ; vma = vma->vm_next) {
-		/* At this point:  (!vma || addr < vma->vm_end). */
-		if (pax_task_size - len < addr) {
-			/*
-			 * Start a new search - just in case we missed
-			 * some holes.
-			 */
-			if (start_addr != mm->mmap_base) {
-				start_addr = addr = mm->mmap_base;
-				mm->cached_hole_size = 0;
-				goto full_search;
-			}
-			return -ENOMEM;
-		}
-		if (check_heap_stack_gap(vma, addr, len, offset))
-			break;
-		if (addr + mm->cached_hole_size < vma->vm_start)
-			mm->cached_hole_size = vma->vm_start - addr;
-		addr = vma->vm_end;
-		if (mm->start_brk <= addr && addr < mm->mmap_base) {
-			start_addr = addr = mm->mmap_base;
-			mm->cached_hole_size = 0;
-			goto full_search;
-		}
-	}
+	info.low_limit = mm->mmap_base;
+	info.high_limit = pax_task_size;
 
-	/*
-	 * Remember the place where we stopped the search:
-	 */
-	mm->free_area_cache = addr + len;
-	return addr;
+	return vm_unmapped_area(&info);
 }
 
 unsigned long
@@ -138,7 +128,8 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 {
 	struct vm_area_struct *vma;
 	struct mm_struct *mm = current->mm;
-	unsigned long base = mm->mmap_base, addr = addr0, pax_task_size = TASK_SIZE;
+	unsigned long addr = addr0, pax_task_size = TASK_SIZE;
+	struct vm_unmapped_area_info info;
 	unsigned long offset = gr_rand_threadstack_offset(mm, filp, flags);
 
 #ifdef CONFIG_PAX_SEGMEXEC
@@ -174,46 +165,18 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 		}
 	}
 
-	/* check if free_area_cache is useful for us */
-	if (len <= mm->cached_hole_size) {
-		mm->cached_hole_size = 0;
-		mm->free_area_cache = mm->mmap_base;
-	}
+	info.flags = VM_UNMAPPED_AREA_TOPDOWN;
+	info.length = len;
+	info.low_limit = PAGE_SIZE;
+	info.high_limit = mm->mmap_base;
+	info.align_mask = filp ? get_align_mask() : 0;
+	info.align_offset = pgoff << PAGE_SHIFT;
+	info.threadstack_offset = offset;
 
-	/* either no address requested or can't fit in requested address hole */
-	addr = mm->free_area_cache;
-
-	/* make sure it can fit in the remaining address space */
-	if (addr > len) {
-		vma = find_vma(mm, addr-len);
-		if (check_heap_stack_gap(vma, addr - len, len, offset))
-			/* remember the address as a hint for next time */
-			return (mm->free_area_cache = addr-len);
-	}
-
-	if (mm->mmap_base < len)
-		goto bottomup;
-
-	addr = mm->mmap_base-len;
-
-	do {
-		/*
-		 * Lookup failure means no vma is above this address,
-		 * else if new region fits below vma->vm_start,
-		 * return with success:
-		 */
-		vma = find_vma(mm, addr);
-		if (check_heap_stack_gap(vma, addr, len, offset))
-			/* remember the address as a hint for next time */
-			return (mm->free_area_cache = addr);
-
-		/* remember the largest hole we saw so far */
-		if (addr + mm->cached_hole_size < vma->vm_start)
-			mm->cached_hole_size = vma->vm_start - addr;
-
-		/* try just below the current vma->vm_start */
-		addr = skip_heap_stack_gap(vma, len, offset);
-	} while (!IS_ERR_VALUE(addr));
+	addr = vm_unmapped_area(&info);
+	if (!(addr & ~PAGE_MASK))
+		return addr;
+	VM_BUG_ON(addr != -ENOMEM);
 
 bottomup:
 	/*
@@ -222,29 +185,5 @@ bottomup:
 	 * can happen with large stack limits and large mmap()
 	 * allocations.
 	 */
-
-#ifdef CONFIG_PAX_SEGMEXEC
-	if (mm->pax_flags & MF_PAX_SEGMEXEC)
-		mm->mmap_base = SEGMEXEC_TASK_UNMAPPED_BASE;
-	else
-#endif
-
-	mm->mmap_base = TASK_UNMAPPED_BASE;
-
-#ifdef CONFIG_PAX_RANDMMAP
-	if (mm->pax_flags & MF_PAX_RANDMMAP)
-		mm->mmap_base += mm->delta_mmap;
-#endif
-
-	mm->free_area_cache = mm->mmap_base;
-	mm->cached_hole_size = ~0UL;
-	addr = arch_get_unmapped_area(filp, addr0, len, pgoff, flags);
-	/*
-	 * Restore the topdown base:
-	 */
-	mm->mmap_base = base;
-	mm->free_area_cache = base;
-	mm->cached_hole_size = ~0UL;
-
-	return addr;
+	return arch_get_unmapped_area(filp, addr0, len, pgoff, flags);
 }

@@ -93,7 +93,7 @@ static __init int map_switcher(void)
 	 * allocates an extra guard page, so we need space for that.
 	 */
 
-#if defined(CONFIG_MODULES) && defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
 	switcher_vma = __get_vm_area(TOTAL_SWITCHER_PAGES * PAGE_SIZE,
 				     VM_ALLOC | VM_KERNEXEC, SWITCHER_ADDR, SWITCHER_ADDR
 				     + (TOTAL_SWITCHER_PAGES+1) * PAGE_SIZE);

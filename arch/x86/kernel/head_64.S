@@ -595,6 +595,5 @@ ENTRY(idt_table)
 ENTRY(nmi_idt_table)
 	.fill 512,8,0
 
-	__PAGE_ALIGNED_BSS
 NEXT_PAGE(empty_zero_page)
 	.skip PAGE_SIZE
