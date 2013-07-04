@@ -451,7 +451,15 @@ void __init init_mem_mapping(void)
 	early_ioremap_page_table_range_init();
 #endif
 
+#ifdef CONFIG_PAX_PER_CPU_PGD
+	clone_pgd_range(get_cpu_pgd(0) + KERNEL_PGD_BOUNDARY,
+			swapper_pg_dir + KERNEL_PGD_BOUNDARY,
+			KERNEL_PGD_PTRS);
+	load_cr3(get_cpu_pgd(0));
+#else
 	load_cr3(swapper_pg_dir);
+#endif
+
 	__flush_tlb_all();
 
 	early_memtest(0, max_pfn_mapped << PAGE_SHIFT);

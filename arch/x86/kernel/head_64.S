@@ -97,14 +97,22 @@ startup_64:
 	 * Fixup the physical addresses in the page table
 	 */
 	addq	%rbp, early_level4_pgt + (L4_START_KERNEL*8)(%rip)
+	addq	%rbp, init_level4_pgt + (L4_PAGE_OFFSET*8)(%rip)
 	addq	%rbp, init_level4_pgt + (L4_VMALLOC_START*8)(%rip)
 	addq	%rbp, init_level4_pgt + (L4_VMALLOC_END*8)(%rip)
 	addq	%rbp, init_level4_pgt + (L4_VMEMMAP_START*8)(%rip)
+	addq	%rbp, init_level4_pgt + (L4_START_KERNEL*8)(%rip)
 
-	addq	%rbp, level3_kernel_pgt + (510*8)(%rip)
-	addq	%rbp, level3_kernel_pgt + (511*8)(%rip)
+	addq	%rbp, level3_ident_pgt + (0*8)(%rip)
+#ifndef CONFIG_XEN
+	addq	%rbp, level3_ident_pgt + (1*8)(%rip)
+#endif
 
-	addq	%rbp, level2_fixmap_pgt + (506*8)(%rip)
+	addq	%rbp, level3_vmemmap_pgt + (L3_VMEMMAP_START*8)(%rip)
+
+	addq	%rbp, level3_kernel_pgt + (L3_START_KERNEL*8)(%rip)
+	addq	%rbp, level3_kernel_pgt + ((L3_START_KERNEL+1)*8)(%rip)
+
 	addq	%rbp, level2_fixmap_pgt + (507*8)(%rip)
 
 	/*
@@ -465,7 +473,7 @@ NEXT_PAGE(early_level4_pgt)
 NEXT_PAGE(early_dynamic_pgts)
 	.fill	512*EARLY_DYNAMIC_PAGE_TABLES,8,0
 
-	.data
+	.section .rodata,"a",@progbits
 
 NEXT_PAGE(init_level4_pgt)
 	.org    init_level4_pgt + L4_PAGE_OFFSET*8, 0

@@ -425,7 +425,7 @@ config CPU_32v5
 
 config CPU_32v6
 	bool
-	select CPU_USE_DOMAINS if CPU_V6 && MMU && !PAX_KERNEXEC
+	select CPU_USE_DOMAINS if CPU_V6 && MMU && !PAX_KERNEXEC && !PAX_MEMORY_UDEREF
 	select TLS_REG_EMUL if !CPU_32v6K && !MMU
 
 config CPU_32v6K

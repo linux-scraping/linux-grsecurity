@@ -52,6 +52,7 @@ static inline void copy_user_page(void *to, void *from, unsigned long vaddr,
 	__phys_addr_symbol(__phys_reloc_hide((unsigned long)(x)))
 
 #define __va(x)			((void *)((unsigned long)(x)+PAGE_OFFSET))
+#define __early_va(x)		((void *)((unsigned long)(x)+__START_KERNEL_map - phys_base))
 
 #define __boot_va(x)		__va(x)
 #define __boot_pa(x)		__pa(x)

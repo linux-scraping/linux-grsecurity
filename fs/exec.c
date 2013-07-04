@@ -95,6 +95,9 @@ int suid_dumpable = 0;
 static LIST_HEAD(formats);
 static DEFINE_RWLOCK(binfmt_lock);
 
+extern int gr_process_kernel_exec_ban(void);
+extern int gr_process_suid_exec_ban(const struct linux_binprm *bprm);
+
 void __register_binfmt(struct linux_binfmt * fmt, int insert)
 {
 	BUG_ON(!fmt);
@@ -1624,11 +1627,6 @@ static int do_execve_common(const char *filename,
 	bprm->filename = filename;
 	bprm->interp = filename;
 
-	if (gr_process_user_ban()) {
-		retval = -EPERM;
-		goto out_file;
-	}
-
 	if (!gr_acl_handle_execve(file->f_path.dentry, file->f_path.mnt)) {
 		retval = -EACCES;
 		goto out_file;
@@ -1665,6 +1663,11 @@ static int do_execve_common(const char *filename,
 	    (old_rlim[RLIMIT_STACK].rlim_cur > (8 * 1024 * 1024)))
 		current->signal->rlim[RLIMIT_STACK].rlim_cur = 8 * 1024 * 1024;
 #endif
+
+	if (gr_process_kernel_exec_ban() || gr_process_suid_exec_ban(bprm)) {
+		retval = -EPERM;
+		goto out_fail;
+	}
 
 	if (!gr_tpe_allow(file)) {
 		retval = -EACCES;

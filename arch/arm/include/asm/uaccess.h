@@ -61,11 +61,19 @@ extern int __put_user_bad(void);
 #define USER_DS		TASK_SIZE
 #define get_fs()	(current_thread_info()->addr_limit)
 
+static inline void set_fs(mm_segment_t fs)
+{
+	current_thread_info()->addr_limit = fs;
+	modify_domain(DOMAIN_KERNEL, fs ? DOMAIN_KERNELCLIENT : DOMAIN_MANAGER);
+}
+
+#define segment_eq(a,b)	((a) == (b))
+
 static inline void pax_open_userland(void)
 {
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	if (get_fs() == USER_DS) {
+	if (segment_eq(get_fs(), USER_DS) {
 		BUG_ON(test_domain(DOMAIN_USER, DOMAIN_UDEREF));
 		modify_domain(DOMAIN_USER, DOMAIN_UDEREF);
 	}
@@ -77,21 +85,13 @@ static inline void pax_close_userland(void)
 {
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	if (get_fs() == USER_DS) {
+	if (segment_eq(get_fs(), USER_DS) {
 		BUG_ON(test_domain(DOMAIN_USER, DOMAIN_NOACCESS));
 		modify_domain(DOMAIN_USER, DOMAIN_NOACCESS);
 	}
 #endif
 
 }
-
-static inline void set_fs(mm_segment_t fs)
-{
-	current_thread_info()->addr_limit = fs;
-	modify_domain(DOMAIN_KERNEL, fs ? DOMAIN_KERNELCLIENT : DOMAIN_MANAGER);
-}
-
-#define segment_eq(a,b)	((a) == (b))
 
 #define __addr_ok(addr) ({ \
 	unsigned long flag; \

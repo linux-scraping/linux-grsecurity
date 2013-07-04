@@ -540,11 +540,11 @@ ENDPROC(pax_exit_kernel_user)
 #endif
 	.endm
 
-.macro pax_erase_kstack
+	.macro pax_erase_kstack
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
 	call pax_erase_kstack
 #endif
-.endm
+	.endm
 
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
 ENTRY(pax_erase_kstack)
@@ -1905,7 +1905,7 @@ ENTRY(paranoid_exit)
 	DEFAULT_FRAME
 	DISABLE_INTERRUPTS(CLBR_NONE)
 	TRACE_IRQS_OFF_DEBUG
-	testl %ebx,%ebx				/* swapgs needed? */
+	testl $1,%ebx				/* swapgs needed? */
 	jnz paranoid_restore
 	testb $3,CS(%rsp)
 	jnz   paranoid_userspace
@@ -2031,7 +2031,7 @@ ENTRY(error_exit)
 	DISABLE_INTERRUPTS(CLBR_NONE)
 	TRACE_IRQS_OFF
 	GET_THREAD_INFO(%rcx)
-	testl %eax,%eax
+	testl $1,%eax
 	jne retint_kernel
 	LOCKDEP_SYS_EXIT_IRQ
 	movl TI_flags(%rcx),%edx
