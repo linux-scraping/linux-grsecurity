@@ -232,7 +232,7 @@ gr_handle_crash(struct task_struct *task, const int sig)
 				if (likely(tsk != task)) {
 					// if this thread has the same subject as the one that triggered
 					// RES_CRASH and it's the same binary, kill it
-					if (tsk->acl == task->acl && tsk->exec_file == task->exec_file)
+					if (tsk->acl == task->acl && gr_is_same_file(tsk->exec_file, task->exec_file))
 						gr_fake_force_sig(SIGKILL, tsk);
 				}
 			} while_each_thread(tsk2, tsk);

@@ -749,9 +749,12 @@ struct user_struct {
 	struct key *session_keyring;	/* UID's default session keyring */
 #endif
 
-#if defined(CONFIG_GRKERNSEC_KERN_LOCKOUT) || defined(CONFIG_GRKERNSEC_BRUTE)
-	unsigned int banned;
-	unsigned long ban_expires;
+#ifdef CONFIG_GRKERNSEC_KERN_LOCKOUT
+	unsigned char kernel_banned;
+#endif
+#ifdef CONFIG_GRKERNSEC_BRUTE
+	unsigned char suid_banned;
+	unsigned long suid_ban_expires;
 #endif
 
 	/* Hash table maintenance information */

@@ -71,6 +71,9 @@ int compat_printk(const char *fmt, ...)
 	return ret;
 }
 
+extern int gr_process_kernel_exec_ban(void);
+extern int gr_process_suid_exec_ban(const struct linux_binprm *bprm);
+
 #include "read_write.h"
 
 /*
@@ -1555,11 +1558,6 @@ int compat_do_execve(char * filename,
 	bprm->filename = filename;
 	bprm->interp = filename;
 
-	if (gr_process_user_ban()) {
-		retval = -EPERM;
-		goto out_file;
-	}
-
 	retval = -EACCES;
 	if (!gr_acl_handle_execve(file->f_dentry, file->f_vfsmnt))
 		goto out_file;
@@ -1594,6 +1592,11 @@ int compat_do_execve(char * filename,
 	if ((bprm->cred->euid != current_euid()) || (bprm->cred->egid != current_egid()))
 		current->signal->rlim[RLIMIT_STACK].rlim_cur = 8 * 1024 * 1024;
 #endif
+
+	if (gr_process_kernel_exec_ban() || gr_process_suid_exec_ban(bprm)) {
+		retval = -EPERM;
+		goto out_fail;
+	}
 
 	if (!gr_tpe_allow(file)) {
 		retval = -EACCES;
