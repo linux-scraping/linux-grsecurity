@@ -99,7 +99,7 @@ void gr_handle_brute_attach(unsigned long mm_flags)
 	rcu_read_lock();
 	read_lock(&tasklist_lock);
 	read_lock(&grsec_exec_file_lock);
-	if (p->real_parent && p->real_parent->exec_file == p->exec_file) {
+	if (p->real_parent && gr_is_same_file(p->real_parent->exec_file, p->exec_file)) {
 		p->real_parent->brute_expires = get_seconds() + GR_DAEMON_BRUTE_TIME;
 		p->real_parent->brute = 1;
 		daemon = 1;
@@ -116,14 +116,15 @@ void gr_handle_brute_attach(unsigned long mm_flags)
 			user = find_user(uid);
 			if (user == NULL)
 				goto unlock;
-			user->banned = 1;
-			user->ban_expires = get_seconds() + GR_USER_BAN_TIME;
-			if (user->ban_expires == ~0UL)
-				user->ban_expires--;
+			user->suid_banned = 1;
+			user->suid_ban_expires = get_seconds() + GR_USER_BAN_TIME;
+			if (user->suid_ban_expires == ~0UL)
+				user->suid_ban_expires--;
 
+			/* only kill other threads of the same binary, from the same user */
 			do_each_thread(tsk2, tsk) {
 				cred2 = __task_cred(tsk);
-				if (tsk != p && cred2->uid == uid)
+				if (tsk != p && cred2->uid == uid && gr_is_same_file(tsk->exec_file, p->exec_file))
 					gr_fake_force_sig(SIGKILL, tsk);
 			} while_each_thread(tsk2, tsk);
 		}
@@ -134,7 +135,7 @@ unlock:
 	rcu_read_unlock();
 
 	if (uid)
-		printk(KERN_ALERT "grsec: bruteforce prevention initiated against uid %u, banning for %d minutes\n", uid, GR_USER_BAN_TIME / 60);
+		gr_log_fs_int2(GR_DONT_AUDIT, GR_BRUTE_SUID_MSG, p->exec_file->f_path.dentry, p->exec_file->f_path.mnt, uid, GR_USER_BAN_TIME / 60);
 	else if (daemon)
 		gr_log_noargs(GR_DONT_AUDIT, GR_BRUTE_DAEMON_MSG);
 
@@ -180,11 +181,10 @@ void gr_handle_kernel_exploit(void)
 		printk(KERN_ALERT "grsec: banning user with uid %u until system restart for suspicious kernel crash\n", uid);
 		/* we intentionally leak this ref */
 		user = get_uid(current->cred->user);
-		if (user) {
-			user->banned = 1;
-			user->ban_expires = ~0UL;
-		}
+		if (user)
+			user->kernel_banned = 1;
 
+		/* kill all processes of this user */
 		read_lock(&tasklist_lock);
 		do_each_thread(tsk2, tsk) {
 			cred = __task_cred(tsk);
@@ -196,25 +196,49 @@ void gr_handle_kernel_exploit(void)
 #endif
 }
 
-int __gr_process_user_ban(struct user_struct *user)
+#ifdef CONFIG_GRKERNSEC_BRUTE
+static bool suid_ban_expired(struct user_struct *user)
 {
-#if defined(CONFIG_GRKERNSEC_KERN_LOCKOUT) || defined(CONFIG_GRKERNSEC_BRUTE)
-	if (unlikely(user->banned)) {
-		if (user->ban_expires != ~0UL && time_after_eq(get_seconds(), user->ban_expires)) {
-			user->banned = 0;
-			user->ban_expires = 0;
-			free_uid(user);
-		} else
-			return -EPERM;
+	if (user->suid_ban_expires != ~0UL && time_after_eq(get_seconds(), user->suid_ban_expires)) {
+		user->suid_banned = 0;
+		user->suid_ban_expires = 0;
+		free_uid(user);
+		return true;
 	}
+
+	return false;
+}
+#endif
+
+int gr_process_kernel_exec_ban(void)
+{
+#ifdef CONFIG_GRKERNSEC_KERN_LOCKOUT
+	if (unlikely(current->cred->user->kernel_banned))
+		return -EPERM;
 #endif
 	return 0;
 }
 
-int gr_process_user_ban(void)
+int gr_process_kernel_setuid_ban(struct user_struct *user)
 {
-#if defined(CONFIG_GRKERNSEC_KERN_LOCKOUT) || defined(CONFIG_GRKERNSEC_BRUTE)
-	return __gr_process_user_ban(current->cred->user);
+#ifdef CONFIG_GRKERNSEC_KERN_LOCKOUT
+	if (unlikely(user->kernel_banned))
+		gr_fake_force_sig(SIGKILL, current);
+#endif
+	return 0;
+}
+
+int gr_process_suid_exec_ban(const struct linux_binprm *bprm)
+{
+#ifdef CONFIG_GRKERNSEC_BRUTE
+	struct user_struct *user = current->cred->user;
+	if (unlikely(user->suid_banned)) {
+		if (suid_ban_expired(user))
+			return 0;
+		/* disallow execution of suid binaries only */
+		else if (bprm->cred->euid != current->cred->uid)
+			return -EPERM;
+	}
 #endif
 	return 0;
 }

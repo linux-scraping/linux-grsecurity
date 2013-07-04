@@ -119,6 +119,18 @@ extern rwlock_t grsec_exec_file_lock;
 		       (pcred)->uid, (pcred)->euid, \
 		       (pcred)->gid, (pcred)->egid
 
+static inline bool gr_is_same_file(const struct file *file1, const struct file *file2)
+{
+	if (file1 && file2) {
+		const struct inode *inode1 = file1->f_path.dentry->d_inode;
+		const struct inode *inode2 = file2->f_path.dentry->d_inode;
+		if (inode1->i_ino == inode2->i_ino && inode1->i_sb->s_dev == inode2->i_sb->s_dev)
+			return true;
+	}
+
+	return false;
+}
+
 #define GR_CHROOT_CAPS {{ \
 	CAP_TO_MASK(CAP_LINUX_IMMUTABLE) | CAP_TO_MASK(CAP_NET_ADMIN) | \
 	CAP_TO_MASK(CAP_SYS_MODULE) | CAP_TO_MASK(CAP_SYS_RAWIO) | \
