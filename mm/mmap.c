@@ -1433,18 +1433,18 @@ unacct_error:
 unsigned long gr_rand_threadstack_offset(const struct mm_struct *mm, const struct file *filp, unsigned long flags)
 {
 	if ((mm->pax_flags & MF_PAX_RANDMMAP) && !filp && (flags & MAP_STACK))
-		return (random32() & 0xFF) << PAGE_SHIFT;
+		return ((random32() & 0xFF) + 1) << PAGE_SHIFT;
 
 	return 0;
 }
 #endif
 
-bool check_heap_stack_gap(const struct vm_area_struct *vma, unsigned long addr, unsigned long len, unsigned long offset)
+bool check_heap_stack_gap(const struct vm_area_struct *vma, unsigned long *addr, unsigned long len, unsigned long offset)
 {
 	if (!vma) {
 #ifdef CONFIG_STACK_GROWSUP
-		if (addr > sysctl_heap_stack_gap)
-			vma = find_vma(current->mm, addr - sysctl_heap_stack_gap);
+		if (*addr > sysctl_heap_stack_gap)
+			vma = find_vma(current->mm, *addr - sysctl_heap_stack_gap);
 		else
 			vma = find_vma(current->mm, 0);
 		if (vma && (vma->vm_flags & VM_GROWSUP))
@@ -1453,17 +1453,28 @@ bool check_heap_stack_gap(const struct vm_area_struct *vma, unsigned long addr, 
 		return true;
 	}
 
-	if (addr + len > vma->vm_start)
+	if (*addr + len > vma->vm_start)
 		return false;
 
-	if (vma->vm_flags & VM_GROWSDOWN)
-		return sysctl_heap_stack_gap <= vma->vm_start - addr - len;
+	if (offset) {
+		if (vma->vm_prev && *addr == vma->vm_prev->vm_end && (vma->vm_start - len - vma->vm_prev->vm_end >= offset)) {
+			*addr = vma->vm_prev->vm_end + offset;
+			return true;
+		}
+		return offset <= vma->vm_start - *addr - len;
+	} else if (vma->vm_flags & VM_GROWSDOWN)
+		return sysctl_heap_stack_gap <= vma->vm_start - *addr - len;
 #ifdef CONFIG_STACK_GROWSUP
-	else if (vma->vm_prev && (vma->vm_prev->vm_flags & VM_GROWSUP))
-		return addr - vma->vm_prev->vm_end <= sysctl_heap_stack_gap;
+	else if (vma->vm_prev && (vma->vm_prev->vm_flags & VM_GROWSUP)) {
+		if (*addr - vma->vm_prev->vm_end >= sysctl_heap_stack_gap)
+			return true;
+		if (vma->vm_start - len - vma->vm_prev->vm_end >= sysctl_heap_stack_gap) {
+			*addr = vma->vm_start - len;
+			return true;
+		}
+		return false;
+	}
 #endif
-	else if (offset)
-		return offset <= vma->vm_start - addr - len;
 
 	return true;
 }
@@ -1520,7 +1531,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 		addr = PAGE_ALIGN(addr);
 		if (TASK_SIZE - len >= addr) {
 			vma = find_vma(mm, addr);
-			if (check_heap_stack_gap(vma, addr, len, offset))
+			if (check_heap_stack_gap(vma, &addr, len, offset))
 				return addr;
 		}
 	}
@@ -1546,7 +1557,7 @@ full_search:
 			}
 			return -ENOMEM;
 		}
-		if (check_heap_stack_gap(vma, addr, len, offset))
+		if (check_heap_stack_gap(vma, &addr, len, offset))
 			break;
 		if (addr + mm->cached_hole_size < vma->vm_start)
 		        mm->cached_hole_size = vma->vm_start - addr;
@@ -1609,7 +1620,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 		addr = PAGE_ALIGN(addr);
 		if (TASK_SIZE - len >= addr) {
 			vma = find_vma(mm, addr);
-			if (check_heap_stack_gap(vma, addr, len, offset))
+			if (check_heap_stack_gap(vma, &addr, len, offset))
 				return addr;
 		}
 	}
@@ -1625,10 +1636,11 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 
 	/* make sure it can fit in the remaining address space */
 	if (addr > len) {
-		vma = find_vma(mm, addr-len);
-		if (check_heap_stack_gap(vma, addr - len, len, offset))
+		addr -= len;
+		vma = find_vma(mm, addr);
+		if (check_heap_stack_gap(vma, &addr, len, offset))
 			/* remember the address as a hint for next time */
-			return (mm->free_area_cache = addr-len);
+			return (mm->free_area_cache = addr);
 	}
 
 	if (mm->mmap_base < len)
@@ -1643,7 +1655,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 		 * return with success:
 		 */
 		vma = find_vma(mm, addr);
-		if (check_heap_stack_gap(vma, addr, len, offset))
+		if (check_heap_stack_gap(vma, &addr, len, offset))
 			/* remember the address as a hint for next time */
 			return (mm->free_area_cache = addr);
 

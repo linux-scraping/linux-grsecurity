@@ -98,7 +98,7 @@ static int slice_area_is_free(struct mm_struct *mm, unsigned long addr,
 	if ((mm->task_size - len) < addr)
 		return 0;
 	vma = find_vma(mm, addr);
-	return check_heap_stack_gap(vma, addr, len, 0);
+	return check_heap_stack_gap(vma, &addr, len, 0);
 }
 
 static int slice_low_has_vma(struct mm_struct *mm, unsigned long slice)
@@ -256,7 +256,7 @@ full_search:
 				addr = _ALIGN_UP(addr + 1,  1ul << SLICE_HIGH_SHIFT);
 			continue;
 		}
-		if (check_heap_stack_gap(vma, addr, len, 0)) {
+		if (check_heap_stack_gap(vma, &addr, len, 0)) {
 			/*
 			 * Remember the place where we stopped the search:
 			 */
@@ -340,7 +340,7 @@ static unsigned long slice_find_area_topdown(struct mm_struct *mm,
 		 * return with success:
 		 */
 		vma = find_vma(mm, addr);
-		if (check_heap_stack_gap(vma, addr, len, 0)) {
+		if (check_heap_stack_gap(vma, &addr, len, 0)) {
 			/* remember the address as a hint for next time */
 			if (use_cache)
 				mm->free_area_cache = addr;

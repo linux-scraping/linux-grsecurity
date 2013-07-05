@@ -181,8 +181,10 @@ full_search:
 			return -ENOMEM;
 		}
 
-		if (check_heap_stack_gap(vma, addr, len, offset))
+		if (check_heap_stack_gap(vma, &addr, len, offset)) {
+                        mm->free_area_cache = addr + len;
 			return addr;
+		}
 		addr = ALIGN(vma->vm_end, huge_page_size(h));
 	}
 }
