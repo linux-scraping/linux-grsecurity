@@ -1748,7 +1748,7 @@ unacct_error:
 unsigned long gr_rand_threadstack_offset(const struct mm_struct *mm, const struct file *filp, unsigned long flags)
 {
 	if ((mm->pax_flags & MF_PAX_RANDMMAP) && !filp && (flags & MAP_STACK))
-		return (random32() & 0xFF) << PAGE_SHIFT;
+		return ((random32() & 0xFF) + 1) << PAGE_SHIFT;
 
 	return 0;
 }
