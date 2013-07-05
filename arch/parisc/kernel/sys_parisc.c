@@ -45,7 +45,7 @@ static unsigned long get_unshared_area(struct file *filp, unsigned long addr, un
 		/* At this point:  (!vma || addr < vma->vm_end). */
 		if (TASK_SIZE - len < addr)
 			return -ENOMEM;
-		if (check_heap_stack_gap(vma, addr, len, offset))
+		if (check_heap_stack_gap(vma, &addr, len, offset))
 			return addr;
 		addr = vma->vm_end;
 	}
@@ -84,7 +84,7 @@ static unsigned long get_shared_area(struct file *filp, struct address_space *ma
 		/* At this point:  (!vma || addr < vma->vm_end). */
 		if (TASK_SIZE - len < addr)
 			return -ENOMEM;
-		if (check_heap_stack_gap(vma, addr, len, rand_offset))
+		if (check_heap_stack_gap(vma, &addr, len, rand_offset))
 			return addr;
 		addr = DCACHE_ALIGN(vma->vm_end - offset) + offset;
 		if (addr < vma->vm_end) /* handle wraparound */

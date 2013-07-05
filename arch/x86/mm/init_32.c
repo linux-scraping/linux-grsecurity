@@ -756,12 +756,6 @@ void __init mem_init(void)
 
 	pci_iommu_alloc();
 
-#ifdef CONFIG_PAX_PER_CPU_PGD
-	clone_pgd_range(get_cpu_pgd(0) + KERNEL_PGD_BOUNDARY,
-			swapper_pg_dir + KERNEL_PGD_BOUNDARY,
-			KERNEL_PGD_PTRS);
-#endif
-
 #ifdef CONFIG_FLATMEM
 	BUG_ON(!mem_map);
 #endif

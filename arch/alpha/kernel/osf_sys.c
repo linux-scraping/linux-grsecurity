@@ -1147,7 +1147,7 @@ arch_get_unmapped_area_1(struct file *filp, unsigned long addr, unsigned long le
 		/* At this point:  (!vma || addr < vma->vm_end). */
 		if (limit - len < addr)
 			return -ENOMEM;
-		if (check_heap_stack_gap(vma, addr, len, offset))
+		if (check_heap_stack_gap(vma, &addr, len, offset))
 			return addr;
 		addr = vma->vm_end;
 		vma = vma->vm_next;

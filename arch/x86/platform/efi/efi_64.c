@@ -75,6 +75,11 @@ void __init efi_call_phys_prelog(void)
 		vaddress = (unsigned long)__va(pgd * PGDIR_SIZE);
 		set_pgd(pgd_offset_k(pgd * PGDIR_SIZE), *pgd_offset_k(vaddress));
 	}
+
+#ifdef CONFIG_PAX_PER_CPU_PGD
+	load_cr3(swapper_pg_dir);
+#endif
+
 	__flush_tlb_all();
 }
 
@@ -88,6 +93,11 @@ void __init efi_call_phys_epilog(void)
 	for (pgd = 0; pgd < n_pgds; pgd++)
 		set_pgd(pgd_offset_k(pgd * PGDIR_SIZE), save_pgd[pgd]);
 	kfree(save_pgd);
+
+#ifdef CONFIG_PAX_PER_CPU_PGD
+	load_cr3(get_cpu_pgd(smp_processor_id()));
+#endif
+
 	__flush_tlb_all();
 	local_irq_restore(efi_flags);
 	early_code_mapping_set_exec(0);

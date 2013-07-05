@@ -285,7 +285,14 @@ unsigned long __init_refok init_memory_mapping(unsigned long start,
 
 #ifdef CONFIG_X86_32
 	early_ioremap_page_table_range_init();
+#endif
 
+#ifdef CONFIG_PAX_PER_CPU_PGD
+	clone_pgd_range(get_cpu_pgd(0) + KERNEL_PGD_BOUNDARY,
+			swapper_pg_dir + KERNEL_PGD_BOUNDARY,
+			KERNEL_PGD_PTRS);
+	load_cr3(get_cpu_pgd(0));
+#elif defined(CONFIG_X86_32)
 	load_cr3(swapper_pg_dir);
 #endif
 

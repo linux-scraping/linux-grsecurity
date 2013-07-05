@@ -311,7 +311,7 @@ full_search:
 			}
 			return -ENOMEM;
 		}
-		if (check_heap_stack_gap(vma, addr, len, offset))
+		if (check_heap_stack_gap(vma, &addr, len, offset))
 			break;
 		if (addr + mm->cached_hole_size < vma->vm_start)
 		        mm->cached_hole_size = vma->vm_start - addr;
@@ -362,7 +362,7 @@ static unsigned long hugetlb_get_unmapped_area_topdown(struct file *file,
 		 * new region fits between prev_vma->vm_end and
 		 * vma->vm_start, use it:
 		 */
-		if (check_heap_stack_gap(vma, addr, len, offset)) {
+		if (check_heap_stack_gap(vma, &addr, len, offset)) {
 			/* remember the address as a hint for next time */
 			mm->cached_hole_size = largest_hole;
 			return (mm->free_area_cache = addr);
@@ -453,7 +453,7 @@ hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 	if (addr) {
 		addr = ALIGN(addr, huge_page_size(h));
 		vma = find_vma(mm, addr);
-		if (pax_task_size - len >= addr && check_heap_stack_gap(vma, addr, len, offset))
+		if (pax_task_size - len >= addr && check_heap_stack_gap(vma, &addr, len, offset))
 			return addr;
 	}
 	if (mm->get_unmapped_area == arch_get_unmapped_area)

@@ -397,7 +397,7 @@ static inline unsigned long gr_rand_threadstack_offset(const struct mm_struct *m
 }
 #endif
 
-extern bool check_heap_stack_gap(const struct vm_area_struct *vma, unsigned long addr, unsigned long len, unsigned long offset);
+extern bool check_heap_stack_gap(const struct vm_area_struct *vma, unsigned long *addr, unsigned long len, unsigned long offset);
 extern unsigned long skip_heap_stack_gap(const struct vm_area_struct *vma, unsigned long len, unsigned long offset);
 extern void arch_pick_mmap_layout(struct mm_struct *mm);
 extern unsigned long

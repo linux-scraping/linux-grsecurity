@@ -81,7 +81,12 @@ void efi_call_phys_epilog(void)
 	gdt_descr.size = GDT_SIZE - 1;
 	load_gdt(&gdt_descr);
 
+#ifdef CONFIG_PAX_PER_CPU_PGD
+	load_cr3(get_cpu_pgd(smp_processor_id()));
+#else
 	load_cr3(swapper_pg_dir);
+#endif
+
 	__flush_tlb_all();
 
 	local_irq_restore(efi_rt_eflags);
