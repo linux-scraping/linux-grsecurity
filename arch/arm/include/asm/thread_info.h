@@ -152,12 +152,11 @@ extern int vfp_restore_user_hwstate(struct user_vfp __user *,
 #define TIF_SYSCALL_AUDIT	9
 #define TIF_SYSCALL_TRACEPOINT	10
 #define TIF_SECCOMP		11	/* seccomp syscall filtering active */
-
 /* within 8 bits of TIF_SYSCALL_TRACE
  *  to meet flexible second operand requirements
  */
 #define TIF_GRSEC_SETXID	12
-
+#define TIF_NOHZ		13	/* in adaptive nohz mode */
 #define TIF_USING_IWMMXT	17
 #define TIF_MEMDIE		18	/* is terminating due to OOM killer */
 #define TIF_RESTORE_SIGMASK	20

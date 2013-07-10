@@ -595,6 +595,9 @@ ENTRY(phys_base)
 #include "../../x86/xen/xen-head.S"
 
 	.section .rodata,"a",@progbits
+NEXT_PAGE(empty_zero_page)
+	.skip PAGE_SIZE
+
 	.align L1_CACHE_BYTES
 ENTRY(idt_table)
 	.fill 512,8,0
@@ -602,6 +605,3 @@ ENTRY(idt_table)
 	.align L1_CACHE_BYTES
 ENTRY(nmi_idt_table)
 	.fill 512,8,0
-
-NEXT_PAGE(empty_zero_page)
-	.skip PAGE_SIZE

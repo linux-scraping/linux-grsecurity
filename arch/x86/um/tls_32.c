@@ -5,6 +5,7 @@
 
 #include <linux/percpu.h>
 #include <linux/sched.h>
+#include <linux/syscalls.h>
 #include <asm/uaccess.h>
 #include <os.h>
 #include <skas.h>
@@ -259,7 +260,7 @@ out:
 	if (unlikely(task == current &&
 		     !t->arch.tls_array[idx - GDT_ENTRY_TLS_MIN].flushed)) {
 		printk(KERN_ERR "get_tls_entry: task with pid %d got here "
-				"without flushed TLS.", current->pid);
+				"without flushed TLS.", task_pid_nr(current));
 	}
 
 	return 0;
@@ -274,7 +275,7 @@ clear:
 	goto out;
 }
 
-int sys_set_thread_area(struct user_desc __user *user_desc)
+SYSCALL_DEFINE1(set_thread_area, struct user_desc __user *, user_desc)
 {
 	struct user_desc info;
 	int idx, ret;
@@ -322,7 +323,7 @@ int ptrace_set_thread_area(struct task_struct *child, int idx,
 	return set_tls_entry(child, &info, idx, 0);
 }
 
-int sys_get_thread_area(struct user_desc __user *user_desc)
+SYSCALL_DEFINE1(get_thread_area, struct user_desc __user *, user_desc)
 {
 	struct user_desc info;
 	int idx, ret;

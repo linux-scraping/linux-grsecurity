@@ -21,6 +21,7 @@
 #include <linux/seq_file.h>
 #include <linux/device.h>
 #include <linux/pfn.h>
+#include <linux/mm.h>
 #include <asm/io.h>
 
 
@@ -49,6 +50,14 @@ struct resource_constraint {
 };
 
 static DEFINE_RWLOCK(resource_lock);
+
+/*
+ * For memory hotplug, there is no way to free resource entries allocated
+ * by boot mem after the system is up. So for reusing the resource entry
+ * we need to remember the resource.
+ */
+static struct resource *bootmem_resource_free;
+static DEFINE_SPINLOCK(bootmem_resource_lock);
 
 static void *r_next(struct seq_file *m, void *v, loff_t *pos)
 {
@@ -160,6 +169,40 @@ static int __init ioresources_init(void)
 __initcall(ioresources_init);
 
 #endif /* CONFIG_PROC_FS */
+
+static void free_resource(struct resource *res)
+{
+	if (!res)
+		return;
+
+	if (!PageSlab(virt_to_head_page(res))) {
+		spin_lock(&bootmem_resource_lock);
+		res->sibling = bootmem_resource_free;
+		bootmem_resource_free = res;
+		spin_unlock(&bootmem_resource_lock);
+	} else {
+		kfree(res);
+	}
+}
+
+static struct resource *alloc_resource(gfp_t flags)
+{
+	struct resource *res = NULL;
+
+	spin_lock(&bootmem_resource_lock);
+	if (bootmem_resource_free) {
+		res = bootmem_resource_free;
+		bootmem_resource_free = res->sibling;
+	}
+	spin_unlock(&bootmem_resource_lock);
+
+	if (res)
+		memset(res, 0, sizeof(struct resource));
+	else
+		res = kzalloc(sizeof(struct resource), flags);
+
+	return res;
+}
 
 /* Return the conflict entry if you can't request it */
 static struct resource * __request_resource(struct resource *root, struct resource *new)
@@ -716,23 +759,12 @@ void insert_resource_expand_to_fit(struct resource *root, struct resource *new)
 	write_unlock(&resource_lock);
 }
 
-/**
- * adjust_resource - modify a resource's start and size
- * @res: resource to modify
- * @start: new start value
- * @size: new size
- *
- * Given an existing resource, change its start and size to match the
- * arguments.  Returns 0 on success, -EBUSY if it can't fit.
- * Existing children of the resource are assumed to be immutable.
- */
-int adjust_resource(struct resource *res, resource_size_t start, resource_size_t size)
+static int __adjust_resource(struct resource *res, resource_size_t start,
+				resource_size_t size)
 {
 	struct resource *tmp, *parent = res->parent;
 	resource_size_t end = start + size - 1;
 	int result = -EBUSY;
-
-	write_lock(&resource_lock);
 
 	if (!parent)
 		goto skip;
@@ -761,6 +793,26 @@ skip:
 	result = 0;
 
  out:
+	return result;
+}
+
+/**
+ * adjust_resource - modify a resource's start and size
+ * @res: resource to modify
+ * @start: new start value
+ * @size: new size
+ *
+ * Given an existing resource, change its start and size to match the
+ * arguments.  Returns 0 on success, -EBUSY if it can't fit.
+ * Existing children of the resource are assumed to be immutable.
+ */
+int adjust_resource(struct resource *res, resource_size_t start,
+			resource_size_t size)
+{
+	int result;
+
+	write_lock(&resource_lock);
+	result = __adjust_resource(res, start, size);
 	write_unlock(&resource_lock);
 	return result;
 }
@@ -772,7 +824,7 @@ static void __init __reserve_region_with_split(struct resource *root,
 {
 	struct resource *parent = root;
 	struct resource *conflict;
-	struct resource *res = kzalloc(sizeof(*res), GFP_ATOMIC);
+	struct resource *res = alloc_resource(GFP_ATOMIC);
 	struct resource *next_res = NULL;
 
 	if (!res)
@@ -797,7 +849,7 @@ static void __init __reserve_region_with_split(struct resource *root,
 		/* conflict covered whole area */
 		if (conflict->start <= res->start &&
 				conflict->end >= res->end) {
-			kfree(res);
+			free_resource(res);
 			WARN_ON(next_res);
 			break;
 		}
@@ -807,10 +859,9 @@ static void __init __reserve_region_with_split(struct resource *root,
 			end = res->end;
 			res->end = conflict->start - 1;
 			if (conflict->end < end) {
-				next_res = kzalloc(sizeof(*next_res),
-						GFP_ATOMIC);
+				next_res = alloc_resource(GFP_ATOMIC);
 				if (!next_res) {
-					kfree(res);
+					free_resource(res);
 					break;
 				}
 				next_res->name = name;
@@ -900,7 +951,7 @@ struct resource * __request_region(struct resource *parent,
 				   const char *name, int flags)
 {
 	DECLARE_WAITQUEUE(wait, current);
-	struct resource *res = kzalloc(sizeof(*res), GFP_KERNEL);
+	struct resource *res = alloc_resource(GFP_KERNEL);
 
 	if (!res)
 		return NULL;
@@ -934,7 +985,7 @@ struct resource * __request_region(struct resource *parent,
 			continue;
 		}
 		/* Uhhuh, that didn't work out.. */
-		kfree(res);
+		free_resource(res);
 		res = NULL;
 		break;
 	}
@@ -968,7 +1019,7 @@ int __check_region(struct resource *parent, resource_size_t start,
 		return -EBUSY;
 
 	release_resource(res);
-	kfree(res);
+	free_resource(res);
 	return 0;
 }
 EXPORT_SYMBOL(__check_region);
@@ -1008,7 +1059,7 @@ void __release_region(struct resource *parent, resource_size_t start,
 			write_unlock(&resource_lock);
 			if (res->flags & IORESOURCE_MUXED)
 				wake_up(&muxed_resource_wait);
-			kfree(res);
+			free_resource(res);
 			return;
 		}
 		p = &res->sibling;
@@ -1021,6 +1072,109 @@ void __release_region(struct resource *parent, resource_size_t start,
 		(unsigned long long)end);
 }
 EXPORT_SYMBOL(__release_region);
+
+#ifdef CONFIG_MEMORY_HOTREMOVE
+/**
+ * release_mem_region_adjustable - release a previously reserved memory region
+ * @parent: parent resource descriptor
+ * @start: resource start address
+ * @size: resource region size
+ *
+ * This interface is intended for memory hot-delete.  The requested region
+ * is released from a currently busy memory resource.  The requested region
+ * must either match exactly or fit into a single busy resource entry.  In
+ * the latter case, the remaining resource is adjusted accordingly.
+ * Existing children of the busy memory resource must be immutable in the
+ * request.
+ *
+ * Note:
+ * - Additional release conditions, such as overlapping region, can be
+ *   supported after they are confirmed as valid cases.
+ * - When a busy memory resource gets split into two entries, the code
+ *   assumes that all children remain in the lower address entry for
+ *   simplicity.  Enhance this logic when necessary.
+ */
+int release_mem_region_adjustable(struct resource *parent,
+			resource_size_t start, resource_size_t size)
+{
+	struct resource **p;
+	struct resource *res;
+	struct resource *new_res;
+	resource_size_t end;
+	int ret = -EINVAL;
+
+	end = start + size - 1;
+	if ((start < parent->start) || (end > parent->end))
+		return ret;
+
+	/* The alloc_resource() result gets checked later */
+	new_res = alloc_resource(GFP_KERNEL);
+
+	p = &parent->child;
+	write_lock(&resource_lock);
+
+	while ((res = *p)) {
+		if (res->start >= end)
+			break;
+
+		/* look for the next resource if it does not fit into */
+		if (res->start > start || res->end < end) {
+			p = &res->sibling;
+			continue;
+		}
+
+		if (!(res->flags & IORESOURCE_MEM))
+			break;
+
+		if (!(res->flags & IORESOURCE_BUSY)) {
+			p = &res->child;
+			continue;
+		}
+
+		/* found the target resource; let's adjust accordingly */
+		if (res->start == start && res->end == end) {
+			/* free the whole entry */
+			*p = res->sibling;
+			free_resource(res);
+			ret = 0;
+		} else if (res->start == start && res->end != end) {
+			/* adjust the start */
+			ret = __adjust_resource(res, end + 1,
+						res->end - end);
+		} else if (res->start != start && res->end == end) {
+			/* adjust the end */
+			ret = __adjust_resource(res, res->start,
+						start - res->start);
+		} else {
+			/* split into two entries */
+			if (!new_res) {
+				ret = -ENOMEM;
+				break;
+			}
+			new_res->name = res->name;
+			new_res->start = end + 1;
+			new_res->end = res->end;
+			new_res->flags = res->flags;
+			new_res->parent = res->parent;
+			new_res->sibling = res->sibling;
+			new_res->child = NULL;
+
+			ret = __adjust_resource(res, res->start,
+						start - res->start);
+			if (ret)
+				break;
+			res->sibling = new_res;
+			new_res = NULL;
+		}
+
+		break;
+	}
+
+	write_unlock(&resource_lock);
+	free_resource(new_res);
+	return ret;
+}
+#endif	/* CONFIG_MEMORY_HOTREMOVE */
 
 /*
  * Managed region resource

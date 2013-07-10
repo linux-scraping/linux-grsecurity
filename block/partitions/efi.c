@@ -267,7 +267,7 @@ static gpt_header *alloc_read_gpt_header(struct parsed_partitions *state,
 	gpt_header *gpt;
 	unsigned ssz = bdev_logical_block_size(state->bdev);
 
-	gpt = kzalloc(ssz, GFP_KERNEL);
+	gpt = kmalloc(ssz, GFP_KERNEL);
 	if (!gpt)
 		return NULL;
 

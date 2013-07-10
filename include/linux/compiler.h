@@ -410,4 +410,10 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
 #define ACCESS_ONCE(x) (*(volatile const typeof(x) *)&(x))
 #define ACCESS_ONCE_RW(x) (*(volatile typeof(x) *)&(x))
 
+/* Ignore/forbid kprobes attach on very low level functions marked by this attribute: */
+#ifdef CONFIG_KPROBES
+# define __kprobes	__attribute__((__section__(".kprobes.text")))
+#else
+# define __kprobes
+#endif
 #endif /* __LINUX_COMPILER_H */

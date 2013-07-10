@@ -537,14 +537,21 @@ char *string(char *buf, char *end, const char *s, struct printf_spec spec)
 
 static noinline_for_stack
 char *symbol_string(char *buf, char *end, void *ptr,
-		    struct printf_spec spec, char ext)
+		    struct printf_spec spec, const char *fmt)
 {
-	unsigned long value = (unsigned long) ptr;
+	unsigned long value;
 #ifdef CONFIG_KALLSYMS
 	char sym[KSYM_SYMBOL_LEN];
-	if (ext == 'B')
+#endif
+
+	if (fmt[1] == 'R')
+		ptr = __builtin_extract_return_addr(ptr);
+	value = (unsigned long)ptr;
+
+#ifdef CONFIG_KALLSYMS
+	if (*fmt == 'B')
 		sprint_backtrace(sym, value);
-	else if (ext != 'f' && ext != 's')
+	else if (*fmt != 'f' && *fmt != 's')
 		sprint_symbol(sym, value);
 	else
 		sprint_symbol_no_offset(sym, value);
@@ -994,9 +1001,9 @@ int kptr_restrict __read_mostly;
  * - 'f' For simple symbolic function names without offset
  * - 'S' For symbolic direct pointers with offset
  * - 's' For symbolic direct pointers without offset
- * - 'B' For backtraced symbolic direct pointers with offset
  * - 'A' For symbolic direct pointers with offset approved for use with GRKERNSEC_HIDESYM
- * - 'a' For symbolic direct pointers without offset approved for use with GRKERNSEC_HIDESYM
+ * - '[FfSs]R' as above with __builtin_extract_return_addr() translation
+ * - 'B' For backtraced symbolic direct pointers with offset
  * - 'R' For decoded struct resource, e.g., [mem 0x0-0x1f 64bit pref]
  * - 'r' For raw struct resource, e.g., [mem 0x0-0x1f flags 0x201]
  * - 'M' For a 6-byte MAC address, it prints the address in the
@@ -1071,11 +1078,11 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 #ifdef CONFIG_GRKERNSEC_HIDESYM
 		break;
 #else
-		return symbol_string(buf, end, ptr, spec, *fmt);
+		return symbol_string(buf, end, ptr, spec, fmt);
 #endif
 	case 'A':
 	case 'B':
-		return symbol_string(buf, end, ptr, spec, *fmt);
+		return symbol_string(buf, end, ptr, spec, fmt);
 	case 'R':
 	case 'r':
 		return resource_string(buf, end, ptr, spec, fmt);

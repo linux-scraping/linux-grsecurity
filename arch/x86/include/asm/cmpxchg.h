@@ -39,7 +39,7 @@ extern void __add_check_overflow_wrong_size(void)
 
 /* 
  * An exchange-type operation, which takes a value and a pointer, and
- * returns a the old value.
+ * returns the old value.
  */
 #define __xchg_op(ptr, arg, op, lock)					\
 	({								\
