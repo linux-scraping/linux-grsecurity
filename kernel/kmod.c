@@ -59,7 +59,7 @@ static void free_modprobe_argv(char **argv, char **envp)
 	kfree(argv);
 }
 
-static int call_modprobe(char *module_name, int wait)
+static int call_modprobe(char *module_name, char *module_param, int wait)
 {
 	static char *envp[] = { "HOME=/",
 				"TERM=linux",
@@ -67,7 +67,7 @@ static int call_modprobe(char *module_name, int wait)
 				NULL };
 	struct subprocess_info *info;
 
-	char **argv = kmalloc(sizeof(char *[5]), GFP_KERNEL);
+	char **argv = kmalloc(sizeof(char *[6]), GFP_KERNEL);
 	if (!argv)
 		goto out;
 
@@ -79,7 +79,8 @@ static int call_modprobe(char *module_name, int wait)
 	argv[1] = "-q";
 	argv[2] = "--";
 	argv[3] = module_name;	/* check free_modprobe_argv() */
-	argv[4] = NULL;
+	argv[4] = module_param;
+	argv[5] = NULL;
 
 	info = call_usermodehelper_setup(argv[0], argv, envp, GFP_ATOMIC);
 	if (!info)
@@ -171,7 +172,7 @@ static int ____request_module(bool wait, char *module_param, const char *fmt, va
 
 	trace_module_request(module_name, wait, _RET_IP_);
 
-	ret = call_modprobe(module_name, wait ? UMH_WAIT_PROC : UMH_WAIT_EXEC);
+	ret = call_modprobe(module_name, module_param, wait ? UMH_WAIT_PROC : UMH_WAIT_EXEC);
 
 	atomic_dec(&kmod_concurrent);
 	return ret;
