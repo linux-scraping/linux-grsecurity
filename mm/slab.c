@@ -1565,12 +1565,12 @@ void __init kmem_cache_init(void)
 	 */
 
 	kmalloc_caches[INDEX_AC] = create_kmalloc_cache("kmalloc-ac",
-					kmalloc_size(INDEX_AC), ARCH_KMALLOC_FLAGS);
+					kmalloc_size(INDEX_AC), SLAB_USERCOPY | ARCH_KMALLOC_FLAGS);
 
 	if (INDEX_AC != INDEX_NODE)
 		kmalloc_caches[INDEX_NODE] =
 			create_kmalloc_cache("kmalloc-node",
-				kmalloc_size(INDEX_NODE), ARCH_KMALLOC_FLAGS);
+				kmalloc_size(INDEX_NODE), SLAB_USERCOPY | ARCH_KMALLOC_FLAGS);
 
 	slab_early_init = 0;
 

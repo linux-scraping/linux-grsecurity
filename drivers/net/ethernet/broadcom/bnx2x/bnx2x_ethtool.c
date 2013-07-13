@@ -960,6 +960,9 @@ static int bnx2x_set_dump(struct net_device *dev, struct ethtool_dump *val)
 	struct bnx2x *bp = netdev_priv(dev);
 
 	/* Use the ethtool_dump "flag" field as the dump preset index */
+	if (val->flag < 1 || val->flag > DUMP_MAX_PRESETS)
+		return -EINVAL;
+
 	bp->dump_preset_idx = val->flag;
 	return 0;
 }
@@ -985,8 +988,6 @@ static int bnx2x_get_dump_data(struct net_device *dev,
 	u32 *p = buffer;
 	struct bnx2x *bp = netdev_priv(dev);
 	struct dump_header dump_hdr = {0};
-
-	memset(p, 0, dump->len);
 
 	/* Disable parity attentions as long as following dump may
 	 * cause false alarms by reading never written registers. We
