@@ -210,7 +210,7 @@ static void slob_free_pages(struct page *sp, int order)
 	if (current->reclaim_state)
 		current->reclaim_state->reclaimed_slab += 1 << order;
 	__ClearPageSlab(sp);
-	reset_page_mapcount(sp);
+	page_mapcount_reset(sp);
 	sp->private = 0;
 	__free_pages(sp, order);
 }
@@ -521,7 +521,7 @@ void kfree(const void *block)
 		slob_free(m, m[0].units + align);
 	} else {
 		__ClearPageSlab(sp);
-		reset_page_mapcount(sp);
+		page_mapcount_reset(sp);
 		sp->private = 0;
 		__free_pages(sp, compound_order(sp));
 	}
