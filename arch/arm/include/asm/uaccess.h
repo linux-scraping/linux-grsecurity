@@ -73,7 +73,7 @@ static inline void pax_open_userland(void)
 {
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	if (segment_eq(get_fs(), USER_DS) {
+	if (segment_eq(get_fs(), USER_DS)) {
 		BUG_ON(test_domain(DOMAIN_USER, DOMAIN_UDEREF));
 		modify_domain(DOMAIN_USER, DOMAIN_UDEREF);
 	}
@@ -85,7 +85,7 @@ static inline void pax_close_userland(void)
 {
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	if (segment_eq(get_fs(), USER_DS) {
+	if (segment_eq(get_fs(), USER_DS)) {
 		BUG_ON(test_domain(DOMAIN_USER, DOMAIN_NOACCESS));
 		modify_domain(DOMAIN_USER, DOMAIN_NOACCESS);
 	}

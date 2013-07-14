@@ -519,12 +519,12 @@ SYSCALL_DEFINE3(madvise, unsigned long, start, size_t, len_in, int, behavior)
 #ifdef CONFIG_PAX_SEGMEXEC
 	if (current->mm->pax_flags & MF_PAX_SEGMEXEC) {
 		if (end > SEGMEXEC_TASK_SIZE)
-			goto out;
+			return error;
 	} else
 #endif
 
 	if (end > TASK_SIZE)
-		goto out;
+		return error;
 
 	error = 0;
 	if (end == start)

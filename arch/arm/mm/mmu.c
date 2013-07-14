@@ -304,15 +304,18 @@ static struct mem_type mem_types[] __read_only = {
 		.domain    = DOMAIN_VECTORS,
 	},
 	[MT_HIGH_VECTORS] = {
-		/* we always want the vector page to be noaccess for userland
+		/* we always want the vector page to be noaccess for userland on archs with
+		   XN where we can enforce some reasonable measure of security
 		   therefore, when kernexec is disabled, instead of L_PTE_USER | L_PTE_RDONLY
 		   which turns into supervisor rwx, userland rx, we instead omit that entirely,
 		   leaving it as supervisor rwx only
 		*/
 #ifdef CONFIG_PAX_KERNEXEC
 		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY | L_PTE_RDONLY,
-#else
+#elif __LINUX_ARM_ARCH__ >= 6
 		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY,
+#else
+		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY | L_PTE_USER | L_PTE_RDONLY,
 #endif
 		.prot_l1   = PMD_TYPE_TABLE,
 		.domain    = DOMAIN_VECTORS,
