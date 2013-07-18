@@ -649,7 +649,7 @@ static int create_dir(struct kobject *kobj, struct sysfs_dirent *parent_sd,
 
 	if ((!strcmp(parent_name, "") && (!strcmp(name, "devices") || !strcmp(name, "fs"))) ||
 	    (!strcmp(parent_name, "devices") && !strcmp(name, "system")) ||
-	    (!strcmp(parent_name, "fs") && (!strcmp(name, "selinux") || !strcmp(name, "fuse"))) ||
+	    (!strcmp(parent_name, "fs") && (!strcmp(name, "selinux") || !strcmp(name, "fuse") || !strcmp(name, "ecryptfs"))) ||
 	    (!strcmp(parent_name, "system") && !strcmp(name, "cpu")))
 		mode = S_IFDIR | S_IRWXU | S_IRUGO | S_IXUGO;
 #endif
