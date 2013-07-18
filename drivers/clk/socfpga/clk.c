@@ -22,6 +22,7 @@
 #include <linux/clk-provider.h>
 #include <linux/io.h>
 #include <linux/of.h>
+#include <asm/pgtable.h>
 
 /* Clock Manager offsets */
 #define CLKMGR_CTRL    0x0
