@@ -737,20 +737,31 @@ config PAX_MEMORY_SANITIZE
 	default y if (GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_PRIORITY_SECURITY)
 	depends on !HIBERNATION
 	help
-	  By saying Y here the kernel will erase memory pages as soon as they
-	  are freed.  This in turn reduces the lifetime of data stored in the
-	  pages, making it less likely that sensitive information such as
-	  passwords, cryptographic secrets, etc stay in memory for too long.
+	  By saying Y here the kernel will erase memory pages and slab objects
+	  as soon as they are freed.  This in turn reduces the lifetime of data
+	  stored in them, making it less likely that sensitive information such
+	  as passwords, cryptographic secrets, etc stay in memory for too long.
 
 	  This is especially useful for programs whose runtime is short, long
 	  lived processes and the kernel itself benefit from this as long as
-	  they operate on whole memory pages and ensure timely freeing of pages
-	  that may hold sensitive information.
+	  they ensure timely freeing of memory that may hold sensitive
+	  information.
+
+	  A nice side effect of the sanitization of slab objects is the
+	  reduction of possible info leaks caused by padding bytes within the
+	  leaky structures.  Use-after-free bugs for structures containing
+	  pointers can also be detected as dereferencing the sanitized pointer
+	  will generate an access violation.
 
 	  The tradeoff is performance impact, on a single CPU system kernel
 	  compilation sees a 3% slowdown, other systems and workloads may vary
 	  and you are advised to test this feature on your expected workload
 	  before deploying it.
+
+	  To reduce the performance penalty by sanitizing pages only, albeit
+	  limiting the effectiveness of this feature at the same time, slab
+	  sanitization can be disabled with the kernel commandline parameter
+	  "pax_sanitize_slab=0".
 
 	  Note that this feature does not protect data stored in live pages,
 	  e.g., process memory swapped to disk may stay there for a long time.

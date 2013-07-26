@@ -27,6 +27,13 @@
 
 #define SLAB_RED_ZONE		0x00000400UL	/* DEBUG: Red zone objs in a cache */
 #define SLAB_POISON		0x00000800UL	/* DEBUG: Poison objects */
+
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+#define SLAB_NO_SANITIZE	0x00001000UL	/* PaX: Do not sanitize objs on free */
+#else
+#define SLAB_NO_SANITIZE	0x00000000UL
+#endif
+
 #define SLAB_HWCACHE_ALIGN	0x00002000UL	/* Align objs on cache lines */
 #define SLAB_CACHE_DMA		0x00004000UL	/* Use GFP_DMA memory */
 #define SLAB_STORE_USER		0x00010000UL	/* DEBUG: Store the last owner for bug hunting */
@@ -102,6 +109,15 @@
 })
 
 #define ZERO_OR_NULL_PTR(x) ((unsigned long)(x) - 1 >= (unsigned long)ZERO_SIZE_PTR - 1)
+
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+#ifdef CONFIG_X86_64
+#define PAX_MEMORY_SANITIZE_VALUE	'\xfe'
+#else
+#define PAX_MEMORY_SANITIZE_VALUE	'\xff'
+#endif
+extern bool pax_sanitize_slab;
+#endif
 
 /*
  * struct kmem_cache related prototypes

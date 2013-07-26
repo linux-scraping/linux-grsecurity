@@ -1968,6 +1968,10 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 			expand down segment used by UDEREF on X86-32 or the frequent
 			page table updates on X86-64.
 
+	pax_sanitize_slab=
+			0/1 to disable/enable slab object sanitization (enabled by
+			default).
+
 	pax_softmode=	0/1 to disable/enable PaX softmode on boot already.
 
 	pax_extra_latent_entropy

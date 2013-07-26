@@ -11,6 +11,17 @@
 #include <linux/export.h>
 #include "internal.h"
 
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+bool pax_sanitize_slab __read_only = true;
+static int __init pax_sanitize_slab_setup(char *str)
+{
+	pax_sanitize_slab = !!simple_strtol(str, NULL, 0);
+	printk("%sabled PaX slab sanitization\n", pax_sanitize_slab ? "En" : "Dis");
+	return 1;
+}
+__setup("pax_sanitize_slab=", pax_sanitize_slab_setup);
+#endif
+
 #ifdef CONFIG_DEBUG_MEMORY_INIT
 int mminit_loglevel;
 

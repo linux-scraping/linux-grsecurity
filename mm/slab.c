@@ -151,7 +151,7 @@
 
 /* Legal flag mask for kmem_cache_create(). */
 #if DEBUG
-# define CREATE_MASK	(SLAB_USERCOPY | SLAB_RED_ZONE | \
+# define CREATE_MASK	(SLAB_USERCOPY | SLAB_NO_SANITIZE | SLAB_RED_ZONE | \
 			 SLAB_POISON | SLAB_HWCACHE_ALIGN | \
 			 SLAB_CACHE_DMA | \
 			 SLAB_STORE_USER | \
@@ -159,8 +159,8 @@
 			 SLAB_DESTROY_BY_RCU | SLAB_MEM_SPREAD | \
 			 SLAB_DEBUG_OBJECTS | SLAB_NOLEAKTRACE | SLAB_NOTRACK)
 #else
-# define CREATE_MASK	(SLAB_USERCOPY | SLAB_HWCACHE_ALIGN | \
-			 SLAB_CACHE_DMA | \
+# define CREATE_MASK	(SLAB_USERCOPY | SLAB_NO_SANITIZE | \
+			 SLAB_HWCACHE_ALIGN | SLAB_CACHE_DMA | \
 			 SLAB_RECLAIM_ACCOUNT | SLAB_PANIC | \
 			 SLAB_DESTROY_BY_RCU | SLAB_MEM_SPREAD | \
 			 SLAB_DEBUG_OBJECTS | SLAB_NOLEAKTRACE | SLAB_NOTRACK)
@@ -393,6 +393,8 @@ static void kmem_list3_init(struct kmem_list3 *parent)
 #define STATS_INC_ALLOCMISS(x)	atomic_inc_unchecked(&(x)->allocmiss)
 #define STATS_INC_FREEHIT(x)	atomic_inc_unchecked(&(x)->freehit)
 #define STATS_INC_FREEMISS(x)	atomic_inc_unchecked(&(x)->freemiss)
+#define STATS_INC_SANITIZED(x)	atomic_inc_unchecked(&(x)->sanitized)
+#define STATS_INC_NOT_SANITIZED(x) atomic_inc_unchecked(&(x)->not_sanitized)
 #else
 #define	STATS_INC_ACTIVE(x)	do { } while (0)
 #define	STATS_DEC_ACTIVE(x)	do { } while (0)
@@ -409,6 +411,8 @@ static void kmem_list3_init(struct kmem_list3 *parent)
 #define STATS_INC_ALLOCMISS(x)	do { } while (0)
 #define STATS_INC_FREEHIT(x)	do { } while (0)
 #define STATS_INC_FREEMISS(x)	do { } while (0)
+#define STATS_INC_SANITIZED(x)	do { } while (0)
+#define STATS_INC_NOT_SANITIZED(x) do { } while (0)
 #endif
 
 #if DEBUG
@@ -3679,6 +3683,21 @@ static inline void __cache_free(struct kmem_cache *cachep, void *objp,
 	struct array_cache *ac = cpu_cache_get(cachep);
 
 	check_irq_off();
+
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+	if (pax_sanitize_slab) {
+		if (!(cachep->flags & (SLAB_POISON | SLAB_NO_SANITIZE))) {
+			memset(objp, PAX_MEMORY_SANITIZE_VALUE, obj_size(cachep));
+
+			if (cachep->ctor)
+				cachep->ctor(objp);
+
+			STATS_INC_SANITIZED(cachep);
+		} else
+			STATS_INC_NOT_SANITIZED(cachep);
+	}
+#endif
+
 	kmemleak_free_recursive(objp, cachep->flags);
 	objp = cache_free_debugcheck(cachep, objp, caller);
 
@@ -4234,6 +4253,9 @@ static void print_slabinfo_header(struct seq_file *m)
 	seq_puts(m, " : globalstat <listallocs> <maxobjs> <grown> <reaped> "
 		 "<error> <maxfreeable> <nodeallocs> <remotefrees> <alienoverflow>");
 	seq_puts(m, " : cpustat <allochit> <allocmiss> <freehit> <freemiss>");
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+	seq_puts(m, " : pax <sanitized> <not_sanitized>");
+#endif
 #endif
 	seq_putc(m, '\n');
 }
@@ -4351,6 +4373,14 @@ static int s_show(struct seq_file *m, void *p)
 		seq_printf(m, " : cpustat %6lu %6lu %6lu %6lu",
 			   allochit, allocmiss, freehit, freemiss);
 	}
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+	{
+		unsigned long sanitized = atomic_read_unchecked(&cachep->sanitized);
+		unsigned long not_sanitized = atomic_read_unchecked(&cachep->not_sanitized);
+
+		seq_printf(m, " : pax %6lu %6lu", sanitized, not_sanitized);
+	}
+#endif
 #endif
 	seq_putc(m, '\n');
 	return 0;

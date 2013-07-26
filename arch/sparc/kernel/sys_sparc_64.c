@@ -364,12 +364,12 @@ unsigned long get_fb_unmapped_area(struct file *filp, unsigned long orig_addr, u
 EXPORT_SYMBOL(get_fb_unmapped_area);
 
 /* Essentially the same as PowerPC.  */
-static unsigned long mmap_rnd(void)
+static unsigned long mmap_rnd(struct mm_struct *mm)
 {
 	unsigned long rnd = 0UL;
 
 #ifdef CONFIG_PAX_RANDMMAP
-	if (!(current->mm->pax_flags & MF_PAX_RANDMMAP))
+	if (!(mm->pax_flags & MF_PAX_RANDMMAP))
 #endif
 
 	if (current->flags & PF_RANDOMIZE) {
@@ -384,7 +384,7 @@ static unsigned long mmap_rnd(void)
 
 void arch_pick_mmap_layout(struct mm_struct *mm)
 {
-	unsigned long random_factor = mmap_rnd();
+	unsigned long random_factor = mmap_rnd(mm);
 	unsigned long gap;
 
 	/*

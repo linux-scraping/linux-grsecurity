@@ -816,7 +816,7 @@ int setup_arg_pages(struct linux_binprm *bprm,
 
 #ifdef CONFIG_X86
 		if (!ret) {
-			size = mmap_min_addr + ((mm->delta_mmap ^ mm->delta_stack) & (0xFFUL << PAGE_SHIFT));
+			size = PAGE_SIZE + mmap_min_addr + ((mm->delta_mmap ^ mm->delta_stack) & (0xFFUL << PAGE_SHIFT));
 			ret = 0 != mmap_region(NULL, 0, PAGE_ALIGN(size), flags, vm_flags, 0);
 		}
 #endif

@@ -419,6 +419,11 @@ static void slob_free(void *block, int size)
 		return;
 	}
 
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+	if (pax_sanitize_slab)
+		memset(block, PAX_MEMORY_SANITIZE_VALUE, size);
+#endif
+
 	if (!slob_page_free(sp)) {
 		/* This slob page is about to become partially free. Easy! */
 		sp->units = units;

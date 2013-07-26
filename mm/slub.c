@@ -2537,6 +2537,14 @@ static __always_inline void slab_free(struct kmem_cache *s,
 
 	slab_free_hook(s, x);
 
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+	if (pax_sanitize_slab && !(s->flags & SLAB_NO_SANITIZE)) {
+		memset(x, PAX_MEMORY_SANITIZE_VALUE, s->objsize);
+		if (s->ctor)
+			s->ctor(x);
+	}
+#endif
+
 redo:
 	/*
 	 * Determine the currently cpus per cpu slab.
