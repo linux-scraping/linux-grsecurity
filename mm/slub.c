@@ -2594,6 +2594,14 @@ static __always_inline void slab_free(struct kmem_cache *s,
 
 	slab_free_hook(s, x);
 
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+	if (pax_sanitize_slab && !(s->flags & SLAB_NO_SANITIZE)) {
+		memset(x, PAX_MEMORY_SANITIZE_VALUE, s->object_size);
+		if (s->ctor)
+			s->ctor(x);
+	}
+#endif
+
 redo:
 	/*
 	 * Determine the currently cpus per cpu slab.
@@ -2938,6 +2946,9 @@ static int calculate_sizes(struct kmem_cache *s, int forced_order)
 	s->inuse = size;
 
 	if (((flags & (SLAB_DESTROY_BY_RCU | SLAB_POISON)) ||
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+		(pax_sanitize_slab && !(flags & SLAB_NO_SANITIZE)) ||
+#endif
 		s->ctor)) {
 		/*
 		 * Relocate free pointer after the object if it is not

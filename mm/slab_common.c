@@ -27,6 +27,17 @@ LIST_HEAD(slab_caches);
 DEFINE_MUTEX(slab_mutex);
 struct kmem_cache *kmem_cache;
 
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+bool pax_sanitize_slab __read_only = true;
+static int __init pax_sanitize_slab_setup(char *str)
+{
+	pax_sanitize_slab = !!simple_strtol(str, NULL, 0);
+	printk("%sabled PaX slab sanitization\n", pax_sanitize_slab ? "En" : "Dis");
+	return 1;
+}
+__setup("pax_sanitize_slab=", pax_sanitize_slab_setup);
+#endif
+
 #ifdef CONFIG_DEBUG_VM
 static int kmem_cache_sanity_check(struct mem_cgroup *memcg, const char *name,
 				   size_t size)
@@ -544,6 +555,9 @@ void print_slabinfo_header(struct seq_file *m)
 	seq_puts(m, " : globalstat <listallocs> <maxobjs> <grown> <reaped> "
 		 "<error> <maxfreeable> <nodeallocs> <remotefrees> <alienoverflow>");
 	seq_puts(m, " : cpustat <allochit> <allocmiss> <freehit> <freemiss>");
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+	seq_puts(m, " : pax <sanitized> <not_sanitized>");
+#endif
 #endif
 	seq_putc(m, '\n');
 }

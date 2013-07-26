@@ -70,6 +70,10 @@ struct kmem_cache {
 	atomic_unchecked_t allocmiss;
 	atomic_unchecked_t freehit;
 	atomic_unchecked_t freemiss;
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+	atomic_unchecked_t sanitized;
+	atomic_unchecked_t not_sanitized;
+#endif
 
 	/*
 	 * If debugging is enabled, then the allocator can add additional
