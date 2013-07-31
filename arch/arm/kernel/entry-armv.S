@@ -584,7 +584,8 @@ ENDPROC(__und_usr)
  */
 	.pushsection .fixup, "ax"
 	.align	2
-4:	mov	pc, r9
+4:	pax_close_userland
+	mov	pc, r9
 	.popsection
 	.pushsection __ex_table,"a"
 	.long	1b, 4b

@@ -97,8 +97,12 @@ struct sigaltstack;
 #define __MAP(n,...) __MAP##n(__VA_ARGS__)
 
 #define __SC_DECL(t, a)	t a
-#define __TYPE_IS_LL(t) (__same_type((t)0, 0LL) || __same_type((t)0, 0ULL))
-#define __SC_LONG(t, a) __typeof(__builtin_choose_expr(__TYPE_IS_LL(t), 0LL, 0L)) a
+#define __TYPE_IS_SL(t) (__same_type((t)0, 0L))
+#define __TYPE_IS_UL(t) (__same_type((t)0, 0UL))
+#define __TYPE_IS_SLL(t) (__same_type((t)0, 0LL))
+#define __TYPE_IS_ULL(t) (__same_type((t)0, 0ULL))
+#define __TYPE_IS_LL(t) (__TYPE_IS_SLL(t) || __TYPE_IS_ULL(t))
+#define __SC_LONG(t, a) __typeof(__builtin_choose_expr(__TYPE_IS_LL(t), __builtin_choose_expr(__TYPE_IS_ULL(t), 0ULL, 0LL), __builtin_choose_expr(__TYPE_IS_UL(t), 0UL, 0L))) a
 #define __SC_CAST(t, a)	(t) a
 #define __SC_ARGS(t, a)	a
 #define __SC_TEST(t, a) (void)BUILD_BUG_ON_ZERO(!__TYPE_IS_LL(t) && sizeof(t) > sizeof(long))
