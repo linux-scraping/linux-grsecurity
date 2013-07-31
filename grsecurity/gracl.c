@@ -3261,6 +3261,7 @@ write_grsec_handler(struct file *file, const char __user * buf, size_t count, lo
 		goto out;
 	}
 
+#ifdef CONFIG_COMPAT
 	pax_open_kernel();
 	if (compat) {
 		copy_gr_arg_wrapper = &copy_gr_arg_wrapper_compat;
@@ -3290,6 +3291,7 @@ write_grsec_handler(struct file *file, const char __user * buf, size_t count, lo
 		get_gr_arg_wrapper_size = &get_gr_arg_wrapper_size_normal;
 	}
 	pax_close_kernel();
+#endif
 
 	req_count = get_gr_arg_wrapper_size();
 
