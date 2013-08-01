@@ -2747,9 +2747,9 @@ static void elf_handle_mprotect(struct vm_area_struct *vma, unsigned long newfla
 				elf_dyn dyn;
 
 				if (sizeof(dyn) != kernel_read(vma->vm_file, elf_p.p_offset + i*sizeof(dyn), (char *)&dyn, sizeof(dyn)))
-					return;
+					break;
 				if (dyn.d_tag == DT_NULL)
-					return;
+					break;
 				if (dyn.d_tag == DT_TEXTREL || (dyn.d_tag == DT_FLAGS && (dyn.d_un.d_val & DF_TEXTREL))) {
 					gr_log_textrel(vma);
 					if (is_textrel_rw)
@@ -2757,18 +2757,59 @@ static void elf_handle_mprotect(struct vm_area_struct *vma, unsigned long newfla
 					else
 						/* PaX: disallow write access after relocs are done, hopefully noone else needs it... */
 						vma->vm_flags &= ~VM_MAYWRITE;
-					return;
+					break;
 				}
 				i++;
 			}
-			return;
+			is_textrel_rw = false;
+			is_textrel_rx = false;
+			continue;
 
 		case PT_GNU_RELRO:
 			if (!is_relro)
 				continue;
 			if ((elf_p.p_offset >> PAGE_SHIFT) == vma->vm_pgoff && ELF_PAGEALIGN(elf_p.p_memsz) == vma->vm_end - vma->vm_start)
 				vma->vm_flags &= ~VM_MAYWRITE;
-			return;
+			is_relro = false;
+			continue;
+
+#ifdef CONFIG_PAX_PT_PAX_FLAGS
+		case PT_PAX_FLAGS: {
+			const char *msg_mprotect = "", *msg_emutramp = "";
+			char *buffer_lib, *buffer_exe;
+
+			if (elf_p.p_flags & PF_NOMPROTECT)
+				msg_mprotect = "MPROTECT disabled";
+
+#ifdef CONFIG_PAX_EMUTRAMP
+			if (!(vma->vm_mm->pax_flags & MF_PAX_EMUTRAMP) && !(elf_p.p_flags & PF_NOEMUTRAMP))
+				msg_emutramp = "EMUTRAMP enabled";
+#endif
+
+			if (!msg_mprotect[0] && !msg_emutramp[0])
+				continue;
+
+			if (!printk_ratelimit())
+				continue;
+
+			buffer_lib = (char *)__get_free_page(GFP_KERNEL);
+			buffer_exe = (char *)__get_free_page(GFP_KERNEL);
+			if (buffer_lib && buffer_exe) {
+				char *path_lib, *path_exe;
+
+				path_lib = pax_get_path(&vma->vm_file->f_path, buffer_lib, PAGE_SIZE);
+				path_exe = pax_get_path(&vma->vm_mm->exe_file->f_path, buffer_exe, PAGE_SIZE);
+
+				pr_info("PAX: %s wants %s%s%s on %s\n", path_lib, msg_mprotect,
+					(msg_mprotect[0] && msg_emutramp[0] ? " and " : ""), msg_emutramp, path_exe);
+
+			}
+			free_page((unsigned long)buffer_exe);
+			free_page((unsigned long)buffer_lib);
+			continue;
+		}
+#endif
+
 		}
 	}
 }

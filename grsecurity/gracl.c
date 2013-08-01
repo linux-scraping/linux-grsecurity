@@ -100,6 +100,102 @@ extern void gr_free_uidset(void);
 extern void gr_remove_uid(uid_t uid);
 extern int gr_find_uid(uid_t uid);
 
+static int copy_acl_object_label_normal(struct acl_object_label *obj, const struct acl_object_label *userp)
+{
+	if (copy_from_user(obj, userp, sizeof(struct acl_object_label)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int copy_acl_ip_label_normal(struct acl_ip_label *ip, const struct acl_ip_label *userp)
+{
+	if (copy_from_user(ip, userp, sizeof(struct acl_ip_label)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int copy_acl_subject_label_normal(struct acl_subject_label *subj, const struct acl_subject_label *userp)
+{
+	if (copy_from_user(subj, userp, sizeof(struct acl_subject_label)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int copy_acl_role_label_normal(struct acl_role_label *role, const struct acl_role_label *userp)
+{
+	if (copy_from_user(role, userp, sizeof(struct acl_role_label)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int copy_role_allowed_ip_normal(struct role_allowed_ip *roleip, const struct role_allowed_ip *userp)
+{
+	if (copy_from_user(roleip, userp, sizeof(struct role_allowed_ip)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int copy_sprole_pw_normal(struct sprole_pw *pw, unsigned long idx, const struct sprole_pw *userp)
+{
+	if (copy_from_user(pw, userp + idx, sizeof(struct sprole_pw)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int copy_gr_hash_struct_normal(struct gr_hash_struct *hash, const struct gr_hash_struct *userp)
+{
+	if (copy_from_user(hash, userp, sizeof(struct gr_hash_struct)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int copy_role_transition_normal(struct role_transition *trans, const struct role_transition *userp)
+{
+	if (copy_from_user(trans, userp, sizeof(struct role_transition)))
+		return -EFAULT;
+
+	return 0;
+}
+
+int copy_pointer_from_array_normal(void *ptr, unsigned long idx, const void *userp)
+{
+	if (copy_from_user(ptr, userp + (idx * sizeof(void *)), sizeof(void *)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int copy_gr_arg_wrapper_normal(const char __user *buf, struct gr_arg_wrapper *uwrap)
+{
+	if (copy_from_user(uwrap, buf, sizeof (struct gr_arg_wrapper)))
+		return -EFAULT;
+
+	if ((uwrap->version != GRSECURITY_VERSION) || (uwrap->size != sizeof(struct gr_arg)))
+		return -EINVAL;
+
+	return 0;
+}
+
+static int copy_gr_arg_normal(const struct gr_arg __user *buf, struct gr_arg *arg)
+{
+	if (copy_from_user(arg, buf, sizeof (struct gr_arg)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static size_t get_gr_arg_wrapper_size_normal(void)
+{
+	return sizeof(struct gr_arg_wrapper);
+}
+
 #ifdef CONFIG_COMPAT
 extern int copy_gr_arg_wrapper_compat(const char *buf, struct gr_arg_wrapper *uwrap);
 extern int copy_gr_arg_compat(const struct gr_arg __user *buf, struct gr_arg *arg);
@@ -130,6 +226,7 @@ size_t (* get_gr_arg_wrapper_size)(void) __read_only;
 #else
 #define copy_gr_arg_wrapper copy_gr_arg_wrapper_normal
 #define copy_gr_arg copy_gr_arg_normal
+#define copy_gr_hash_struct copy_gr_hash_struct_normal
 #define copy_acl_object_label copy_acl_object_label_normal
 #define copy_acl_subject_label copy_acl_subject_label_normal
 #define copy_acl_role_label copy_acl_role_label_normal
@@ -3147,102 +3244,6 @@ static int gr_rbac_disable(void *unused)
 	return 0;
 }
 
-static int copy_acl_object_label_normal(struct acl_object_label *obj, const struct acl_object_label *userp)
-{
-	if (copy_from_user(obj, userp, sizeof(struct acl_object_label)))
-		return -EFAULT;
-
-	return 0;
-}
-
-static int copy_acl_ip_label_normal(struct acl_ip_label *ip, const struct acl_ip_label *userp)
-{
-	if (copy_from_user(ip, userp, sizeof(struct acl_ip_label)))
-		return -EFAULT;
-
-	return 0;
-}
-
-static int copy_acl_subject_label_normal(struct acl_subject_label *subj, const struct acl_subject_label *userp)
-{
-	if (copy_from_user(subj, userp, sizeof(struct acl_subject_label)))
-		return -EFAULT;
-
-	return 0;
-}
-
-static int copy_acl_role_label_normal(struct acl_role_label *role, const struct acl_role_label *userp)
-{
-	if (copy_from_user(role, userp, sizeof(struct acl_role_label)))
-		return -EFAULT;
-
-	return 0;
-}
-
-static int copy_role_allowed_ip_normal(struct role_allowed_ip *roleip, const struct role_allowed_ip *userp)
-{
-	if (copy_from_user(roleip, userp, sizeof(struct role_allowed_ip)))
-		return -EFAULT;
-
-	return 0;
-}
-
-static int copy_sprole_pw_normal(struct sprole_pw *pw, unsigned long idx, const struct sprole_pw *userp)
-{
-	if (copy_from_user(pw, userp + idx, sizeof(struct sprole_pw)))
-		return -EFAULT;
-
-	return 0;
-}
-
-static int copy_gr_hash_struct_normal(struct gr_hash_struct *hash, const struct gr_hash_struct *userp)
-{
-	if (copy_from_user(hash, userp, sizeof(struct gr_hash_struct)))
-		return -EFAULT;
-
-	return 0;
-}
-
-static int copy_role_transition_normal(struct role_transition *trans, const struct role_transition *userp)
-{
-	if (copy_from_user(trans, userp, sizeof(struct role_transition)))
-		return -EFAULT;
-
-	return 0;
-}
-
-int copy_pointer_from_array_normal(void *ptr, unsigned long idx, const void *userp)
-{
-	if (copy_from_user(ptr, userp + (idx * sizeof(void *)), sizeof(void *)))
-		return -EFAULT;
-
-	return 0;
-}
-
-static int copy_gr_arg_wrapper_normal(const char __user *buf, struct gr_arg_wrapper *uwrap)
-{
-	if (copy_from_user(uwrap, buf, sizeof (struct gr_arg_wrapper)))
-		return -EFAULT;
-
-	if ((uwrap->version != GRSECURITY_VERSION) || (uwrap->size != sizeof(struct gr_arg)))
-		return -EINVAL;
-
-	return 0;
-}
-
-static int copy_gr_arg_normal(const struct gr_arg __user *buf, struct gr_arg *arg)
-{
-	if (copy_from_user(arg, buf, sizeof (struct gr_arg)))
-		return -EFAULT;
-
-	return 0;
-}
-
-static size_t get_gr_arg_wrapper_size_normal(void)
-{
-	return sizeof(struct gr_arg_wrapper);
-}
-
 ssize_t
 write_grsec_handler(struct file *file, const char __user * buf, size_t count, loff_t *ppos)
 {
@@ -3251,7 +3252,6 @@ write_grsec_handler(struct file *file, const char __user * buf, size_t count, lo
 	unsigned char *sprole_sum = NULL;
 	int error = 0;
 	int error2 = 0;
-	int compat = is_compat_task();
 	size_t req_count;
 
 	mutex_lock(&gr_dev_mutex);
@@ -3263,7 +3263,7 @@ write_grsec_handler(struct file *file, const char __user * buf, size_t count, lo
 
 #ifdef CONFIG_COMPAT
 	pax_open_kernel();
-	if (compat) {
+	if (is_compat_task()) {
 		copy_gr_arg_wrapper = &copy_gr_arg_wrapper_compat;
 		copy_gr_arg = &copy_gr_arg_compat;
 		copy_acl_object_label = &copy_acl_object_label_compat;

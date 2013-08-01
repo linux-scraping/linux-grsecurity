@@ -159,8 +159,8 @@ ENTRY(__get_user_8)
 	cmp TI_addr_limit(%_ASM_DX),%_ASM_AX
 	jae bad_get_user_8
 	ASM_STAC
-4:	movl -7(%_ASM_AX),%edx
-5:	movl -3(%_ASM_AX),%ecx
+4:	__copyuser_seg movl -7(%_ASM_AX),%edx
+5:	__copyuser_seg movl -3(%_ASM_AX),%ecx
 	xor %eax,%eax
 	ASM_CLAC
 	pax_force_retaddr

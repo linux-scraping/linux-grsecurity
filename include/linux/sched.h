@@ -1520,6 +1520,8 @@ extern void pax_set_initial_flags(struct linux_binprm *bprm);
 extern void (*pax_set_initial_flags_func)(struct linux_binprm *bprm);
 #endif
 
+struct path;
+extern char *pax_get_path(const struct path *path, char *buf, int buflen);
 extern void pax_report_fault(struct pt_regs *regs, void *pc, void *sp);
 extern void pax_report_insns(struct pt_regs *regs, void *pc, void *sp);
 extern void pax_report_refcount_overflow(struct pt_regs *regs);
