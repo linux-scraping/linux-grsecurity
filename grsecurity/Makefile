@@ -15,6 +15,10 @@ obj-y = grsec_chdir.o grsec_chroot.o grsec_exec.o grsec_fifo.o grsec_fork.o \
 obj-$(CONFIG_GRKERNSEC) += grsec_init.o grsum.o gracl.o gracl_segv.o \
 	gracl_cap.o gracl_alloc.o gracl_shm.o grsec_mem.o gracl_fs.o \
 	gracl_learn.o grsec_log.o
+ifdef CONFIG_COMPAT
+obj-$(CONFIG_GRKERNSEC) += gracl_compat.o
+endif
+
 obj-$(CONFIG_GRKERNSEC_RESLOG) += gracl_res.o
 
 ifdef CONFIG_NET
