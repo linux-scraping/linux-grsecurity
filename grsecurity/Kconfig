@@ -708,22 +708,11 @@ config GRKERNSEC_RWXMAP_LOG
 	help
 	  If you say Y here, calls to mmap() and mprotect() with explicit
 	  usage of PROT_WRITE and PROT_EXEC together will be logged when
-	  denied by the PAX_MPROTECT feature.  If the sysctl option is
-	  enabled, a sysctl option with name "rwxmap_logging" is created.
-
-config GRKERNSEC_AUDIT_TEXTREL
-	bool 'ELF text relocations logging (READ HELP)'
-	depends on PAX_MPROTECT
-	help
-	  If you say Y here, text relocations will be logged with the filename
-	  of the offending library or binary.  The purpose of the feature is
-	  to help Linux distribution developers get rid of libraries and
-	  binaries that need text relocations which hinder the future progress
-	  of PaX.  Only Linux distribution developers should say Y here, and
-	  never on a production machine, as this option creates an information
-	  leak that could aid an attacker in defeating the randomization of
-	  a single memory region.  If the sysctl option is enabled, a sysctl
-	  option with name "audit_textrel" is created.
+	  denied by the PAX_MPROTECT feature.  This feature will also
+	  log other problematic scenarios that can occur when PAX_MPROTECT
+	  is enabled on a binary, like textrels and PT_GNU_STACK.  If the 
+          sysctl option is enabled, a sysctl option with name "rwxmap_logging"
+	  is created.
 
 endmenu
 

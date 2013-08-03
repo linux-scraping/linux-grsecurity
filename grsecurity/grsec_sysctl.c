@@ -391,15 +391,6 @@ struct ctl_table grsecurity_table[] = {
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
-#ifdef CONFIG_GRKERNSEC_AUDIT_TEXTREL
-	{
-		.procname	= "audit_textrel",
-		.data		= &grsec_enable_audit_textrel,
-		.maxlen		= sizeof(int),
-		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
-	},
-#endif
 #ifdef CONFIG_GRKERNSEC_DMESG
 	{
 		.procname	= "dmesg",

@@ -3,6 +3,7 @@
 #include <linux/file.h>
 #include <linux/tty.h>
 #include <linux/fs.h>
+#include <linux/mm.h>
 #include <linux/grinternal.h>
 
 #ifdef CONFIG_TREE_PREEMPT_RCU
@@ -149,6 +150,7 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 	struct vfsmount *mnt = NULL;
 	struct file *file = NULL;
 	struct task_struct *task = NULL;
+	struct vm_area_struct *vma = NULL;
 	const struct cred *cred, *pcred;
 	va_list ap;
 
@@ -287,6 +289,19 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 	case GR_RWXMAP:
 		file = va_arg(ap, struct file *);
 		gr_log_middle_varargs(audit, msg, file ? gr_to_filename(file->f_path.dentry, file->f_path.mnt) : "<anonymous mapping>");
+		break;
+	case GR_RWXMAPVMA:
+		vma = va_arg(ap, struct vm_area_struct *);
+		if (vma->vm_file)
+			str1 = gr_to_filename(vma->vm_file->f_path.dentry, vma->vm_file->f_path.mnt);
+		else if (vma->vm_flags & (VM_GROWSDOWN | VM_GROWSUP))
+			str1 = "<stack>";
+		else if (vma->vm_start <= current->mm->brk &&
+			 vma->vm_end >= current->mm->start_brk)
+			str1 = "<heap>";
+		else
+			str1 = "<anonymous mapping>";
+		gr_log_middle_varargs(audit, msg, str1);
 		break;
 	case GR_PSACCT:
 		{

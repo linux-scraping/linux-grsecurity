@@ -1980,6 +1980,10 @@ void pax_report_fault(struct pt_regs *regs, void *pc, void *sp)
 			offset = vma_fault->vm_pgoff << PAGE_SHIFT;
 			if (vma_fault->vm_file)
 				path_fault = pax_get_path(&vma_fault->vm_file->f_path, buffer_fault, PAGE_SIZE);
+			else if (pc >= mm->start_brk && pc < mm->brk)
+				path_fault = "<heap>";
+			else if (vma_fault->vm_flags & (VM_GROWSDOWN | VM_GROWSUP))
+				path_fault = "<stack>";
 			else
 				path_fault = "<anonymous mapping>";
 		}
