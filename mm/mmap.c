@@ -1082,6 +1082,13 @@ unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 
 #ifdef CONFIG_PAX_MPROTECT
 	if (mm->pax_flags & MF_PAX_MPROTECT) {
+
+#ifdef CONFIG_GRKERNSEC_RWXMAP_LOG
+		if (file && !pgoff && (vm_flags & VM_EXEC) && mm->binfmt &&
+		    mm->binfmt->handle_mmap)
+			mm->binfmt->handle_mmap(file);
+#endif
+
 #ifndef CONFIG_PAX_MPROTECT_COMPAT
 		if ((vm_flags & (VM_WRITE | VM_EXEC)) == (VM_WRITE | VM_EXEC)) {
 			gr_log_rwxmmap(file);

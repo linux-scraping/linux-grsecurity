@@ -56,6 +56,10 @@ static int elf_core_dump(struct coredump_params *cprm);
 static void elf_handle_mprotect(struct vm_area_struct *vma, unsigned long newflags);
 #endif
 
+#ifdef CONFIG_GRKERNSEC_RWXMAP_LOG
+static void elf_handle_mmap(struct file *file);
+#endif
+
 #if ELF_EXEC_PAGESIZE > PAGE_SIZE
 #define ELF_MIN_ALIGN	ELF_EXEC_PAGESIZE
 #else
@@ -78,6 +82,10 @@ static struct linux_binfmt elf_format = {
 
 #ifdef CONFIG_PAX_MPROTECT
 	.handle_mprotect= elf_handle_mprotect,
+#endif
+
+#ifdef CONFIG_GRKERNSEC_RWXMAP_LOG
+	.handle_mmap	= elf_handle_mmap,
 #endif
 
 	.min_coredump	= ELF_EXEC_PAGESIZE,
@@ -2602,6 +2610,35 @@ static void elf_handle_mprotect(struct vm_area_struct *vma, unsigned long newfla
 				vma->vm_flags &= ~VM_MAYWRITE;
 			return;
 		}
+	}
+}
+#endif
+
+#ifdef CONFIG_GRKERNSEC_RWXMAP_LOG
+
+extern int grsec_enable_log_rwxmaps;
+
+static void elf_handle_mmap(struct file *file)
+{
+	struct elfhdr elf_h;
+	struct elf_phdr elf_p;
+	unsigned long i;
+
+	if (!grsec_enable_log_rwxmaps)
+		return;
+
+	if (sizeof(elf_h) != kernel_read(file, 0UL, (char *)&elf_h, sizeof(elf_h)) ||
+	    memcmp(elf_h.e_ident, ELFMAG, SELFMAG) ||
+	    (elf_h.e_type != ET_DYN && elf_h.e_type != ET_EXEC) || !elf_check_arch(&elf_h) ||
+	    elf_h.e_phentsize != sizeof(struct elf_phdr) ||
+	    elf_h.e_phnum > 65536UL / sizeof(struct elf_phdr))
+		return;
+
+	for (i = 0UL; i < elf_h.e_phnum; i++) {
+		if (sizeof(elf_p) != kernel_read(file, elf_h.e_phoff + i*sizeof(elf_p), (char *)&elf_p, sizeof(elf_p)))
+			return;
+		if (elf_p.p_type == PT_GNU_STACK && (elf_p.p_flags & PF_X))
+			gr_log_ptgnustack(file);
 	}
 }
 #endif

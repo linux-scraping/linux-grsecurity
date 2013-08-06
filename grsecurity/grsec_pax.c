@@ -8,9 +8,18 @@
 void
 gr_log_textrel(struct vm_area_struct * vma)
 {
-#ifdef CONFIG_GRKERNSEC_AUDIT_TEXTREL
-	if (grsec_enable_audit_textrel)
-		gr_log_textrel_ulong_ulong(GR_DO_AUDIT, GR_TEXTREL_AUDIT_MSG, vma->vm_file, vma->vm_start, vma->vm_pgoff);
+#ifdef CONFIG_GRKERNSEC_RWXMAP_LOG
+	if (grsec_enable_log_rwxmaps)
+		gr_log_textrel_ulong_ulong(GR_DONT_AUDIT, GR_TEXTREL_AUDIT_MSG, vma->vm_file, vma->vm_start, vma->vm_pgoff);
+#endif
+	return;
+}
+
+void gr_log_ptgnustack(struct file *file)
+{
+#ifdef CONFIG_GRKERNSEC_RWXMAP_LOG
+	if (grsec_enable_log_rwxmaps)
+		gr_log_rwxmap(GR_DONT_AUDIT, GR_PTGNUSTACK_MSG, file);
 #endif
 	return;
 }
@@ -26,11 +35,11 @@ gr_log_rwxmmap(struct file *file)
 }
 
 void
-gr_log_rwxmprotect(struct file *file)
+gr_log_rwxmprotect(struct vm_area_struct *vma)
 {
 #ifdef CONFIG_GRKERNSEC_RWXMAP_LOG
 	if (grsec_enable_log_rwxmaps)
-		gr_log_rwxmap(GR_DONT_AUDIT, GR_RWXMPROTECT_MSG, file);
+		gr_log_rwxmap_vma(GR_DONT_AUDIT, GR_RWXMPROTECT_MSG, vma);
 #endif
 	return;
 }

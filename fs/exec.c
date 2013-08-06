@@ -2113,7 +2113,11 @@ void pax_report_fault(struct pt_regs *regs, void *pc, void *sp)
 					} else
 						path_fault = "<path too long>";
 				}
-			} else
+			} else if (pc >= mm->start_brk && pc < mm->brk)
+				path_fault = "<heap>";
+			else if (vma_fault->vm_flags & (VM_GROWSDOWN | VM_GROWSUP))
+				path_fault = "<stack>";
+			else
 				path_fault = "<anonymous mapping>";
 		}
 		up_read(&mm->mmap_sem);

@@ -21,7 +21,6 @@ int grsec_enable_signal;
 int grsec_enable_forkfail;
 int grsec_enable_audit_ptrace;
 int grsec_enable_time;
-int grsec_enable_audit_textrel;
 int grsec_enable_group;
 int grsec_audit_gid;
 int grsec_enable_chdir;
@@ -153,9 +152,6 @@ grsecurity_init(void)
 	grsec_lock = 1;
 #endif
 
-#ifdef CONFIG_GRKERNSEC_AUDIT_TEXTREL
-	grsec_enable_audit_textrel = 1;
-#endif
 #ifdef CONFIG_GRKERNSEC_RWXMAP_LOG
 	grsec_enable_log_rwxmaps = 1;
 #endif

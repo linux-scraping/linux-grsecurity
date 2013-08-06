@@ -3199,7 +3199,7 @@ write_grsec_handler(struct file *file, const char __user * buf, size_t count, lo
 	unsigned char *sprole_sum = NULL;
 	int error = 0;
 	int error2 = 0;
-	size_t req_count;
+	size_t req_count = 0;
 
 	mutex_lock(&gr_dev_mutex);
 

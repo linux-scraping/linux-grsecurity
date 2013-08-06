@@ -88,6 +88,7 @@ struct linux_binfmt {
 	int (*load_shlib)(struct file *);
 	int (*core_dump)(struct coredump_params *cprm);
 	void (*handle_mprotect)(struct vm_area_struct *vma, unsigned long newflags);
+	void (*handle_mmap)(struct file *);
 	unsigned long min_coredump;	/* minimal dump size */
 } __do_const;
 
