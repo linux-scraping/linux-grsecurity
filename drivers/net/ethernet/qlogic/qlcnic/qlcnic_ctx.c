@@ -206,10 +206,10 @@ int qlcnic_fw_cmd_set_drv_version(struct qlcnic_adapter *adapter)
 	if (err) {
 		dev_info(&adapter->pdev->dev,
 			 "Failed to set driver version in firmware\n");
-		return -EIO;
+		err = -EIO;
 	}
-
-	return 0;
+	qlcnic_free_mbx_args(&cmd);
+	return err;
 }
 
 int

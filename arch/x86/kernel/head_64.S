@@ -598,7 +598,7 @@ ENTRY(phys_base)
 NEXT_PAGE(empty_zero_page)
 	.skip PAGE_SIZE
 
-	.align L1_CACHE_BYTES
+	.align PAGE_SIZE
 ENTRY(idt_table)
 	.fill 512,8,0
 

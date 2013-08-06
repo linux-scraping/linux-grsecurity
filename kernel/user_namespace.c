@@ -79,6 +79,21 @@ int create_user_ns(struct cred *new)
 	    !kgid_has_mapping(parent_ns, group))
 		return -EPERM;
 
+#ifdef CONFIG_GRKERNSEC
+	/*
+	 * This doesn't really inspire confidence:
+	 * http://marc.info/?l=linux-kernel&m=135543612731939&w=2
+	 * http://marc.info/?l=linux-kernel&m=135545831607095&w=2
+	 * Increases kernel attack surface in areas developers
+	 * previously cared little about ("low importance due
+	 * to requiring "root" capability")
+	 * To be removed when this code receives *proper* review
+	 */
+	if (!capable(CAP_SYS_ADMIN) || !capable(CAP_SETUID) ||
+			!capable(CAP_SETGID))
+		return -EPERM;
+#endif
+
 	ns = kmem_cache_zalloc(user_ns_cachep, GFP_KERNEL);
 	if (!ns)
 		return -ENOMEM;
@@ -105,6 +120,7 @@ int create_user_ns(struct cred *new)
 int unshare_userns(unsigned long unshare_flags, struct cred **new_cred)
 {
 	struct cred *cred;
+	int err;
 
 	if (!(unshare_flags & CLONE_NEWUSER))
 		return 0;
@@ -113,8 +129,12 @@ int unshare_userns(unsigned long unshare_flags, struct cred **new_cred)
 	if (!cred)
 		return -ENOMEM;
 
-	*new_cred = cred;
-	return create_user_ns(cred);
+	err = create_user_ns(cred);
+	if (err)
+		put_cred(cred);
+	else
+		*new_cred = cred;
+	return err;
 }
 
 void free_user_ns(struct user_namespace *ns)

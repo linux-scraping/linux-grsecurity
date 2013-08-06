@@ -2707,7 +2707,7 @@ static void elf_handle_mprotect(struct vm_area_struct *vma, unsigned long newfla
 	unsigned long oldflags;
 	bool is_textrel_rw, is_textrel_rx, is_relro;
 
-	if (!(vma->vm_mm->pax_flags & MF_PAX_MPROTECT))
+	if (!(vma->vm_mm->pax_flags & MF_PAX_MPROTECT) || !vma->vm_file)
 		return;
 
 	oldflags = vma->vm_flags & (VM_MAYEXEC | VM_MAYWRITE | VM_MAYREAD | VM_EXEC | VM_WRITE | VM_READ);
@@ -2715,15 +2715,15 @@ static void elf_handle_mprotect(struct vm_area_struct *vma, unsigned long newfla
 
 #ifdef CONFIG_PAX_ELFRELOCS
 	/* possible TEXTREL */
-	is_textrel_rw = vma->vm_file && !vma->anon_vma && oldflags == (VM_MAYEXEC | VM_MAYREAD | VM_EXEC | VM_READ) && newflags == (VM_WRITE | VM_READ);
-	is_textrel_rx = vma->vm_file && vma->anon_vma && oldflags == (VM_MAYEXEC | VM_MAYWRITE | VM_MAYREAD | VM_WRITE | VM_READ) && newflags == (VM_EXEC | VM_READ);
+	is_textrel_rw = !vma->anon_vma && oldflags == (VM_MAYEXEC | VM_MAYREAD | VM_EXEC | VM_READ) && newflags == (VM_WRITE | VM_READ);
+	is_textrel_rx = vma->anon_vma && oldflags == (VM_MAYEXEC | VM_MAYWRITE | VM_MAYREAD | VM_WRITE | VM_READ) && newflags == (VM_EXEC | VM_READ);
 #else
 	is_textrel_rw = false;
 	is_textrel_rx = false;
 #endif
 
 	/* possible RELRO */
-	is_relro = vma->vm_file && vma->anon_vma && oldflags == (VM_MAYWRITE | VM_MAYREAD | VM_READ) && newflags == (VM_MAYWRITE | VM_MAYREAD | VM_READ);
+	is_relro = vma->anon_vma && oldflags == (VM_MAYWRITE | VM_MAYREAD | VM_READ) && newflags == (VM_MAYWRITE | VM_MAYREAD | VM_READ);
 
 	if (!is_textrel_rw && !is_textrel_rx && !is_relro)
 		return;

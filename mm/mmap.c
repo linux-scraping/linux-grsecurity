@@ -888,7 +888,7 @@ again:			remove_next = 1 + (end > next->vm_end);
 		if (next->anon_vma)
 			anon_vma_merge(vma, next);
 		mm->map_count--;
-		vma_set_policy(vma, vma_policy(next));
+		mpol_put(vma_policy(next));
 		kmem_cache_free(vm_area_cachep, next);
 		/*
 		 * In mprotect's case 6 (see comments on vma_merge),
@@ -1337,7 +1337,7 @@ unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 	if (mm->pax_flags & MF_PAX_MPROTECT) {
 
 #ifdef CONFIG_GRKERNSEC_RWXMAP_LOG
-		if (file && (vm_flags & VM_EXEC) && mm->binfmt &&
+		if (file && !pgoff && (vm_flags & VM_EXEC) && mm->binfmt &&
 		    mm->binfmt->handle_mmap)
 			mm->binfmt->handle_mmap(file);
 #endif
