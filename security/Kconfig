@@ -674,7 +674,7 @@ config PAX_ASLR
 
 config PAX_RANDKSTACK
 	bool "Randomize kernel stack base"
-	default y if GRKERNSEC_CONFIG_AUTO
+	default y if GRKERNSEC_CONFIG_AUTO && !(GRKERNSEC_CONFIG_VIRT_HOST && GRKERNSEC_CONFIG_VIRT_VIRTUALBOX)
 	depends on X86_TSC && X86
 	help
 	  By saying Y here the kernel will randomize every task's kernel
