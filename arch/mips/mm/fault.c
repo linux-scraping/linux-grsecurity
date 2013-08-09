@@ -213,6 +213,14 @@ bad_area:
 bad_area_nosemaphore:
 	/* User mode accesses just cause a SIGSEGV */
 	if (user_mode(regs)) {
+
+#ifdef CONFIG_PAX_PAGEEXEC
+		if (cpu_has_rixi && (mm->pax_flags & MF_PAX_PAGEEXEC) && !write && address == instruction_pointer(regs)) {
+			pax_report_fault(regs, (void *)address, (void *)user_stack_pointer(regs));
+			do_group_exit(SIGKILL);
+		}
+#endif
+
 		tsk->thread.cp0_badvaddr = address;
 		tsk->thread.error_code = write;
 #if 0

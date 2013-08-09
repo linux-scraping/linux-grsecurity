@@ -33,7 +33,7 @@ static inline s64 div_s64_rem(s64 dividend, s32 divisor, s32 *remainder)
 /**
  * div64_u64 - unsigned 64bit divide with 64bit divisor
  */
-static inline u64 div64_u64(u64 dividend, u64 divisor)
+static inline u64 __intentional_overflow(0) div64_u64(u64 dividend, u64 divisor)
 {
 	return dividend / divisor;
 }

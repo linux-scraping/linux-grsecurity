@@ -99,9 +99,6 @@ ENTRY(cpu_v7_set_pte_ext)
 	tst	r1, #L_PTE_XN
 	orrne	r3, r3, #PTE_EXT_XN
 
-	tst	r1, #L_PTE_PXN
-	orrne	r3, r3, #PTE_EXT_PXN
-
 	tst	r1, #L_PTE_YOUNG
 	tstne	r1, #L_PTE_VALID
 #ifndef CONFIG_CPU_USE_DOMAINS
