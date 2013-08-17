@@ -166,6 +166,8 @@ int copy_thread(unsigned long clone_flags, unsigned long sp,
 	p->thread.fs = p->thread.fsindex ? 0 : me->thread.fs;
 	savesegment(es, p->thread.es);
 	savesegment(ds, p->thread.ds);
+	savesegment(ss, p->thread.ss);
+	BUG_ON(p->thread.ss == __UDEREF_KERNEL_DS);
 	memset(p->thread.ptrace_bps, 0, sizeof(p->thread.ptrace_bps));
 
 	if (unlikely(p->flags & PF_KTHREAD)) {
@@ -297,6 +299,9 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 	if (unlikely(next->ds | prev->ds))
 		loadsegment(ds, next->ds);
 
+	savesegment(ss, prev->ss);
+	if (unlikely(next->ss != prev->ss))
+		loadsegment(ss, next->ss);
 
 	/* We must save %fs and %gs before load_TLS() because
 	 * %fs and %gs may be cleared by load_TLS().

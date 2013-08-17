@@ -18,8 +18,13 @@
 # define sub_preempt_count(val)	do { preempt_count() -= (val); } while (0)
 #endif
 
+#define raw_add_preempt_count(val)	do { preempt_count() += (val); } while (0)
+#define raw_sub_preempt_count(val)	do { preempt_count() -= (val); } while (0)
+
 #define inc_preempt_count() add_preempt_count(1)
+#define raw_inc_preempt_count() raw_add_preempt_count(1)
 #define dec_preempt_count() sub_preempt_count(1)
+#define raw_dec_preempt_count() raw_sub_preempt_count(1)
 
 #define preempt_count()	(current_thread_info()->preempt_count)
 
@@ -64,6 +69,12 @@ do { \
 	barrier(); \
 } while (0)
 
+#define raw_preempt_disable() \
+do { \
+	raw_inc_preempt_count(); \
+	barrier(); \
+} while (0)
+
 #define sched_preempt_enable_no_resched() \
 do { \
 	barrier(); \
@@ -71,6 +82,12 @@ do { \
 } while (0)
 
 #define preempt_enable_no_resched()	sched_preempt_enable_no_resched()
+
+#define raw_preempt_enable_no_resched() \
+do { \
+	barrier(); \
+	raw_dec_preempt_count(); \
+} while (0)
 
 #define preempt_enable() \
 do { \
@@ -116,8 +133,10 @@ do { \
  * region.
  */
 #define preempt_disable()		barrier()
+#define raw_preempt_disable()		barrier()
 #define sched_preempt_enable_no_resched()	barrier()
 #define preempt_enable_no_resched()	barrier()
+#define raw_preempt_enable_no_resched()	barrier()
 #define preempt_enable()		barrier()
 
 #define preempt_disable_notrace()		barrier()

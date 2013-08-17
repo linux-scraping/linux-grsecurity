@@ -59,6 +59,7 @@ static inline int futex_atomic_op_inuser(int encoded_op, u32 __user *uaddr)
 
 	pagefault_disable();
 
+	pax_open_userland();
 	switch (op) {
 	case FUTEX_OP_SET:
 		__futex_atomic_op1(__copyuser_seg"xchgl %0, %2", ret, oldval, uaddr, oparg);
@@ -79,6 +80,7 @@ static inline int futex_atomic_op_inuser(int encoded_op, u32 __user *uaddr)
 	default:
 		ret = -ENOSYS;
 	}
+	pax_close_userland();
 
 	pagefault_enable();
 
@@ -117,6 +119,7 @@ static inline int futex_atomic_cmpxchg_inatomic(u32 *uval, u32 __user *uaddr,
 	if (!access_ok(VERIFY_WRITE, uaddr, sizeof(u32)))
 		return -EFAULT;
 
+	pax_open_userland();
 	asm volatile("\t" ASM_STAC "\n"
 		     "1:\t" LOCK_PREFIX __copyuser_seg"cmpxchgl %4, %2\n"
 		     "2:\t" ASM_CLAC "\n"
@@ -129,6 +132,7 @@ static inline int futex_atomic_cmpxchg_inatomic(u32 *uval, u32 __user *uaddr,
 		     : "i" (-EFAULT), "r" (newval), "1" (oldval)
 		     : "memory"
 	);
+	pax_close_userland();
 
 	*uval = oldval;
 	return ret;

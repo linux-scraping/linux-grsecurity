@@ -60,6 +60,7 @@ ENTRY(__copy_user_nocache)
 1:
 #endif
 
+	ASM_PAX_OPEN_USERLAND
 	ASM_STAC
 	cmpl $8,%edx
 	jb 20f		/* less then 8 bytes, go to byte copy loop */
@@ -109,6 +110,7 @@ ENTRY(__copy_user_nocache)
 	jnz 21b
 23:	xorl %eax,%eax
 	ASM_CLAC
+	ASM_PAX_CLOSE_USERLAND
 	sfence
 	pax_force_retaddr
 	ret

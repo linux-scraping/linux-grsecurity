@@ -304,19 +304,8 @@ static struct mem_type mem_types[] __read_only = {
 		.domain    = DOMAIN_VECTORS,
 	},
 	[MT_HIGH_VECTORS] = {
-		/* we always want the vector page to be noaccess for userland on archs with
-		   XN where we can enforce some reasonable measure of security
-		   therefore, when kernexec is disabled, instead of L_PTE_USER | L_PTE_RDONLY
-		   which turns into supervisor rwx, userland rx, we instead omit that entirely,
-		   leaving it as supervisor rwx only
-		*/
-#ifdef CONFIG_PAX_KERNEXEC
-		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY | L_PTE_RDONLY,
-#elif __LINUX_ARM_ARCH__ >= 6
-		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY,
-#else
-		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY | L_PTE_USER | L_PTE_RDONLY,
-#endif
+		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY |
+				L_PTE_USER | L_PTE_RDONLY,
 		.prot_l1   = PMD_TYPE_TABLE,
 		.domain    = DOMAIN_VECTORS,
 	},
@@ -1267,7 +1256,7 @@ void __init arm_mm_memblock_reserve(void)
  * method which may touch any device, otherwise the kernel _will_ crash.
  */
 
-static char vectors[PAGE_SIZE] __read_only __aligned(PAGE_SIZE);
+static char vectors[PAGE_SIZE * 2] __read_only __aligned(PAGE_SIZE);
 
 static void __init devicemaps_init(struct machine_desc *mdesc)
 {
@@ -1317,14 +1306,26 @@ static void __init devicemaps_init(struct machine_desc *mdesc)
 	map.pfn = __phys_to_pfn(virt_to_phys(&vectors));
 	map.virtual = 0xffff0000;
 	map.length = PAGE_SIZE;
+#ifdef CONFIG_KUSER_HELPERS
 	map.type = MT_HIGH_VECTORS;
+#else
+	map.type = MT_LOW_VECTORS;
+#endif
 	create_mapping(&map);
 
 	if (!vectors_high()) {
 		map.virtual = 0;
+		map.length = PAGE_SIZE * 2;
 		map.type = MT_LOW_VECTORS;
 		create_mapping(&map);
 	}
+
+	/* Now create a kernel read-only mapping */
+	map.pfn += 1;
+	map.virtual = 0xffff0000 + PAGE_SIZE;
+	map.length = PAGE_SIZE;
+	map.type = MT_LOW_VECTORS;
+	create_mapping(&map);
 
 	/*
 	 * Ask the machine support to map in the statically mapped devices.

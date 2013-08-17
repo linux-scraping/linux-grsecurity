@@ -17,18 +17,39 @@
 
 static inline void __native_flush_tlb(void)
 {
-	native_write_cr3(native_read_cr3());
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	if (static_cpu_has(X86_FEATURE_PCID)) {
+		unsigned int cpu = raw_get_cpu();
+
+		if (static_cpu_has(X86_FEATURE_INVPCID)) {
+			unsigned long descriptor[2];
+			asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_ALL_MONGLOBAL) : "memory");
+		} else {
+			native_write_cr3(__pa(get_cpu_pgd(cpu, user)) | PCID_USER);
+			native_write_cr3(__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL);
+		}
+		raw_put_cpu_no_resched();
+	} else
+#endif
+
+		native_write_cr3(native_read_cr3());
 }
 
 static inline void __native_flush_tlb_global_irq_disabled(void)
 {
-	unsigned long cr4;
+	if (static_cpu_has(X86_FEATURE_INVPCID)) {
+		unsigned long descriptor[2];
+		asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_ALL_GLOBAL) : "memory");
+	} else {
+		unsigned long cr4;
 
-	cr4 = native_read_cr4();
-	/* clear PGE */
-	native_write_cr4(cr4 & ~X86_CR4_PGE);
-	/* write old PGE again and flush TLBs */
-	native_write_cr4(cr4);
+		cr4 = native_read_cr4();
+		/* clear PGE */
+		native_write_cr4(cr4 & ~X86_CR4_PGE);
+		/* write old PGE again and flush TLBs */
+		native_write_cr4(cr4);
+	}
 }
 
 static inline void __native_flush_tlb_global(void)
@@ -49,7 +70,33 @@ static inline void __native_flush_tlb_global(void)
 
 static inline void __native_flush_tlb_single(unsigned long addr)
 {
-	asm volatile("invlpg (%0)" ::"r" (addr) : "memory");
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	if (static_cpu_has(X86_FEATURE_PCID) && addr < TASK_SIZE_MAX) {
+		unsigned int cpu = raw_get_cpu();
+
+		if (static_cpu_has(X86_FEATURE_INVPCID)) {
+			unsigned long descriptor[2];
+			descriptor[0] = PCID_USER;
+			descriptor[1] = addr;
+			asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_ADDRESS) : "memory");
+			if (!static_cpu_has(X86_FEATURE_STRONGUDEREF)) {
+				descriptor[0] = PCID_KERNEL;
+				descriptor[1] = addr + pax_user_shadow_base;
+				asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_ADDRESS) : "memory");
+			}
+		} else {
+			native_write_cr3(__pa(get_cpu_pgd(cpu, user)) | PCID_USER | PCID_NOFLUSH);
+			asm volatile("invlpg (%0)" ::"r" (addr) : "memory");
+			native_write_cr3(__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL | PCID_NOFLUSH);
+			if (!static_cpu_has(X86_FEATURE_STRONGUDEREF))
+				asm volatile("invlpg (%0)" ::"r" (addr + pax_user_shadow_base) : "memory");
+		}
+		raw_put_cpu_no_resched();
+	} else
+#endif
+
+		asm volatile("invlpg (%0)" ::"r" (addr) : "memory");
 }
 
 static inline void __flush_tlb_all(void)

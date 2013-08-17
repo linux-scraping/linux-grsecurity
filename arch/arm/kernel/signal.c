@@ -8,6 +8,7 @@
  * published by the Free Software Foundation.
  */
 #include <linux/errno.h>
+#include <linux/random.h>
 #include <linux/signal.h>
 #include <linux/personality.h>
 #include <linux/uaccess.h>
@@ -15,11 +16,10 @@
 
 #include <asm/elf.h>
 #include <asm/cacheflush.h>
+#include <asm/traps.h>
 #include <asm/ucontext.h>
 #include <asm/unistd.h>
 #include <asm/vfp.h>
-
-#include "signal.h"
 
 /*
  * For ARM syscalls, we encode the syscall number into the instruction.
@@ -40,7 +40,7 @@
 #define SWI_THUMB_SIGRETURN	(0xdf00 << 16 | 0x2700 | (__NR_sigreturn - __NR_SYSCALL_BASE))
 #define SWI_THUMB_RT_SIGRETURN	(0xdf00 << 16 | 0x2700 | (__NR_rt_sigreturn - __NR_SYSCALL_BASE))
 
-const unsigned long sigreturn_codes[7] = {
+static const unsigned long sigreturn_codes[7] = {
 	MOV_R7_NR_SIGRETURN,    SWI_SYS_SIGRETURN,    SWI_THUMB_SIGRETURN,
 	MOV_R7_NR_RT_SIGRETURN, SWI_SYS_RT_SIGRETURN, SWI_THUMB_RT_SIGRETURN,
 };
@@ -396,14 +396,27 @@ setup_return(struct pt_regs *regs, struct ksignal *ksig,
 		    __put_user(sigreturn_codes[idx+1], rc+1))
 			return 1;
 
-		/*
-		 * Ensure that the instruction cache sees
-		 * the return code written onto the stack.
-		 */
-		flush_icache_range((unsigned long)rc,
-				   (unsigned long)(rc + 2));
+#ifdef CONFIG_MMU
+		if (cpsr & MODE32_BIT) {
+			struct mm_struct *mm = current->mm;
+			/*
+			 * 32-bit code can use the signal return page
+			 * except when the MPU has protected the vectors
+			 * page from PL0
+			 */
+			retcode = mm->context.sigpage + (idx << 2) + thumb;
+		} else
+#endif
+		{
+			/*
+			 * Ensure that the instruction cache sees
+			 * the return code written onto the stack.
+			 */
+			flush_icache_range((unsigned long)rc,
+					   (unsigned long)(rc + 2));
 
-		retcode = ((unsigned long)rc) + thumb;
+			retcode = ((unsigned long)rc) + thumb;
+		}
 	}
 
 	regs->ARM_r0 = map_sig(ksig->sig);

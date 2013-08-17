@@ -11,6 +11,7 @@
  */
 
 #include <linux/linkage.h>
+#include <asm/alternative-asm.h>
 #include "glue_helper-asm-avx2.S"
 
 .file "twofish-avx2-asm_64.S"
@@ -422,6 +423,7 @@ __twofish_enc_blk16:
 	outunpack_enc16(RA, RB, RC, RD);
 	write_blocks16(RA, RB, RC, RD);
 
+	pax_force_retaddr_bts
 	ret;
 ENDPROC(__twofish_enc_blk16)
 
@@ -454,6 +456,7 @@ __twofish_dec_blk16:
 	outunpack_dec16(RA, RB, RC, RD);
 	write_blocks16(RA, RB, RC, RD);
 
+	pax_force_retaddr_bts
 	ret;
 ENDPROC(__twofish_dec_blk16)
 
@@ -476,6 +479,7 @@ ENTRY(twofish_ecb_enc_16way)
 	popq %r12;
 	vzeroupper;
 
+	pax_force_retaddr 0, 1
 	ret;
 ENDPROC(twofish_ecb_enc_16way)
 
@@ -498,6 +502,7 @@ ENTRY(twofish_ecb_dec_16way)
 	popq %r12;
 	vzeroupper;
 
+	pax_force_retaddr 0, 1
 	ret;
 ENDPROC(twofish_ecb_dec_16way)
 
@@ -521,6 +526,7 @@ ENTRY(twofish_cbc_dec_16way)
 	popq %r12;
 	vzeroupper;
 
+	pax_force_retaddr 0, 1
 	ret;
 ENDPROC(twofish_cbc_dec_16way)
 
@@ -546,6 +552,7 @@ ENTRY(twofish_ctr_16way)
 	popq %r12;
 	vzeroupper;
 
+	pax_force_retaddr 0, 1
 	ret;
 ENDPROC(twofish_ctr_16way)
 
@@ -574,6 +581,7 @@ twofish_xts_crypt_16way:
 	popq %r12;
 	vzeroupper;
 
+	pax_force_retaddr 0, 1
 	ret;
 ENDPROC(twofish_xts_crypt_16way)
 

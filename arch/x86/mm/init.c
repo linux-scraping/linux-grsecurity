@@ -469,10 +469,13 @@ void __init init_mem_mapping(void)
 #endif
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
-	clone_pgd_range(get_cpu_pgd(0) + KERNEL_PGD_BOUNDARY,
+	clone_pgd_range(get_cpu_pgd(0, kernel) + KERNEL_PGD_BOUNDARY,
 			swapper_pg_dir + KERNEL_PGD_BOUNDARY,
 			KERNEL_PGD_PTRS);
-	load_cr3(get_cpu_pgd(0));
+	clone_pgd_range(get_cpu_pgd(0, user) + KERNEL_PGD_BOUNDARY,
+			swapper_pg_dir + KERNEL_PGD_BOUNDARY,
+			KERNEL_PGD_PTRS);
+	load_cr3(get_cpu_pgd(0, kernel));
 #else
 	load_cr3(swapper_pg_dir);
 #endif

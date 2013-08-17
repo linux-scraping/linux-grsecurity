@@ -423,7 +423,7 @@ static void __set_pmd_pte(pte_t *kpte, unsigned long address, pte_t pte)
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
 		for (cpu = 0; cpu < nr_cpu_ids; ++cpu) {
-			pgd_t *pgd = get_cpu_pgd(cpu);
+			pgd_t *pgd = get_cpu_pgd(cpu, kernel);
 #else
 		list_for_each_entry(page, &pgd_list, lru) {
 			pgd_t *pgd = (pgd_t *)page_address(page);

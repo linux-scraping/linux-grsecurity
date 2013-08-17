@@ -96,7 +96,7 @@ void __init efi_call_phys_epilog(void)
 	kfree(save_pgd);
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
-	load_cr3(get_cpu_pgd(smp_processor_id()));
+	load_cr3(get_cpu_pgd(smp_processor_id(), kernel));
 #endif
 
 	__flush_tlb_all();

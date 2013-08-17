@@ -206,7 +206,7 @@ ENTRY(memmove)
 	retq
 	CFI_ENDPROC
 
-	.section .altinstr_replacement,"ax"
+	.section .altinstr_replacement,"a"
 .Lmemmove_begin_forward_efs:
 	/* Forward moving data. */
 	movq %rdx, %rcx

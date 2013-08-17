@@ -813,7 +813,7 @@ ENTRY(initial_page_table)
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
 ENTRY(cpu_pgd)
-	.rept NR_CPUS
+	.rept 2*NR_CPUS
 	.fill	4,8,0
 	.endr
 #endif

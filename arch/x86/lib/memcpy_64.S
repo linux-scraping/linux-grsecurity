@@ -24,7 +24,7 @@
  * This gets patched over the unrolled variant (below) via the
  * alternative instructions framework:
  */
-	.section .altinstr_replacement, "ax", @progbits
+	.section .altinstr_replacement, "a", @progbits
 .Lmemcpy_c:
 	movq %rdi, %rax
 	movq %rdx, %rcx
@@ -45,7 +45,7 @@
  * This gets patched over the unrolled variant (below) via the
  * alternative instructions framework:
  */
-	.section .altinstr_replacement, "ax", @progbits
+	.section .altinstr_replacement, "a", @progbits
 .Lmemcpy_c_e:
 	movq %rdi, %rax
 	movq %rdx, %rcx

@@ -490,7 +490,7 @@ NEXT_PAGE(init_level4_pgt)
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
 NEXT_PAGE(cpu_pgd)
-	.rept NR_CPUS
+	.rept 2*NR_CPUS
 	.fill	512,8,0
 	.endr
 #endif
@@ -576,6 +576,12 @@ ENTRY(cpu_gdt_table)
 	.quad	0,0,0			/* three TLS descriptors */
 	.quad	0x0000f40000000000	/* node/CPU stored in limit */
 	/* asm/segment.h:GDT_ENTRIES must match this */
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	.quad	0x00cf93000000ffff	/* __UDEREF_KERNEL_DS */
+#else
+	.quad	0x0			/* unused */
+#endif
 
 	/* zero the remaining page */
 	.fill PAGE_SIZE / 8 - GDT_ENTRIES,8,0

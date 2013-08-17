@@ -25,11 +25,40 @@
 
 #include <asm/alternative-asm.h>
 
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+#define ASM_PAX_OPEN_USERLAND					\
+	661: jmp 663f;						\
+	.pushsection .altinstr_replacement, "a" ;		\
+	662: pushq %rax; nop;					\
+	.popsection ;						\
+	.pushsection .altinstructions, "a" ;			\
+	altinstruction_entry 661b, 662b, X86_FEATURE_STRONGUDEREF, 2, 2;\
+	.popsection ;						\
+	call __pax_open_userland;				\
+	popq %rax;						\
+	663:
+
+#define ASM_PAX_CLOSE_USERLAND					\
+	661: jmp 663f;						\
+	.pushsection .altinstr_replacement, "a" ;		\
+	662: pushq %rax; nop;					\
+	.popsection;						\
+	.pushsection .altinstructions, "a" ;			\
+	altinstruction_entry 661b, 662b, X86_FEATURE_STRONGUDEREF, 2, 2;\
+	.popsection;						\
+	call __pax_close_userland;				\
+	popq %rax;						\
+	663:
+#else
+#define ASM_PAX_OPEN_USERLAND
+#define ASM_PAX_CLOSE_USERLAND
+#endif
+
 #ifdef CONFIG_X86_SMAP
 
 #define ASM_CLAC							\
 	661: ASM_NOP3 ;							\
-	.pushsection .altinstr_replacement, "ax" ;			\
+	.pushsection .altinstr_replacement, "a" ;			\
 	662: __ASM_CLAC ;						\
 	.popsection ;							\
 	.pushsection .altinstructions, "a" ;				\
@@ -38,7 +67,7 @@
 
 #define ASM_STAC							\
 	661: ASM_NOP3 ;							\
-	.pushsection .altinstr_replacement, "ax" ;			\
+	.pushsection .altinstr_replacement, "a" ;			\
 	662: __ASM_STAC ;						\
 	.popsection ;							\
 	.pushsection .altinstructions, "a" ;				\
@@ -55,6 +84,37 @@
 #else /* __ASSEMBLY__ */
 
 #include <asm/alternative.h>
+
+#define __HAVE_ARCH_PAX_OPEN_USERLAND
+#define __HAVE_ARCH_PAX_CLOSE_USERLAND
+
+extern void __pax_open_userland(void);
+static __always_inline unsigned long pax_open_userland(void)
+{
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	asm volatile(ALTERNATIVE(ASM_NOP5, "call %P[open]", X86_FEATURE_STRONGUDEREF)
+		:
+		: [open] "i" (__pax_open_userland)
+		: "memory", "rax");
+#endif
+
+	return 0;
+}
+
+extern void __pax_close_userland(void);
+static __always_inline unsigned long pax_close_userland(void)
+{
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	asm volatile(ALTERNATIVE(ASM_NOP5, "call %P[close]", X86_FEATURE_STRONGUDEREF)
+		:
+		: [close] "i" (__pax_close_userland)
+		: "memory", "rax");
+#endif
+
+	return 0;
+}
 
 #ifdef CONFIG_X86_SMAP
 

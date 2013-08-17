@@ -94,6 +94,7 @@ ENTRY(startup_32)
 	movl	%edx, %gs
 
 	movl	pa_tr_cr4, %eax
+	andl	$~X86_CR4_PCIDE, %eax
 	movl	%eax, %cr4		# Enable PAE mode
 
 	# Setup trampoline 4 level pagetables

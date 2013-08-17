@@ -184,14 +184,19 @@ ENTRY(ia32_sysenter_target)
  	   32bit zero extended */ 
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	mov pax_user_shadow_base,%r11
-	add %r11,%rbp
+	addq	pax_user_shadow_base,%rbp
+	ASM_PAX_OPEN_USERLAND
 #endif
 
 	ASM_STAC
 1:	movl	(%rbp),%ebp
 	_ASM_EXTABLE(1b,ia32_badarg)
 	ASM_CLAC
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	ASM_PAX_CLOSE_USERLAND
+#endif
+
 	GET_THREAD_INFO(%r11)
 	orl    $TS_COMPAT,TI_status(%r11)
 	testl  $_TIF_WORK_SYSCALL_ENTRY,TI_flags(%r11)
@@ -364,14 +369,20 @@ ENTRY(ia32_cstar_target)
 	/* hardware stack frame is complete now */	
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	mov pax_user_shadow_base,%r11
-	add %r11,%r8
+	ASM_PAX_OPEN_USERLAND
+	movq	pax_user_shadow_base,%r8
+	addq	RSP-ARGOFFSET(%rsp),%r8
 #endif
 
 	ASM_STAC
 1:	movl	(%r8),%r9d
 	_ASM_EXTABLE(1b,ia32_badarg)
 	ASM_CLAC
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	ASM_PAX_CLOSE_USERLAND
+#endif
+
 	GET_THREAD_INFO(%r11)
 	orl   $TS_COMPAT,TI_status(%r11)
 	testl $_TIF_WORK_SYSCALL_ENTRY,TI_flags(%r11)
@@ -442,6 +453,11 @@ END(ia32_cstar_target)
 				
 ia32_badarg:
 	ASM_CLAC
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	ASM_PAX_CLOSE_USERLAND
+#endif
+
 	movq $-EFAULT,%rax
 	jmp ia32_sysret
 	CFI_ENDPROC

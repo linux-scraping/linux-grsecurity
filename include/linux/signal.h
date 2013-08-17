@@ -433,6 +433,7 @@ void signals_init(void);
 
 int restore_altstack(const stack_t __user *);
 int __save_altstack(stack_t __user *, unsigned long);
+void __save_altstack_ex(stack_t __user *, unsigned long);
 
 #ifdef CONFIG_PROC_FS
 struct seq_file;

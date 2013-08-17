@@ -1065,7 +1065,7 @@ ENTRY(simd_coprocessor_error)
 .section .altinstructions,"a"
 	altinstruction_entry 661b, 663f, X86_FEATURE_XMM, 662b-661b, 664f-663f
 .previous
-.section .altinstr_replacement,"ax"
+.section .altinstr_replacement,"a"
 663:	pushl $do_simd_coprocessor_error
 664:
 .previous

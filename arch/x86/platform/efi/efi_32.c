@@ -82,7 +82,7 @@ void efi_call_phys_epilog(void)
 	load_gdt(&gdt_descr);
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
-	load_cr3(get_cpu_pgd(smp_processor_id()));
+	load_cr3(get_cpu_pgd(smp_processor_id(), kernel));
 #else
 	load_cr3(swapper_pg_dir);
 #endif

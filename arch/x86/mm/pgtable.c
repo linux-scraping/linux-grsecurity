@@ -98,6 +98,9 @@ void __shadow_user_pgds(pgd_t *dst, const pgd_t *src)
 {
 	unsigned int count = USER_PGD_PTRS;
 
+	if (!pax_user_shadow_base)
+		return;
+
 	while (count--)
 		*dst++ = __pgd((pgd_val(*src++) | (_PAGE_NX & __supported_pte_mask)) & ~_PAGE_USER);
 }

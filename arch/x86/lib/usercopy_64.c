@@ -18,6 +18,7 @@ unsigned long __clear_user(void __user *addr, unsigned long size)
 	might_fault();
 	/* no memory constraint because it doesn't change any memory gcc knows
 	   about */
+	pax_open_userland();
 	stac();
 	asm volatile(
 		"	testq  %[size8],%[size8]\n"
@@ -42,6 +43,7 @@ unsigned long __clear_user(void __user *addr, unsigned long size)
 		: [size1] "r"(size & 7), "[size8]" (size / 8), "[dst]"(____m(addr)),
 		  [zero] "r" (0UL), [eight] "r" (8UL));
 	clac();
+	pax_close_userland();
 	return size;
 }
 EXPORT_SYMBOL(__clear_user);
@@ -73,6 +75,8 @@ copy_user_handle_tail(char __user *to, char __user *from, unsigned long len, uns
 	char c;
 	unsigned zero_len;
 
+	clac();
+	pax_close_userland();
 	for (; len; --len, to++) {
 		if (__get_user_nocheck(c, from++, sizeof(char)))
 			break;
@@ -83,6 +87,5 @@ copy_user_handle_tail(char __user *to, char __user *from, unsigned long len, uns
 	for (c = 0, zero_len = len; zerorest && zero_len; --zero_len)
 		if (__put_user_nocheck(c, to++, sizeof(char)))
 			break;
-	clac();
 	return len;
 }

@@ -47,6 +47,7 @@
 ########################################################################
 
 #include <linux/linkage.h>
+#include <asm/alternative-asm.h>
 
 ## assume buffers not aligned
 #define    MOVDQ movdqu
@@ -471,6 +472,7 @@ done_hash:
 	popq    %rbp
 	popq    %rbx
 
+	pax_force_retaddr 0, 1
 	ret
 ENDPROC(sha256_transform_ssse3)
 

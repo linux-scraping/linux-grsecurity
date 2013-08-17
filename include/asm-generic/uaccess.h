@@ -343,4 +343,12 @@ clear_user(void __user *to, unsigned long n)
 	return __clear_user(to, n);
 }
 
+#ifndef __HAVE_ARCH_PAX_OPEN_USERLAND
+//static inline unsigned long pax_open_userland(void) { return 0; }
+#endif
+
+#ifndef __HAVE_ARCH_PAX_CLOSE_USERLAND
+//static inline unsigned long pax_close_userland(void) { return 0; }
+#endif
+
 #endif /* __ASM_GENERIC_UACCESS_H */

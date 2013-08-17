@@ -28,3 +28,7 @@ obj-$(CONFIG_ACPI_NUMA)		+= srat.o
 obj-$(CONFIG_NUMA_EMU)		+= numa_emulation.o
 
 obj-$(CONFIG_MEMTEST)		+= memtest.o
+
+quote:="
+obj-$(CONFIG_X86_64)		+= uderef_64.o
+CFLAGS_uderef_64.o		:= $(subst $(quote),,$(CONFIG_ARCH_HWEIGHT_CFLAGS))

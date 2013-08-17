@@ -133,4 +133,10 @@ int dump_task_regs(struct task_struct *t, elf_gregset_t *elfregs);
 extern void elf_set_personality(const struct elf32_hdr *);
 #define SET_PERSONALITY(ex)	elf_set_personality(&(ex))
 
+#ifdef CONFIG_MMU
+#define ARCH_HAS_SETUP_ADDITIONAL_PAGES 1
+struct linux_binprm;
+int arch_setup_additional_pages(struct linux_binprm *, int);
+#endif
+
 #endif

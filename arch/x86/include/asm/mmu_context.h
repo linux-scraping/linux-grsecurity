@@ -26,14 +26,16 @@ static inline void enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk)
 {
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	unsigned int i;
-	pgd_t *pgd;
+	if (!(static_cpu_has(X86_FEATURE_PCID))) {
+		unsigned int i;
+		pgd_t *pgd;
 
-	pax_open_kernel();
-	pgd = get_cpu_pgd(smp_processor_id());
-	for (i = USER_PGD_PTRS; i < 2 * USER_PGD_PTRS; ++i)
-		set_pgd_batched(pgd+i, native_make_pgd(0));
-	pax_close_kernel();
+		pax_open_kernel();
+		pgd = get_cpu_pgd(smp_processor_id(), kernel);
+		for (i = USER_PGD_PTRS; i < 2 * USER_PGD_PTRS; ++i)
+			set_pgd_batched(pgd+i, native_make_pgd(0));
+		pax_close_kernel();
+	}
 #endif
 
 #ifdef CONFIG_SMP
@@ -63,10 +65,35 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 		/* Re-load page tables */
 #ifdef CONFIG_PAX_PER_CPU_PGD
 		pax_open_kernel();
-		__clone_user_pgds(get_cpu_pgd(cpu), next->pgd);
-		__shadow_user_pgds(get_cpu_pgd(cpu) + USER_PGD_PTRS, next->pgd);
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+		if (static_cpu_has(X86_FEATURE_PCID))
+			__clone_user_pgds(get_cpu_pgd(cpu, user), next->pgd);
+		else
+#endif
+
+		__clone_user_pgds(get_cpu_pgd(cpu, kernel), next->pgd);
+		__shadow_user_pgds(get_cpu_pgd(cpu, kernel) + USER_PGD_PTRS, next->pgd);
 		pax_close_kernel();
-		load_cr3(get_cpu_pgd(cpu));
+		BUG_ON((__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL) != (read_cr3() & __PHYSICAL_MASK) && (__pa(get_cpu_pgd(cpu, user)) | PCID_USER) != (read_cr3() & __PHYSICAL_MASK));
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+		if (static_cpu_has(X86_FEATURE_PCID)) {
+			if (static_cpu_has(X86_FEATURE_INVPCID)) {
+				unsigned long descriptor[2];
+				descriptor[0] = PCID_USER;
+				asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_CONTEXT) : "memory");
+			} else {
+				write_cr3(__pa(get_cpu_pgd(cpu, user)) | PCID_USER);
+				if (static_cpu_has(X86_FEATURE_STRONGUDEREF))
+					write_cr3(__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL | PCID_NOFLUSH);
+				else
+					write_cr3(__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL);
+			}
+		} else
+#endif
+
+			load_cr3(get_cpu_pgd(cpu, kernel));
 #else
 		load_cr3(next->pgd);
 #endif
@@ -104,10 +131,35 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
 		pax_open_kernel();
-		__clone_user_pgds(get_cpu_pgd(cpu), next->pgd);
-		__shadow_user_pgds(get_cpu_pgd(cpu) + USER_PGD_PTRS, next->pgd);
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+		if (static_cpu_has(X86_FEATURE_PCID))
+			__clone_user_pgds(get_cpu_pgd(cpu, user), next->pgd);
+		else
+#endif
+
+		__clone_user_pgds(get_cpu_pgd(cpu, kernel), next->pgd);
+		__shadow_user_pgds(get_cpu_pgd(cpu, kernel) + USER_PGD_PTRS, next->pgd);
 		pax_close_kernel();
-		load_cr3(get_cpu_pgd(cpu));
+		BUG_ON((__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL) != (read_cr3() & __PHYSICAL_MASK) && (__pa(get_cpu_pgd(cpu, user)) | PCID_USER) != (read_cr3() & __PHYSICAL_MASK));
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+		if (static_cpu_has(X86_FEATURE_PCID)) {
+			if (static_cpu_has(X86_FEATURE_INVPCID)) {
+				unsigned long descriptor[2];
+				descriptor[0] = PCID_USER;
+				asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_CONTEXT) : "memory");
+			} else {
+				write_cr3(__pa(get_cpu_pgd(cpu, user)) | PCID_USER);
+				if (static_cpu_has(X86_FEATURE_STRONGUDEREF))
+					write_cr3(__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL | PCID_NOFLUSH);
+				else
+					write_cr3(__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL);
+			}
+		} else
+#endif
+
+			load_cr3(get_cpu_pgd(cpu, kernel));
 #endif
 
 #ifdef CONFIG_SMP

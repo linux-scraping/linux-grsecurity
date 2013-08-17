@@ -206,10 +206,12 @@ EXPORT_SYMBOL(boot_cpu_data);
 #endif
 
 
-#if !defined(CONFIG_X86_PAE) || defined(CONFIG_X86_64)
-unsigned long mmu_cr4_features;
+#ifdef CONFIG_X86_64
+unsigned long mmu_cr4_features __read_only = X86_CR4_PSE | X86_CR4_PAE | X86_CR4_PGE;
+#elif defined(CONFIG_X86_PAE)
+unsigned long mmu_cr4_features __read_only = X86_CR4_PAE;
 #else
-unsigned long mmu_cr4_features = X86_CR4_PAE;
+unsigned long mmu_cr4_features __read_only;
 #endif
 
 /* Boot loader ID and version as integers, for the benefit of proc_dointvec */

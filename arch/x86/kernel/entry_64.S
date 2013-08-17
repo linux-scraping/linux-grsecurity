@@ -309,18 +309,19 @@ ENDPROC(native_usergs_sysret64)
 
 	.macro pax_enter_kernel
 	pax_set_fptr_mask
-#ifdef CONFIG_PAX_KERNEXEC
+#if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
 	call pax_enter_kernel
 #endif
 	.endm
 
 	.macro pax_exit_kernel
-#ifdef CONFIG_PAX_KERNEXEC
+#if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
 	call pax_exit_kernel
 #endif
+
 	.endm
 
-#ifdef CONFIG_PAX_KERNEXEC
+#if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
 ENTRY(pax_enter_kernel)
 	pushq %rdi
 
@@ -328,6 +329,7 @@ ENTRY(pax_enter_kernel)
 	PV_SAVE_REGS(CLBR_RDI)
 #endif
 
+#ifdef CONFIG_PAX_KERNEXEC
 	GET_CR0_INTO_RDI
 	bts $16,%rdi
 	jnc 3f
@@ -335,6 +337,32 @@ ENTRY(pax_enter_kernel)
 	cmp $__KERNEL_CS,%edi
 	jnz 2f
 1:
+#endif
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	661: jmp 111f
+	.pushsection .altinstr_replacement, "a"
+	662: ASM_NOP2
+	.popsection
+	.pushsection .altinstructions, "a"
+	altinstruction_entry 661b, 662b, X86_FEATURE_PCID, 2, 2
+	.popsection
+	GET_CR3_INTO_RDI
+	cmp $0,%dil
+	jnz 112f
+	mov $__KERNEL_DS,%edi
+	mov %edi,%ss
+	jmp 111f
+112:	cmp $1,%dil
+	jz 113f
+	ud2
+113:	sub $4097,%rdi
+	bts $63,%rdi
+	SET_RDI_INTO_CR3
+	mov $__UDEREF_KERNEL_DS,%edi
+	mov %edi,%ss
+111:
+#endif
 
 #ifdef CONFIG_PARAVIRT
 	PV_RESTORE_REGS(CLBR_RDI)
@@ -344,10 +372,12 @@ ENTRY(pax_enter_kernel)
 	pax_force_retaddr
 	retq
 
+#ifdef CONFIG_PAX_KERNEXEC
 2:	ljmpq __KERNEL_CS,1b
 3:	ljmpq __KERNEXEC_KERNEL_CS,4f
 4:	SET_RDI_INTO_CR0
 	jmp 1b
+#endif
 ENDPROC(pax_enter_kernel)
 
 ENTRY(pax_exit_kernel)
@@ -357,6 +387,7 @@ ENTRY(pax_exit_kernel)
 	PV_SAVE_REGS(CLBR_RDI)
 #endif
 
+#ifdef CONFIG_PAX_KERNEXEC
 	mov %cs,%rdi
 	cmp $__KERNEXEC_KERNEL_CS,%edi
 	jz 2f
@@ -364,6 +395,30 @@ ENTRY(pax_exit_kernel)
 	bts $16,%rdi
 	jnc 4f
 1:
+#endif
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	661: jmp 111f
+	.pushsection .altinstr_replacement, "a"
+	662: ASM_NOP2
+	.popsection
+	.pushsection .altinstructions, "a"
+	altinstruction_entry 661b, 662b, X86_FEATURE_PCID, 2, 2
+	.popsection
+	mov %ss,%edi
+	cmp $__UDEREF_KERNEL_DS,%edi
+	jnz 111f
+	GET_CR3_INTO_RDI
+	cmp $0,%dil
+	jz 112f
+	ud2
+112:	add $4097,%rdi
+	bts $63,%rdi
+	SET_RDI_INTO_CR3
+	mov $__KERNEL_DS,%edi
+	mov %edi,%ss
+111:
+#endif
 
 #ifdef CONFIG_PARAVIRT
 	PV_RESTORE_REGS(CLBR_RDI);
@@ -373,6 +428,7 @@ ENTRY(pax_exit_kernel)
 	pax_force_retaddr
 	retq
 
+#ifdef CONFIG_PAX_KERNEXEC
 2:	GET_CR0_INTO_RDI
 	btr $16,%rdi
 	jnc 4f
@@ -381,6 +437,7 @@ ENTRY(pax_exit_kernel)
 	jmp 1b
 4:	ud2
 	jmp 4b
+#endif
 ENDPROC(pax_exit_kernel)
 #endif
 
@@ -413,6 +470,21 @@ ENTRY(pax_enter_kernel_user)
 	PV_SAVE_REGS(CLBR_RDI)
 #endif
 
+	661: jmp 111f
+	.pushsection .altinstr_replacement, "a"
+	662: ASM_NOP2
+	.popsection
+	.pushsection .altinstructions, "a"
+	altinstruction_entry 661b, 662b, X86_FEATURE_PCID, 2, 2
+	.popsection
+	GET_CR3_INTO_RDI
+	cmp $1,%dil
+	jnz 3f
+	sub $4097,%rdi
+	bts $63,%rdi
+	jmp 2f
+111:
+
 	GET_CR3_INTO_RDI
 	mov %rdi,%rbx
 	add $__START_KERNEL_map,%rbx
@@ -441,16 +513,13 @@ ENTRY(pax_enter_kernel_user)
 	i = i + 1
 	.endr
 
-#ifdef CONFIG_PARAVIRT
-2:
-#endif
-	SET_RDI_INTO_CR3
-
 #ifdef CONFIG_PAX_KERNEXEC
 	GET_CR0_INTO_RDI
 	bts $16,%rdi
 	SET_RDI_INTO_CR0
 #endif
+
+2:	SET_RDI_INTO_CR3
 
 #ifdef CONFIG_PARAVIRT
 	PV_RESTORE_REGS(CLBR_RDI)
@@ -460,6 +529,7 @@ ENTRY(pax_enter_kernel_user)
 	popq %rdi
 	pax_force_retaddr
 	retq
+3:	ud2
 ENDPROC(pax_enter_kernel_user)
 
 ENTRY(pax_exit_kernel_user)
@@ -470,14 +540,21 @@ ENTRY(pax_exit_kernel_user)
 	PV_SAVE_REGS(CLBR_RDI)
 #endif
 
-#ifdef CONFIG_PAX_KERNEXEC
-	GET_CR0_INTO_RDI
-	btr $16,%rdi
-	jnc 3f
-	SET_RDI_INTO_CR0
-#endif
-
 	GET_CR3_INTO_RDI
+	661: jmp 1f
+	.pushsection .altinstr_replacement, "a"
+	662: ASM_NOP2
+	.popsection
+	.pushsection .altinstructions, "a"
+	altinstruction_entry 661b, 662b, X86_FEATURE_PCID, 2, 2
+	.popsection
+	cmp $0,%dil
+	jnz 3f
+	add $4097,%rdi
+	bts $63,%rdi
+	SET_RDI_INTO_CR3
+	jmp 2f
+1:
 	mov %rdi,%rbx
 	add $__START_KERNEL_map,%rbx
 	sub phys_base(%rip),%rbx
@@ -485,6 +562,7 @@ ENTRY(pax_exit_kernel_user)
 #ifdef CONFIG_PARAVIRT
 	cmpl $0, pv_info+PARAVIRT_enabled
 	jz 1f
+	pushq %rdi
 	i = 0
 	.rept USER_PGD_PTRS
 	mov i*8(%rbx),%rsi
@@ -493,8 +571,16 @@ ENTRY(pax_exit_kernel_user)
 	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_set_pgd_batched)
 	i = i + 1
 	.endr
+	popq %rdi
 	jmp 2f
 1:
+#endif
+
+#ifdef CONFIG_PAX_KERNEXEC
+	GET_CR0_INTO_RDI
+	btr $16,%rdi
+	jnc 3f
+	SET_RDI_INTO_CR0
 #endif
 
 	i = 0
@@ -502,9 +588,10 @@ ENTRY(pax_exit_kernel_user)
 	movb $0x67,i*8(%rbx)
 	i = i + 1
 	.endr
+2:
 
 #ifdef CONFIG_PARAVIRT
-2:	PV_RESTORE_REGS(CLBR_RDI)
+	PV_RESTORE_REGS(CLBR_RDI)
 #endif
 
 	popq %rbx
@@ -512,7 +599,6 @@ ENTRY(pax_exit_kernel_user)
 	pax_force_retaddr
 	retq
 3:	ud2
-	jmp 3b
 ENDPROC(pax_exit_kernel_user)
 #endif
 
@@ -527,6 +613,26 @@ ENDPROC(pax_exit_kernel_user)
 	or $2,%ebx
 110:
 #endif
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	661: jmp 111f
+	.pushsection .altinstr_replacement, "a"
+	662: ASM_NOP2
+	.popsection
+	.pushsection .altinstructions, "a"
+	altinstruction_entry 661b, 662b, X86_FEATURE_PCID, 2, 2
+	.popsection
+	GET_CR3_INTO_RDI
+	cmp $0,%dil
+	jz 111f
+	sub $4097,%rdi
+	or $4,%ebx
+	bts $63,%rdi
+	SET_RDI_INTO_CR3
+	mov $__UDEREF_KERNEL_DS,%edi
+	mov %edi,%ss
+111:
+#endif
 	.endm
 
 	.macro pax_exit_kernel_nmi
@@ -537,6 +643,18 @@ ENDPROC(pax_exit_kernel_user)
 	btr $16,%rdi
 	SET_RDI_INTO_CR0
 110:
+#endif
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	btr $2,%ebx
+	jnc 111f
+	GET_CR3_INTO_RDI
+	add $4097,%rdi
+	bts $63,%rdi
+	SET_RDI_INTO_CR3
+	mov $__KERNEL_DS,%edi
+	mov %edi,%ss
+111:
 #endif
 	.endm
 

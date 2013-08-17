@@ -368,7 +368,7 @@ menu "Non-executable pages"
 config PAX_NOEXEC
 	bool "Enforce non-executable pages"
 	default y if GRKERNSEC_CONFIG_AUTO
-	depends on ALPHA || (ARM && (CPU_V6 || CPU_V7)) || IA64 || MIPS || PARISC || PPC || S390 || SPARC || X86
+	depends on ALPHA || (ARM && (CPU_V6 || CPU_V6K || CPU_V7)) || IA64 || MIPS || PARISC || PPC || S390 || SPARC || X86
 	help
 	  By design some architectures do not allow for protecting memory
 	  pages against execution or even if they do, Linux does not make
@@ -579,7 +579,7 @@ config PAX_DLRESOLVE
 config PAX_KERNEXEC
 	bool "Enforce non-executable kernel pages"
 	default y if GRKERNSEC_CONFIG_AUTO && (GRKERNSEC_CONFIG_VIRT_NONE || (GRKERNSEC_CONFIG_VIRT_EPT && GRKERNSEC_CONFIG_VIRT_GUEST) || (GRKERNSEC_CONFIG_VIRT_EPT && GRKERNSEC_CONFIG_VIRT_KVM))
-	depends on (X86 || (ARM && (CPU_V6 || CPU_V7) && !(ARM_LPAE && MODULES))) && !XEN
+	depends on (X86 || (ARM && (CPU_V6 || CPU_V6K || CPU_V7) && !(ARM_LPAE && MODULES))) && !XEN
 	select PAX_PER_CPU_PGD if X86_64 || (X86_32 && X86_PAE)
 	select PAX_KERNEXEC_PLUGIN if X86_64
 	help
@@ -811,7 +811,7 @@ config PAX_MEMORY_STRUCTLEAK
 config PAX_MEMORY_UDEREF
 	bool "Prevent invalid userland pointer dereference"
 	default y if GRKERNSEC_CONFIG_AUTO && !(X86_64 && GRKERNSEC_CONFIG_PRIORITY_PERF) && (GRKERNSEC_CONFIG_VIRT_NONE || GRKERNSEC_CONFIG_VIRT_EPT)
-	depends on (X86 || (ARM && (CPU_V6 || CPU_V7) && !ARM_LPAE)) && !UML_X86 && !XEN
+	depends on (X86 || (ARM && (CPU_V6 || CPU_V6K || CPU_V7) && !ARM_LPAE)) && !UML_X86 && !XEN
 	select PAX_PER_CPU_PGD if X86_64
 	help
 	  By saying Y here the kernel will be prevented from dereferencing
@@ -828,10 +828,15 @@ config PAX_MEMORY_UDEREF
 	  VMs running on CPUs without hardware virtualization support (i.e.,
 	  the majority of IA-32 CPUs) will likely experience the slowdown.
 
+	  On X86_64 the kernel will make use of PCID support when available
+	  (Intel's Westmere, Sandy Bridge, etc) for better security (default)
+	  or performance impact.  Pass pax_weakuderef on the kernel command
+	  line to choose the latter.
+
 config PAX_REFCOUNT
 	bool "Prevent various kernel object reference counter overflows"
 	default y if GRKERNSEC_CONFIG_AUTO
-	depends on GRKERNSEC && ((ARM && (CPU_32v6 || CPU_32v6K || CPU_32v7)) || SPARC64 || X86)
+	depends on GRKERNSEC && ((ARM && (CPU_V6 || CPU_V6K || CPU_V7)) || SPARC64 || X86)
 	help
 	  By saying Y here the kernel will detect and prevent overflowing
 	  various (but not all) kinds of object reference counters.  Such

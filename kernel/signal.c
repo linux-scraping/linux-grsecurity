@@ -3250,6 +3250,16 @@ int __save_altstack(stack_t __user *uss, unsigned long sp)
 		__put_user(t->sas_ss_size, &uss->ss_size);
 }
 
+#ifdef CONFIG_X86
+void __save_altstack_ex(stack_t __user *uss, unsigned long sp)
+{
+	struct task_struct *t = current;
+	put_user_ex((void __user *)t->sas_ss_sp, &uss->ss_sp);
+	put_user_ex(sas_ss_flags(sp), &uss->ss_flags);
+	put_user_ex(t->sas_ss_size, &uss->ss_size);
+}
+#endif
+
 #ifdef CONFIG_COMPAT
 COMPAT_SYSCALL_DEFINE2(sigaltstack,
 			const compat_stack_t __user *, uss_ptr,
@@ -3299,6 +3309,16 @@ int __compat_save_altstack(compat_stack_t __user *uss, unsigned long sp)
 		__put_user(sas_ss_flags(sp), &uss->ss_flags) |
 		__put_user(t->sas_ss_size, &uss->ss_size);
 }
+
+#ifdef CONFIG_X86
+void __compat_save_altstack_ex(compat_stack_t __user *uss, unsigned long sp)
+{
+	struct task_struct *t = current;
+	put_user_ex(ptr_to_compat((void __user *)t->sas_ss_sp), &uss->ss_sp);
+	put_user_ex(sas_ss_flags(sp), &uss->ss_flags);
+	put_user_ex(t->sas_ss_size, &uss->ss_size);
+}
+#endif
 #endif
 
 #ifdef __ARCH_WANT_SYS_SIGPENDING

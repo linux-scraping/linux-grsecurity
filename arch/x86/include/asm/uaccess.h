@@ -196,10 +196,12 @@ __typeof__(__builtin_choose_expr(sizeof(x) > sizeof(0UL), 0ULL, 0UL))
 	register __inttype(*(ptr)) __val_gu asm("%edx");		\
 	__chk_user_ptr(ptr);						\
 	might_fault();							\
+	pax_open_userland();						\
 	asm volatile("call __get_user_%P3"				\
 		     : "=a" (__ret_gu), "=r" (__val_gu)			\
 		     : "0" (ptr), "i" (sizeof(*(ptr))));		\
 	(x) = (__typeof__(*(ptr))) __val_gu;				\
+	pax_close_userland();						\
 	__ret_gu;							\
 })
 
@@ -286,6 +288,7 @@ extern void __put_user_8(void);
 	__chk_user_ptr(ptr);					\
 	might_fault();						\
 	__pu_val = (x);						\
+	pax_open_userland();					\
 	switch (sizeof(*(ptr))) {				\
 	case 1:							\
 		__put_user_x(1, __pu_val, ptr, __ret_pu);	\
@@ -303,6 +306,7 @@ extern void __put_user_8(void);
 		__put_user_x(X, __pu_val, ptr, __ret_pu);	\
 		break;						\
 	}							\
+	pax_close_userland();					\
 	__ret_pu;						\
 })
 
@@ -383,6 +387,8 @@ do {									\
 } while (0)
 
 #define __get_user_asm(x, addr, err, itype, rtype, ltype, errret)	\
+do {									\
+	pax_open_userland();						\
 	asm volatile(ASM_STAC "\n"					\
 		     "1:	"__copyuser_seg"mov"itype" %2,%"rtype"1\n"\
 		     "2: " ASM_CLAC "\n"				\
@@ -393,7 +399,9 @@ do {									\
 		     ".previous\n"					\
 		     _ASM_EXTABLE(1b, 3b)				\
 		     : "=r" (err), ltype (x)				\
-		     : "m" (__m(addr)), "i" (errret), "0" (err))
+		     : "m" (__m(addr)), "i" (errret), "0" (err));	\
+	pax_close_userland();						\
+} while (0)
 
 #define __get_user_size_ex(x, ptr, size)				\
 do {									\
@@ -459,6 +467,8 @@ struct __large_struct { unsigned long buf[100]; };
  * aliasing issues.
  */
 #define __put_user_asm(x, addr, err, itype, rtype, ltype, errret)	\
+do {									\
+	pax_open_userland();						\
 	asm volatile(ASM_STAC "\n"					\
 		     "1:	"__copyuser_seg"mov"itype" %"rtype"1,%2\n"\
 		     "2: " ASM_CLAC "\n"				\
@@ -468,7 +478,9 @@ struct __large_struct { unsigned long buf[100]; };
 		     ".previous\n"					\
 		     _ASM_EXTABLE(1b, 3b)				\
 		     : "=r"(err)					\
-		     : ltype (x), "m" (__m(addr)), "i" (errret), "0" (err))
+		     : ltype (x), "m" (__m(addr)), "i" (errret), "0" (err));\
+	pax_close_userland();						\
+} while (0)
 
 #define __put_user_asm_ex(x, addr, itype, rtype, ltype)			\
 	asm volatile("1:	"__copyuser_seg"mov"itype" %"rtype"0,%1\n"\
@@ -481,11 +493,13 @@ struct __large_struct { unsigned long buf[100]; };
  */
 #define uaccess_try	do {						\
 	current_thread_info()->uaccess_err = 0;				\
+	pax_open_userland();						\
 	stac();								\
 	barrier();
 
 #define uaccess_catch(err)						\
 	clac();								\
+	pax_close_userland();						\
 	(err) |= (current_thread_info()->uaccess_err ? -EFAULT : 0);	\
 } while (0)
 

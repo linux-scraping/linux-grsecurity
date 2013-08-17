@@ -198,7 +198,14 @@ void sync_global_pgds(unsigned long start, unsigned long end)
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
 		for (cpu = 0; cpu < nr_cpu_ids; ++cpu) {
-			pgd_t *pgd = pgd_offset_cpu(cpu, address);
+			pgd_t *pgd = pgd_offset_cpu(cpu, user, address);
+
+			if (pgd_none(*pgd))
+				set_pgd(pgd, *pgd_ref);
+			else
+				BUG_ON(pgd_page_vaddr(*pgd)
+				       != pgd_page_vaddr(*pgd_ref));
+			pgd = pgd_offset_cpu(cpu, kernel, address);
 #else
 		list_for_each_entry(page, &pgd_list, lru) {
 			pgd_t *pgd;

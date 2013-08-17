@@ -69,6 +69,9 @@ static inline void set_fs(mm_segment_t fs)
 
 #define segment_eq(a,b)	((a) == (b))
 
+#define __HAVE_ARCH_PAX_OPEN_USERLAND
+#define __HAVE_ARCH_PAX_CLOSE_USERLAND
+
 static inline void pax_open_userland(void)
 {
 

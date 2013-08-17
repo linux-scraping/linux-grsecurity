@@ -461,10 +461,11 @@ pte_t *populate_extra_pte(unsigned long vaddr);
 #ifndef __ASSEMBLY__
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
-extern pgd_t cpu_pgd[NR_CPUS][PTRS_PER_PGD];
-static inline pgd_t *get_cpu_pgd(unsigned int cpu)
+extern pgd_t cpu_pgd[NR_CPUS][2][PTRS_PER_PGD];
+enum cpu_pgd_type {kernel = 0, user = 1};
+static inline pgd_t *get_cpu_pgd(unsigned int cpu, enum cpu_pgd_type type)
 {
-	return cpu_pgd[cpu];
+	return cpu_pgd[cpu][type];
 }
 #endif
 
@@ -684,7 +685,7 @@ static inline int pgd_none(pgd_t pgd)
 #define pgd_offset(mm, address) ((mm)->pgd + pgd_index(address))
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
-#define pgd_offset_cpu(cpu, address) (get_cpu_pgd(cpu) + pgd_index(address))
+#define pgd_offset_cpu(cpu, type, address) (get_cpu_pgd(cpu, type) + pgd_index(address))
 #endif
 
 /*
@@ -708,6 +709,7 @@ static inline int pgd_none(pgd_t pgd)
 #define pax_user_shadow_base	pax_user_shadow_base(%rip)
 #else
 extern unsigned long pax_user_shadow_base;
+extern pgdval_t clone_pgd_mask;
 #endif
 #endif
 

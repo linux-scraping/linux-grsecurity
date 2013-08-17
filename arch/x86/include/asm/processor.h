@@ -198,9 +198,21 @@ static inline void native_cpuid(unsigned int *eax, unsigned int *ebx,
 	    : "memory");
 }
 
+/* invpcid (%rdx),%rax */
+#define __ASM_INVPCID ".byte 0x66,0x0f,0x38,0x82,0x02"
+
+#define INVPCID_SINGLE_ADDRESS	0UL
+#define INVPCID_SINGLE_CONTEXT	1UL
+#define INVPCID_ALL_GLOBAL	2UL
+#define INVPCID_ALL_MONGLOBAL	3UL
+
+#define PCID_KERNEL		0UL
+#define PCID_USER		1UL
+#define PCID_NOFLUSH		(1UL << 63)
+
 static inline void load_cr3(pgd_t *pgdir)
 {
-	write_cr3(__pa(pgdir));
+	write_cr3(__pa(pgdir) | PCID_KERNEL);
 }
 
 #ifdef CONFIG_X86_32
@@ -452,6 +464,7 @@ struct thread_struct {
 	unsigned short		ds;
 	unsigned short		fsindex;
 	unsigned short		gsindex;
+	unsigned short		ss;
 #endif
 #ifdef CONFIG_X86_32
 	unsigned long		ip;

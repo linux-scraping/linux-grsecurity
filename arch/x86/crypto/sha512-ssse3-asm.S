@@ -48,6 +48,7 @@
 ########################################################################
 
 #include <linux/linkage.h>
+#include <asm/alternative-asm.h>
 
 .text
 
@@ -363,6 +364,7 @@ updateblock:
 	mov	frame_RSPSAVE(%rsp), %rsp
 
 nowork:
+	pax_force_retaddr 0, 1
 	ret
 ENDPROC(sha512_transform_ssse3)
 

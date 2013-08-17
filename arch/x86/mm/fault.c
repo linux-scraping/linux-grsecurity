@@ -284,8 +284,13 @@ void vmalloc_sync_all(void)
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
 		for (cpu = 0; cpu < nr_cpu_ids; ++cpu) {
-			pgd_t *pgd = get_cpu_pgd(cpu);
+			pgd_t *pgd = get_cpu_pgd(cpu, user);
 			pmd_t *ret;
+
+			ret = vmalloc_sync_one(pgd, address);
+			if (!ret)
+				break;
+			pgd = get_cpu_pgd(cpu, kernel);
 #else
 		list_for_each_entry(page, &pgd_list, lru) {
 			pgd_t *pgd;
@@ -339,7 +344,8 @@ static noinline __kprobes int vmalloc_fault(unsigned long address)
 	pgd_paddr = read_cr3();
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
-	BUG_ON(__pa(get_cpu_pgd(smp_processor_id())) != (pgd_paddr & PHYSICAL_PAGE_MASK));
+	BUG_ON(__pa(get_cpu_pgd(smp_processor_id(), kernel)) != (pgd_paddr & __PHYSICAL_MASK));
+	vmalloc_sync_one(__va(pgd_paddr + PAGE_SIZE), address);
 #endif
 
 	pmd_k = vmalloc_sync_one(__va(pgd_paddr), address);
@@ -438,16 +444,23 @@ static noinline __kprobes int vmalloc_fault(unsigned long address)
 	 * case just flush:
 	 */
 
-#ifdef CONFIG_PAX_PER_CPU_PGD
-	BUG_ON(__pa(get_cpu_pgd(smp_processor_id())) != (read_cr3() & PHYSICAL_PAGE_MASK));
-	pgd = pgd_offset_cpu(smp_processor_id(), address);
-#else
-	pgd = pgd_offset(current->active_mm, address);
-#endif
-
 	pgd_ref = pgd_offset_k(address);
 	if (pgd_none(*pgd_ref))
 		return -1;
+
+#ifdef CONFIG_PAX_PER_CPU_PGD
+	BUG_ON(__pa(get_cpu_pgd(smp_processor_id(), kernel)) != (read_cr3() & __PHYSICAL_MASK));
+	pgd = pgd_offset_cpu(smp_processor_id(), user, address);
+	if (pgd_none(*pgd)) {
+		set_pgd(pgd, *pgd_ref);
+		arch_flush_lazy_mmu_mode();
+	} else {
+		BUG_ON(pgd_page_vaddr(*pgd) != pgd_page_vaddr(*pgd_ref));
+	}
+	pgd = pgd_offset_cpu(smp_processor_id(), kernel, address);
+#else
+	pgd = pgd_offset(current->active_mm, address);
+#endif
 
 	if (pgd_none(*pgd)) {
 		set_pgd(pgd, *pgd_ref);

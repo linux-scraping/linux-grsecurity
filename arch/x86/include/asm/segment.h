@@ -188,6 +188,8 @@
 #define GDT_ENTRY_PER_CPU 15	/* Abused to load per CPU data from limit */
 #define __PER_CPU_SEG	(GDT_ENTRY_PER_CPU * 8 + 3)
 
+#define GDT_ENTRY_UDEREF_KERNEL_DS 16
+
 /* TLS indexes for 64bit - hardcoded in arch_prctl */
 #define FS_TLS 0
 #define GS_TLS 1
@@ -195,13 +197,14 @@
 #define GS_TLS_SEL ((GDT_ENTRY_TLS_MIN+GS_TLS)*8 + 3)
 #define FS_TLS_SEL ((GDT_ENTRY_TLS_MIN+FS_TLS)*8 + 3)
 
-#define GDT_ENTRIES 16
+#define GDT_ENTRIES 17
 
 #endif
 
 #define __KERNEL_CS	(GDT_ENTRY_KERNEL_CS*8)
 #define __KERNEXEC_KERNEL_CS	(GDT_ENTRY_KERNEXEC_KERNEL_CS*8)
 #define __KERNEL_DS	(GDT_ENTRY_KERNEL_DS*8)
+#define __UDEREF_KERNEL_DS	(GDT_ENTRY_UDEREF_KERNEL_DS*8)
 #define __USER_DS	(GDT_ENTRY_DEFAULT_USER_DS*8+3)
 #define __USER_CS	(GDT_ENTRY_DEFAULT_USER_CS*8+3)
 #ifndef CONFIG_PARAVIRT

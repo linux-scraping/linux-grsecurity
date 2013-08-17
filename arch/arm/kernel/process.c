@@ -31,6 +31,7 @@
 #include <linux/hw_breakpoint.h>
 #include <linux/cpuidle.h>
 #include <linux/leds.h>
+#include <linux/random.h>
 
 #include <asm/cacheflush.h>
 #include <asm/idmap.h>
@@ -258,8 +259,8 @@ void __show_regs(struct pt_regs *regs)
 
 	show_regs_print_info(KERN_DEFAULT);
 
-	printk("PC is at %pA\n", instruction_pointer(regs));
-	printk("LR is at %pA\n", regs->ARM_lr);
+	printk("PC is at %pA\n", (void *)instruction_pointer(regs));
+	printk("LR is at %pA\n", (void *)regs->ARM_lr);
 	printk("pc : [<%08lx>]    lr : [<%08lx>]    psr: %08lx\n"
 	       "sp : %08lx  ip : %08lx  fp : %08lx\n",
 		regs->ARM_pc, regs->ARM_lr, regs->ARM_cpsr,
@@ -427,20 +428,21 @@ unsigned long get_wchan(struct task_struct *p)
 }
 
 #ifdef CONFIG_MMU
+#ifdef CONFIG_KUSER_HELPERS
 /*
  * The vectors page is always readable from user space for the
- * atomic helpers and the signal restart code. Insert it into the
- * gate_vma so that it is visible through ptrace and /proc/<pid>/mem.
+ * atomic helpers. Insert it into the gate_vma so that it is visible
+ * through ptrace and /proc/<pid>/mem.
  */
 static struct vm_area_struct gate_vma = {
 	.vm_start	= 0xffff0000,
 	.vm_end		= 0xffff0000 + PAGE_SIZE,
-	.vm_flags	= VM_NONE,
+	.vm_flags	= VM_READ | VM_EXEC | VM_MAYREAD | VM_MAYEXEC,
 };
 
 static int __init gate_vma_init(void)
 {
-	gate_vma.vm_page_prot	= vm_get_page_prot(gate_vma.vm_flags);
+	gate_vma.vm_page_prot = vm_get_page_prot(gate_vma.vm_flags);
 	return 0;
 }
 arch_initcall(gate_vma_init);
@@ -459,9 +461,23 @@ int in_gate_area_no_mm(unsigned long addr)
 {
 	return in_gate_area(NULL, addr);
 }
+#define is_gate_vma(vma)	((vma) == &gate_vma)
+#else
+#define is_gate_vma(vma)	0
+#endif
 
 const char *arch_vma_name(struct vm_area_struct *vma)
 {
-	return (vma == &gate_vma) ? "[vectors]" : NULL;
+	return is_gate_vma(vma) ? "[vectors]" : NULL;
+}
+
+int arch_setup_additional_pages(struct linux_binprm *bprm, int uses_interp)
+{
+	struct mm_struct *mm = current->mm;
+
+	down_write(&mm->mmap_sem);
+	mm->context.sigpage = (PAGE_OFFSET + (get_random_int() % 0x3FFEFFE0)) & 0xFFFFFFFC;
+	up_write(&mm->mmap_sem);
+	return 0;
 }
 #endif

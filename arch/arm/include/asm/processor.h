@@ -54,7 +54,6 @@ struct thread_struct {
 
 #define start_thread(regs,pc,sp)					\
 ({									\
-	unsigned long *stack = (unsigned long *)sp;			\
 	memset(regs->uregs, 0, sizeof(regs->uregs));			\
 	if (current->personality & ADDR_LIMIT_32BIT)			\
 		regs->ARM_cpsr = USR_MODE;				\
@@ -65,8 +64,6 @@ struct thread_struct {
 	regs->ARM_cpsr |= PSR_ENDSTATE;					\
 	regs->ARM_pc = pc & ~1;		/* pc */			\
 	regs->ARM_sp = sp;		/* sp */			\
-	/* r2 (envp), r1 (argv), r0 (argc) */				\
-	(void)copy_from_user(&regs->ARM_r0, (const char __user *)stack, 3 * sizeof(unsigned long)); \
 	nommu_start_thread(regs);					\
 })
 

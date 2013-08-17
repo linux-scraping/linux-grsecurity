@@ -251,14 +251,18 @@ notrace static void __cpuinit start_secondary(void *unused)
 
 	enable_start_cpu0 = 0;
 
-#ifdef CONFIG_X86_32
+	/* otherwise gcc will move up smp_processor_id before the cpu_init */
+	barrier();
+
 	/* switch away from the initial page table */
+#ifdef CONFIG_PAX_PER_CPU_PGD
+	load_cr3(get_cpu_pgd(smp_processor_id(), kernel));
+	__flush_tlb_all();
+#elif defined(CONFIG_X86_32)
 	load_cr3(swapper_pg_dir);
 	__flush_tlb_all();
 #endif
 
-	/* otherwise gcc will move up smp_processor_id before the cpu_init */
-	barrier();
 	/*
 	 * Check TSC synchronization with the BP:
 	 */
@@ -912,7 +916,10 @@ int __cpuinit native_cpu_up(unsigned int cpu, struct task_struct *tidle)
 	__cpu_disable_lazy_restore(cpu);
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
-	clone_pgd_range(get_cpu_pgd(cpu) + KERNEL_PGD_BOUNDARY,
+	clone_pgd_range(get_cpu_pgd(cpu, kernel) + KERNEL_PGD_BOUNDARY,
+			swapper_pg_dir + KERNEL_PGD_BOUNDARY,
+			KERNEL_PGD_PTRS);
+	clone_pgd_range(get_cpu_pgd(cpu, user) + KERNEL_PGD_BOUNDARY,
 			swapper_pg_dir + KERNEL_PGD_BOUNDARY,
 			KERNEL_PGD_PTRS);
 #endif

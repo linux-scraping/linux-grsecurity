@@ -1932,6 +1932,10 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 			noexec=on: enable non-executable mappings (default)
 			noexec=off: disable non-executable mappings
 
+	nopcid		[X86-64]
+			Disable PCID (Process-Context IDentifier) even if it
+			is supported by the processor.
+
 	nosmap		[X86]
 			Disable SMAP (Supervisor Mode Access Prevention)
 			even if it is supported by processor.
@@ -2214,6 +2218,9 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 			Enable a very simple form of latent entropy extraction
 			from the first 4GB of memory as the bootmem allocator
 			passes the memory pages to the buddy allocator.
+
+	pax_weakuderef	[X86-64] enables the weaker but faster form of UDEREF
+			when the processor supports PCID.
 
 	pcbit=		[HW,ISDN]
 

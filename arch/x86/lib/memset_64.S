@@ -16,7 +16,7 @@
  * 
  * rax   original destination
  */	
-	.section .altinstr_replacement, "ax", @progbits
+	.section .altinstr_replacement, "a", @progbits
 .Lmemset_c:
 	movq %rdi,%r9
 	movq %rdx,%rcx
@@ -46,7 +46,7 @@
  *
  * rax   original destination
  */
-	.section .altinstr_replacement, "ax", @progbits
+	.section .altinstr_replacement, "a", @progbits
 .Lmemset_c_e:
 	movq %rdi,%r9
 	movb %sil,%al

@@ -221,6 +221,7 @@ __blowfish_enc_blk32:
 
 	write_block(RXl, RXr);
 
+	pax_force_retaddr 0, 1
 	ret;
 ENDPROC(__blowfish_enc_blk32)
 
@@ -250,6 +251,7 @@ __blowfish_dec_blk32:
 
 	write_block(RXl, RXr);
 
+	pax_force_retaddr 0, 1
 	ret;
 ENDPROC(__blowfish_dec_blk32)
 
@@ -284,6 +286,7 @@ ENTRY(blowfish_ecb_enc_32way)
 
 	vzeroupper;
 
+	pax_force_retaddr 0, 1
 	ret;
 ENDPROC(blowfish_ecb_enc_32way)
 
@@ -318,6 +321,7 @@ ENTRY(blowfish_ecb_dec_32way)
 
 	vzeroupper;
 
+	pax_force_retaddr 0, 1
 	ret;
 ENDPROC(blowfish_ecb_dec_32way)
 
@@ -365,6 +369,7 @@ ENTRY(blowfish_cbc_dec_32way)
 
 	vzeroupper;
 
+	pax_force_retaddr 0, 1
 	ret;
 ENDPROC(blowfish_cbc_dec_32way)
 
@@ -445,5 +450,6 @@ ENTRY(blowfish_ctr_32way)
 
 	vzeroupper;
 
+	pax_force_retaddr 0, 1
 	ret;
 ENDPROC(blowfish_ctr_32way)

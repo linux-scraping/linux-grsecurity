@@ -199,7 +199,7 @@ static struct irqaction kona_timer_irq = {
 	.handler = kona_timer_interrupt,
 };
 
-static void __init kona_timer_init(void)
+static void __init kona_timer_init(struct device_node *np)
 {
 	kona_timers_init();
 	kona_timer_clockevents_init();

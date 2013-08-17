@@ -653,7 +653,7 @@ static int shift_arg_pages(struct vm_area_struct *vma, unsigned long shift)
 		return -ENOMEM;
 
 	lru_add_drain();
-	tlb_gather_mmu(&tlb, mm, 0);
+	tlb_gather_mmu(&tlb, mm, old_start, old_end);
 	if (new_end > old_start) {
 		/*
 		 * when the old and new regions overlap clear from new_end.
@@ -670,7 +670,7 @@ static int shift_arg_pages(struct vm_area_struct *vma, unsigned long shift)
 		free_pgd_range(&tlb, old_start, old_end, new_end,
 			vma->vm_next ? vma->vm_next->vm_start : USER_PGTABLES_CEILING);
 	}
-	tlb_finish_mmu(&tlb, new_end, old_end);
+	tlb_finish_mmu(&tlb, old_start, old_end);
 
 	/*
 	 * Shrink the vma to just the new range.  Always succeeds.
@@ -1980,7 +1980,7 @@ void pax_report_fault(struct pt_regs *regs, void *pc, void *sp)
 			offset = vma_fault->vm_pgoff << PAGE_SHIFT;
 			if (vma_fault->vm_file)
 				path_fault = pax_get_path(&vma_fault->vm_file->f_path, buffer_fault, PAGE_SIZE);
-			else if (pc >= mm->start_brk && pc < mm->brk)
+			else if ((unsigned long)pc >= mm->start_brk && (unsigned long)pc < mm->brk)
 				path_fault = "<heap>";
 			else if (vma_fault->vm_flags & (VM_GROWSDOWN | VM_GROWSUP))
 				path_fault = "<stack>";
@@ -2018,7 +2018,9 @@ void pax_report_refcount_overflow(struct pt_regs *regs)
 		printk(KERN_ERR "PAX: refcount overflow detected in: %s:%d, uid/euid: %u/%u\n", current->comm, task_pid_nr(current),
 				from_kuid_munged(&init_user_ns, current_uid()), from_kuid_munged(&init_user_ns, current_euid()));
 	print_symbol(KERN_ERR "PAX: refcount overflow occured at: %s\n", instruction_pointer(regs));
+	preempt_disable();
 	show_regs(regs);
+	preempt_enable();
 	force_sig_info(SIGKILL, SEND_SIG_FORCED, current);
 }
 #endif

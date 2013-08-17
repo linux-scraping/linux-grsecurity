@@ -631,6 +631,9 @@ hook_ifault_code(int nr, int (*fn)(unsigned long, unsigned int, struct pt_regs *
 	ifsr_info[nr].name = name;
 }
 
+asmlinkage int sys_sigreturn(struct pt_regs *regs);
+asmlinkage int sys_rt_sigreturn(struct pt_regs *regs);
+
 asmlinkage void __exception
 do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 {
@@ -638,6 +641,15 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 	struct siginfo info;
 
 	if (user_mode(regs)) {
+		unsigned long sigpage = current->mm->context.sigpage;
+
+		if (sigpage <= addr && addr < sigpage + 7*4) {
+			if (addr < sigpage + 3*4)
+				sys_sigreturn(regs);
+			else
+				sys_rt_sigreturn(regs);
+			return;
+		}
 		if (addr == 0xffff0fe0UL) {
 			/*
 			 * PaX: __kuser_get_tls emulation
