@@ -242,8 +242,8 @@ static ssize_t cifs_stats_proc_write(struct file *file,
 
 	if (c == '1' || c == 'y' || c == 'Y' || c == '0') {
 #ifdef CONFIG_CIFS_STATS2
-		atomic_set(&totBufAllocCount, 0);
-		atomic_set(&totSmBufAllocCount, 0);
+		atomic_set_unchecked(&totBufAllocCount, 0);
+		atomic_set_unchecked(&totSmBufAllocCount, 0);
 #endif /* CONFIG_CIFS_STATS2 */
 		read_lock(&cifs_tcp_ses_lock);
 		list_for_each(tmp1, &cifs_tcp_ses_list) {
@@ -304,8 +304,8 @@ static int cifs_stats_proc_show(struct seq_file *m, void *v)
 			smBufAllocCount.counter, cifs_min_small);
 #ifdef CONFIG_CIFS_STATS2
 	seq_printf(m, "Total Large %d Small %d Allocations\n",
-				atomic_read(&totBufAllocCount),
-				atomic_read(&totSmBufAllocCount));
+				atomic_read_unchecked(&totBufAllocCount),
+				atomic_read_unchecked(&totSmBufAllocCount));
 #endif /* CONFIG_CIFS_STATS2 */
 
 	seq_printf(m, "Operations (MIDs): %d\n", midCount.counter);
