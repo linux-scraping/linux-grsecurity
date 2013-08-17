@@ -388,6 +388,7 @@ __build_packet_message(struct nfulnl_instance *inst,
 	nfmsg->version = NFNETLINK_V0;
 	nfmsg->res_id = htons(inst->group_num);
 
+	memset(&pmsg, 0, sizeof(pmsg));
 	pmsg.hw_protocol	= skb->protocol;
 	pmsg.hook		= hooknum;
 
@@ -456,7 +457,10 @@ __build_packet_message(struct nfulnl_instance *inst,
 	if (indev && skb->dev &&
 	    skb->mac_header != skb->network_header) {
 		struct nfulnl_msg_packet_hw phw;
-		int len = dev_parse_header(skb, phw.hw_addr);
+		int len;
+
+		memset(&phw, 0, sizeof(phw));
+		len = dev_parse_header(skb, phw.hw_addr);
 		if (len > 0) {
 			phw.hw_addrlen = htons(len);
 			NLA_PUT(inst->skb, NFULA_HWADDR, sizeof(phw), &phw);

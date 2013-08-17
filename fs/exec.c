@@ -2062,6 +2062,25 @@ int pax_check_flags(unsigned long *flags)
 EXPORT_SYMBOL(pax_check_flags);
 
 #if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
+char *pax_get_path(const struct path *path, char *buf, int buflen)
+{
+	char *pathname = d_path(path, buf, buflen);
+
+	if (IS_ERR(pathname))
+		goto toolong;
+
+	pathname = mangle_path(buf, pathname, "\t\n\\");
+	if (!pathname)
+		goto toolong;
+
+	*pathname = 0;
+	return buf;
+
+toolong:
+	return "<path too long>";
+}
+EXPORT_SYMBOL(pax_get_path);
+
 void pax_report_fault(struct pt_regs *regs, void *pc, void *sp)
 {
 	struct task_struct *tsk = current;
@@ -2084,36 +2103,15 @@ void pax_report_fault(struct pt_regs *regs, void *pc, void *sp)
 				vma_fault = vma;
 			vma = vma->vm_next;
 		}
-		if (vma_exec) {
-			path_exec = d_path(&vma_exec->vm_file->f_path, buffer_exec, PAGE_SIZE);
-			if (IS_ERR(path_exec))
-				path_exec = "<path too long>";
-			else {
-				path_exec = mangle_path(buffer_exec, path_exec, "\t\n\\");
-				if (path_exec) {
-					*path_exec = 0;
-					path_exec = buffer_exec;
-				} else
-					path_exec = "<path too long>";
-			}
-		}
+		if (vma_exec)
+			path_exec = pax_get_path(&vma_exec->vm_file->f_path, buffer_exec, PAGE_SIZE);
 		if (vma_fault) {
 			start = vma_fault->vm_start;
 			end = vma_fault->vm_end;
 			offset = vma_fault->vm_pgoff << PAGE_SHIFT;
-			if (vma_fault->vm_file) {
-				path_fault = d_path(&vma_fault->vm_file->f_path, buffer_fault, PAGE_SIZE);
-				if (IS_ERR(path_fault))
-					path_fault = "<path too long>";
-				else {
-					path_fault = mangle_path(buffer_fault, path_fault, "\t\n\\");
-					if (path_fault) {
-						*path_fault = 0;
-						path_fault = buffer_fault;
-					} else
-						path_fault = "<path too long>";
-				}
-			} else if (pc >= mm->start_brk && pc < mm->brk)
+			if (vma_fault->vm_file)
+				path_fault = pax_get_path(&vma_fault->vm_file->f_path, buffer_fault, PAGE_SIZE);
+			else if ((unsigned long)pc >= mm->start_brk && (unsigned long)pc < mm->brk)
 				path_fault = "<heap>";
 			else if (vma_fault->vm_flags & (VM_GROWSDOWN | VM_GROWSUP))
 				path_fault = "<stack>";
@@ -2146,7 +2144,9 @@ void pax_report_refcount_overflow(struct pt_regs *regs)
 		printk(KERN_ERR "PAX: refcount overflow detected in: %s:%d, uid/euid: %u/%u\n",
 				 current->comm, task_pid_nr(current), current_uid(), current_euid());
 	print_symbol(KERN_ERR "PAX: refcount overflow occured at: %s\n", instruction_pointer(regs));
+	preempt_disable();
 	show_regs(regs);
+	preempt_enable();
 	force_sig_info(SIGKILL, SEND_SIG_FORCED, current);
 }
 #endif

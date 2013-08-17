@@ -912,10 +912,10 @@ static ssize_t iwl_dbgfs_traffic_log_write(struct file *file,
 	return count;
 }
 
-static const char *fmt_value = "  %-30s %10u\n";
-static const char *fmt_hex   = "  %-30s       0x%02X\n";
-static const char *fmt_table = "  %-30s %10u  %10u  %10u  %10u\n";
-static const char *fmt_header =
+static const char fmt_value[] = "  %-30s %10u\n";
+static const char fmt_hex[]   = "  %-30s       0x%02X\n";
+static const char fmt_table[] = "  %-30s %10u  %10u  %10u  %10u\n";
+static const char fmt_header[] =
 	"%-32s    current  cumulative       delta         max\n";
 
 static int iwl_statistics_flag(struct iwl_priv *priv, char *buf, int bufsz)

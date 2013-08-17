@@ -397,8 +397,6 @@ config PAX_PAGEEXEC
 	bool "Paging based non-executable pages"
 	default y if GRKERNSEC_CONFIG_AUTO
 	depends on PAX_NOEXEC && (!X86_32 || M586 || M586TSC || M586MMX || M686 || MPENTIUMII || MPENTIUMIII || MPENTIUMM || MCORE2 || MATOM || MPENTIUM4 || MPSC || MK7 || MK8 || MWINCHIPC6 || MWINCHIP2 || MWINCHIP3D || MVIAC3_2 || MVIAC7)
-	select S390_SWITCH_AMODE if S390
-	select S390_EXEC_PROTECT if S390
 	select ARCH_TRACK_EXEC_LIMIT if X86_32
 	help
 	  This implementation is based on the paging feature of the CPU.
