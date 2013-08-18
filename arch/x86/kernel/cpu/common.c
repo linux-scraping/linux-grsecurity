@@ -234,37 +234,49 @@ static __always_inline void setup_smap(struct cpuinfo_x86 *c)
 		set_in_cr4(X86_CR4_SMAP);
 }
 
-#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+#ifdef CONFIG_X86_64
 static __init int setup_disable_pcid(char *arg)
 {
 	setup_clear_cpu_cap(X86_FEATURE_PCID);
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
 	if (clone_pgd_mask != ~(pgdval_t)0UL)
 		pax_user_shadow_base = 1UL << TASK_SIZE_MAX_SHIFT;
+#endif
+
 	return 1;
 }
 __setup("nopcid", setup_disable_pcid);
 
 static void setup_pcid(struct cpuinfo_x86 *c)
 {
-	if (cpu_has(c, X86_FEATURE_PCID))
-		printk("PAX: PCID detected\n");
+	if (!cpu_has(c, X86_FEATURE_PCID)) {
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+		if (pax_user_shadow_base)
+			printk("PAX: slow and weak UDEREF enabled\n");
+		else
+			printk("PAX: UDEREF disabled\n");
+#endif
+
+		return;
+	}
+
+	printk("PAX: PCID detected\n");
+	set_in_cr4(X86_CR4_PCIDE);
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	clone_pgd_mask = ~(pgdval_t)0UL;
+	if (pax_user_shadow_base)
+		printk("PAX: weak UDEREF enabled\n");
+	else {
+		set_cpu_cap(c, X86_FEATURE_STRONGUDEREF);
+		printk("PAX: strong UDEREF enabled\n");
+	}
+#endif
 
 	if (cpu_has(c, X86_FEATURE_INVPCID))
 		printk("PAX: INVPCID detected\n");
-
-	if (cpu_has(c, X86_FEATURE_PCID)) {
-		set_in_cr4(X86_CR4_PCIDE);
-		clone_pgd_mask = ~(pgdval_t)0UL;
-		if (pax_user_shadow_base)
-			printk("PAX: weak UDEREF enabled\n");
-		else {
-			set_cpu_cap(c, X86_FEATURE_STRONGUDEREF);
-			printk("PAX: strong UDEREF enabled\n");
-		}
-	} else if (pax_user_shadow_base)
-		printk("PAX: slow and weak UDEREF enabled\n");
-	else
-		printk("PAX: UDEREF disabled\n");
 }
 #endif
 
@@ -854,7 +866,7 @@ static void __cpuinit identify_cpu(struct cpuinfo_x86 *c)
 	setup_smep(c);
 	setup_smap(c);
 
-#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+#ifdef CONFIG_X86_64
 	setup_pcid(c);
 #endif
 
