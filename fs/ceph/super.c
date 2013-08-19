@@ -839,7 +839,7 @@ static int ceph_compare_super(struct super_block *sb, void *data)
 /*
  * construct our own bdi so we can control readahead, etc.
  */
-static atomic_long_t bdi_seq = ATOMIC_LONG_INIT(0);
+static atomic_long_unchecked_t bdi_seq = ATOMIC_LONG_INIT(0);
 
 static int ceph_register_bdi(struct super_block *sb,
 			     struct ceph_fs_client *fsc)
@@ -856,7 +856,7 @@ static int ceph_register_bdi(struct super_block *sb,
 			default_backing_dev_info.ra_pages;
 
 	err = bdi_register(&fsc->backing_dev_info, NULL, "ceph-%ld",
-			   atomic_long_inc_return(&bdi_seq));
+			   atomic_long_inc_return_unchecked(&bdi_seq));
 	if (!err)
 		sb->s_bdi = &fsc->backing_dev_info;
 	return err;

@@ -253,9 +253,10 @@ static void setup_pcid(struct cpuinfo_x86 *c)
 	if (!cpu_has(c, X86_FEATURE_PCID)) {
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-		if (pax_user_shadow_base)
+		if (clone_pgd_mask != ~(pgdval_t)0UL) {
+			pax_user_shadow_base = 1UL << TASK_SIZE_MAX_SHIFT;
 			printk("PAX: slow and weak UDEREF enabled\n");
-		else
+		} else
 			printk("PAX: UDEREF disabled\n");
 #endif
 

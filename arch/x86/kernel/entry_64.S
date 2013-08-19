@@ -479,10 +479,11 @@ ENTRY(pax_enter_kernel_user)
 	.popsection
 	GET_CR3_INTO_RDI
 	cmp $1,%dil
-	jnz 3f
+	jnz 4f
 	sub $4097,%rdi
 	bts $63,%rdi
-	jmp 2f
+	SET_RDI_INTO_CR3
+	jmp 3f
 111:
 
 	GET_CR3_INTO_RDI
@@ -513,13 +514,15 @@ ENTRY(pax_enter_kernel_user)
 	i = i + 1
 	.endr
 
+2:	SET_RDI_INTO_CR3
+
 #ifdef CONFIG_PAX_KERNEXEC
 	GET_CR0_INTO_RDI
 	bts $16,%rdi
 	SET_RDI_INTO_CR0
 #endif
 
-2:	SET_RDI_INTO_CR3
+3:
 
 #ifdef CONFIG_PARAVIRT
 	PV_RESTORE_REGS(CLBR_RDI)
@@ -529,7 +532,7 @@ ENTRY(pax_enter_kernel_user)
 	popq %rdi
 	pax_force_retaddr
 	retq
-3:	ud2
+4:	ud2
 ENDPROC(pax_enter_kernel_user)
 
 ENTRY(pax_exit_kernel_user)
