@@ -28,10 +28,10 @@
 #include <linux/tick.h>
 #include <linux/utsname.h>
 #include <linux/uaccess.h>
+#include <linux/random.h>
 #include <linux/hw_breakpoint.h>
 #include <linux/cpuidle.h>
 #include <linux/leds.h>
-#include <linux/random.h>
 
 #include <asm/cacheflush.h>
 #include <asm/idmap.h>

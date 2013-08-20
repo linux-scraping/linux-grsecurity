@@ -225,8 +225,7 @@ struct tmem_pamops {
 	bool (*is_remote)(void *);
 	int (*replace_in_obj)(void *, struct tmem_obj *);
 #endif
-};
-typedef struct tmem_pamops __no_const tmem_pamops_no_const;
+} __no_const;
 extern void tmem_register_pamops(struct tmem_pamops *m);
 
 /* memory allocation methods provided by the host implementation */
@@ -235,8 +234,7 @@ struct tmem_hostops {
 	void (*obj_free)(struct tmem_obj *, struct tmem_pool *);
 	struct tmem_objnode *(*objnode_alloc)(struct tmem_pool *);
 	void (*objnode_free)(struct tmem_objnode *, struct tmem_pool *);
-};
-typedef struct tmem_hostops __no_const tmem_hostops_no_const;
+} __no_const;
 extern void tmem_register_hostops(struct tmem_hostops *m);
 
 /* core tmem accessor functions */

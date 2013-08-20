@@ -214,6 +214,42 @@ unsigned long mmu_cr4_features __read_only = X86_CR4_PAE;
 unsigned long mmu_cr4_features __read_only;
 #endif
 
+void set_in_cr4(unsigned long mask)
+{
+	unsigned long cr4 = read_cr4();
+
+	if ((cr4 & mask) == mask && cr4 == mmu_cr4_features)
+		return;
+
+	pax_open_kernel();
+	mmu_cr4_features |= mask;
+	pax_close_kernel();
+
+	if (trampoline_cr4_features)
+		*trampoline_cr4_features = mmu_cr4_features;
+	cr4 |= mask;
+	write_cr4(cr4);
+}
+EXPORT_SYMBOL(set_in_cr4);
+
+void clear_in_cr4(unsigned long mask)
+{
+	unsigned long cr4 = read_cr4();
+
+	if (!(cr4 & mask) && cr4 == mmu_cr4_features)
+		return;
+
+	pax_open_kernel();
+	mmu_cr4_features &= ~mask;
+	pax_close_kernel();
+
+	if (trampoline_cr4_features)
+		*trampoline_cr4_features = mmu_cr4_features;
+	cr4 &= ~mask;
+	write_cr4(cr4);
+}
+EXPORT_SYMBOL(clear_in_cr4);
+
 /* Boot loader ID and version as integers, for the benefit of proc_dointvec */
 int bootloader_type, bootloader_version;
 

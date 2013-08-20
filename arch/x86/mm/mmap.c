@@ -104,7 +104,7 @@ static unsigned long mmap_base(struct mm_struct *mm)
  * Bottom-up (legacy) layout on X86_32 did not support randomization, X86_64
  * does, but not when emulating X86_32
  */
-static unsigned long mmap_legacy_base(struct mm_struct *mm)
+unsigned long mmap_legacy_base(struct mm_struct *mm)
 {
 	if (mmap_is_ia32()) {
 

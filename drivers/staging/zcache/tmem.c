@@ -51,7 +51,7 @@
  * A tmem host implementation must use this function to register callbacks
  * for memory allocation.
  */
-static tmem_hostops_no_const tmem_hostops;
+static struct tmem_hostops tmem_hostops;
 
 static void tmem_objnode_tree_init(void);
 
@@ -65,7 +65,7 @@ void tmem_register_hostops(struct tmem_hostops *m)
  * A tmem host implementation must use this function to register
  * callbacks for a page-accessible memory (PAM) implementation.
  */
-static tmem_pamops_no_const tmem_pamops;
+static struct tmem_pamops tmem_pamops;
 
 void tmem_register_pamops(struct tmem_pamops *m)
 {
