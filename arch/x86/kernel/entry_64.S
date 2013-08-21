@@ -558,14 +558,22 @@ ENTRY(pax_exit_kernel_user)
 	SET_RDI_INTO_CR3
 	jmp 2f
 1:
+
 	mov %rdi,%rbx
+
+#ifdef CONFIG_PAX_KERNEXEC
+	GET_CR0_INTO_RDI
+	btr $16,%rdi
+	jnc 3f
+	SET_RDI_INTO_CR0
+#endif
+
 	add $__START_KERNEL_map,%rbx
 	sub phys_base(%rip),%rbx
 
 #ifdef CONFIG_PARAVIRT
 	cmpl $0, pv_info+PARAVIRT_enabled
 	jz 1f
-	pushq %rdi
 	i = 0
 	.rept USER_PGD_PTRS
 	mov i*8(%rbx),%rsi
@@ -574,16 +582,8 @@ ENTRY(pax_exit_kernel_user)
 	call PARA_INDIRECT(pv_mmu_ops+PV_MMU_set_pgd_batched)
 	i = i + 1
 	.endr
-	popq %rdi
 	jmp 2f
 1:
-#endif
-
-#ifdef CONFIG_PAX_KERNEXEC
-	GET_CR0_INTO_RDI
-	btr $16,%rdi
-	jnc 3f
-	SET_RDI_INTO_CR0
 #endif
 
 	i = 0

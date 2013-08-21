@@ -45,3 +45,7 @@ EXPORT_SYMBOL(empty_zero_page);
 #ifdef CONFIG_PAX_KERNEXEC
 EXPORT_SYMBOL(__LOAD_PHYSICAL_ADDR);
 #endif
+
+#ifdef CONFIG_PAX_PER_CPU_PGD
+EXPORT_SYMBOL(cpu_pgd);
+#endif
