@@ -19,6 +19,8 @@ static inline void __native_flush_tlb(void)
 {
 	if (static_cpu_has(X86_FEATURE_INVPCID)) {
 		unsigned long descriptor[2];
+
+		descriptor[0] = PCID_KERNEL;
 		asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_ALL_MONGLOBAL) : "memory");
 		return;
 	}
@@ -41,6 +43,8 @@ static inline void __native_flush_tlb_global_irq_disabled(void)
 {
 	if (static_cpu_has(X86_FEATURE_INVPCID)) {
 		unsigned long descriptor[2];
+
+		descriptor[0] = PCID_KERNEL;
 		asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_ALL_GLOBAL) : "memory");
 	} else {
 		unsigned long cr4;

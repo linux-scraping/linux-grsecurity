@@ -341,6 +341,11 @@ static int tpkbd_probe_tp(struct hid_device *hdev)
 	char *name_mute, *name_micmute;
 	int ret;
 
+	/* Validate required reports. */
+	if (!hid_validate_report(hdev, HID_OUTPUT_REPORT, 4, 4, 1) ||
+	    !hid_validate_report(hdev, HID_OUTPUT_REPORT, 3, 1, 2))
+		return -ENODEV;
+
 	if (sysfs_create_group(&hdev->dev.kobj,
 				&tpkbd_attr_group_pointer)) {
 		hid_warn(hdev, "Could not create sysfs group\n");

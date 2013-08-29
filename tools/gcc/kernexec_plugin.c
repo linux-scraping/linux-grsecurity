@@ -49,7 +49,7 @@ extern rtx emit_move_insn(rtx x, rtx y);
 int plugin_is_GPL_compatible;
 
 static struct plugin_info kernexec_plugin_info = {
-	.version	= "201302112000",
+	.version	= "201308230150",
 	.help		= "method=[bts|or]\tinstrumentation method\n"
 };
 
@@ -200,7 +200,7 @@ static unsigned int execute_kernexec_reload(void)
 static void kernexec_instrument_fptr_bts(gimple_stmt_iterator *gsi)
 {
 	gimple assign_intptr, assign_new_fptr, call_stmt;
-	tree intptr, old_fptr, new_fptr, kernexec_mask;
+	tree intptr, orptr, old_fptr, new_fptr, kernexec_mask;
 
 	call_stmt = gsi_stmt(*gsi);
 	old_fptr = gimple_call_fn(call_stmt);
@@ -209,16 +209,20 @@ static void kernexec_instrument_fptr_bts(gimple_stmt_iterator *gsi)
 	intptr = create_tmp_var(long_unsigned_type_node, "kernexec_bts");
 #if BUILDING_GCC_VERSION <= 4007
 	add_referenced_var(intptr);
-	mark_sym_for_renaming(intptr);
 #endif
+	intptr = make_ssa_name(intptr, NULL);
 	assign_intptr = gimple_build_assign(intptr, fold_convert(long_unsigned_type_node, old_fptr));
+	SSA_NAME_DEF_STMT(intptr) = assign_intptr;
 	gsi_insert_before(gsi, assign_intptr, GSI_SAME_STMT);
 	update_stmt(assign_intptr);
 
 	// apply logical or to temporary unsigned long and bitmask
 	kernexec_mask = build_int_cstu(long_long_unsigned_type_node, 0x8000000000000000LL);
 //	kernexec_mask = build_int_cstu(long_long_unsigned_type_node, 0xffffffff80000000LL);
-	assign_intptr = gimple_build_assign(intptr, fold_build2(BIT_IOR_EXPR, long_long_unsigned_type_node, intptr, kernexec_mask));
+	orptr = fold_build2(BIT_IOR_EXPR, long_long_unsigned_type_node, intptr, kernexec_mask);
+	intptr = make_ssa_name(SSA_NAME_VAR(intptr), NULL);
+	assign_intptr = gimple_build_assign(intptr, orptr);
+	SSA_NAME_DEF_STMT(intptr) = assign_intptr;
 	gsi_insert_before(gsi, assign_intptr, GSI_SAME_STMT);
 	update_stmt(assign_intptr);
 
@@ -226,9 +230,10 @@ static void kernexec_instrument_fptr_bts(gimple_stmt_iterator *gsi)
 	new_fptr = create_tmp_var(TREE_TYPE(old_fptr), "kernexec_fptr");
 #if BUILDING_GCC_VERSION <= 4007
 	add_referenced_var(new_fptr);
-	mark_sym_for_renaming(new_fptr);
 #endif
+	new_fptr = make_ssa_name(new_fptr, NULL);
 	assign_new_fptr = gimple_build_assign(new_fptr, fold_convert(TREE_TYPE(old_fptr), intptr));
+	SSA_NAME_DEF_STMT(new_fptr) = assign_new_fptr;
 	gsi_insert_before(gsi, assign_new_fptr, GSI_SAME_STMT);
 	update_stmt(assign_new_fptr);
 
@@ -256,8 +261,8 @@ static void kernexec_instrument_fptr_or(gimple_stmt_iterator *gsi)
 	new_fptr = create_tmp_var(TREE_TYPE(old_fptr), "kernexec_or");
 #if BUILDING_GCC_VERSION <= 4007
 	add_referenced_var(new_fptr);
-	mark_sym_for_renaming(new_fptr);
 #endif
+	new_fptr = make_ssa_name(new_fptr, NULL);
 
 	// build asm volatile("orq %%r10, %0\n\t" : "=r"(new_fptr) : "0"(old_fptr));
 	input = build_tree_list(NULL_TREE, build_string(2, "0"));
@@ -272,6 +277,7 @@ static void kernexec_instrument_fptr_or(gimple_stmt_iterator *gsi)
 	vec_safe_push(outputs, output);
 #endif
 	asm_or_stmt = gimple_build_asm_vec("orq %%r10, %0\n\t", inputs, outputs, NULL, NULL);
+	SSA_NAME_DEF_STMT(new_fptr) = asm_or_stmt;
 	gimple_asm_set_volatile(asm_or_stmt, true);
 	gsi_insert_before(gsi, asm_or_stmt, GSI_SAME_STMT);
 	update_stmt(asm_or_stmt);

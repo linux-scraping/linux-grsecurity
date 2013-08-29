@@ -969,6 +969,26 @@ config GRKERNSEC_SOCKET_SERVER_GID
 	  option with name "socket_server_gid" is created.
 
 endmenu
+
+menu "Physical Protections"
+depends on GRKERNSEC
+
+config GRKERNSEC_DENYUSB
+	bool "Deny new USB connections after toggle"
+	default y if GRKERNSEC_CONFIG_AUTO
+	help
+	  If you say Y here, a new sysctl option with name "deny_new_usb"
+	  will be created.  Setting its value to 1 will prevent any new
+	  USB devices from being recognized by the OS.  Any attempted USB
+	  device insertion will be logged.  This option is intended to be
+	  used against custom USB devices designed to exploit vulnerabilities
+	  in various USB device drivers.
+
+	  For greatest effectiveness, this sysctl should be set after any
+	  relevant init scripts.  Once set, it cannot be unset.
+
+endmenu
+
 menu "Sysctl Support"
 depends on GRKERNSEC && SYSCTL
 

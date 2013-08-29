@@ -87,7 +87,7 @@ static tree dup_assign(struct pointer_set_t *visited, gimple oldstmt, const_tree
 static void print_missing_msg(tree func, unsigned int argnum);
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20130410beta",
+	.version	= "20130822beta",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
@@ -467,7 +467,6 @@ static tree create_new_var(tree type)
 
 #if BUILDING_GCC_VERSION <= 4007
 	add_referenced_var(new_var);
-	mark_sym_for_renaming(new_var);
 #endif
 	return new_var;
 }

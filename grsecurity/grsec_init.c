@@ -26,6 +26,7 @@ kgid_t grsec_audit_gid;
 int grsec_enable_chdir;
 int grsec_enable_mount;
 int grsec_enable_rofs;
+int grsec_deny_new_usb;
 int grsec_enable_chroot_findtask;
 int grsec_enable_chroot_mount;
 int grsec_enable_chroot_shmat;

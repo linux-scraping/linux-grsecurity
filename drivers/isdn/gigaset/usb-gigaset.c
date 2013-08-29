@@ -547,7 +547,7 @@ static int gigaset_brkchars(struct cardstate *cs, const unsigned char buf[6])
 	gigaset_dbg_buffer(DEBUG_USBREQ, "brkchars", 6, buf);
 	memcpy(cs->hw.usb->bchars, buf, 6);
 	return usb_control_msg(udev, usb_sndctrlpipe(udev, 0), 0x19, 0x41,
-			       0, 0, &buf, 6, 2000);
+			       0, 0, buf, 6, 2000);
 }
 
 static void gigaset_freebcshw(struct bc_state *bcs)

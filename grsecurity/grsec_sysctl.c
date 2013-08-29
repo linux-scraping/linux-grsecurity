@@ -455,6 +455,17 @@ struct ctl_table grsecurity_table[] = {
 		.extra2		= &one,
 	},
 #endif
+#ifdef CONFIG_GRKERNSEC_DENYUSB
+	{
+		.procname	= "deny_new_usb",
+		.data		= &grsec_deny_new_usb,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec_minmax,
+		.extra1		= &one,
+		.extra2		= &one,
+	},
+#endif
 	{ }
 };
 #endif

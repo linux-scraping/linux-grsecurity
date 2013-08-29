@@ -62,13 +62,11 @@ extern void __pgd_error(const char *file, int line, pgd_t);
 #define  __HAVE_ARCH_PAX_OPEN_KERNEL
 #define  __HAVE_ARCH_PAX_CLOSE_KERNEL
 
-#ifdef CONFIG_PAX_KERNEXEC
+#if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
 #include <asm/domain.h>
 #include <linux/thread_info.h>
 #include <linux/preempt.h>
-#endif
 
-#if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
 static inline int test_domain(int domain, int domaintype)
 {
 	return ((current_thread_info()->cpu_domain) & domain_val(domain, 3)) == domain_val(domain, domaintype);

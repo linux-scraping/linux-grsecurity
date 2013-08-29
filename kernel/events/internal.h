@@ -82,9 +82,9 @@ static inline unsigned long perf_data_size(struct ring_buffer *rb)
 }
 
 #define DEFINE_OUTPUT_COPY(func_name, memcpy_func, user)		\
-static inline unsigned int						\
+static inline unsigned long						\
 func_name(struct perf_output_handle *handle,				\
-	  const void user *buf, unsigned int len)			\
+	  const void user *buf, unsigned long len)			\
 {									\
 	unsigned long size, written;					\
 									\

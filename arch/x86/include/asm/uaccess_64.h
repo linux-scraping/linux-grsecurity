@@ -282,7 +282,7 @@ unsigned long __copy_in_user(void __user *dst, const void __user *src, unsigned 
 	}
 }
 
-static __must_check __always_inline int
+static __must_check __always_inline unsigned long
 __copy_from_user_inatomic(void *dst, const void __user *src, unsigned long size)
 {
 	if (size > INT_MAX)
