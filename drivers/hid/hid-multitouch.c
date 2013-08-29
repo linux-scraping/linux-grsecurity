@@ -195,6 +195,9 @@ static void mt_feature_mapping(struct hid_device *hdev,
 		td->inputmode = field->report->id;
 		break;
 	case HID_DG_CONTACTMAX:
+		/* Ignore if value count is out of bounds. */
+		if (field->report_count < 1)
+			break;
 		td->maxcontacts = field->value[0];
 		if (td->mtclass->maxcontacts)
 			/* check if the maxcontacts is given by the class */
@@ -506,7 +509,6 @@ static int mt_event(struct hid_device *hid, struct hid_field *field,
 		if (field->index == td->last_field_index
 			&& td->num_received >= td->num_expected)
 			mt_emit_event(td, field->hidinput->input);
-
 	}
 
 	/* we have handled the hidinput part, now remains hiddev */

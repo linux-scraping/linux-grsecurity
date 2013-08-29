@@ -12,7 +12,7 @@
 #include <linux/device.h>
 #include <trace/events/writeback.h>
 
-static atomic_long_t bdi_seq = ATOMIC_LONG_INIT(0);
+static atomic_long_unchecked_t bdi_seq = ATOMIC_LONG_INIT(0);
 
 struct backing_dev_info default_backing_dev_info = {
 	.name		= "default",
@@ -767,7 +767,7 @@ int bdi_setup_and_register(struct backing_dev_info *bdi, char *name,
 	if (err)
 		return err;
 
-	err = bdi_register(bdi, NULL, "%.28s-%ld", name, atomic_long_inc_return(&bdi_seq));
+	err = bdi_register(bdi, NULL, "%.28s-%ld", name, atomic_long_inc_return_unchecked(&bdi_seq));
 	if (err) {
 		bdi_destroy(bdi);
 		return err;

@@ -540,7 +540,7 @@ SYSCALL_DEFINE3(timer_create, const clockid_t, which_clock,
 	struct k_clock *kc = clockid_to_kclock(which_clock);
 	struct k_itimer *new_timer;
 	int error, new_timer_id;
-	sigevent_t event;
+	sigevent_t event = { };
 	int it_id_set = IT_ID_NOT_SET;
 
 	if (!kc)
