@@ -1189,7 +1189,7 @@ static void iwl_option_config(struct iwl_priv *priv)
 static int iwl_eeprom_init_hw_params(struct iwl_priv *priv)
 {
 	struct iwl_nvm_data *data = priv->nvm_data;
-	char *debug_msg;
+	static const char debug_msg[] = "Device SKU: 24GHz %s %s, 52GHz %s %s, 11.n %s %s\n";
 
 	if (data->sku_cap_11n_enable &&
 	    !priv->cfg->ht_params) {
@@ -1203,7 +1203,6 @@ static int iwl_eeprom_init_hw_params(struct iwl_priv *priv)
 		return -EINVAL;
 	}
 
-	debug_msg = "Device SKU: 24GHz %s %s, 52GHz %s %s, 11.n %s %s\n";
 	IWL_DEBUG_INFO(priv, debug_msg,
 		       data->sku_cap_band_24GHz_enable ? "" : "NOT", "enabled",
 		       data->sku_cap_band_52GHz_enable ? "" : "NOT", "enabled",

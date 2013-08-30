@@ -780,7 +780,7 @@ static int pcie_init_slot(struct controller *ctrl)
 		return -ENOMEM;
 
 	snprintf(name, sizeof(name), "pciehp-%u", PSN(ctrl));
-	slot->wq = alloc_workqueue(name, 0, 0);
+	slot->wq = alloc_workqueue("%s", 0, 0, name);
 	if (!slot->wq)
 		goto abort;
 

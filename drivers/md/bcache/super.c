@@ -1603,7 +1603,7 @@ err_unlock_gc:
 err:
 	closure_sync(&op.cl);
 	/* XXX: test this, it's broken */
-	bch_cache_set_error(c, err);
+	bch_cache_set_error(c, "%s", err);
 }
 
 static bool can_attach_cache(struct cache *ca, struct cache_set *c)

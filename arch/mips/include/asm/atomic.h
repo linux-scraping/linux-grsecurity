@@ -666,7 +666,10 @@ static __inline__ int __atomic_add_unless(atomic_t *v, int a, int u)
 
 #define atomic_dec_return(v) atomic_sub_return(1, (v))
 #define atomic_inc_return(v) atomic_add_return(1, (v))
-#define atomic_inc_return_unchecked(v) atomic_add_return_unchecked(1, (v))
+static __inline__ int atomic_inc_return_unchecked(atomic_unchecked_t *v)
+{
+	return atomic_add_return_unchecked(1, v);
+}
 
 /*
  * atomic_sub_and_test - subtract value from variable and test result
@@ -688,7 +691,10 @@ static __inline__ int __atomic_add_unless(atomic_t *v, int a, int u)
  * other cases.
  */
 #define atomic_inc_and_test(v) (atomic_inc_return(v) == 0)
-#define atomic_inc_and_test_unchecked(v) (atomic_add_return_unchecked(1, (v)) == 0)
+static __inline__ int atomic_inc_and_test_unchecked(atomic_unchecked_t *v)
+{
+	return atomic_add_return_unchecked(1, v) == 0;
+}
 
 /*
  * atomic_dec_and_test - decrement by 1 and test
@@ -713,7 +719,10 @@ static __inline__ int __atomic_add_unless(atomic_t *v, int a, int u)
  * Atomically increments @v by 1.
  */
 #define atomic_inc(v) atomic_add(1, (v))
-#define atomic_inc_unchecked(v) atomic_add_unchecked(1, (v))
+static __inline__ void atomic_inc_unchecked(atomic_unchecked_t *v)
+{
+	atomic_add_unchecked(1, v);
+}
 
 /*
  * atomic_dec - decrement and test
@@ -722,7 +731,10 @@ static __inline__ int __atomic_add_unless(atomic_t *v, int a, int u)
  * Atomically decrements @v by 1.
  */
 #define atomic_dec(v) atomic_sub(1, (v))
-#define atomic_dec_unchecked(v) atomic_sub_return_unchecked(1, (v))
+static __inline__ void atomic_dec_unchecked(atomic_unchecked_t *v)
+{
+	atomic_sub_unchecked(1, v);
+}
 
 /*
  * atomic_add_negative - add and test if negative

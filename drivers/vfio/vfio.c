@@ -486,7 +486,7 @@ static int vfio_group_nb_add_dev(struct vfio_group *group, struct device *dev)
 		return 0;
 
 	/* TODO Prevent device auto probing */
-	WARN("Device %s added to live group %d!\n", dev_name(dev),
+	WARN(1, "Device %s added to live group %d!\n", dev_name(dev),
 	     iommu_group_id(group->iommu_group));
 
 	return 0;
@@ -506,7 +506,7 @@ static int vfio_group_nb_del_dev(struct vfio_group *group, struct device *dev)
 	if (likely(!device))
 		return 0;
 
-	WARN("Device %s removed from live group %d!\n", dev_name(dev),
+	WARN(1, "Device %s removed from live group %d!\n", dev_name(dev),
 	     iommu_group_id(group->iommu_group));
 
 	vfio_device_put(device);
