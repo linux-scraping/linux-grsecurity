@@ -283,7 +283,7 @@ __must_check long strlen_user(const char __user *str);
 __must_check unsigned long clear_user(void __user *mem, unsigned long len) __size_overflow(2);
 __must_check unsigned long __clear_user(void __user *mem, unsigned long len) __size_overflow(2);
 
-static __must_check __always_inline int
+static __must_check __always_inline unsigned long
 __copy_from_user_inatomic(void *dst, const void __user *src, unsigned long size)
 {
 	if (size > INT_MAX)

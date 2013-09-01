@@ -109,16 +109,13 @@ static inline void inet_peer_refcheck(const struct inet_peer *p)
 /* can be called with or without local BH being disabled */
 static inline int inet_getid(struct inet_peer *p, int more)
 {
-	int old, new;
+	int id;
 	more++;
 	inet_peer_refcheck(p);
-	do {
-		old = atomic_read_unchecked(&p->ip_id_count);
-		new = old + more;
-		if (!new)
-			new = 1;
-	} while (atomic_cmpxchg_unchecked(&p->ip_id_count, old, new) != old);
-	return new;
+	id = atomic_add_return_unchecked(more, &p->ip_id_count);
+	if (!id)
+		id = atomic_inc_return_unchecked(&p->ip_id_count);
+	return id;
 }
 
 #endif /* _NET_INETPEER_H */

@@ -51,7 +51,7 @@ module_param_string(hifn_pll_ref, hifn_pll_ref, sizeof(hifn_pll_ref), 0444);
 MODULE_PARM_DESC(hifn_pll_ref,
 		 "PLL reference clock (pci[freq] or ext[freq], default ext)");
 
-static atomic_t hifn_dev_number;
+static atomic_unchecked_t hifn_dev_number;
 
 #define ACRYPTO_OP_DECRYPT	0
 #define ACRYPTO_OP_ENCRYPT	1
@@ -2576,7 +2576,7 @@ static int __devinit hifn_probe(struct pci_dev *pdev, const struct pci_device_id
 		goto err_out_disable_pci_device;
 
 	snprintf(name, sizeof(name), "hifn%d",
-			atomic_inc_return(&hifn_dev_number)-1);
+			atomic_inc_return_unchecked(&hifn_dev_number)-1);
 
 	err = pci_request_regions(pdev, name);
 	if (err)

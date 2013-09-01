@@ -1031,7 +1031,7 @@ EXPORT_SYMBOL_GPL(rc_free_device);
 
 int rc_register_device(struct rc_dev *dev)
 {
-	static atomic_t devno = ATOMIC_INIT(0);
+	static atomic_unchecked_t devno = ATOMIC_INIT(0);
 	struct rc_map *rc_map;
 	const char *path;
 	int rc;
@@ -1063,7 +1063,7 @@ int rc_register_device(struct rc_dev *dev)
 	 */
 	mutex_lock(&dev->lock);
 
-	dev->devno = (unsigned long)(atomic_inc_return(&devno) - 1);
+	dev->devno = (unsigned long)(atomic_inc_return_unchecked(&devno) - 1);
 	dev_set_name(&dev->dev, "rc%ld", dev->devno);
 	dev_set_drvdata(&dev->dev, dev);
 	rc = device_add(&dev->dev);

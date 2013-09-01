@@ -19,7 +19,7 @@
 
 struct kmem_cache *fscache_cookie_jar;
 
-static atomic_t fscache_object_debug_id = ATOMIC_INIT(0);
+static atomic_unchecked_t fscache_object_debug_id = ATOMIC_INIT(0);
 
 static int fscache_acquire_non_index_cookie(struct fscache_cookie *cookie);
 static int fscache_alloc_object(struct fscache_cache *cache,
@@ -263,7 +263,7 @@ static int fscache_alloc_object(struct fscache_cache *cache,
 
 	fscache_stat_unchecked(&fscache_n_object_alloc);
 
-	object->debug_id = atomic_inc_return(&fscache_object_debug_id);
+	object->debug_id = atomic_inc_return_unchecked(&fscache_object_debug_id);
 
 	_debug("ALLOC OBJ%x: %s {%lx}",
 	       object->debug_id, cookie->def->name, object->events);

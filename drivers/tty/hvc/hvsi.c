@@ -86,7 +86,7 @@ struct hvsi_struct {
 	int n_outbuf;
 	uint32_t vtermno;
 	uint32_t virq;
-	atomic_t seqno; /* HVSI packet sequence number */
+	atomic_unchecked_t seqno; /* HVSI packet sequence number */
 	uint16_t mctrl;
 	uint8_t state;  /* HVSI protocol state */
 	uint8_t flags;
@@ -297,7 +297,7 @@ static int hvsi_version_respond(struct hvsi_struct *hp, uint16_t query_seqno)
 
 	packet.hdr.type = VS_QUERY_RESPONSE_PACKET_HEADER;
 	packet.hdr.len = sizeof(struct hvsi_query_response);
-	packet.hdr.seqno = atomic_inc_return(&hp->seqno);
+	packet.hdr.seqno = atomic_inc_return_unchecked(&hp->seqno);
 	packet.verb = VSV_SEND_VERSION_NUMBER;
 	packet.u.version = HVSI_VERSION;
 	packet.query_seqno = query_seqno+1;
@@ -581,7 +581,7 @@ static int hvsi_query(struct hvsi_struct *hp, uint16_t verb)
 
 	packet.hdr.type = VS_QUERY_PACKET_HEADER;
 	packet.hdr.len = sizeof(struct hvsi_query);
-	packet.hdr.seqno = atomic_inc_return(&hp->seqno);
+	packet.hdr.seqno = atomic_inc_return_unchecked(&hp->seqno);
 	packet.verb = verb;
 
 	pr_debug("%s: sending %i bytes\n", __func__, packet.hdr.len);
@@ -623,7 +623,7 @@ static int hvsi_set_mctrl(struct hvsi_struct *hp, uint16_t mctrl)
 	int wrote;
 
 	packet.hdr.type = VS_CONTROL_PACKET_HEADER,
-	packet.hdr.seqno = atomic_inc_return(&hp->seqno);
+	packet.hdr.seqno = atomic_inc_return_unchecked(&hp->seqno);
 	packet.hdr.len = sizeof(struct hvsi_control);
 	packet.verb = VSV_SET_MODEM_CTL;
 	packet.mask = HVSI_TSDTR;
@@ -706,7 +706,7 @@ static int hvsi_put_chars(struct hvsi_struct *hp, const char *buf, int count)
 	BUG_ON(count > HVSI_MAX_OUTGOING_DATA);
 
 	packet.hdr.type = VS_DATA_PACKET_HEADER;
-	packet.hdr.seqno = atomic_inc_return(&hp->seqno);
+	packet.hdr.seqno = atomic_inc_return_unchecked(&hp->seqno);
 	packet.hdr.len = count + sizeof(struct hvsi_header);
 	memcpy(&packet.data, buf, count);
 
@@ -723,7 +723,7 @@ static void hvsi_close_protocol(struct hvsi_struct *hp)
 	struct hvsi_control packet __ALIGNED__;
 
 	packet.hdr.type = VS_CONTROL_PACKET_HEADER;
-	packet.hdr.seqno = atomic_inc_return(&hp->seqno);
+	packet.hdr.seqno = atomic_inc_return_unchecked(&hp->seqno);
 	packet.hdr.len = 6;
 	packet.verb = VSV_CLOSE_PROTOCOL;
 
@@ -755,7 +755,7 @@ static int hvsi_open(struct tty_struct *tty, struct file *filp)
 	spin_lock_irqsave(&hp->lock, flags);
 	hp->tty = tty;
 	hp->count++;
-	atomic_set(&hp->seqno, 0);
+	atomic_set_unchecked(&hp->seqno, 0);
 	h_vio_signal(hp->vtermno, VIO_IRQ_ENABLE);
 	spin_unlock_irqrestore(&hp->lock, flags);
 

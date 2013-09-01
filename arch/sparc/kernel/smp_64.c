@@ -871,8 +871,8 @@ extern unsigned long xcall_flush_dcache_page_cheetah;
 extern unsigned long xcall_flush_dcache_page_spitfire;
 
 #ifdef CONFIG_DEBUG_DCFLUSH
-extern atomic_t dcpage_flushes;
-extern atomic_t dcpage_flushes_xcall;
+extern atomic_unchecked_t dcpage_flushes;
+extern atomic_unchecked_t dcpage_flushes_xcall;
 #endif
 
 static inline void __local_flush_dcache_page(struct page *page)
@@ -896,7 +896,7 @@ void smp_flush_dcache_page_impl(struct page *page, int cpu)
 		return;
 
 #ifdef CONFIG_DEBUG_DCFLUSH
-	atomic_inc(&dcpage_flushes);
+	atomic_inc_unchecked(&dcpage_flushes);
 #endif
 
 	this_cpu = get_cpu();
@@ -920,7 +920,7 @@ void smp_flush_dcache_page_impl(struct page *page, int cpu)
 			xcall_deliver(data0, __pa(pg_addr),
 				      (u64) pg_addr, cpumask_of(cpu));
 #ifdef CONFIG_DEBUG_DCFLUSH
-			atomic_inc(&dcpage_flushes_xcall);
+			atomic_inc_unchecked(&dcpage_flushes_xcall);
 #endif
 		}
 	}
@@ -939,7 +939,7 @@ void flush_dcache_page_all(struct mm_struct *mm, struct page *page)
 	preempt_disable();
 
 #ifdef CONFIG_DEBUG_DCFLUSH
-	atomic_inc(&dcpage_flushes);
+	atomic_inc_unchecked(&dcpage_flushes);
 #endif
 	data0 = 0;
 	pg_addr = page_address(page);
@@ -956,7 +956,7 @@ void flush_dcache_page_all(struct mm_struct *mm, struct page *page)
 		xcall_deliver(data0, __pa(pg_addr),
 			      (u64) pg_addr, cpu_online_mask);
 #ifdef CONFIG_DEBUG_DCFLUSH
-		atomic_inc(&dcpage_flushes_xcall);
+		atomic_inc_unchecked(&dcpage_flushes_xcall);
 #endif
 	}
 	__local_flush_dcache_page(page);

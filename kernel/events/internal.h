@@ -78,7 +78,7 @@ static unsigned long perf_data_size(struct ring_buffer *rb)
 
 static inline void
 __output_copy(struct perf_output_handle *handle,
-		   const void *buf, unsigned int len)
+		   const void *buf, unsigned long len)
 {
 	do {
 		unsigned long size = min_t(unsigned long, handle->size, len);

@@ -9,7 +9,7 @@
 
 static int hvsi_send_packet(struct hvsi_priv *pv, struct hvsi_header *packet)
 {
-	packet->seqno = atomic_inc_return(&pv->seqno);
+	packet->seqno = atomic_inc_return_unchecked(&pv->seqno);
 
 	/* Assumes that always succeeds, works in practice */
 	return pv->put_chars(pv->termno, (char *)packet, packet->len);
@@ -21,7 +21,7 @@ static void hvsi_start_handshake(struct hvsi_priv *pv)
 
 	/* Reset state */
 	pv->established = 0;
-	atomic_set(&pv->seqno, 0);
+	atomic_set_unchecked(&pv->seqno, 0);
 
 	pr_devel("HVSI@%x: Handshaking started\n", pv->termno);
 
@@ -265,7 +265,7 @@ int hvsilib_read_mctrl(struct hvsi_priv *pv)
 	pv->mctrl_update = 0;
 	q.hdr.type = VS_QUERY_PACKET_HEADER;
 	q.hdr.len = sizeof(struct hvsi_query);
-	q.hdr.seqno = atomic_inc_return(&pv->seqno);
+	q.hdr.seqno = atomic_inc_return_unchecked(&pv->seqno);
 	q.verb = VSV_SEND_MODEM_CTL_STATUS;
 	rc = hvsi_send_packet(pv, &q.hdr);
 	if (rc <= 0) {

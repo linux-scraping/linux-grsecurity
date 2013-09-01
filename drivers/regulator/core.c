@@ -2639,7 +2639,7 @@ struct regulator_dev *regulator_register(struct regulator_desc *regulator_desc,
 	struct device *dev, const struct regulator_init_data *init_data,
 	void *driver_data)
 {
-	static atomic_t regulator_no = ATOMIC_INIT(0);
+	static atomic_unchecked_t regulator_no = ATOMIC_INIT(0);
 	struct regulator_dev *rdev;
 	int ret, i;
 
@@ -2698,7 +2698,7 @@ struct regulator_dev *regulator_register(struct regulator_desc *regulator_desc,
 	rdev->dev.class = &regulator_class;
 	rdev->dev.parent = dev;
 	dev_set_name(&rdev->dev, "regulator.%d",
-		     atomic_inc_return(&regulator_no) - 1);
+		     atomic_inc_return_unchecked(&regulator_no) - 1);
 	ret = device_register(&rdev->dev);
 	if (ret != 0) {
 		put_device(&rdev->dev);

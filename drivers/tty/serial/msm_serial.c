@@ -857,7 +857,7 @@ static struct uart_driver msm_uart_driver = {
 	.cons = MSM_CONSOLE,
 };
 
-static atomic_t msm_uart_next_id = ATOMIC_INIT(0);
+static atomic_unchecked_t msm_uart_next_id = ATOMIC_INIT(0);
 
 static int __init msm_serial_probe(struct platform_device *pdev)
 {
@@ -867,7 +867,7 @@ static int __init msm_serial_probe(struct platform_device *pdev)
 	int irq;
 
 	if (pdev->id == -1)
-		pdev->id = atomic_inc_return(&msm_uart_next_id) - 1;
+		pdev->id = atomic_inc_return_unchecked(&msm_uart_next_id) - 1;
 
 	if (unlikely(pdev->id < 0 || pdev->id >= UART_NR))
 		return -ENXIO;

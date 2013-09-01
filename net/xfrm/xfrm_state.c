@@ -1504,10 +1504,10 @@ EXPORT_SYMBOL(xfrm_find_acq_byseq);
 u32 xfrm_get_acqseq(void)
 {
 	u32 res;
-	static atomic_t acqseq;
+	static atomic_unchecked_t acqseq;
 
 	do {
-		res = atomic_inc_return(&acqseq);
+		res = atomic_inc_return_unchecked(&acqseq);
 	} while (!res);
 
 	return res;

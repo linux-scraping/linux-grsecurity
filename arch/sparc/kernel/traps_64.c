@@ -1797,8 +1797,8 @@ struct sun4v_error_entry {
 	u16		err_pad;
 };
 
-static atomic_t sun4v_resum_oflow_cnt = ATOMIC_INIT(0);
-static atomic_t sun4v_nonresum_oflow_cnt = ATOMIC_INIT(0);
+static atomic_unchecked_t sun4v_resum_oflow_cnt = ATOMIC_INIT(0);
+static atomic_unchecked_t sun4v_nonresum_oflow_cnt = ATOMIC_INIT(0);
 
 static const char *sun4v_err_type_to_str(u32 type)
 {
@@ -1818,7 +1818,7 @@ static const char *sun4v_err_type_to_str(u32 type)
 	}
 }
 
-static void sun4v_log_error(struct pt_regs *regs, struct sun4v_error_entry *ent, int cpu, const char *pfx, atomic_t *ocnt)
+static void sun4v_log_error(struct pt_regs *regs, struct sun4v_error_entry *ent, int cpu, const char *pfx, atomic_unchecked_t *ocnt)
 {
 	int cnt;
 
@@ -1853,8 +1853,8 @@ static void sun4v_log_error(struct pt_regs *regs, struct sun4v_error_entry *ent,
 
 	show_regs(regs);
 
-	if ((cnt = atomic_read(ocnt)) != 0) {
-		atomic_set(ocnt, 0);
+	if ((cnt = atomic_read_unchecked(ocnt)) != 0) {
+		atomic_set_unchecked(ocnt, 0);
 		wmb();
 		printk("%s: Queue overflowed %d times.\n",
 		       pfx, cnt);
@@ -1906,7 +1906,7 @@ void sun4v_resum_error(struct pt_regs *regs, unsigned long offset)
  */
 void sun4v_resum_overflow(struct pt_regs *regs)
 {
-	atomic_inc(&sun4v_resum_oflow_cnt);
+	atomic_inc_unchecked(&sun4v_resum_oflow_cnt);
 }
 
 /* We run with %pil set to PIL_NORMAL_MAX and PSTATE_IE enabled in %pstate.
@@ -1959,7 +1959,7 @@ void sun4v_nonresum_overflow(struct pt_regs *regs)
 	/* XXX Actually even this can make not that much sense.  Perhaps
 	 * XXX we should just pull the plug and panic directly from here?
 	 */
-	atomic_inc(&sun4v_nonresum_oflow_cnt);
+	atomic_inc_unchecked(&sun4v_nonresum_oflow_cnt);
 }
 
 unsigned long sun4v_err_itlb_vaddr;
