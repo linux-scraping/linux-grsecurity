@@ -458,7 +458,7 @@ static int __btrfs_add_delayed_deletion_item(struct btrfs_delayed_node *node,
 
 static void finish_one_item(struct btrfs_delayed_root *delayed_root)
 {
-	int seq = atomic_inc_return(&delayed_root->items_seq);
+	int seq = atomic_inc_return_unchecked(&delayed_root->items_seq);
 	if ((atomic_dec_return(&delayed_root->items) <
 	    BTRFS_DELAYED_BACKGROUND || seq % BTRFS_DELAYED_BATCH == 0) &&
 	    waitqueue_active(&delayed_root->wait))
@@ -1391,7 +1391,7 @@ void btrfs_assert_delayed_root_empty(struct btrfs_root *root)
 static int refs_newer(struct btrfs_delayed_root *delayed_root,
 		      int seq, int count)
 {
-	int val = atomic_read(&delayed_root->items_seq);
+	int val = atomic_read_unchecked(&delayed_root->items_seq);
 
 	if (val < seq || val >= seq + count)
 		return 1;
@@ -1408,7 +1408,7 @@ void btrfs_balance_delayed_items(struct btrfs_root *root)
 	if (atomic_read(&delayed_root->items) < BTRFS_DELAYED_BACKGROUND)
 		return;
 
-	seq = atomic_read(&delayed_root->items_seq);
+	seq = atomic_read_unchecked(&delayed_root->items_seq);
 
 	if (atomic_read(&delayed_root->items) >= BTRFS_DELAYED_WRITEBACK) {
 		int ret;

@@ -83,7 +83,7 @@ struct appledisplay {
 	spinlock_t lock;
 };
 
-static atomic_t count_displays = ATOMIC_INIT(0);
+static atomic_unchecked_t count_displays = ATOMIC_INIT(0);
 static struct workqueue_struct *wq;
 
 static void appledisplay_complete(struct urb *urb)
@@ -281,7 +281,7 @@ static int appledisplay_probe(struct usb_interface *iface,
 
 	/* Register backlight device */
 	snprintf(bl_name, sizeof(bl_name), "appledisplay%d",
-		atomic_inc_return(&count_displays) - 1);
+		atomic_inc_return_unchecked(&count_displays) - 1);
 	memset(&props, 0, sizeof(struct backlight_properties));
 	props.type = BACKLIGHT_RAW;
 	props.max_brightness = 0xff;

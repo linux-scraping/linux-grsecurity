@@ -428,7 +428,7 @@ void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
 	struct udphdr *udph;
 	struct iphdr *iph;
 	struct ethhdr *eth;
-	static atomic_t ip_ident;
+	static atomic_unchecked_t ip_ident;
 	struct ipv6hdr *ip6h;
 
 	udp_len = len + sizeof(*udph);
@@ -499,7 +499,7 @@ void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
 		put_unaligned(0x45, (unsigned char *)iph);
 		iph->tos      = 0;
 		put_unaligned(htons(ip_len), &(iph->tot_len));
-		iph->id       = htons(atomic_inc_return(&ip_ident));
+		iph->id       = htons(atomic_inc_return_unchecked(&ip_ident));
 		iph->frag_off = 0;
 		iph->ttl      = 64;
 		iph->protocol = IPPROTO_UDP;

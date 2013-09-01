@@ -3529,7 +3529,7 @@ regulator_register(const struct regulator_desc *regulator_desc,
 {
 	const struct regulation_constraints *constraints = NULL;
 	const struct regulator_init_data *init_data;
-	static atomic_t regulator_no = ATOMIC_INIT(0);
+	static atomic_unchecked_t regulator_no = ATOMIC_INIT(0);
 	struct regulator_dev *rdev;
 	struct device *dev;
 	int ret, i;
@@ -3599,7 +3599,7 @@ regulator_register(const struct regulator_desc *regulator_desc,
 	rdev->dev.of_node = config->of_node;
 	rdev->dev.parent = dev;
 	dev_set_name(&rdev->dev, "regulator.%d",
-		     atomic_inc_return(&regulator_no) - 1);
+		     atomic_inc_return_unchecked(&regulator_no) - 1);
 	ret = device_register(&rdev->dev);
 	if (ret != 0) {
 		put_device(&rdev->dev);

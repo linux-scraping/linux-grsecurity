@@ -3339,7 +3339,7 @@ out:
 
 void drbd_bcast_event(struct drbd_conf *mdev, const struct sib_info *sib)
 {
-	static atomic_t drbd_genl_seq = ATOMIC_INIT(2); /* two. */
+	static atomic_unchecked_t drbd_genl_seq = ATOMIC_INIT(2); /* two. */
 	struct sk_buff *msg;
 	struct drbd_genlmsghdr *d_out;
 	unsigned seq;
@@ -3352,7 +3352,7 @@ void drbd_bcast_event(struct drbd_conf *mdev, const struct sib_info *sib)
 			return;
 	}
 
-	seq = atomic_inc_return(&drbd_genl_seq);
+	seq = atomic_inc_return_unchecked(&drbd_genl_seq);
 	msg = genlmsg_new(NLMSG_GOODSIZE, GFP_NOIO);
 	if (!msg)
 		goto failed;

@@ -21,8 +21,8 @@
 #include <asm/mipsregs.h>
 
 static atomic_t __cpuinitdata count_start_flag = ATOMIC_INIT(0);
-static atomic_t __cpuinitdata count_count_start = ATOMIC_INIT(0);
-static atomic_t __cpuinitdata count_count_stop = ATOMIC_INIT(0);
+static atomic_unchecked_t __cpuinitdata count_count_start = ATOMIC_INIT(0);
+static atomic_unchecked_t __cpuinitdata count_count_stop = ATOMIC_INIT(0);
 static atomic_t __cpuinitdata count_reference = ATOMIC_INIT(0);
 
 #define COUNTON 100
@@ -69,13 +69,13 @@ void __cpuinit synchronise_count_master(int cpu)
 
 	for (i = 0; i < NR_LOOPS; i++) {
 		/* slaves loop on '!= 2' */
-		while (atomic_read(&count_count_start) != 1)
+		while (atomic_read_unchecked(&count_count_start) != 1)
 			mb();
-		atomic_set(&count_count_stop, 0);
+		atomic_set_unchecked(&count_count_stop, 0);
 		smp_wmb();
 
 		/* this lets the slaves write their count register */
-		atomic_inc(&count_count_start);
+		atomic_inc_unchecked(&count_count_start);
 
 		/*
 		 * Everyone initialises count in the last loop:
@@ -86,11 +86,11 @@ void __cpuinit synchronise_count_master(int cpu)
 		/*
 		 * Wait for all slaves to leave the synchronization point:
 		 */
-		while (atomic_read(&count_count_stop) != 1)
+		while (atomic_read_unchecked(&count_count_stop) != 1)
 			mb();
-		atomic_set(&count_count_start, 0);
+		atomic_set_unchecked(&count_count_start, 0);
 		smp_wmb();
-		atomic_inc(&count_count_stop);
+		atomic_inc_unchecked(&count_count_stop);
 	}
 	/* Arrange for an interrupt in a short while */
 	write_c0_compare(read_c0_count() + COUNTON);
@@ -131,8 +131,8 @@ void __cpuinit synchronise_count_slave(int cpu)
 	initcount = atomic_read(&count_reference);
 
 	for (i = 0; i < NR_LOOPS; i++) {
-		atomic_inc(&count_count_start);
-		while (atomic_read(&count_count_start) != 2)
+		atomic_inc_unchecked(&count_count_start);
+		while (atomic_read_unchecked(&count_count_start) != 2)
 			mb();
 
 		/*
@@ -141,8 +141,8 @@ void __cpuinit synchronise_count_slave(int cpu)
 		if (i == NR_LOOPS-1)
 			write_c0_count(initcount);
 
-		atomic_inc(&count_count_stop);
-		while (atomic_read(&count_count_stop) != 2)
+		atomic_inc_unchecked(&count_count_stop);
+		while (atomic_read_unchecked(&count_count_stop) != 2)
 			mb();
 	}
 	/* Arrange for an interrupt in a short while */

@@ -95,7 +95,7 @@ int __must_check v4l2_device_register(struct device *dev, struct v4l2_device *v4
    this function returns 0. If the name ends with a digit (e.g. cx18),
    then the name will be set to cx18-0 since cx180 looks really odd. */
 int v4l2_device_set_name(struct v4l2_device *v4l2_dev, const char *basename,
-						atomic_t *instance);
+						atomic_unchecked_t *instance);
 
 /* Set v4l2_dev->dev to NULL. Call when the USB parent disconnects.
    Since the parent disappears this ensures that v4l2_dev doesn't have an

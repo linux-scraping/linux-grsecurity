@@ -98,7 +98,7 @@ static unsigned int ata_dev_set_xfermode(struct ata_device *dev);
 static void ata_dev_xfermask(struct ata_device *dev);
 static unsigned long ata_dev_blacklisted(const struct ata_device *dev);
 
-atomic_t ata_print_id = ATOMIC_INIT(0);
+atomic_unchecked_t ata_print_id = ATOMIC_INIT(0);
 
 struct ata_force_param {
 	const char	*name;
@@ -6135,7 +6135,7 @@ int ata_host_register(struct ata_host *host, struct scsi_host_template *sht)
 
 	/* give ports names and add SCSI hosts */
 	for (i = 0; i < host->n_ports; i++)
-		host->ports[i]->print_id = atomic_inc_return(&ata_print_id);
+		host->ports[i]->print_id = atomic_inc_return_unchecked(&ata_print_id);
 
 
 	/* Create associated sysfs transport objects  */

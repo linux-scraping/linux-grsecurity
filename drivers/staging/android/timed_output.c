@@ -25,7 +25,7 @@
 #include "timed_output.h"
 
 static struct class *timed_output_class;
-static atomic_t device_count;
+static atomic_unchecked_t device_count;
 
 static ssize_t enable_show(struct device *dev, struct device_attribute *attr,
 		char *buf)
@@ -59,7 +59,7 @@ static int create_timed_output_class(void)
 		timed_output_class = class_create(THIS_MODULE, "timed_output");
 		if (IS_ERR(timed_output_class))
 			return PTR_ERR(timed_output_class);
-		atomic_set(&device_count, 0);
+		atomic_set_unchecked(&device_count, 0);
 	}
 
 	return 0;
@@ -76,7 +76,7 @@ int timed_output_dev_register(struct timed_output_dev *tdev)
 	if (ret < 0)
 		return ret;
 
-	tdev->index = atomic_inc_return(&device_count);
+	tdev->index = atomic_inc_return_unchecked(&device_count);
 	tdev->dev = device_create(timed_output_class, NULL,
 		MKDEV(0, tdev->index), NULL, tdev->name);
 	if (IS_ERR(tdev->dev))
