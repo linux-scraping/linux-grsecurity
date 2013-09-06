@@ -16,11 +16,12 @@ gr_handle_sysctl_mod(const char *dirname, const char *name, const int op)
 	return 0;
 }
 
-#ifdef CONFIG_GRKERNSEC_ROFS
-static int __maybe_unused one = 1;
+#if defined(CONFIG_GRKERNSEC_ROFS) || defined(CONFIG_GRKERNSEC_DENYUSB)
+static int __maybe_unused __read_only one = 1;
 #endif
 
-#if defined(CONFIG_GRKERNSEC_SYSCTL) || defined(CONFIG_GRKERNSEC_ROFS)
+#if defined(CONFIG_GRKERNSEC_SYSCTL) || defined(CONFIG_GRKERNSEC_ROFS) || \
+	defined(CONFIG_GRKERNSEC_DENYUSB)
 ctl_table grsecurity_table[] = {
 #ifdef CONFIG_GRKERNSEC_SYSCTL
 #ifdef CONFIG_GRKERNSEC_SYSCTL_DISTRO
@@ -510,6 +511,15 @@ ctl_table grsecurity_table[] = {
 		.proc_handler	= &proc_dointvec_minmax,
 		.extra1		= &one,
 		.extra2		= &one,
+	},
+#endif
+#if defined(CONFIG_GRKERNSEC_DENYUSB) && !defined(CONFIG_GRKERNSEC_DENYUSB_FORCE)
+	{
+		.procname	= "deny_new_usb",
+		.data		= &grsec_deny_new_usb,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
 	},
 #endif
 	{ .ctl_name = 0 }
