@@ -66,12 +66,16 @@ int __init security_init(void)
 	return 0;
 }
 
+#ifdef CONFIG_SECURITY_SELINUX_DISABLE
+
 void reset_security_ops(void)
 {
 	pax_open_kernel();
 	security_ops = &default_security_ops;
 	pax_close_kernel();
 }
+
+#endif
 
 /* Save user chosen LSM */
 static int __init choose_lsm(char *str)

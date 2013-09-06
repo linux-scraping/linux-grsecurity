@@ -26,6 +26,7 @@ int grsec_audit_gid;
 int grsec_enable_chdir;
 int grsec_enable_mount;
 int grsec_enable_rofs;
+int grsec_deny_new_usb;
 int grsec_enable_chroot_findtask;
 int grsec_enable_chroot_mount;
 int grsec_enable_chroot_shmat;
@@ -273,6 +274,9 @@ grsecurity_init(void)
 	grsec_enable_socket_server = 1;
 	grsec_socket_server_gid = CONFIG_GRKERNSEC_SOCKET_SERVER_GID;
 #endif
+#endif
+#ifdef CONFIG_GRKERNSEC_DENYUSB_FORCE
+	grsec_deny_new_usb = 1;
 #endif
 
 	return;

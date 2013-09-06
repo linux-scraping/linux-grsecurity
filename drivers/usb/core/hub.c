@@ -25,6 +25,7 @@
 #include <linux/mutex.h>
 #include <linux/freezer.h>
 #include <linux/random.h>
+#include <linux/grsecurity.h>
 
 #include <asm/uaccess.h>
 #include <asm/byteorder.h>
@@ -3404,6 +3405,9 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
   			goto done;
 		return;
 	}
+
+	if (gr_handle_new_usb())
+		goto done;
 
 	for (i = 0; i < SET_CONFIG_TRIES; i++) {
 
