@@ -275,6 +275,9 @@ grsecurity_init(void)
 	grsec_socket_server_gid = KGIDT_INIT(CONFIG_GRKERNSEC_SOCKET_SERVER_GID);
 #endif
 #endif
+#ifdef CONFIG_GRKERNSEC_DENYUSB_FORCE
+	grsec_deny_new_usb = 1;
+#endif
 
 	return;
 }

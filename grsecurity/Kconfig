@@ -396,6 +396,7 @@ config GRKERNSEC_SYSFS_RESTRICT
 
 config GRKERNSEC_ROFS
 	bool "Runtime read-only mount protection"
+	depends on SYSCTL
 	help
 	  If you say Y here, a sysctl option with name "romount_protect" will
 	  be created.  By setting this option to 1 at runtime, filesystems
@@ -985,7 +986,22 @@ config GRKERNSEC_DENYUSB
 	  in various USB device drivers.
 
 	  For greatest effectiveness, this sysctl should be set after any
-	  relevant init scripts.  Once set, it cannot be unset.
+	  relevant init scripts.  This option is safe to enable in distros
+	  as each user can choose whether or not to toggle the sysctl.
+
+config GRKERNSEC_DENYUSB_FORCE
+	bool "Reject all USB devices not connected at boot"
+	select USB
+	depends on SYSCTL && GRKERNSEC_DENYUSB
+	help
+	  If you say Y here, a variant of GRKERNSEC_DENYUSB will be enabled
+	  that doesn't involve a sysctl entry.  This option should only be
+	  enabled if you're sure you want to deny all new USB connections
+	  at runtime and don't want to modify init scripts.  This should not
+	  be enabled by distros.  It forces the core USB code to be built
+	  into the kernel image so that all devices connected at boot time
+	  can be recognized and new USB device connections can be prevented
+	  prior to init running.
 
 endmenu
 
