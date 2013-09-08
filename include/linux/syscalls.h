@@ -83,12 +83,20 @@ struct file_handle;
 #define __SC_DECL5(t5, a5, ...) t5 a5, __SC_DECL4(__VA_ARGS__)
 #define __SC_DECL6(t6, a6, ...) t6 a6, __SC_DECL5(__VA_ARGS__)
 
-#define __SC_LONG1(t1, a1) 	long a1
-#define __SC_LONG2(t2, a2, ...) long a2, __SC_LONG1(__VA_ARGS__)
-#define __SC_LONG3(t3, a3, ...) long a3, __SC_LONG2(__VA_ARGS__)
-#define __SC_LONG4(t4, a4, ...) long a4, __SC_LONG3(__VA_ARGS__)
-#define __SC_LONG5(t5, a5, ...) long a5, __SC_LONG4(__VA_ARGS__)
-#define __SC_LONG6(t6, a6, ...) long a6, __SC_LONG5(__VA_ARGS__)
+#define __TYPE_IS_U(t) (__same_type((t)0, 0UL) || __same_type((t)0, 0U) || __same_type((t)0, (unsigned short)0) || __same_type((t)0, (unsigned char)0))
+#define __SC_TYPE(t, a) __typeof(				\
+	__builtin_choose_expr(					\
+		sizeof(t) > sizeof(int),			\
+		(t) 0,						\
+		__builtin_choose_expr(__TYPE_IS_U(t), 0UL, 0L)	\
+	)) a
+
+#define __SC_LONG1(t1, a1) 	__SC_TYPE(t1, a1)
+#define __SC_LONG2(t2, a2, ...) __SC_TYPE(t2, a2), __SC_LONG1(__VA_ARGS__)
+#define __SC_LONG3(t3, a3, ...) __SC_TYPE(t3, a3), __SC_LONG2(__VA_ARGS__)
+#define __SC_LONG4(t4, a4, ...) __SC_TYPE(t4, a4), __SC_LONG3(__VA_ARGS__)
+#define __SC_LONG5(t5, a5, ...) __SC_TYPE(t5, a5), __SC_LONG4(__VA_ARGS__)
+#define __SC_LONG6(t6, a6, ...) __SC_TYPE(t6, a6), __SC_LONG5(__VA_ARGS__)
 
 #define __SC_CAST1(t1, a1)	(t1) a1
 #define __SC_CAST2(t2, a2, ...) (t2) a2, __SC_CAST1(__VA_ARGS__)

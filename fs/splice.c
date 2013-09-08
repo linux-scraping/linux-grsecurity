@@ -1459,6 +1459,7 @@ static int get_iovec_page_array(const struct iovec __user *iov,
 
 			partial[buffers].offset = off;
 			partial[buffers].len = plen;
+			partial[buffers].private = 0;
 
 			off = 0;
 			len -= plen;
