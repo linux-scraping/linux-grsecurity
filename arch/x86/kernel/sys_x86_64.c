@@ -115,7 +115,7 @@ static void find_start_end(struct mm_struct *mm, unsigned long flags,
 				*begin = new_begin;
 		}
 	} else {
-		*begin = mm->mmap_base;
+		*begin = mm->mmap_legacy_base;
 		*end = TASK_SIZE;
 	}
 }

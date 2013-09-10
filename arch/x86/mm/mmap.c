@@ -125,24 +125,21 @@ static unsigned long mmap_legacy_base(struct mm_struct *mm)
  */
 void arch_pick_mmap_layout(struct mm_struct *mm)
 {
-	if (mmap_is_legacy()) {
-		mm->mmap_base = mmap_legacy_base(mm);
+	mm->mmap_legacy_base = mmap_legacy_base(mm);
+	mm->mmap_base = mmap_base(mm);
 
 #ifdef CONFIG_PAX_RANDMMAP
-		if (mm->pax_flags & MF_PAX_RANDMMAP)
-			mm->mmap_base += mm->delta_mmap;
+	if (mm->pax_flags & MF_PAX_RANDMMAP) {
+		mm->mmap_legacy_base += mm->delta_mmap;
+		mm->mmap_base -= mm->delta_mmap + mm->delta_stack;
+	}
 #endif
 
+	if (mmap_is_legacy()) {
+		mm->mmap_base = mm->mmap_legacy_base;
 		mm->get_unmapped_area = arch_get_unmapped_area;
 		mm->unmap_area = arch_unmap_area;
 	} else {
-		mm->mmap_base = mmap_base(mm);
-
-#ifdef CONFIG_PAX_RANDMMAP
-		if (mm->pax_flags & MF_PAX_RANDMMAP)
-			mm->mmap_base -= mm->delta_mmap + mm->delta_stack;
-#endif
-
 		mm->get_unmapped_area = arch_get_unmapped_area_topdown;
 		mm->unmap_area = arch_unmap_area_topdown;
 	}

@@ -655,7 +655,7 @@ const struct file_operations proc_clear_refs_operations = {
 };
 
 struct pagemapread {
-	int pos, len;
+	int pos, len;		/* units: PM_ENTRY_BYTES, not bytes */
 	u64 *buffer;
 };
 
