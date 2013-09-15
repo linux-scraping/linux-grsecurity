@@ -507,7 +507,9 @@ EXPORT_SYMBOL(ath10k_core_destroy);
 
 int ath10k_core_register(struct ath10k *ar)
 {
-	ath10k_htc_ops_no_const htc_ops;
+	static struct ath10k_htc_ops htc_ops = {
+		.target_send_suspend_complete = ath10k_send_suspend_complete,
+	};
 	struct bmi_target_info target_info;
 	int status;
 
@@ -535,8 +537,6 @@ int ath10k_core_register(struct ath10k *ar)
 	status = ath10k_init_uart(ar);
 	if (status)
 		goto err;
-
-	htc_ops.target_send_suspend_complete = ath10k_send_suspend_complete;
 
 	ar->htc = ath10k_htc_create(ar, &htc_ops);
 	if (IS_ERR(ar->htc)) {

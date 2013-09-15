@@ -80,7 +80,7 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 		if (static_cpu_has(X86_FEATURE_PCID)) {
 			if (static_cpu_has(X86_FEATURE_INVPCID)) {
-				unsigned long descriptor[2];
+				u64 descriptor[2];
 				descriptor[0] = PCID_USER;
 				asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_CONTEXT) : "memory");
 			} else {
@@ -146,7 +146,7 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 		if (static_cpu_has(X86_FEATURE_PCID)) {
 			if (static_cpu_has(X86_FEATURE_INVPCID)) {
-				unsigned long descriptor[2];
+				u64 descriptor[2];
 				descriptor[0] = PCID_USER;
 				asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_CONTEXT) : "memory");
 			} else {

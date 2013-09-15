@@ -272,7 +272,6 @@ enum ath10k_htc_ep_id {
 struct ath10k_htc_ops {
 	void (*target_send_suspend_complete)(struct ath10k *ar);
 };
-typedef struct ath10k_htc_ops __no_const ath10k_htc_ops_no_const;
 
 struct ath10k_htc_ep_ops {
 	void (*ep_tx_complete)(struct ath10k *, struct sk_buff *);

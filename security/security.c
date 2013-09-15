@@ -21,7 +21,6 @@
 #include <linux/ima.h>
 #include <linux/evm.h>
 #include <linux/fsnotify.h>
-#include <linux/mm.h>
 #include <linux/mman.h>
 #include <linux/mount.h>
 #include <linux/personality.h>

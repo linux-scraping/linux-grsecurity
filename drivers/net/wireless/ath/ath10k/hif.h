@@ -29,7 +29,6 @@ struct ath10k_hif_cb {
 			     struct sk_buff *wbuf,
 			     u8 pipe_id);
 };
-typedef struct ath10k_hif_cb __no_const ath10k_hif_cb_no_const;
 
 struct ath10k_hif_ops {
 	/* Send the head of a buffer to HIF for transmission to the target. */

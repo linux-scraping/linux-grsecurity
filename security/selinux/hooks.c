@@ -5960,6 +5960,7 @@ static void selinux_nf_ip_exit(void)
 static int selinux_disabled;
 
 extern struct security_operations *security_ops;
+extern struct security_operations default_security_ops;
 
 int selinux_disable(void)
 {

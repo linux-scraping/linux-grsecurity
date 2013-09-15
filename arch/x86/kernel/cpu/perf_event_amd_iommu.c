@@ -405,7 +405,7 @@ static void perf_iommu_del(struct perf_event *event, int flags)
 static __init int _init_events_attrs(struct perf_amd_iommu *perf_iommu)
 {
 	struct attribute **attrs;
-	struct attribute_group *attr_group;
+	attribute_group_no_const *attr_group;
 	int i = 0, j;
 
 	while (amd_iommu_v2_event_descs[i].attr.attr.name)

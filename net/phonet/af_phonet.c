@@ -469,7 +469,7 @@ int __init_or_module phonet_proto_register(unsigned int protocol,
 {
 	int err = 0;
 
-	if (protocol < 0 || protocol >= PHONET_NPROTO)
+	if (protocol >= PHONET_NPROTO)
 		return -EINVAL;
 
 	err = proto_register(pp->prot, 1);
