@@ -82,6 +82,7 @@ static const char netdev_features_strings[NETDEV_FEATURE_COUNT][ETH_GSTRING_LEN]
 	[NETIF_F_FSO_BIT] =              "tx-fcoe-segmentation",
 	[NETIF_F_GSO_GRE_BIT] =		 "tx-gre-segmentation",
 	[NETIF_F_GSO_UDP_TUNNEL_BIT] =	 "tx-udp_tnl-segmentation",
+	[NETIF_F_GSO_MPLS_BIT] =	 "tx-mpls-segmentation",
 
 	[NETIF_F_FCOE_CRC_BIT] =         "tx-checksum-fcoe-crc",
 	[NETIF_F_SCTP_CSUM_BIT] =        "tx-checksum-sctp",
@@ -278,11 +279,16 @@ static u32 __ethtool_get_flags(struct net_device *dev)
 {
 	u32 flags = 0;
 
-	if (dev->features & NETIF_F_LRO)	     flags |= ETH_FLAG_LRO;
-	if (dev->features & NETIF_F_HW_VLAN_CTAG_RX) flags |= ETH_FLAG_RXVLAN;
-	if (dev->features & NETIF_F_HW_VLAN_CTAG_TX) flags |= ETH_FLAG_TXVLAN;
-	if (dev->features & NETIF_F_NTUPLE)	     flags |= ETH_FLAG_NTUPLE;
-	if (dev->features & NETIF_F_RXHASH)	     flags |= ETH_FLAG_RXHASH;
+	if (dev->features & NETIF_F_LRO)
+		flags |= ETH_FLAG_LRO;
+	if (dev->features & NETIF_F_HW_VLAN_CTAG_RX)
+		flags |= ETH_FLAG_RXVLAN;
+	if (dev->features & NETIF_F_HW_VLAN_CTAG_TX)
+		flags |= ETH_FLAG_TXVLAN;
+	if (dev->features & NETIF_F_NTUPLE)
+		flags |= ETH_FLAG_NTUPLE;
+	if (dev->features & NETIF_F_RXHASH)
+		flags |= ETH_FLAG_RXHASH;
 
 	return flags;
 }
@@ -294,11 +300,16 @@ static int __ethtool_set_flags(struct net_device *dev, u32 data)
 	if (data & ~ETH_ALL_FLAGS)
 		return -EINVAL;
 
-	if (data & ETH_FLAG_LRO)	features |= NETIF_F_LRO;
-	if (data & ETH_FLAG_RXVLAN)	features |= NETIF_F_HW_VLAN_CTAG_RX;
-	if (data & ETH_FLAG_TXVLAN)	features |= NETIF_F_HW_VLAN_CTAG_TX;
-	if (data & ETH_FLAG_NTUPLE)	features |= NETIF_F_NTUPLE;
-	if (data & ETH_FLAG_RXHASH)	features |= NETIF_F_RXHASH;
+	if (data & ETH_FLAG_LRO)
+		features |= NETIF_F_LRO;
+	if (data & ETH_FLAG_RXVLAN)
+		features |= NETIF_F_HW_VLAN_CTAG_RX;
+	if (data & ETH_FLAG_TXVLAN)
+		features |= NETIF_F_HW_VLAN_CTAG_TX;
+	if (data & ETH_FLAG_NTUPLE)
+		features |= NETIF_F_NTUPLE;
+	if (data & ETH_FLAG_RXHASH)
+		features |= NETIF_F_RXHASH;
 
 	/* allow changing only bits set in hw_features */
 	changed = (features ^ dev->features) & ETH_ALL_FEATURES;
@@ -1432,7 +1443,7 @@ static int ethtool_get_module_eeprom(struct net_device *dev,
 				      modinfo.eeprom_len);
 }
 
-/* The main entry point in this file.  Called from net/core/dev.c */
+/* The main entry point in this file.  Called from net/core/dev_ioctl.c */
 
 int dev_ethtool(struct net *net, struct ifreq *ifr)
 {

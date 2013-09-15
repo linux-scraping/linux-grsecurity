@@ -37,9 +37,9 @@ static inline void fill_ldt(struct desc_struct *desc, const struct user_desc *in
 }
 
 extern struct desc_ptr idt_descr;
-extern struct desc_ptr nmi_idt_descr;
-extern gate_desc idt_table[256];
-extern gate_desc nmi_idt_table[256];
+extern gate_desc idt_table[IDT_ENTRIES];
+extern const struct desc_ptr debug_idt_descr;
+extern gate_desc debug_idt_table[IDT_ENTRIES];
 
 extern struct desc_struct cpu_gdt_table[NR_CPUS][PAGE_SIZE / sizeof(struct desc_struct)];
 static inline struct desc_struct *get_cpu_gdt_table(unsigned int cpu)
@@ -329,7 +329,20 @@ static inline void set_nmi_gate(int gate, const void *addr)
 	gate_desc s;
 
 	pack_gate(&s, GATE_INTERRUPT, (unsigned long)addr, 0, 0, __KERNEL_CS);
-	write_idt_entry(nmi_idt_table, gate, &s);
+	write_idt_entry(debug_idt_table, gate, &s);
+}
+#endif
+
+#ifdef CONFIG_TRACING
+extern const struct desc_ptr trace_idt_descr;
+extern gate_desc trace_idt_table[IDT_ENTRIES];
+static inline void write_trace_idt_entry(int entry, const gate_desc *gate)
+{
+	write_idt_entry(trace_idt_table, entry, gate);
+}
+#else
+static inline void write_trace_idt_entry(int entry, const gate_desc *gate)
+{
 }
 #endif
 
@@ -344,6 +357,7 @@ static inline void _set_gate(int gate, unsigned type, const void *addr,
 	 * setup time
 	 */
 	write_idt_entry(idt_table, gate, &s);
+	write_trace_idt_entry(gate, &s);
 }
 
 /*
@@ -373,11 +387,38 @@ static inline void alloc_system_vector(int vector)
 	}
 }
 
-static inline void alloc_intr_gate(unsigned int n, void *addr)
+#ifdef CONFIG_TRACING
+static inline void trace_set_intr_gate(unsigned int gate, void *addr)
 {
-	alloc_system_vector(n);
+	gate_desc s;
+
+	pack_gate(&s, GATE_INTERRUPT, (unsigned long)addr, 0, 0, __KERNEL_CS);
+	write_idt_entry(trace_idt_table, gate, &s);
+}
+
+static inline void __trace_alloc_intr_gate(unsigned int n, void *addr)
+{
+	trace_set_intr_gate(n, addr);
+}
+#else
+static inline void trace_set_intr_gate(unsigned int gate, void *addr)
+{
+}
+
+#define __trace_alloc_intr_gate(n, addr)
+#endif
+
+static inline void __alloc_intr_gate(unsigned int n, void *addr)
+{
 	set_intr_gate(n, addr);
 }
+
+#define alloc_intr_gate(n, addr)				\
+	do {							\
+		alloc_system_vector(n);				\
+		__alloc_intr_gate(n, addr);			\
+		__trace_alloc_intr_gate(n, trace_##addr);	\
+	} while (0)
 
 /*
  * This routine sets up an interrupt gate at directory privilege level 3.
@@ -416,6 +457,73 @@ static inline void set_system_intr_gate_ist(int n, const void *addr, unsigned is
 {
 	BUG_ON((unsigned)n > 0xFF);
 	_set_gate(n, GATE_INTERRUPT, addr, 0x3, ist, __KERNEL_CS);
+}
+
+#ifdef CONFIG_X86_64
+DECLARE_PER_CPU(u32, debug_idt_ctr);
+static inline bool is_debug_idt_enabled(void)
+{
+	if (this_cpu_read(debug_idt_ctr))
+		return true;
+
+	return false;
+}
+
+static inline void load_debug_idt(void)
+{
+	load_idt((const struct desc_ptr *)&debug_idt_descr);
+}
+#else
+static inline bool is_debug_idt_enabled(void)
+{
+	return false;
+}
+
+static inline void load_debug_idt(void)
+{
+}
+#endif
+
+#ifdef CONFIG_TRACING
+extern atomic_t trace_idt_ctr;
+static inline bool is_trace_idt_enabled(void)
+{
+	if (atomic_read(&trace_idt_ctr))
+		return true;
+
+	return false;
+}
+
+static inline void load_trace_idt(void)
+{
+	load_idt((const struct desc_ptr *)&trace_idt_descr);
+}
+#else
+static inline bool is_trace_idt_enabled(void)
+{
+	return false;
+}
+
+static inline void load_trace_idt(void)
+{
+}
+#endif
+
+/*
+ * The load_current_idt() must be called with interrupts disabled
+ * to avoid races. That way the IDT will always be set back to the expected
+ * descriptor. It's also called when a CPU is being initialized, and
+ * that doesn't need to disable interrupts, as nothing should be
+ * bothering the CPU then.
+ */
+static inline void load_current_idt(void)
+{
+	if (is_debug_idt_enabled())
+		load_debug_idt();
+	else if (is_trace_idt_enabled())
+		load_trace_idt();
+	else
+		load_idt((const struct desc_ptr *)&idt_descr);
 }
 
 #ifdef CONFIG_X86_32

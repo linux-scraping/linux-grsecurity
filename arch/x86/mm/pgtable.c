@@ -300,7 +300,6 @@ static void pgd_mop_up_pxds(struct mm_struct *mm, pgd_t *pgdp)
 static void pgd_prepopulate_pxd(struct mm_struct *mm, pgd_t *pgd, pxd_t *pxds[])
 {
 	pyd_t *pyd;
-	unsigned long addr;
 	int i;
 
 	if (PREALLOCATED_PXDS == 0) /* Work around gcc-3.4.x bug */
@@ -312,10 +311,8 @@ static void pgd_prepopulate_pxd(struct mm_struct *mm, pgd_t *pgd, pxd_t *pxds[])
 	pyd = pyd_offset(pgd, 0L);
 #endif
 
- 	for (addr = i = 0; i < PREALLOCATED_PXDS;
-	     i++, pyd++, addr += PYD_SIZE) {
+	for (i = 0; i < PREALLOCATED_PXDS; i++, pyd++) {
 		pxd_t *pxd = pxds[i];
-
 		if (i >= KERNEL_PGD_BOUNDARY)
 			memcpy(pxd, (pxd_t *)pgd_page_vaddr(swapper_pg_dir[i]),
 			       sizeof(pxd_t) * PTRS_PER_PMD);

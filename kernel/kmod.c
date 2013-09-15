@@ -147,6 +147,9 @@ static int ____request_module(bool wait, char *module_param, const char *fmt, va
 	 */
 	WARN_ON_ONCE(wait && current_is_async());
 
+	if (!modprobe_path[0])
+		return 0;
+
 	ret = vsnprintf(module_name, MODULE_NAME_LEN, fmt, ap);
 	if (ret >= MODULE_NAME_LEN)
 		return -ENAMETOOLONG;
@@ -622,14 +625,6 @@ int call_usermodehelper_exec(struct subprocess_info *sub_info, int wait)
 	int retval = 0;
 
 	helper_lock();
-	if (!sub_info->path) {
-		retval = -EINVAL;
-		goto out;
-	}
-
-	if (sub_info->path[0] == '\0')
-		goto out;
-
 	if (!khelper_wq || usermodehelper_disabled) {
 		retval = -EBUSY;
 		goto out;

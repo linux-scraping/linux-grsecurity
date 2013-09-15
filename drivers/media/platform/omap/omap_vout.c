@@ -334,8 +334,6 @@ static int video_mode_to_dss_mode(struct omap_vout_device *vout)
 	ovl = ovid->overlays[0];
 
 	switch (pix->pixelformat) {
-	case 0:
-		break;
 	case V4L2_PIX_FMT_YUYV:
 		mode = OMAP_DSS_COLOR_YUV2;
 		break;
@@ -357,6 +355,7 @@ static int video_mode_to_dss_mode(struct omap_vout_device *vout)
 		break;
 	default:
 		mode = -EINVAL;
+		break;
 	}
 	return mode;
 }

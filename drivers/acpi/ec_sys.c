@@ -35,7 +35,6 @@ static ssize_t acpi_ec_read_io(struct file *f, char __user *buf,
 	 * struct acpi_ec *ec = ((struct seq_file *)f->private_data)->private;
 	 */
 	unsigned int size = EC_SPACE_SIZE;
-	u8 data;
 	loff_t init_off = *off;
 	int err = 0;
 
@@ -48,11 +47,15 @@ static ssize_t acpi_ec_read_io(struct file *f, char __user *buf,
 		size = count;
 
 	while (size) {
-		err = ec_read(*off, &data);
+		u8 byte_read;
+		err = ec_read(*off, &byte_read);
 		if (err)
 			return err;
-		if (put_user(data, &buf[*off - init_off]))
+		if (put_user(byte_read, buf + *off - init_off)) {
+			if (*off - init_off)
+				return *off - init_off; /* partial read */
 			return -EFAULT;
+		}
 		*off += 1;
 		size--;
 	}
@@ -79,8 +82,11 @@ static ssize_t acpi_ec_write_io(struct file *f, const char __user *buf,
 
 	while (size) {
 		u8 byte_write;
-		if (get_user(byte_write, &buf[*off - init_off]))
+		if (get_user(byte_write, buf + *off - init_off)) {
+			if (*off - init_off)
+				return *off - init_off; /* partial write */
 			return -EFAULT;
+		}
 		err = ec_write(*off, byte_write);
 		if (err)
 			return err;

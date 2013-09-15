@@ -218,11 +218,6 @@ static inline void bpf_flush_icache(void *start, void *end)
 	set_fs(old_fs);
 }
 
-struct bpf_jit_work {
-	struct work_struct work;
-	void *image;
-};
-
 #define CHOOSE_LOAD_FUNC(K, func) \
 	((int)K < 0 ? ((int)K >= SKF_LL_OFF ? func##_negative_offset : func) : func##_positive_offset)
 
@@ -246,6 +241,35 @@ static int pkt_type_offset(void)
 	return -1;
 }
 
+/* Note : for security reasons, bpf code will follow a randomly
+ * sized amount of int3 instructions
+ */
+static u8 *bpf_alloc_binary(unsigned int proglen,
+						  u8 **image_ptr)
+{
+	unsigned int sz, hole;
+	u8 *header;
+
+	/* Most of BPF filters are really small,
+	 * but if some of them fill a page, allow at least
+	 * 128 extra bytes to insert a random section of int3
+	 */
+	sz = round_up(proglen + 128, PAGE_SIZE);
+	header = module_alloc_exec(sz);
+	if (!header)
+		return NULL;
+
+	pax_open_kernel();
+	memset(header, 0xcc, sz); /* fill whole space with int3 instructions */
+	pax_close_kernel();
+
+	hole = PAGE_SIZE - (proglen & ~PAGE_MASK);
+
+	/* insert a random number of int3 instructions before BPF code */
+	*image_ptr = &header[prandom_u32() % hole];
+	return header;
+}
+
 void bpf_jit_compile(struct sk_filter *fp)
 {
 	u8 temp[MAX_INSTR_CODE_SIZE];
@@ -255,6 +279,7 @@ void bpf_jit_compile(struct sk_filter *fp)
 	int t_offset, f_offset;
 	u8 t_op, f_op, seen = 0, pass;
 	u8 *image = NULL;
+	u8 *header = NULL;
 	u8 *func;
 	int pc_ret0 = -1; /* bpf index of first RET #0 instruction (if any) */
 	unsigned int cleanup_addr; /* epilogue code offset */
@@ -271,10 +296,6 @@ void bpf_jit_compile(struct sk_filter *fp)
 	addrs = kmalloc(flen * sizeof(*addrs), GFP_KERNEL);
 	if (addrs == NULL)
 		return;
-
-	fp->work = kmalloc(sizeof(*fp->work), GFP_KERNEL);
-	if (!fp->work)
-		goto out;
 
 #ifdef CONFIG_GRKERNSEC_JIT_HARDEN
 	randkey = get_random_int();
@@ -806,14 +827,15 @@ cond_branch:			f_offset = addrs[i + filter[i].jf] - addrs[i];
 				break;
 			default:
 				/* hmm, too complex filter, give up with jit compiler */
-				goto error;
+				goto out;
 			}
 			ilen = prog - temp;
 			if (image) {
 				if (unlikely(proglen + ilen > oldproglen)) {
 					pr_err("bpb_jit_compile fatal error\n");
+					kfree(addrs);
 					module_free_exec(NULL, image);
-					goto error;
+					return;
 				}
 				pax_open_kernel();
 				memcpy(image + proglen, temp, ilen);
@@ -838,9 +860,9 @@ cond_branch:			f_offset = addrs[i + filter[i].jf] - addrs[i];
 			break;
 		}
 		if (proglen == oldproglen) {
-			image = module_alloc_exec(proglen);
-			if (!image)
-				goto error;
+			header = bpf_alloc_binary(proglen, &image);
+			if (!header)
+				goto out;
 		}
 		oldproglen = proglen;
 	}
@@ -849,33 +871,19 @@ cond_branch:			f_offset = addrs[i + filter[i].jf] - addrs[i];
 		bpf_jit_dump(flen, proglen, pass, image);
 
 	if (image) {
-		bpf_flush_icache(image, image + proglen);
+		bpf_flush_icache(header, image + proglen);
 		fp->bpf_func = (void *)image;
-	} else
-error:
-		kfree(fp->work);
-
+	}
 out:
 	kfree(addrs);
 	return;
 }
 
-static void jit_free_defer(struct work_struct *arg)
-{
-	module_free_exec(NULL, ((struct bpf_jit_work *)arg)->image);
-	kfree(arg);
-}
-
-/* run from softirq, we must use a work_struct to call
- * module_free_exec() from process context
- */
 void bpf_jit_free(struct sk_filter *fp)
 {
 	if (fp->bpf_func != sk_run_filter) {
-		struct work_struct *work = &fp->work->work;
-
-		INIT_WORK(work, jit_free_defer);
-		fp->work->image = fp->bpf_func;
-		schedule_work(work);
+		unsigned long addr = (unsigned long)fp->bpf_func & PAGE_MASK;
+		set_memory_rw(addr, 1);
+		module_free_exec(NULL, (void *)addr);
 	}
 }

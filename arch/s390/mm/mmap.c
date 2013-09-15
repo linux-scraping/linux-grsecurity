@@ -97,7 +97,6 @@ void arch_pick_mmap_layout(struct mm_struct *mm)
 #endif
 
 		mm->get_unmapped_area = arch_get_unmapped_area;
-		mm->unmap_area = arch_unmap_area;
 	} else {
 		mm->mmap_base = mmap_base();
 
@@ -107,7 +106,6 @@ void arch_pick_mmap_layout(struct mm_struct *mm)
 #endif
 
 		mm->get_unmapped_area = arch_get_unmapped_area_topdown;
-		mm->unmap_area = arch_unmap_area_topdown;
 	}
 }
 
@@ -194,7 +192,6 @@ void arch_pick_mmap_layout(struct mm_struct *mm)
 #endif
 
 		mm->get_unmapped_area = s390_get_unmapped_area;
-		mm->unmap_area = arch_unmap_area;
 	} else {
 		mm->mmap_base = mmap_base();
 
@@ -204,7 +201,6 @@ void arch_pick_mmap_layout(struct mm_struct *mm)
 #endif
 
 		mm->get_unmapped_area = s390_get_unmapped_area_topdown;
-		mm->unmap_area = arch_unmap_area_topdown;
 	}
 }
 

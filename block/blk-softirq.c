@@ -78,8 +78,8 @@ static int raise_blk_irq(int cpu, struct request *rq)
 }
 #endif
 
-static int __cpuinit blk_cpu_notify(struct notifier_block *self,
-				    unsigned long action, void *hcpu)
+static int blk_cpu_notify(struct notifier_block *self, unsigned long action,
+			  void *hcpu)
 {
 	/*
 	 * If a CPU goes away, splice its entries to the current CPU

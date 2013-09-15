@@ -1031,7 +1031,6 @@ static int snd_opti9xx_isa_remove(struct device *devptr,
 				  unsigned int dev)
 {
 	snd_card_free(dev_get_drvdata(devptr));
-	dev_set_drvdata(devptr, NULL);
 	return 0;
 }
 

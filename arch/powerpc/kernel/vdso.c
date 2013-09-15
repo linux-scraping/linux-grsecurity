@@ -712,7 +712,7 @@ static void __init vdso_setup_syscall_map(void)
 }
 
 #ifdef CONFIG_PPC64
-int __cpuinit vdso_getcpu_init(void)
+int vdso_getcpu_init(void)
 {
 	unsigned long cpu, node, val;
 

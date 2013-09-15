@@ -184,11 +184,10 @@ static int cmodio_pci_probe(struct pci_dev *dev,
 	struct cmodio_device *priv;
 	int ret;
 
-	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc(&dev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
 		dev_err(&dev->dev, "unable to allocate private data\n");
-		ret = -ENOMEM;
-		goto out_return;
+		return -ENOMEM;
 	}
 
 	pci_set_drvdata(dev, priv);
@@ -198,7 +197,7 @@ static int cmodio_pci_probe(struct pci_dev *dev,
 	ret = pci_enable_device(dev);
 	if (ret) {
 		dev_err(&dev->dev, "unable to enable device\n");
-		goto out_free_priv;
+		return ret;
 	}
 
 	pci_set_master(dev);
@@ -249,9 +248,7 @@ out_pci_release_regions:
 	pci_release_regions(dev);
 out_pci_disable_device:
 	pci_disable_device(dev);
-out_free_priv:
-	kfree(priv);
-out_return:
+
 	return ret;
 }
 
@@ -264,7 +261,6 @@ static void cmodio_pci_remove(struct pci_dev *dev)
 	iounmap(priv->ctrl);
 	pci_release_regions(dev);
 	pci_disable_device(dev);
-	kfree(priv);
 }
 
 #define PCI_VENDOR_ID_JANZ		0x13c3

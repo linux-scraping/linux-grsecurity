@@ -18,7 +18,7 @@
 static inline void __native_flush_tlb(void)
 {
 	if (static_cpu_has(X86_FEATURE_INVPCID)) {
-		unsigned long descriptor[2];
+		u64 descriptor[2];
 
 		descriptor[0] = PCID_KERNEL;
 		asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_ALL_MONGLOBAL) : "memory");
@@ -42,7 +42,7 @@ static inline void __native_flush_tlb(void)
 static inline void __native_flush_tlb_global_irq_disabled(void)
 {
 	if (static_cpu_has(X86_FEATURE_INVPCID)) {
-		unsigned long descriptor[2];
+		u64 descriptor[2];
 
 		descriptor[0] = PCID_KERNEL;
 		asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_ALL_GLOBAL) : "memory");
@@ -77,7 +77,7 @@ static inline void __native_flush_tlb_single(unsigned long addr)
 {
 
 	if (static_cpu_has(X86_FEATURE_INVPCID)) {
-		unsigned long descriptor[2];
+		u64 descriptor[2];
 
 		descriptor[0] = PCID_KERNEL;
 		descriptor[1] = addr;
@@ -124,7 +124,7 @@ static inline void __flush_tlb_all(void)
 
 static inline void __flush_tlb_one(unsigned long addr)
 {
-		__flush_tlb_single(addr);
+	__flush_tlb_single(addr);
 }
 
 #define TLB_FLUSH_ALL	-1UL

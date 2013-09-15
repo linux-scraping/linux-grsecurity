@@ -538,7 +538,6 @@ int devmem_is_allowed(unsigned long pagenr)
 
 void free_init_pages(char *what, unsigned long begin, unsigned long end)
 {
-	unsigned long addr;
 	unsigned long begin_aligned, end_aligned;
 
 	/* Make sure boundaries are page aligned */
@@ -552,8 +551,6 @@ void free_init_pages(char *what, unsigned long begin, unsigned long end)
 
 	if (begin >= end)
 		return;
-
-	addr = begin;
 
 	/*
 	 * If debugging page accesses then do not free this memory but
@@ -573,12 +570,7 @@ void free_init_pages(char *what, unsigned long begin, unsigned long end)
 	set_memory_nx(begin, (end - begin) >> PAGE_SHIFT);
 	set_memory_rw(begin, (end - begin) >> PAGE_SHIFT);
 
-	printk(KERN_INFO "Freeing %s: %luk freed\n", what, (end - begin) >> 10);
-
-	for (; addr < end; addr += PAGE_SIZE) {
-		memset((void *)addr, POISON_FREE_INITMEM, PAGE_SIZE);
-		free_reserved_page(virt_to_page(addr));
-	}
+	free_reserved_area((void *)begin, (void *)end, POISON_FREE_INITMEM, what);
 #endif
 }
 
@@ -654,7 +646,7 @@ void free_initmem(void)
 		pgd = pgd_offset_k(addr);
 		pud = pud_offset(pgd, addr);
 		pmd = pmd_offset(pud, addr);
-		set_pmd(pmd, __pmd(pmd_val(*pmd) | (_PAGE_NX & __supported_pte_mask)));
+	set_pmd(pmd, __pmd(pmd_val(*pmd) | (_PAGE_NX & __supported_pte_mask)));
 	}
 */
 #endif
@@ -680,7 +672,7 @@ void free_initmem(void)
 	addr = (unsigned long)__va(__pa(__START_KERNEL_map));
 	end = addr + KERNEL_IMAGE_SIZE;
 	for (; addr < end; addr += PMD_SIZE) {
-		pgd = pgd_offset_k(addr);
+	pgd = pgd_offset_k(addr);
 		pud = pud_offset(pgd, addr);
 		pmd = pmd_offset(pud, addr);
 		if (!pmd_present(*pmd))
@@ -693,7 +685,7 @@ void free_initmem(void)
 	flush_tlb_all();
 #endif
 
-	free_init_pages("unused kernel memory",
+	free_init_pages("unused kernel",
 			(unsigned long)(&__init_begin),
 			(unsigned long)(&__init_end));
 }
@@ -719,7 +711,7 @@ void __init free_initrd_mem(unsigned long start, unsigned long end)
 	 *   - relocate_initrd()
 	 * So here We can do PAGE_ALIGN() safely to get partial page to be freed
 	 */
-	free_init_pages("initrd memory", start, PAGE_ALIGN(end));
+	free_init_pages("initrd", start, PAGE_ALIGN(end));
 }
 #endif
 

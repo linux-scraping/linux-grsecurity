@@ -236,7 +236,8 @@ static int nfs_callback_start_svc(int minorversion, struct rpc_xprt *xprt,
 
 	cb_info->serv = serv;
 	cb_info->rqst = rqstp;
-	cb_info->task = kthread_run(callback_svc, cb_info->rqst, "nfsv4.%u-svc", minorversion);
+	cb_info->task = kthread_run(callback_svc, cb_info->rqst,
+				    "nfsv4.%u-svc", minorversion);
 	if (IS_ERR(cb_info->task)) {
 		ret = PTR_ERR(cb_info->task);
 		svc_exit_thread(cb_info->rqst);
@@ -280,6 +281,7 @@ static int nfs_callback_up_net(int minorversion, struct svc_serv *serv, struct n
 			ret = nfs4_callback_up_net(serv, net);
 			break;
 		case 1:
+		case 2:
 			ret = nfs41_callback_up_net(serv, net);
 			break;
 		default:

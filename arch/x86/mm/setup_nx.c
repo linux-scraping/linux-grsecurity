@@ -6,7 +6,7 @@
 #include <asm/proto.h>
 
 #if defined(CONFIG_X86_64) || defined(CONFIG_X86_PAE)
-static int disable_nx __cpuinitdata;
+static int disable_nx;
 
 #ifndef CONFIG_PAX_PAGEEXEC
 /*
@@ -34,7 +34,7 @@ early_param("noexec", noexec_setup);
 
 #endif
 
-void __cpuinit x86_configure_nx(void)
+void x86_configure_nx(void)
 {
 #if defined(CONFIG_X86_64) || defined(CONFIG_X86_PAE)
 	if (cpu_has_nx && !disable_nx)

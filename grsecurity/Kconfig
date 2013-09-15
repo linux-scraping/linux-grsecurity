@@ -977,6 +977,7 @@ depends on GRKERNSEC
 config GRKERNSEC_DENYUSB
 	bool "Deny new USB connections after toggle"
 	default y if GRKERNSEC_CONFIG_AUTO
+	depends on SYSCTL && USB_SUPPORT
 	help
 	  If you say Y here, a new sysctl option with name "deny_new_usb"
 	  will be created.  Setting its value to 1 will prevent any new
@@ -992,7 +993,7 @@ config GRKERNSEC_DENYUSB
 config GRKERNSEC_DENYUSB_FORCE
 	bool "Reject all USB devices not connected at boot"
 	select USB
-	depends on SYSCTL && GRKERNSEC_DENYUSB
+	depends on GRKERNSEC_DENYUSB
 	help
 	  If you say Y here, a variant of GRKERNSEC_DENYUSB will be enabled
 	  that doesn't involve a sysctl entry.  This option should only be

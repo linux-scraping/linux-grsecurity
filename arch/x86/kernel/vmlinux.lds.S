@@ -152,7 +152,6 @@ SECTIONS
 #ifdef CONFIG_X86_32
 	. = ALIGN(PAGE_SIZE);
 	.rodata.page_aligned : AT(ADDR(.rodata.page_aligned) - LOAD_OFFSET) {
-		*(.idt)
 		. = ALIGN(PAGE_SIZE);
 		*(.empty_zero_page)
 		*(.initial_pg_fixmap)

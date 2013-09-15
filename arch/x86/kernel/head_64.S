@@ -603,11 +603,3 @@ ENTRY(phys_base)
 	.section .rodata,"a",@progbits
 NEXT_PAGE(empty_zero_page)
 	.skip PAGE_SIZE
-
-	.align PAGE_SIZE
-ENTRY(idt_table)
-	.fill 512,8,0
-
-	.align L1_CACHE_BYTES
-ENTRY(nmi_idt_table)
-	.fill 512,8,0

@@ -2335,6 +2335,7 @@ static ssize_t write_enabled_file_bool(struct file *file,
 	if (copy_from_user(buf, user_buf, buf_size))
 		return -EFAULT;
 
+	buf[buf_size] = '\0';
 	switch (buf[0]) {
 	case 'y':
 	case 'Y':
@@ -2346,6 +2347,8 @@ static ssize_t write_enabled_file_bool(struct file *file,
 	case '0':
 		disarm_all_kprobes();
 		break;
+	default:
+		return -EINVAL;
 	}
 
 	return count;

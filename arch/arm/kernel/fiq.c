@@ -92,7 +92,8 @@ void set_fiq_handler(void *start, unsigned int length)
 	pax_close_kernel();
 
 	if (!cache_is_vipt_nonaliasing())
-		flush_icache_range(base + offset, offset + length);
+		flush_icache_range((unsigned long)base + offset, offset +
+				   length);
 	flush_icache_range(0xffff0000 + offset, 0xffff0000 + offset + length);
 }
 

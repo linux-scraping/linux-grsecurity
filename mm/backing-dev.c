@@ -232,8 +232,6 @@ static ssize_t stable_pages_required_show(struct device *dev,
 			bdi_cap_stable_pages_required(bdi) ? 1 : 0);
 }
 
-#define __ATTR_RW(attr) __ATTR(attr, 0644, attr##_show, attr##_store)
-
 static struct device_attribute bdi_dev_attrs[] = {
 	__ATTR_RW(read_ahead_kb),
 	__ATTR_RW(min_ratio),
@@ -523,7 +521,8 @@ int bdi_setup_and_register(struct backing_dev_info *bdi, char *name,
 	if (err)
 		return err;
 
-	err = bdi_register(bdi, NULL, "%.28s-%ld", name, atomic_long_inc_return_unchecked(&bdi_seq));
+	err = bdi_register(bdi, NULL, "%.28s-%ld", name,
+			   atomic_long_inc_return_unchecked(&bdi_seq));
 	if (err) {
 		bdi_destroy(bdi);
 		return err;

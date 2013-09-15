@@ -313,9 +313,10 @@ __copy_to_user_inatomic(void __user *dst, const void *src, unsigned long size)
 extern unsigned long __copy_user_nocache(void *dst, const void __user *src,
 				unsigned long size, int zerorest) __size_overflow(3);
 
-static inline unsigned long __copy_from_user_nocache(void *dst, const void __user *src, unsigned long size)
+static inline unsigned long
+__copy_from_user_nocache(void *dst, const void __user *src, unsigned long size)
 {
-	might_sleep();
+	might_fault();
 
 	if (size > INT_MAX)
 		return size;
@@ -328,7 +329,8 @@ static inline unsigned long __copy_from_user_nocache(void *dst, const void __use
 	return __copy_user_nocache(dst, src, size, 1);
 }
 
-static inline unsigned long __copy_from_user_inatomic_nocache(void *dst, const void __user *src,
+static inline unsigned long
+__copy_from_user_inatomic_nocache(void *dst, const void __user *src,
 				  unsigned long size)
 {
 	if (size > INT_MAX)
@@ -342,7 +344,7 @@ static inline unsigned long __copy_from_user_inatomic_nocache(void *dst, const v
 	return __copy_user_nocache(dst, src, size, 0);
 }
 
-extern unsigned long
+unsigned long
 copy_user_handle_tail(char __user *to, char __user *from, unsigned long len, unsigned zerorest) __size_overflow(3);
 
 #endif /* _ASM_X86_UACCESS_64_H */

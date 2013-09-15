@@ -74,6 +74,7 @@
 #include <linux/ptrace.h>
 #include <linux/blkdev.h>
 #include <linux/elevator.h>
+#include <linux/sched_clock.h>
 
 #include <asm/io.h>
 #include <asm/bugs.h>
@@ -612,7 +613,6 @@ asmlinkage void __init start_kernel(void)
 	if (WARN(!irqs_disabled(), "Interrupts were enabled *very* early, fixing it\n"))
 		local_irq_disable();
 	idr_init_cache();
-	perf_event_init();
 	rcu_init();
 	tick_nohz_init();
 	radix_tree_init();
@@ -625,6 +625,8 @@ asmlinkage void __init start_kernel(void)
 	softirq_init();
 	timekeeping_init();
 	time_init();
+	sched_clock_postinit();
+	perf_event_init();
 	profile_init();
 	call_function_init();
 	WARN(!irqs_disabled(), "Interrupts were enabled early\n");
@@ -817,11 +819,7 @@ static void __init do_initcall_level(int level)
 
 	for (fn = initcall_levels[level]; fn < initcall_levels[level+1]; fn++) {
 		do_one_initcall(*fn);
-
-#ifdef LATENT_ENTROPY_PLUGIN
-		add_device_randomness((const void *)&latent_entropy, sizeof(latent_entropy));
-#endif
-
+		add_latent_entropy();
 	}
 }
 
@@ -858,11 +856,7 @@ static void __init do_pre_smp_initcalls(void)
 
 	for (fn = __initcall_start; fn < __initcall0_start; fn++) {
 		do_one_initcall(*fn);
-
-#ifdef LATENT_ENTROPY_PLUGIN
-		add_device_randomness((const void *)&latent_entropy, sizeof(latent_entropy));
-#endif
-
+		add_latent_entropy();
 	}
 }
 

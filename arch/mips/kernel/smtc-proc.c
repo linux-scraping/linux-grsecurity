@@ -31,7 +31,7 @@ unsigned long selfipis[NR_CPUS];
 
 struct smtc_cpu_proc smtc_cpu_stats[NR_CPUS];
 
-atomic_t smtc_fpu_recoveries;
+atomic_unchecked_t smtc_fpu_recoveries;
 
 static int smtc_proc_show(struct seq_file *m, void *v)
 {
@@ -48,7 +48,7 @@ static int smtc_proc_show(struct seq_file *m, void *v)
 	for(i = 0; i < NR_CPUS; i++)
 		seq_printf(m, "%d: %ld\n", i, smtc_cpu_stats[i].selfipis);
 	seq_printf(m, "%d Recoveries of \"stolen\" FPU\n",
-		   atomic_read(&smtc_fpu_recoveries));
+		   atomic_read_unchecked(&smtc_fpu_recoveries));
 	return 0;
 }
 
@@ -73,7 +73,7 @@ void init_smtc_stats(void)
 		smtc_cpu_stats[i].selfipis = 0;
 	}
 
-	atomic_set(&smtc_fpu_recoveries, 0);
+	atomic_set_unchecked(&smtc_fpu_recoveries, 0);
 
 	proc_create("smtc", 0444, NULL, &smtc_proc_fops);
 }

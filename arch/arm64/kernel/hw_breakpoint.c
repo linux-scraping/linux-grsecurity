@@ -821,7 +821,7 @@ static void reset_ctrl_regs(void *unused)
 	}
 }
 
-static int __cpuinit hw_breakpoint_reset_notify(struct notifier_block *self,
+static int hw_breakpoint_reset_notify(struct notifier_block *self,
 						unsigned long action,
 						void *hcpu)
 {
