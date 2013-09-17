@@ -26,8 +26,8 @@
 static __initdata char chosen_lsm[SECURITY_NAME_MAX + 1] =
 	CONFIG_DEFAULT_SECURITY;
 
-static struct security_operations *security_ops __read_only;
-static struct security_operations default_security_ops __read_only = {
+struct security_operations *security_ops __read_only;
+struct security_operations default_security_ops __read_only = {
 	.name	= "default",
 };
 
@@ -65,17 +65,6 @@ int __init security_init(void)
 
 	return 0;
 }
-
-#ifdef CONFIG_SECURITY_SELINUX_DISABLE
-
-void reset_security_ops(void)
-{
-	pax_open_kernel();
-	security_ops = &default_security_ops;
-	pax_close_kernel();
-}
-
-#endif
 
 /* Save user chosen LSM */
 static int __init choose_lsm(char *str)

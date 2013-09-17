@@ -265,9 +265,9 @@ static void kernexec_instrument_fptr_or(gimple_stmt_iterator *gsi)
 	new_fptr = make_ssa_name(new_fptr, NULL);
 
 	// build asm volatile("orq %%r10, %0\n\t" : "=r"(new_fptr) : "0"(old_fptr));
-	input = build_tree_list(NULL_TREE, build_string(2, "0"));
+	input = build_tree_list(NULL_TREE, build_string(1, "0"));
 	input = chainon(NULL_TREE, build_tree_list(input, old_fptr));
-	output = build_tree_list(NULL_TREE, build_string(3, "=r"));
+	output = build_tree_list(NULL_TREE, build_string(2, "=r"));
 	output = chainon(NULL_TREE, build_tree_list(output, new_fptr));
 #if BUILDING_GCC_VERSION <= 4007
 	VEC_safe_push(tree, gc, inputs, input);

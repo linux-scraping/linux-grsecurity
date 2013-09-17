@@ -531,11 +531,19 @@ static inline int pmd_trans_unstable(pmd_t *pmd)
 }
 
 #ifndef __HAVE_ARCH_PAX_OPEN_KERNEL
+#ifdef CONFIG_PAX_KERNEXEC
+#error KERNEXEC requires pax_open_kernel
+#else
 static inline unsigned long pax_open_kernel(void) { return 0; }
+#endif
 #endif
 
 #ifndef __HAVE_ARCH_PAX_CLOSE_KERNEL
+#ifdef CONFIG_PAX_KERNEXEC
+#error KERNEXEC requires pax_close_kernel
+#else
 static inline unsigned long pax_close_kernel(void) { return 0; }
+#endif
 #endif
 
 #endif /* CONFIG_MMU */

@@ -51,6 +51,16 @@ struct rnd_state {
 extern void rand_initialize_irq(int irq);
 
 extern void add_device_randomness(const void *, unsigned int);
+
+static inline void add_latent_entropy(void)
+{
+
+#ifdef LATENT_ENTROPY_PLUGIN
+	add_device_randomness((const void *)&latent_entropy, sizeof(latent_entropy));
+#endif
+
+}
+
 extern void add_input_randomness(unsigned int type, unsigned int code,
 				 unsigned int value);
 extern void add_interrupt_randomness(int irq, int irq_flags);

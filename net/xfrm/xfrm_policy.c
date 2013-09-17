@@ -2297,11 +2297,12 @@ static void xfrm_garbage_collect(struct net *net)
 	__xfrm_garbage_collect(net);
 }
 
-static void xfrm_garbage_collect_deferred(struct net *net)
+void xfrm_garbage_collect_deferred(struct net *net)
 {
 	flow_cache_flush_deferred();
 	__xfrm_garbage_collect(net);
 }
+EXPORT_SYMBOL(xfrm_garbage_collect_deferred);
 
 static void xfrm_init_pmtu(struct dst_entry *dst)
 {
@@ -2434,11 +2435,6 @@ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
 			dst_ops->link_failure = xfrm_link_failure;
 		if (likely(dst_ops->neigh_lookup == NULL))
 			dst_ops->neigh_lookup = xfrm_neigh_lookup;
-		if (likely(afinfo->garbage_collect == NULL)) {
-			pax_open_kernel();
-			*(void **)&afinfo->garbage_collect = xfrm_garbage_collect_deferred;
-			pax_close_kernel();
-		}
 		xfrm_policy_afinfo[afinfo->family] = afinfo;
 	}
 	write_unlock_bh(&xfrm_policy_afinfo_lock);
@@ -2485,9 +2481,6 @@ int xfrm_policy_unregister_afinfo(struct xfrm_policy_afinfo *afinfo)
 			dst_ops->check = NULL;
 			dst_ops->negative_advice = NULL;
 			dst_ops->link_failure = NULL;
-			pax_open_kernel();
-			*(void **)&afinfo->garbage_collect = NULL;
-			pax_close_kernel();
 		}
 	}
 	write_unlock_bh(&xfrm_policy_afinfo_lock);

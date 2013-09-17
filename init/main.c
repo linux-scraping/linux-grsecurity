@@ -762,6 +762,7 @@ int __init_or_module do_one_initcall(initcall_t fn)
 		printk("initcall %pF returned with %s%s%s\n", fn, msgbuf, msg1, msg2);
 	}
 
+	add_latent_entropy();
 	return ret;
 }
 
@@ -772,14 +773,8 @@ static void __init do_initcalls(void)
 {
 	initcall_t *fn;
 
-	for (fn = __early_initcall_end; fn < __initcall_end; fn++) {
+	for (fn = __early_initcall_end; fn < __initcall_end; fn++)
 		do_one_initcall(*fn);
-
-#ifdef LATENT_ENTROPY_PLUGIN
-		add_device_randomness((const void *)&latent_entropy, sizeof(latent_entropy));
-#endif
-
-	}
 }
 
 /*
@@ -805,14 +800,8 @@ static void __init do_pre_smp_initcalls(void)
 {
 	initcall_t *fn;
 
-	for (fn = __initcall_start; fn < __early_initcall_end; fn++) {
+	for (fn = __initcall_start; fn < __early_initcall_end; fn++)
 		do_one_initcall(*fn);
-
-#ifdef LATENT_ENTROPY_PLUGIN
-		add_device_randomness((const void *)&latent_entropy, sizeof(latent_entropy));
-#endif
-
-	}
 }
 
 static void run_init_process(const char *init_filename)

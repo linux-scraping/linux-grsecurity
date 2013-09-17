@@ -219,7 +219,7 @@ static int sctp_v6_xmit(struct sk_buff *skb, struct sctp_transport *transport)
 	if (!(transport->param_flags & SPP_PMTUD_ENABLE))
 		skb->local_df = 1;
 
-	SCTP_INC_STATS(sock_net(sk), SCTP_MIB_OUTSCTPPACKS);
+	SCTP_INC_STATS(SCTP_MIB_OUTSCTPPACKS);
 
 	return ip6_xmit(sk, skb, fl6, np->opt, np->tclass);
 }

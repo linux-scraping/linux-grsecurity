@@ -2408,7 +2408,7 @@ void mnt_make_shortterm(struct vfsmount *mnt)
  * Allocate a new namespace structure and populate it with contents
  * copied from the namespace of the passed in task structure.
  */
-static struct mnt_namespace *dup_mnt_ns(struct mnt_namespace *mnt_ns,
+static __latent_entropy struct mnt_namespace *dup_mnt_ns(struct mnt_namespace *mnt_ns,
 		struct fs_struct *fs)
 {
 	struct mnt_namespace *new_ns;

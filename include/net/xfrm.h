@@ -282,7 +282,6 @@ struct xfrm_dst;
 struct xfrm_policy_afinfo {
 	unsigned short		family;
 	struct dst_ops		*dst_ops;
-	void			(*garbage_collect)(struct net *net);
 	struct dst_entry	*(*dst_lookup)(struct net *net, int tos,
 					       const xfrm_address_t *saddr,
 					       const xfrm_address_t *daddr);
@@ -1141,6 +1140,8 @@ static inline void xfrm_sk_free_policy(struct sock *sk)
 	}
 }
 
+extern void xfrm_garbage_collect_deferred(struct net *net);
+
 #else
 
 static inline void xfrm_sk_free_policy(struct sock *sk) {}
@@ -1174,6 +1175,9 @@ static inline int xfrm6_policy_check_reverse(struct sock *sk, int dir,
 					     struct sk_buff *skb)
 {
 	return 1;
+}
+static inline void xfrm_garbage_collect_deferred(struct net *net)
+{
 }
 #endif
 
