@@ -39,17 +39,12 @@
  * Also note, that this data cannot be "const".
  */
 
-#ifdef MODULE
-#define add_init_latent_entropy
-#define add_meminit_latent_entropy
-#else
 #define add_init_latent_entropy __latent_entropy
 
 #ifdef CONFIG_MEMORY_HOTPLUG
 #define add_meminit_latent_entropy
 #else
 #define add_meminit_latent_entropy __latent_entropy
-#endif
 #endif
 
 /* These are for everybody (although not all archs will actually

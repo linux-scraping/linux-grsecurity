@@ -155,7 +155,7 @@ out:
 	return n;
 }
 
-unsigned long __clear_user(void __user *addr, unsigned long n)
+unsigned long ___clear_user(void __user *addr, unsigned long n)
 {
 	/* See rational for this in __copy_to_user() above. */
 	if (n < 64)

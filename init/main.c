@@ -766,6 +766,7 @@ int __init_or_module do_one_initcall(initcall_t fn)
 	}
 	WARN(*msg1 || *msg2, "initcall %pF returned with%s%s\n", fn, msg1, msg2);
 
+	add_latent_entropy();
 	return ret;
 }
 
@@ -817,10 +818,8 @@ static void __init do_initcall_level(int level)
 		   level, level,
 		   &repair_env_string);
 
-	for (fn = initcall_levels[level]; fn < initcall_levels[level+1]; fn++) {
+	for (fn = initcall_levels[level]; fn < initcall_levels[level+1]; fn++)
 		do_one_initcall(*fn);
-		add_latent_entropy();
-	}
 }
 
 static void __init do_initcalls(void)
@@ -854,10 +853,8 @@ static void __init do_pre_smp_initcalls(void)
 {
 	initcall_t *fn;
 
-	for (fn = __initcall_start; fn < __initcall0_start; fn++) {
+	for (fn = __initcall_start; fn < __initcall0_start; fn++)
 		do_one_initcall(*fn);
-		add_latent_entropy();
-	}
 }
 
 /*

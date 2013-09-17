@@ -769,6 +769,7 @@ static int __init setup_pax_extra_latent_entropy(char *str)
 early_param("pax_extra_latent_entropy", setup_pax_extra_latent_entropy);
 
 volatile u64 latent_entropy;
+EXPORT_SYMBOL(latent_entropy);
 #endif
 
 void __init __free_pages_bootmem(struct page *page, unsigned int order)
