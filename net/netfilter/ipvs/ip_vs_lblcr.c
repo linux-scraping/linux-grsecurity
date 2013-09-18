@@ -299,7 +299,7 @@ struct ip_vs_lblcr_table {
  *      IPVS LBLCR sysctl table
  */
 
-static struct ctl_table vs_vars_table[] __read_only = {
+static ctl_table_no_const vs_vars_table[] __read_only = {
 	{
 		.procname	= "lblcr_expiration",
 		.data		= NULL,

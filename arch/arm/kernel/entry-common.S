@@ -394,12 +394,6 @@ ENTRY(vector_swi)
 #endif
 	zero_fp
 
-	/*
-	 * do this here to avoid a performance hit of wrapping the code above
-	 * that directly dereferences userland to parse the SWI instruction
-	 */
-	pax_enter_kernel_user
-
 #ifdef CONFIG_ALIGNMENT_TRAP
 	ldr	ip, __cr_alignment
 	ldr	ip, [ip]
@@ -446,6 +440,12 @@ ENTRY(vector_swi)
 	/* Legacy ABI only. */
  USER(	ldr	scno, [lr, #-4]		)	@ get SWI instruction
 #endif
+
+	/*
+	 * do this here to avoid a performance hit of wrapping the code above
+	 * that directly dereferences userland to parse the SWI instruction
+	 */
+	pax_enter_kernel_user
 
 	adr	tbl, sys_call_table		@ load syscall table pointer
 

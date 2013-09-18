@@ -653,11 +653,35 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 				sys_rt_sigreturn(regs);
 			return;
 		}
+		if (pc == 0xffff0f60UL) {
+			/*
+			 * PaX: __kuser_cmpxchg64 emulation
+			 */
+			// TODO
+			//regs->ARM_pc = regs->ARM_lr;
+			//return;
+		}
+		if (pc == 0xffff0fa0UL) {
+			/*
+			 * PaX: __kuser_memory_barrier emulation
+			 */
+			// dmb(); implied by the exception
+			regs->ARM_pc = regs->ARM_lr;
+			return;
+		}
+		if (pc == 0xffff0fc0UL) {
+			/*
+			 * PaX: __kuser_cmpxchg emulation
+			 */
+			// TODO
+			//regs->ARM_pc = regs->ARM_lr;
+			//return;
+		}
 		if (pc == 0xffff0fe0UL) {
 			/*
 			 * PaX: __kuser_get_tls emulation
 			 */
-			regs->ARM_r0 = current_thread_info()->tp_value;
+			regs->ARM_r0 = current_thread_info()->tp_value[0];
 			regs->ARM_pc = regs->ARM_lr;
 			return;
 		}

@@ -17,7 +17,11 @@
 #endif
 
 #ifndef __read_only
+#ifdef CONFIG_PAX_KERNEXEC
+#error KERNEXEC requires __read_only
+#else
 #define __read_only __read_mostly
+#endif
 #endif
 
 #ifndef ____cacheline_aligned

@@ -84,7 +84,7 @@ struct cpu_pm_ops {
 	int (*finish_suspend)(unsigned long cpu_state);
 	void (*resume)(void);
 	void (*scu_prepare)(unsigned int cpu_id, unsigned int cpu_state);
-};
+} __no_const;
 
 static DEFINE_PER_CPU(struct omap4_cpu_pm_info, omap4_pm_info);
 static struct powerdomain *mpuss_pd;
@@ -102,7 +102,7 @@ static void dummy_cpu_resume(void)
 static void dummy_scu_prepare(unsigned int cpu_id, unsigned int cpu_state)
 {}
 
-struct cpu_pm_ops omap_pm_ops = {
+static struct cpu_pm_ops omap_pm_ops __read_only = {
 	.finish_suspend		= default_finish_suspend,
 	.resume			= dummy_cpu_resume,
 	.scu_prepare		= dummy_scu_prepare,
