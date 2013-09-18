@@ -6,6 +6,10 @@
 SECTIONS {
 	/DISCARD/ : { *(.discard) }
 
+	.rodata : {
+		*(.rodata) *(.rodata.*)
+		*(.data..read_only)
+	}
 	__ksymtab		: { *(SORT(___ksymtab+*)) }
 	__ksymtab_gpl		: { *(SORT(___ksymtab_gpl+*)) }
 	__ksymtab_unused	: { *(SORT(___ksymtab_unused+*)) }
