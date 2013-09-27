@@ -309,7 +309,7 @@ static void __rcu_process_callbacks(struct rcu_ctrlblk *rcp)
 				      false));
 }
 
-static void rcu_process_callbacks(void)
+static __latent_entropy void rcu_process_callbacks(void)
 {
 	__rcu_process_callbacks(&rcu_sched_ctrlblk);
 	__rcu_process_callbacks(&rcu_bh_ctrlblk);

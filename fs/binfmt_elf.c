@@ -554,9 +554,11 @@ static unsigned long load_elf_interp(struct elfhdr *interp_elf_ex,
 		elf_bss = ELF_PAGESTART(elf_bss + ELF_MIN_ALIGN - 1);
 
 		/* Map the last of the bss segment */
-		error = vm_brk(elf_bss, last_bss - elf_bss);
-		if (BAD_ADDR(error))
-			goto out_close;
+		if (last_bss > elf_bss) {
+			error = vm_brk(elf_bss, last_bss - elf_bss);
+			if (BAD_ADDR(error))
+				goto out_close;
+		}
 	}
 
 	error = load_addr;

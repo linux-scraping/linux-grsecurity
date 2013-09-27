@@ -29,7 +29,7 @@
  * can't hit 0 before we've added up all the percpu refs.
  */
 
-#define PCPU_COUNT_BIAS		(1U << 31)
+#define PCPU_COUNT_BIAS		(1U << 30)
 
 /**
  * percpu_ref_init - initialize a percpu refcount

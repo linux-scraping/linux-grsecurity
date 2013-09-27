@@ -290,7 +290,7 @@ static void start_unit_callback(void *gcc_data, void *user_data)
 	TREE_THIS_VOLATILE(latent_entropy_decl) = 1;
 	DECL_EXTERNAL(latent_entropy_decl) = 1;
 	DECL_ARTIFICIAL(latent_entropy_decl) = 1;
-	DECL_INITIAL(latent_entropy_decl) = NULL;
+	DECL_INITIAL(latent_entropy_decl) = build_int_cstu(long_long_unsigned_type_node, get_random_const());
 	lang_hooks.decls.pushdecl(latent_entropy_decl);
 //	DECL_ASSEMBLER_NAME(latent_entropy_decl);
 //	varpool_finalize_decl(latent_entropy_decl);
