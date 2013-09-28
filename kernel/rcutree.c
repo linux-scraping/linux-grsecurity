@@ -1554,7 +1554,7 @@ __rcu_process_callbacks(struct rcu_state *rsp, struct rcu_data *rdp)
 /*
  * Do RCU core processing for the current CPU.
  */
-static void rcu_process_callbacks(void)
+static __latent_entropy void rcu_process_callbacks(void)
 {
 	trace_rcu_utilization("Start RCU core");
 	__rcu_process_callbacks(&rcu_sched_state,

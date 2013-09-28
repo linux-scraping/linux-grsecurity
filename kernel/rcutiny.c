@@ -186,7 +186,7 @@ static void __rcu_process_callbacks(struct rcu_ctrlblk *rcp)
 	RCU_TRACE(trace_rcu_batch_end(rcp->name, cb_count));
 }
 
-static void rcu_process_callbacks(void)
+static __latent_entropy void rcu_process_callbacks(void)
 {
 	__rcu_process_callbacks(&rcu_sched_ctrlblk);
 	__rcu_process_callbacks(&rcu_bh_ctrlblk);

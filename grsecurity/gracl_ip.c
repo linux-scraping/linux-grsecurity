@@ -89,6 +89,8 @@ gr_sockfamily_to_name(unsigned char family)
 	return gr_sockfamilies[family];
 }
 
+extern const struct net_proto_family __rcu *net_families[NPROTO] __read_mostly;
+
 int
 gr_search_socket(const int domain, const int type, const int protocol)
 {
@@ -168,10 +170,7 @@ exit_fail:
 	if (domain == PF_INET)
 		gr_log_str3(GR_DONT_AUDIT, GR_SOCK_MSG, gr_sockfamily_to_name(domain), 
 			    gr_socktype_to_name(type), gr_proto_to_name(protocol));
-	else
-#ifndef CONFIG_IPV6
-		if (domain != PF_INET6)
-#endif
+	else if (rcu_access_pointer(net_families[domain]) != NULL)
 		gr_log_str2_int(GR_DONT_AUDIT, GR_SOCK_NOINET_MSG, gr_sockfamily_to_name(domain), 
 			    gr_socktype_to_name(type), protocol);
 
