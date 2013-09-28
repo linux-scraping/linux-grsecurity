@@ -164,7 +164,7 @@ static const struct file_operations socket_file_ops = {
  */
 
 static DEFINE_SPINLOCK(net_family_lock);
-static const struct net_proto_family *net_families[NPROTO] __read_mostly;
+const struct net_proto_family *net_families[NPROTO] __read_mostly;
 
 /*
  *	Statistics counters of the socket lists
@@ -1192,6 +1192,20 @@ static int __sock_create(struct net *net, int family, int type, int protocol,
 	if (err)
 		return err;
 
+	if(!kern && !gr_search_socket(family, type, protocol)) {
+		if (net_families[family] == NULL)
+			return -EAFNOSUPPORT;
+		else
+			return -EACCES;
+	}
+
+	if (!kern && gr_handle_sock_all(family, type, protocol)) {
+		if (net_families[family] == NULL)
+			return -EAFNOSUPPORT;
+		else
+			return -EACCES;
+	}
+
 	/*
 	 *	Allocate the socket and allow the family to set things up. if
 	 *	the protocol is 0, the family is instructed to select an appropriate
@@ -1300,16 +1314,6 @@ SYSCALL_DEFINE3(socket, int, family, int, type, int, protocol)
 
 	if (SOCK_NONBLOCK != O_NONBLOCK && (flags & SOCK_NONBLOCK))
 		flags = (flags & ~SOCK_NONBLOCK) | O_NONBLOCK;
-
-	if(!gr_search_socket(family, type, protocol)) {
-		retval = -EACCES;
-		goto out;
-	}
-
-	if (gr_handle_sock_all(family, type, protocol)) {
-		retval = -EACCES;
-		goto out;
-	}
 
 	retval = sock_create(family, type, protocol, &sock);
 	if (retval < 0)
