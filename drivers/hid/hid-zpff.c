@@ -69,11 +69,13 @@ static int zpff_init(struct hid_device *hid)
 	struct hid_input *hidinput = list_entry(hid->inputs.next,
 						struct hid_input, list);
 	struct input_dev *dev = hidinput->input;
-	int error;
+	int i, error;
 
-	report = hid_validate_report(hid, HID_OUTPUT_REPORT, 0, 4, 1);
-	if (!report)
-		return -ENODEV;
+	for (i = 0; i < 4; i++) {
+		report = hid_validate_values(hid, HID_OUTPUT_REPORT, 0, i, 1);
+		if (!report)
+			return -ENODEV;
+	}
 
 	zpff = kzalloc(sizeof(struct zpff_device), GFP_KERNEL);
 	if (!zpff)

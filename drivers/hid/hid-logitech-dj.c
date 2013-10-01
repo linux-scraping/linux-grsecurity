@@ -461,7 +461,7 @@ static int logi_dj_recv_send_report(struct dj_receiver_dev *djrcv_dev,
 	struct hid_report *report;
 	struct hid_report_enum *output_report_enum;
 	u8 *data = (u8 *)(&dj_report->device_index);
-	unsigned int i, length;
+	unsigned int i;
 
 	output_report_enum = &hdev->report_enum[HID_OUTPUT_REPORT];
 	report = output_report_enum->report_id_hash[REPORT_ID_DJ_SHORT];
@@ -471,9 +471,7 @@ static int logi_dj_recv_send_report(struct dj_receiver_dev *djrcv_dev,
 		return -ENODEV;
 	}
 
-	length = min_t(size_t, sizeof(*dj_report) - 1,
-			       report->field[0]->report_count);
-	for (i = 0; i < length; i++)
+	for (i = 0; i < DJREPORT_SHORT_LENGTH - 1; i++)
 		report->field[0]->value[i] = data[i];
 
 	hid_hw_request(hdev, report, HID_REQ_SET_REPORT);
@@ -785,8 +783,8 @@ static int logi_dj_probe(struct hid_device *hdev,
 		goto hid_parse_fail;
 	}
 
-	if (!hid_validate_report(hdev, HID_OUTPUT_REPORT, REPORT_ID_DJ_SHORT,
-				 1, 3)) {
+	if (!hid_validate_values(hdev, HID_OUTPUT_REPORT, REPORT_ID_DJ_SHORT,
+				 0, DJREPORT_SHORT_LENGTH - 1)) {
 		retval = -ENODEV;
 		goto hid_parse_fail;
 	}

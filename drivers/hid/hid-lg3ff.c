@@ -136,7 +136,7 @@ int lg3ff_init(struct hid_device *hid)
 	int i;
 
 	/* Check that the report looks ok */
-	if (!hid_validate_report(hid, HID_OUTPUT_REPORT, 0, 1, 35))
+	if (!hid_validate_values(hid, HID_OUTPUT_REPORT, 0, 0, 35))
 		return -ENODEV;
 
 	/* Assume single fixed device G940 */

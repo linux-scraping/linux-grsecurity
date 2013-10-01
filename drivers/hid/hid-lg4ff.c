@@ -492,7 +492,7 @@ int lg4ff_init(struct hid_device *hid)
 	__u16 bcdDevice, rev_maj, rev_min;
 
 	/* Check that the report looks ok */
-	if (!hid_validate_report(hid, HID_OUTPUT_REPORT, 0, 1, 7))
+	if (!hid_validate_values(hid, HID_OUTPUT_REPORT, 0, 0, 7))
 		return -1;
 
 	/* Check what wheel has been connected */

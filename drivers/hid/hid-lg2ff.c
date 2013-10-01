@@ -68,7 +68,7 @@ int lg2ff_init(struct hid_device *hid)
 	int error;
 
 	/* Check that the report looks ok */
-	report = hid_validate_report(hid, HID_OUTPUT_REPORT, 0, 1, 7);
+	report = hid_validate_values(hid, HID_OUTPUT_REPORT, 0, 0, 7);
 	if (!report)
 		return -ENODEV;
 

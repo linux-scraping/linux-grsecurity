@@ -134,7 +134,7 @@ int lgff_init(struct hid_device* hid)
 	int i;
 
 	/* Check that the report looks ok */
-	if (!hid_validate_report(hid, HID_OUTPUT_REPORT, 0, 1, 7))
+	if (!hid_validate_values(hid, HID_OUTPUT_REPORT, 0, 0, 7))
 		return -ENODEV;
 
 	for (i = 0; i < ARRAY_SIZE(devices); i++) {

@@ -249,7 +249,7 @@ static int steelseries_srws1_probe(struct hid_device *hdev,
 		goto err_free;
 	}
 
-	if (!hid_validate_report(hdev, HID_OUTPUT_REPORT, 0, 1, 16)) {
+	if (!hid_validate_values(hdev, HID_OUTPUT_REPORT, 0, 0, 16)) {
 		ret = -ENODEV;
 		goto err_free;
 	}
