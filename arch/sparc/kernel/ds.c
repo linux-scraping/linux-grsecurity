@@ -849,9 +849,9 @@ void ldom_reboot(const char *boot_command)
 	if (boot_command && strlen(boot_command)) {
 		unsigned long len;
 
-		len = snprintf(full_boot_str, sizeof(full_boot_str), "boot %s", boot_command);
-		if (len >= sizeof(full_boot_str))
-			len = sizeof(full_boot_str) - 1;
+		snprintf(full_boot_str, sizeof(full_boot_str), "boot %s",
+			 boot_command);
+		len = strlen(full_boot_str);
 
 		if (reboot_data_supported) {
 			unsigned long ra = kimage_addr_to_ra(full_boot_str);
