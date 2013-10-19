@@ -900,7 +900,7 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 		struct task_struct *tsk;
 		unsigned long flags;
 
-		if (nlh->nlmsg_len < sizeof(struct audit_tty_status))
+		if (nlmsg_len(nlh) < sizeof(struct audit_tty_status))
 			return -EINVAL;
 		s = data;
 		if (s->enabled != 0 && s->enabled != 1)
