@@ -27,7 +27,7 @@ __must_check unsigned long
 copy_user_generic_unrolled(void *to, const void *from, unsigned len) __size_overflow(3);
 
 static __always_inline __must_check  __size_overflow(3) unsigned long
-copy_user_generic(void *to, const void *from, unsigned len)
+copy_user_generic(void *to, const void *from, unsigned long len)
 {
 	unsigned ret;
 
@@ -44,7 +44,7 @@ copy_user_generic(void *to, const void *from, unsigned len)
 			 ASM_OUTPUT2("=a" (ret), "=D" (to), "=S" (from),
 				     "=d" (len)),
 			 "1" (to), "2" (from), "3" (len)
-			 : "memory", "rcx", "r8", "r9", "r11");
+			 : "memory", "rcx", "r8", "r9", "r10", "r11");
 	return ret;
 }
 
