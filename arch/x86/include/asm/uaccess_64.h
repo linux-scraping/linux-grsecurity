@@ -35,7 +35,7 @@ copy_user_generic(void *to, const void *from, unsigned long len)
 			 ASM_OUTPUT2("=a" (ret), "=D" (to), "=S" (from),
 				     "=d" (len)),
 			 "1" (to), "2" (from), "3" (len)
-			 : "memory", "rcx", "r8", "r9", "r11");
+			 : "memory", "rcx", "r8", "r9", "r10", "r11");
 	return ret;
 }
 

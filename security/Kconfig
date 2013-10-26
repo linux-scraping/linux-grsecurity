@@ -921,14 +921,14 @@ config PAX_SIZE_OVERFLOW
 	  headers explicitly in addition to the normal gcc package.
 
 config PAX_LATENT_ENTROPY
-	bool "Generate some entropy during boot"
+	bool "Generate some entropy during boot and runtime"
 	default y if GRKERNSEC_CONFIG_AUTO
 	help
-	  By saying Y here the kernel will instrument early boot code to
+	  By saying Y here the kernel will instrument some kernel code to
 	  extract some entropy from both original and artificially created
 	  program state.  This will help especially embedded systems where
 	  there is little 'natural' source of entropy normally.  The cost
-	  is some slowdown of the boot process.
+	  is some slowdown of the boot process and fork and irq processing.
 
 	  When pax_extra_latent_entropy is passed on the kernel command line,
 	  entropy will be extracted from up to the first 4GB of RAM while the
