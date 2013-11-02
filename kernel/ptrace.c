@@ -600,6 +600,9 @@ static int ptrace_setoptions(struct task_struct *child, unsigned long data)
 	if (data & PTRACE_O_TRACEEXIT)
 		child->ptrace |= PT_TRACE_EXIT;
 
+	if (data & PTRACE_O_TRACESECCOMP)
+		child->ptrace |= PT_TRACE_SECCOMP;
+
 	return (data & ~PTRACE_O_MASK) ? -EINVAL : 0;
 }
 
