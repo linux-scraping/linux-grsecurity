@@ -22,18 +22,26 @@ static bool __list_add_debug(struct list_head *new,
 			     struct list_head *prev,
 			     struct list_head *next)
 {
-	if (WARN(next->prev != prev,
-		"list_add corruption. next->prev should be "
-		"prev (%p), but was %p. (next=%p).\n",
-		prev, next->prev, next) ||
-	    WARN(prev->next != next,
-		"list_add corruption. prev->next should be "
-		"next (%p), but was %p. (prev=%p).\n",
-		next, prev->next, prev) ||
-	    WARN(new == prev || new == next,
-		"list_add double add: new=%p, prev=%p, next=%p.\n",
-		new, prev, next))
+	if (unlikely(next->prev != prev)) {
+		printk(KERN_ERR "list_add corruption. next->prev should be "
+			"prev (%p), but was %p. (next=%p).\n",
+			prev, next->prev, next);
+		BUG();
 		return false;
+	}
+	if (unlikely(prev->next != next)) {
+		printk(KERN_ERR "list_add corruption. prev->next should be "
+			"next (%p), but was %p. (prev=%p).\n",
+			next, prev->next, prev);
+		BUG();
+		return false;
+	}
+	if (unlikely(new == prev || new == next)) {
+		printk(KERN_ERR "list_add double add: new=%p, prev=%p, next=%p.\n",
+			new, prev, next);
+		BUG();
+		return false;
+	}
 	return true;
 }
 
@@ -58,19 +66,30 @@ static bool __list_del_entry_debug(struct list_head *entry)
 	prev = entry->prev;
 	next = entry->next;
 
-	if (WARN(next == LIST_POISON1,
-		"list_del corruption, %p->next is LIST_POISON1 (%p)\n",
-		entry, LIST_POISON1) ||
-	    WARN(prev == LIST_POISON2,
-		"list_del corruption, %p->prev is LIST_POISON2 (%p)\n",
-		entry, LIST_POISON2) ||
-	    WARN(prev->next != entry,
-		"list_del corruption. prev->next should be %p, "
-		"but was %p\n", entry, prev->next) ||
-	    WARN(next->prev != entry,
-		"list_del corruption. next->prev should be %p, "
-		"but was %p\n", entry, next->prev))
+	if (unlikely(next == LIST_POISON1)) {
+		printk(KERN_ERR "list_del corruption, %p->next is LIST_POISON1 (%p)\n",
+			entry, LIST_POISON1);
+		BUG();
 		return false;
+	}
+	if (unlikely(prev == LIST_POISON2)) {
+		printk(KERN_ERR "list_del corruption, %p->prev is LIST_POISON2 (%p)\n",
+			entry, LIST_POISON2);
+		BUG();
+		return false;
+	}
+	if (unlikely(entry->prev->next != entry)) {
+		printk(KERN_ERR "list_del corruption. prev->next should be %p, "
+			"but was %p\n", entry, prev->next);
+		BUG();
+		return false;
+	}
+	if (unlikely(entry->next->prev != entry)) {
+		printk(KERN_ERR "list_del corruption. next->prev should be %p, "
+			"but was %p\n", entry, next->prev);
+		BUG();
+		return false;
+	}
 	return true;
 }
 
