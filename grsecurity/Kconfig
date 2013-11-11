@@ -234,6 +234,20 @@ config GRKERNSEC_KERN_LOCKOUT
 	  This deters repeated kernel exploitation/bruteforcing attempts
 	  and is useful for later forensics.
 
+config GRKERNSEC_OLD_ARM_USERLAND
+	bool "Old ARM userland compatibility"
+	depends on ARM && (CPU_V6 || CPU_V6K || CPU_V7)
+	help
+	  If you say Y here, stubs of executable code to perform such operations
+	  as "compare-exchange" will be placed at fixed locations in the ARM vector
+	  table.  This is unfortunately needed for old ARM userland meant to run
+	  across a wide range of processors.  Without this option enabled,
+	  the get_tls and data memory barrier stubs will be emulated by the kernel,
+	  which is enough for Linaro userlands or other userlands designed for v6
+	  and newer ARM CPUs.  It's recommended that you try without this option enabled
+	  first, and only enable it if your userland does not boot (it will likely fail
+	  at init time).
+
 endmenu
 menu "Role Based Access Control Options"
 depends on GRKERNSEC

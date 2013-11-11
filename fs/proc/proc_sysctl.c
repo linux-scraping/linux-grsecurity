@@ -11,6 +11,7 @@
 #include <linux/namei.h>
 #include <linux/mm.h>
 #include <linux/module.h>
+#include <linux/nsproxy.h>
 #include "internal.h"
 
 extern int gr_handle_chroot_sysctl(const int op);
@@ -521,8 +522,13 @@ static ssize_t proc_sys_call_handler(struct file *filp, void __user *buf,
 	dput(filp->f_path.dentry);
 	if (!gr_acl_handle_open(filp->f_path.dentry, filp->f_path.mnt, op))
 		goto out;
-	if (write && !capable(CAP_SYS_ADMIN))
-		goto out;
+	if (write) {
+		if (current->nsproxy->net_ns != table->extra2) {
+			if (!capable(CAP_SYS_ADMIN))
+				goto out;
+		} else if (!nsown_capable(CAP_NET_ADMIN))
+			goto out;
+	}
 #endif
 
 	/* careful: calling conventions are nasty here */
