@@ -243,6 +243,7 @@ config KSM
 config DEFAULT_MMAP_MIN_ADDR
 	int "Low address space to protect from user allocation"
 	depends on MMU
+	default 32768 if ALPHA || ARM || PARISC || SPARC32
 	default 65536
 	help
 	  This is the portion of low virtual memory which should be protected

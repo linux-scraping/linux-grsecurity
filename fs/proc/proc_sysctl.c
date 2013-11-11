@@ -7,6 +7,7 @@
 #include <linux/proc_fs.h>
 #include <linux/security.h>
 #include <linux/namei.h>
+#include <linux/nsproxy.h>
 #include "internal.h"
 
 extern __u32 gr_handle_sysctl(const struct ctl_table *table, const int op);
@@ -172,8 +173,13 @@ static ssize_t proc_sys_call_handler(struct file *filp, void __user *buf,
 
 #ifdef CONFIG_GRKERNSEC
 	error = -EPERM;
-	if (write && !capable(CAP_SYS_ADMIN))
-		goto out;
+	if (write) {
+		if (current->nsproxy->net_ns != table->extra2) {
+			if (!capable(CAP_SYS_ADMIN))
+				goto out;
+		} else if (!nsown_capable(CAP_NET_ADMIN))
+			goto out;
+	}
 #endif
 
 	/* careful: calling conventions are nasty here */
