@@ -1308,7 +1308,7 @@ void audit_log_n_hex(struct audit_buffer *ab, const unsigned char *buf,
 	int i, avail, new_len;
 	unsigned char *ptr;
 	struct sk_buff *skb;
-	static const unsigned char *hex = "0123456789ABCDEF";
+	static const unsigned char hex[] = "0123456789ABCDEF";
 
 	if (!ab)
 		return;

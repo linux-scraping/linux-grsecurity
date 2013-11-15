@@ -323,7 +323,7 @@ static struct dm_dev_internal *find_device(struct list_head *l, dev_t dev)
 static int open_dev(struct dm_dev_internal *d, dev_t dev,
 		    struct mapped_device *md)
 {
-	static char *_claim_ptr = "I belong to device-mapper";
+	static char _claim_ptr[] = "I belong to device-mapper";
 	struct block_device *bdev;
 
 	int r;

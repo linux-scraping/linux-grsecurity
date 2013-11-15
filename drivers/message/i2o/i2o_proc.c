@@ -714,9 +714,9 @@ static int i2o_seq_show_status(struct seq_file *seq, void *v)
 static int i2o_seq_show_hw(struct seq_file *seq, void *v)
 {
 	struct i2o_controller *c = (struct i2o_controller *)seq->private;
-	static u32 work32[5];
-	static u8 *work8 = (u8 *) work32;
-	static u16 *work16 = (u16 *) work32;
+	u32 work32[5];
+	u8 *work8 = (u8 *) work32;
+	u16 *work16 = (u16 *) work32;
 	int token;
 	u32 hwcap;
 
@@ -1249,9 +1249,9 @@ static int i2o_seq_show_authorized_users(struct seq_file *seq, void *v)
 static int i2o_seq_show_dev_identity(struct seq_file *seq, void *v)
 {
 	struct i2o_device *d = (struct i2o_device *)seq->private;
-	static u32 work32[128];	// allow for "stuff" + up to 256 byte (max) serial number
+	u32 work32[128];	// allow for "stuff" + up to 256 byte (max) serial number
 	// == (allow) 512d bytes (max)
-	static u16 *work16 = (u16 *) work32;
+	u16 *work16 = (u16 *) work32;
 	int token;
 
 	token = i2o_parm_field_get(d, 0xF100, -1, &work32, sizeof(work32));
@@ -1356,9 +1356,9 @@ static int i2o_seq_show_uinfo(struct seq_file *seq, void *v)
 static int i2o_seq_show_sgl_limits(struct seq_file *seq, void *v)
 {
 	struct i2o_device *d = (struct i2o_device *)seq->private;
-	static u32 work32[12];
-	static u16 *work16 = (u16 *) work32;
-	static u8 *work8 = (u8 *) work32;
+	u32 work32[12];
+	u16 *work16 = (u16 *) work32;
+	u8 *work8 = (u8 *) work32;
 	int token;
 
 	token = i2o_parm_field_get(d, 0xF103, -1, &work32, sizeof(work32));

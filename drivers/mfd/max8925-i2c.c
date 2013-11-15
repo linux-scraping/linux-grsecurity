@@ -139,7 +139,7 @@ static int __devinit max8925_probe(struct i2c_client *client,
 				   const struct i2c_device_id *id)
 {
 	struct max8925_platform_data *pdata = client->dev.platform_data;
-	static struct max8925_chip *chip;
+	struct max8925_chip *chip;
 
 	if (!pdata) {
 		pr_info("%s: platform data is missing\n", __func__);

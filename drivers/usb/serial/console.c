@@ -200,7 +200,7 @@ static int usb_console_setup(struct console *co, char *options)
 static void usb_console_write(struct console *co,
 					const char *buf, unsigned count)
 {
-	static struct usbcons_info *info = &usbcons_info;
+	struct usbcons_info *info = &usbcons_info;
 	struct usb_serial_port *port = info->port;
 	struct usb_serial *serial;
 	int retval = -ENODEV;
