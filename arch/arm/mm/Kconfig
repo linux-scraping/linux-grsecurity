@@ -601,7 +601,7 @@ config CPU_CP15_MPU
 
 config CPU_USE_DOMAINS
 	bool
-	depends on !ARM_LPAE && !PAX_KERNEXEC
+	depends on !ARM_LPAE && !PAX_KERNEXEC && !PAX_MEMORY_UDEREF
 	help
 	  This option enables or disables the use of domain switching
 	  via the set_fs() function.

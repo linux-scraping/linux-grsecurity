@@ -792,6 +792,24 @@ config GRKERNSEC_SETXID
 	  running with root privileges.  If the sysctl option is enabled,
 	  a sysctl option with name "consistent_setxid" is created.
 
+config GRKERNSEC_HARDEN_IPC
+	bool "Disallow access to world-accessible IPC objects"
+	default y if GRKERNSEC_CONFIG_AUTO
+	depends on SYSVIPC
+	help
+	  If you say Y here, access to overly-permissive IPC (shared memory,
+	  message queues, and semaphores) will be denied for processes whose
+	  effective user or group would not grant them permission.  It's a
+	  common error to grant too much permission to these objects, with
+	  impact ranging from denial of service and information leaking to
+	  privilege escalation.  This feature was developed in response to
+	  research by Tim Brown:
+	  http://labs.portcullis.co.uk/whitepapers/memory-squatting-attacks-on-system-v-shared-memory/
+	  who found hundreds of such insecure usages.  Processes with
+	  CAP_IPC_OWNER are still permitted to access these IPC objects.
+	  If the sysctl option is enabled, a sysctl option with name
+	  "harden_ipc" is created.
+
 config GRKERNSEC_TPE
 	bool "Trusted Path Execution (TPE)"
 	default y if GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_SERVER

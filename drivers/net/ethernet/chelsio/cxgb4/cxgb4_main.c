@@ -2177,7 +2177,7 @@ static void get_regs(struct net_device *dev, struct ethtool_regs *regs,
 
 	int i;
 	struct adapter *ap = netdev2adap(dev);
-	static const unsigned int *reg_ranges;
+	const unsigned int *reg_ranges;
 	int arr_size = 0, buf_size = 0;
 
 	if (is_t4(ap->chip)) {

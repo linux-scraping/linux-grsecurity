@@ -1542,7 +1542,7 @@ _scsih_get_resync(struct device *dev)
 {
 	struct scsi_device *sdev = to_scsi_device(dev);
 	struct MPT2SAS_ADAPTER *ioc = shost_priv(sdev->host);
-	static struct _raid_device *raid_device;
+	struct _raid_device *raid_device;
 	unsigned long flags;
 	Mpi2RaidVolPage0_t vol_pg0;
 	Mpi2ConfigReply_t mpi_reply;
@@ -1594,7 +1594,7 @@ _scsih_get_state(struct device *dev)
 {
 	struct scsi_device *sdev = to_scsi_device(dev);
 	struct MPT2SAS_ADAPTER *ioc = shost_priv(sdev->host);
-	static struct _raid_device *raid_device;
+	struct _raid_device *raid_device;
 	unsigned long flags;
 	Mpi2RaidVolPage0_t vol_pg0;
 	Mpi2ConfigReply_t mpi_reply;
@@ -6622,7 +6622,7 @@ _scsih_sas_ir_operation_status_event(struct MPT2SAS_ADAPTER *ioc,
     struct fw_event_work *fw_event)
 {
 	Mpi2EventDataIrOperationStatus_t *event_data = fw_event->event_data;
-	static struct _raid_device *raid_device;
+	struct _raid_device *raid_device;
 	unsigned long flags;
 	u16 handle;
 
@@ -7093,7 +7093,7 @@ _scsih_scan_for_devices_after_reset(struct MPT2SAS_ADAPTER *ioc)
 	u64 sas_address;
 	struct _sas_device *sas_device;
 	struct _sas_node *expander_device;
-	static struct _raid_device *raid_device;
+	struct _raid_device *raid_device;
 	u8 retry_count;
 	unsigned long flags;
 

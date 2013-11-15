@@ -83,6 +83,10 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 				u64 descriptor[2];
 				descriptor[0] = PCID_USER;
 				asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_CONTEXT) : "memory");
+				if (!static_cpu_has(X86_FEATURE_STRONGUDEREF)) {
+					descriptor[0] = PCID_KERNEL;
+					asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_CONTEXT) : "memory");
+				}
 			} else {
 				write_cr3(__pa(get_cpu_pgd(cpu, user)) | PCID_USER);
 				if (static_cpu_has(X86_FEATURE_STRONGUDEREF))
@@ -147,6 +151,10 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 				u64 descriptor[2];
 				descriptor[0] = PCID_USER;
 				asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_CONTEXT) : "memory");
+				if (!static_cpu_has(X86_FEATURE_STRONGUDEREF)) {
+					descriptor[0] = PCID_KERNEL;
+					asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_CONTEXT) : "memory");
+				}
 			} else {
 				write_cr3(__pa(get_cpu_pgd(cpu, user)) | PCID_USER);
 				if (static_cpu_has(X86_FEATURE_STRONGUDEREF))

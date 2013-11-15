@@ -1105,7 +1105,7 @@ int qlcnic_dump_fw(struct qlcnic_adapter *adapter)
 	struct qlcnic_dump_entry *entry;
 	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
 	struct qlcnic_dump_template_hdr *tmpl_hdr = fw_dump->tmpl_hdr;
-	static const struct qlcnic_dump_operations *fw_dump_ops;
+	const struct qlcnic_dump_operations *fw_dump_ops;
 	struct device *dev = &adapter->pdev->dev;
 	struct qlcnic_hardware_context *ahw;
 	void *temp_buffer;

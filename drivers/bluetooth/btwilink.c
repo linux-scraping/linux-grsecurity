@@ -293,7 +293,7 @@ static int ti_st_send_frame(struct sk_buff *skb)
 
 static int bt_ti_probe(struct platform_device *pdev)
 {
-	static struct ti_st *hst;
+	struct ti_st *hst;
 	struct hci_dev *hdev;
 	int err;
 

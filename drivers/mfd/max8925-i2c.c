@@ -152,7 +152,7 @@ static int max8925_probe(struct i2c_client *client,
 				   const struct i2c_device_id *id)
 {
 	struct max8925_platform_data *pdata = client->dev.platform_data;
-	static struct max8925_chip *chip;
+	struct max8925_chip *chip;
 	struct device_node *node = client->dev.of_node;
 
 	if (node && !pdata) {
