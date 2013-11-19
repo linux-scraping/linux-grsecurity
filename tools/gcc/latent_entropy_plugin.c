@@ -77,12 +77,34 @@ static struct gimple_opt_pass latent_entropy_pass = {
 	}
 };
 
+static unsigned HOST_WIDE_INT seed;
+static unsigned HOST_WIDE_INT get_random_const(void)
+{
+	seed = (seed >> 1U) ^ (-(seed & 1ULL) & 0xD800000000000000ULL);
+	return seed;
+}
+
 static tree handle_latent_entropy_attribute(tree *node, tree name, tree args, int flags, bool *no_add_attrs)
 {
-	if (TREE_CODE(*node) != FUNCTION_DECL) {
+	switch (TREE_CODE(*node)) {
+	default:
 		*no_add_attrs = true;
-		error("%qE attribute only applies to functions", name);
+		error("%qE attribute only applies to functions and variables", name);
+		break;
+
+	case VAR_DECL:
+		if (DECL_INITIAL(*node)) {
+			*no_add_attrs = true;
+			error("variable %qD with %qE attribute must not be initialized", *node, name);
+			break;
+		}
+		DECL_INITIAL(*node) = build_int_cstu(long_long_unsigned_type_node, get_random_const());
+		break;
+
+	case FUNCTION_DECL:
+		break;
 	}
+
 	return NULL_TREE;
 }
 
@@ -110,13 +132,6 @@ static bool gate_latent_entropy(void)
 
 	latent_entropy_attr = lookup_attribute("latent_entropy", DECL_ATTRIBUTES(current_function_decl));
 	return latent_entropy_attr != NULL_TREE;
-}
-
-static unsigned HOST_WIDE_INT seed;
-static unsigned HOST_WIDE_INT get_random_const(void)
-{
-	seed = (seed >> 1U) ^ (-(seed & 1ULL) & 0xD800000000000000ULL);
-	return seed;
 }
 
 static enum tree_code get_op(tree *rhs)
@@ -290,7 +305,6 @@ static void start_unit_callback(void *gcc_data, void *user_data)
 	TREE_THIS_VOLATILE(latent_entropy_decl) = 1;
 	DECL_EXTERNAL(latent_entropy_decl) = 1;
 	DECL_ARTIFICIAL(latent_entropy_decl) = 1;
-	DECL_INITIAL(latent_entropy_decl) = build_int_cstu(long_long_unsigned_type_node, get_random_const());
 	lang_hooks.decls.pushdecl(latent_entropy_decl);
 //	DECL_ASSEMBLER_NAME(latent_entropy_decl);
 //	varpool_finalize_decl(latent_entropy_decl);

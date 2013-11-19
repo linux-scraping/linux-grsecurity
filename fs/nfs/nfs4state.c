@@ -154,6 +154,19 @@ struct rpc_cred *nfs4_get_machine_cred_locked(struct nfs_client *clp)
 	return cred;
 }
 
+static void nfs4_root_machine_cred(struct nfs_client *clp)
+{
+	struct rpc_cred *cred, *new;
+
+	new = rpc_lookup_machine_cred(NULL);
+	spin_lock(&clp->cl_lock);
+	cred = clp->cl_machine_cred;
+	clp->cl_machine_cred = new;
+	spin_unlock(&clp->cl_lock);
+	if (cred != NULL)
+		put_rpccred(cred);
+}
+
 static struct rpc_cred *
 nfs4_get_renew_cred_server_locked(struct nfs_server *server)
 {
@@ -1896,10 +1909,19 @@ again:
 			__func__, status);
 		goto again;
 	case -EACCES:
-		if (i++)
+		if (i++ == 0) {
+			nfs4_root_machine_cred(clp);
+			goto again;
+		}
+		if (clnt->cl_auth->au_flavor == RPC_AUTH_UNIX)
 			break;
 	case -NFS4ERR_CLID_INUSE:
 	case -NFS4ERR_WRONGSEC:
+		/* No point in retrying if we already used RPC_AUTH_UNIX */
+		if (clnt->cl_auth->au_flavor == RPC_AUTH_UNIX) {
+			status = -EPERM;
+			break;
+		}
 		clnt = rpc_clone_client_set_auth(clnt, RPC_AUTH_UNIX);
 		if (IS_ERR(clnt)) {
 			status = PTR_ERR(clnt);
