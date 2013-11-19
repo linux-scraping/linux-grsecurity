@@ -713,7 +713,7 @@ static int __init setup_pax_extra_latent_entropy(char *str)
 }
 early_param("pax_extra_latent_entropy", setup_pax_extra_latent_entropy);
 
-volatile u64 latent_entropy;
+volatile u64 latent_entropy __latent_entropy;
 EXPORT_SYMBOL(latent_entropy);
 #endif
 
