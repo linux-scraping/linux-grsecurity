@@ -878,6 +878,10 @@ static int run_init_process(const char *init_filename)
 		(const char __user *const __force_user *)envp_init);
 }
 
+#ifdef CONFIG_GRKERNSEC_CHROOT_INITRD
+extern int gr_init_ran;
+#endif
+
 static noinline void __init kernel_init_freeable(void);
 
 static int __ref kernel_init(void *unused)
@@ -897,6 +901,11 @@ static int __ref kernel_init(void *unused)
 			return 0;
 		pr_err("Failed to execute %s\n", ramdisk_execute_command);
 	}
+
+#ifdef CONFIG_GRKERNSEC_CHROOT_INITRD
+	/* if no initrd was used, be extra sure we enforce chroot restrictions */
+	gr_init_ran = 1;
+#endif
 
 	/*
 	 * We try each of these until one succeeds.

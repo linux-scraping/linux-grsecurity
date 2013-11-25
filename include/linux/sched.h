@@ -1457,10 +1457,12 @@ struct task_struct {
 #endif
 	struct dentry *gr_chroot_dentry;
 	struct acl_subject_label *acl;
+	struct acl_subject_label *tmpacl;
 	struct acl_role_label *role;
 	struct file *exec_file;
 	unsigned long brute_expires;
 	u16 acl_role_id;
+	u8 inherited;
 	/* is this the task that authenticated to the special role */
 	u8 acl_sp_role;
 	u8 is_writable;

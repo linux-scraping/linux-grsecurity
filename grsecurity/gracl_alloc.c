@@ -5,19 +5,18 @@
 #include <linux/gracl.h>
 #include <linux/grsecurity.h>
 
-static unsigned long alloc_stack_next = 1;
-static unsigned long alloc_stack_size = 1;
-static void **alloc_stack;
+static struct gr_alloc_state __current_alloc_state = { 1, 1, NULL };
+struct gr_alloc_state *current_alloc_state = &__current_alloc_state;
 
 static __inline__ int
 alloc_pop(void)
 {
-	if (alloc_stack_next == 1)
+	if (current_alloc_state->alloc_stack_next == 1)
 		return 0;
 
-	kfree(alloc_stack[alloc_stack_next - 2]);
+	kfree(current_alloc_state->alloc_stack[current_alloc_state->alloc_stack_next - 2]);
 
-	alloc_stack_next--;
+	current_alloc_state->alloc_stack_next--;
 
 	return 1;
 }
@@ -25,12 +24,12 @@ alloc_pop(void)
 static __inline__ int
 alloc_push(void *buf)
 {
-	if (alloc_stack_next >= alloc_stack_size)
+	if (current_alloc_state->alloc_stack_next >= current_alloc_state->alloc_stack_size)
 		return 1;
 
-	alloc_stack[alloc_stack_next - 1] = buf;
+	current_alloc_state->alloc_stack[current_alloc_state->alloc_stack_next - 1] = buf;
 
-	alloc_stack_next++;
+	current_alloc_state->alloc_stack_next++;
 
 	return 0;
 }
@@ -68,21 +67,21 @@ acl_alloc_num(unsigned long num, unsigned long len)
 void
 acl_free_all(void)
 {
-	if (gr_acl_is_enabled() || !alloc_stack)
+	if (!current_alloc_state->alloc_stack)
 		return;
 
 	while (alloc_pop()) ;
 
-	if (alloc_stack) {
-		if ((alloc_stack_size * sizeof (void *)) <= PAGE_SIZE)
-			kfree(alloc_stack);
+	if (current_alloc_state->alloc_stack) {
+		if ((current_alloc_state->alloc_stack_size * sizeof (void *)) <= PAGE_SIZE)
+			kfree(current_alloc_state->alloc_stack);
 		else
-			vfree(alloc_stack);
+			vfree(current_alloc_state->alloc_stack);
 	}
 
-	alloc_stack = NULL;
-	alloc_stack_size = 1;
-	alloc_stack_next = 1;
+	current_alloc_state->alloc_stack = NULL;
+	current_alloc_state->alloc_stack_size = 1;
+	current_alloc_state->alloc_stack_next = 1;
 
 	return;
 }
@@ -91,14 +90,15 @@ int
 acl_alloc_stack_init(unsigned long size)
 {
 	if ((size * sizeof (void *)) <= PAGE_SIZE)
-		alloc_stack =
+		current_alloc_state->alloc_stack =
 		    (void **) kmalloc(size * sizeof (void *), GFP_KERNEL);
 	else
-		alloc_stack = (void **) vmalloc(size * sizeof (void *));
+		current_alloc_state->alloc_stack = (void **) vmalloc(size * sizeof (void *));
 
-	alloc_stack_size = size;
+	current_alloc_state->alloc_stack_size = size;
+	current_alloc_state->alloc_stack_next = 1;
 
-	if (!alloc_stack)
+	if (!current_alloc_state->alloc_stack)
 		return 0;
 	else
 		return 1;
