@@ -401,12 +401,6 @@ gr_search_udp_sendmsg(const struct sock *sk, const struct sockaddr_in *addr)
 	return 0;
 }
 
-void
-gr_set_kernel_label(struct task_struct *task)
-{
-	return;
-}
-
 int
 gr_check_user_change(int real, int effective, int fs)
 {
@@ -435,7 +429,6 @@ void gr_put_exec_file(struct task_struct *task)
 }
 
 EXPORT_SYMBOL(gr_learn_resource);
-EXPORT_SYMBOL(gr_set_kernel_label);
 #ifdef CONFIG_SECURITY
 EXPORT_SYMBOL(gr_check_user_change);
 EXPORT_SYMBOL(gr_check_group_change);

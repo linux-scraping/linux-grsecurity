@@ -406,59 +406,6 @@ int disallow_signal(int sig)
 
 EXPORT_SYMBOL(disallow_signal);
 
-/*
- *	Put all the gunge required to become a kernel thread without
- *	attached user resources in one place where it belongs.
- */
-
-void daemonize(const char *name, ...)
-{
-	va_list args;
-	sigset_t blocked;
-
-	va_start(args, name);
-	vsnprintf(current->comm, sizeof(current->comm), name, args);
-	va_end(args);
-
-	gr_put_exec_file(current);
-	gr_set_kernel_label(current);
-
-	/*
-	 * If we were started as result of loading a module, close all of the
-	 * user space pages.  We don't need them, and if we didn't close them
-	 * they would be locked into memory.
-	 */
-	exit_mm(current);
-	/*
-	 * We don't want to have TIF_FREEZE set if the system-wide hibernation
-	 * or suspend transition begins right now.
-	 */
-	current->flags |= (PF_NOFREEZE | PF_KTHREAD);
-
-	if (current->nsproxy != &init_nsproxy) {
-		get_nsproxy(&init_nsproxy);
-		switch_task_namespaces(current, &init_nsproxy);
-	}
-	set_special_pids(&init_struct_pid);
-	proc_clear_tty(current);
-
-	/* Block and flush all signals */
-	sigfillset(&blocked);
-	sigprocmask(SIG_BLOCK, &blocked, NULL);
-	flush_signals(current);
-
-	/* Become as one with the init task */
-
-	daemonize_fs_struct();
-	exit_files(current);
-	current->files = init_task.files;
-	atomic_inc(&current->files->count);
-
-	reparent_to_kthreadd();
-}
-
-EXPORT_SYMBOL(daemonize);
-
 static void close_files(struct files_struct * files)
 {
 	int i, j;

@@ -84,7 +84,6 @@ void module_free_exec(struct module *mod, void *module_region)
 }
 EXPORT_SYMBOL(module_free_exec);
 
-void *module_alloc_exec(unsigned long size) __size_overflow(1);
 void *module_alloc_exec(unsigned long size)
 {
 	return __module_alloc(size, PAGE_KERNEL_RX);

@@ -127,7 +127,6 @@ __u32 gr_acl_handle_execve(const struct dentry *dentry,
 				  const struct vfsmount *mnt);
 int gr_check_crash_exec(const struct file *filp);
 int gr_acl_is_enabled(void);
-void gr_set_kernel_label(struct task_struct *task);
 void gr_set_role_label(struct task_struct *task, const uid_t uid,
 			      const gid_t gid);
 int gr_set_proc_label(const struct dentry *dentry,

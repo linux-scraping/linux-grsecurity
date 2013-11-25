@@ -810,6 +810,10 @@ static void run_init_process(const char *init_filename)
 	kernel_execve(init_filename, argv_init, envp_init);
 }
 
+#ifdef CONFIG_GRKERNSEC_CHROOT_INITRD
+extern int gr_init_ran;
+#endif
+
 /* This is a non __init function. Force it to be noinline otherwise gcc
  * makes it inline to init() and it becomes part of init.text section
  */
@@ -830,6 +834,11 @@ static noinline int init_post(void)
 		printk(KERN_WARNING "Failed to execute %s\n",
 				ramdisk_execute_command);
 	}
+
+#ifdef CONFIG_GRKERNSEC_CHROOT_INITRD
+	/* if no initrd was used, be extra sure we enforce chroot restrictions */
+	gr_init_ran = 1;
+#endif
 
 	/*
 	 * We try each of these until one succeeds.

@@ -589,7 +589,7 @@ config GRKERNSEC_CHROOT_CAPS
 config GRKERNSEC_CHROOT_INITRD
 	bool "Exempt initrd tasks from restrictions"
 	default y if GRKERNSEC_CONFIG_AUTO
-	depends on GRKERNSEC_CHROOT && BLK_DEV_RAM
+	depends on GRKERNSEC_CHROOT && BLK_DEV_INITRD
 	help
 	  If you say Y here, tasks started prior to init will be exempted from
 	  grsecurity's chroot restrictions.  This option is mainly meant to

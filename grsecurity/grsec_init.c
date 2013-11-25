@@ -76,10 +76,6 @@ char *gr_audit_log_fmt;
 char *gr_alert_log_buf;
 char *gr_audit_log_buf;
 
-extern struct gr_arg *gr_usermode;
-extern unsigned char *gr_system_salt;
-extern unsigned char *gr_system_sum;
-
 void __init
 grsecurity_init(void)
 {
@@ -119,17 +115,6 @@ grsecurity_init(void)
 		panic("Unable to allocate grsecurity audit log buffer");
 		return;
 	}
-
-	/* allocate memory for authentication structure */
-	gr_usermode = kmalloc(sizeof(struct gr_arg), GFP_KERNEL);
-	gr_system_salt = kmalloc(GR_SALT_LEN, GFP_KERNEL);
-	gr_system_sum = kmalloc(GR_SHA_LEN, GFP_KERNEL);
-
-	if (!gr_usermode || !gr_system_salt || !gr_system_sum) {
-		panic("Unable to allocate grsecurity authentication structure");
-		return;
-	}
-
 
 #ifdef CONFIG_GRKERNSEC_IO
 #if !defined(CONFIG_GRKERNSEC_SYSCTL_DISTRO)

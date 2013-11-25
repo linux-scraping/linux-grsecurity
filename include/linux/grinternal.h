@@ -20,7 +20,6 @@ __u32 gr_check_create(const struct dentry *new_dentry,
 int gr_check_protected_task(const struct task_struct *task);
 __u32 to_gr_audit(const __u32 reqmode);
 int gr_set_acls(const int type);
-int gr_apply_subject_to_task(struct task_struct *task);
 int gr_acl_is_enabled(void);
 char gr_roletype_to_char(void);
 

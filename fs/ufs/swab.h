@@ -76,7 +76,7 @@ fs32_sub(struct super_block *sbp, __fs32 *n, int d)
 		be32_add_cpu((__be32 *)n, -d);
 }
 
-static inline u16
+static inline u16 __intentional_overflow(-1)
 fs16_to_cpu(struct super_block *sbp, __fs16 n)
 {
 	if (UFS_SB(sbp)->s_bytesex == BYTESEX_LE)

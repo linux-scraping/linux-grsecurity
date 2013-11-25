@@ -144,7 +144,7 @@ Eoverflow:
 ssize_t seq_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 {
 	struct seq_file *m = file->private_data;
-	size_t copied = 0;
+	ssize_t copied = 0;
 	loff_t pos;
 	size_t n;
 	void *p;

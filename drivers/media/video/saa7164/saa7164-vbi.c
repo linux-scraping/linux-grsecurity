@@ -1081,8 +1081,6 @@ struct saa7164_user_buffer *saa7164_vbi_next_buf(struct saa7164_port *port)
 }
 
 static ssize_t fops_read(struct file *file, char __user *buffer,
-	size_t count, loff_t *pos) __size_overflow(3);
-static ssize_t fops_read(struct file *file, char __user *buffer,
 	size_t count, loff_t *pos)
 {
 	struct saa7164_vbi_fh *fh = file->private_data;

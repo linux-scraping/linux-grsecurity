@@ -979,8 +979,8 @@ extern int set_tsc_mode(unsigned int val);
 extern int amd_get_nb_id(int cpu);
 
 struct aperfmperf {
-	u64 aperf __intentional_overflow(0);
-	u64 mperf __intentional_overflow(0);
+	u64 aperf __intentional_overflow(-1);
+	u64 mperf __intentional_overflow(-1);
 };
 
 static inline void get_aperfmperf(struct aperfmperf *am)

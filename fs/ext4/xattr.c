@@ -328,7 +328,7 @@ static int
 ext4_xattr_list_entries(struct dentry *dentry, struct ext4_xattr_entry *entry,
 			char *buffer, size_t buffer_size)
 {
-	size_t rest = buffer_size;
+	size_t rest = buffer_size, total_size = 0;
 
 	for (; !IS_LAST_ENTRY(entry); entry = EXT4_XATTR_NEXT(entry)) {
 		const struct xattr_handler *handler =
@@ -345,9 +345,10 @@ ext4_xattr_list_entries(struct dentry *dentry, struct ext4_xattr_entry *entry,
 				buffer += size;
 			}
 			rest -= size;
+			total_size += size;
 		}
 	}
-	return buffer_size - rest;
+	return total_size;
 }
 
 static int

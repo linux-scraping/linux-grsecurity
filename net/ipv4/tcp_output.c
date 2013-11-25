@@ -1318,7 +1318,7 @@ static void tcp_cwnd_validate(struct sock *sk)
  * modulo only when the receiver window alone is the limiting factor or
  * when we would be allowed to send the split-due-to-Nagle skb fully.
  */
-static unsigned int tcp_mss_split_point(const struct sock *sk, const struct sk_buff *skb,
+static unsigned int __intentional_overflow(0) tcp_mss_split_point(const struct sock *sk, const struct sk_buff *skb,
 					unsigned int mss_now, unsigned int max_segs)
 {
 	const struct tcp_sock *tp = tcp_sk(sk);

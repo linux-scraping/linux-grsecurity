@@ -295,9 +295,9 @@ extern unsigned long preset_lpj;
  */
 extern unsigned int jiffies_to_msecs(const unsigned long j);
 extern unsigned int jiffies_to_usecs(const unsigned long j);
-extern unsigned long msecs_to_jiffies(const unsigned int m);
-extern unsigned long usecs_to_jiffies(const unsigned int u);
-extern unsigned long timespec_to_jiffies(const struct timespec *value);
+extern unsigned long msecs_to_jiffies(const unsigned int m) __intentional_overflow(-1);
+extern unsigned long usecs_to_jiffies(const unsigned int u) __intentional_overflow(-1);
+extern unsigned long timespec_to_jiffies(const struct timespec *value) __intentional_overflow(-1);
 extern void jiffies_to_timespec(const unsigned long jiffies,
 				struct timespec *value);
 extern unsigned long timeval_to_jiffies(const struct timeval *value);

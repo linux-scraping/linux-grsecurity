@@ -10,7 +10,7 @@
 #include <linux/grinternal.h>
 
 #ifdef CONFIG_GRKERNSEC_CHROOT_INITRD
-static int gr_init_ran;
+int gr_init_ran;
 #endif
 
 void gr_set_chroot_entries(struct task_struct *task, struct path *path)

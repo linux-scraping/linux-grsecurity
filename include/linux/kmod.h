@@ -62,6 +62,9 @@ struct subprocess_info {
 	struct work_struct work;
 	struct completion *complete;
 	char *path;
+#ifdef CONFIG_GRKERNSEC
+	char *origpath;
+#endif
 	char **argv;
 	char **envp;
 	enum umh_wait wait;

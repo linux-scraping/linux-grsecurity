@@ -54,8 +54,16 @@ gr_init_uidset(void)
 void
 gr_free_uidset(void)
 {
-	if (uid_set)
-		kfree(uid_set);
+	if (uid_set) {
+		struct crash_uid *tmpset;
+		spin_lock(&gr_uid_lock);
+		tmpset = uid_set;
+		uid_set = NULL;
+		uid_used = 0;
+		spin_unlock(&gr_uid_lock);
+		if (tmpset)
+			kfree(tmpset);
+	}
 
 	return;
 }

@@ -241,6 +241,18 @@ static int ____call_usermodehelper(void *data)
 	 */
 	set_user_nice(current, 0);
 
+#ifdef CONFIG_GRKERNSEC
+	/* this is race-free as far as userland is concerned as we copied
+	   out the path to be used prior to this point and are now operating
+	   on that copy
+	*/
+	if (strncmp(sub_info->path, "/sbin/", 6) || strstr(sub_info->path, "..")) {
+		printk(KERN_ALERT "grsec: denied exec of usermode helper binary %.950s located outside of /sbin\n", sub_info->path);
+		retval = -EPERM;
+		goto fail;
+	}
+#endif
+
 	retval = -ENOMEM;
 	new = prepare_kernel_cred(current);
 	if (!new)
@@ -274,6 +286,10 @@ fail:
 
 void call_usermodehelper_freeinfo(struct subprocess_info *info)
 {
+#ifdef CONFIG_GRKERNSEC
+	kfree(info->path);
+	info->path = info->origpath;
+#endif
 	if (info->cleanup)
 		(*info->cleanup)(info);
 	kfree(info);
@@ -466,7 +482,12 @@ struct subprocess_info *call_usermodehelper_setup(char *path, char **argv,
 		goto out;
 
 	INIT_WORK(&sub_info->work, __call_usermodehelper);
+#ifdef CONFIG_GRKERNSEC
+	sub_info->origpath = path;
+	sub_info->path = kstrdup(path, gfp_mask);
+#else
 	sub_info->path = path;
+#endif
 	sub_info->argv = argv;
 	sub_info->envp = envp;
   out:

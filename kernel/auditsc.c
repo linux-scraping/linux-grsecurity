@@ -2130,7 +2130,7 @@ static atomic_unchecked_t session_id = ATOMIC_INIT(0);
  *
  * Called (set) from fs/proc/base.c::proc_loginuid_write().
  */
-int audit_set_loginuid(struct task_struct *task, uid_t loginuid)
+int __intentional_overflow(-1) audit_set_loginuid(struct task_struct *task, uid_t loginuid)
 {
 	unsigned int sessionid = atomic_inc_return_unchecked(&session_id);
 	struct audit_context *context = task->audit_context;

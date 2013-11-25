@@ -9,7 +9,7 @@ static __always_inline void *kmem_cache_alloc(struct kmem_cache *cachep,
 	return kmem_cache_alloc_node(cachep, flags, -1);
 }
 
-void *__kmalloc_node(size_t size, gfp_t flags, int node) __size_overflow(1);
+void *__kmalloc_node(size_t size, gfp_t flags, int node);
 
 static __always_inline void *kmalloc_node(size_t size, gfp_t flags, int node)
 {
@@ -29,7 +29,7 @@ static __always_inline void *kmalloc(size_t size, gfp_t flags)
 	return __kmalloc_node(size, flags, -1);
 }
 
-static __always_inline __size_overflow(1) void *__kmalloc(size_t size, gfp_t flags)
+static __always_inline void *__kmalloc(size_t size, gfp_t flags)
 {
 	return kmalloc(size, flags);
 }

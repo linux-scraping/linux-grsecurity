@@ -99,7 +99,7 @@ MODULE_PARM_DESC(frequency, "I2C clock frequency in hertz");
 /* usb layer */
 
 /* Send command to device, and get response. */
-static int diolan_usb_transfer(struct i2c_diolan_u2c *dev)
+static int __intentional_overflow(-1) diolan_usb_transfer(struct i2c_diolan_u2c *dev)
 {
 	int ret = 0;
 	int actual;

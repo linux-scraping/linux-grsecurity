@@ -602,7 +602,7 @@ struct cache_detail unix_gid_cache = {
 	.alloc		= unix_gid_alloc,
 };
 
-static struct unix_gid *unix_gid_lookup(uid_t uid)
+static struct unix_gid * __intentional_overflow(-1) unix_gid_lookup(uid_t uid)
 {
 	struct unix_gid ug;
 	struct cache_head *ch;

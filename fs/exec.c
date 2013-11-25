@@ -2233,8 +2233,16 @@ static inline bool check_kernel_text_object(unsigned long low, unsigned long hig
 #endif
 
 #else
-	unsigned long textlow = _stext;
-	unsigned long texthigh = _etext;	
+	unsigned long textlow = (unsigned long)_stext;
+	unsigned long texthigh = (unsigned long)_etext;
+
+#ifdef CONFIG_X86_64
+	/* check against linear mapping as well */
+	if (high > (unsigned long)__va(__pa(textlow)) &&
+	    low <= (unsigned long)__va(__pa(texthigh)))
+		return true;
+#endif
+
 #endif
 
 	if (high <= textlow || low > texthigh)

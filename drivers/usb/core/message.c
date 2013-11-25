@@ -182,7 +182,7 @@ EXPORT_SYMBOL_GPL(usb_control_msg);
  * complete.  Since you don't have a handle on the URB used, you can't cancel
  * the request.
  */
-int usb_interrupt_msg(struct usb_device *usb_dev, unsigned int pipe,
+int __intentional_overflow(-1) usb_interrupt_msg(struct usb_device *usb_dev, unsigned int pipe,
 		      void *data, int len, int *actual_length, int timeout)
 {
 	return usb_bulk_msg(usb_dev, pipe, data, len, actual_length, timeout);
@@ -220,7 +220,7 @@ EXPORT_SYMBOL_GPL(usb_interrupt_msg);
  * interrupt endpoints.  We will take the liberty of creating an interrupt URB
  * (with the default interval) if the target is an interrupt endpoint.
  */
-int usb_bulk_msg(struct usb_device *usb_dev, unsigned int pipe,
+int __intentional_overflow(-1) usb_bulk_msg(struct usb_device *usb_dev, unsigned int pipe,
 		 void *data, int len, int *actual_length, int timeout)
 {
 	struct urb *urb;

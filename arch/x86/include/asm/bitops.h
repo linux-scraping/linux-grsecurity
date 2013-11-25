@@ -344,7 +344,7 @@ static int test_bit(int nr, const volatile unsigned long *addr);
  *
  * Undefined if no bit exists, so code should check against 0 first.
  */
-static inline unsigned long __ffs(unsigned long word)
+static inline unsigned long __intentional_overflow(-1) __ffs(unsigned long word)
 {
 	asm("bsf %1,%0"
 		: "=r" (word)
@@ -358,7 +358,7 @@ static inline unsigned long __ffs(unsigned long word)
  *
  * Undefined if no zero exists, so code should check against ~0UL first.
  */
-static inline unsigned long ffz(unsigned long word)
+static inline unsigned long __intentional_overflow(-1) ffz(unsigned long word)
 {
 	asm("bsf %1,%0"
 		: "=r" (word)

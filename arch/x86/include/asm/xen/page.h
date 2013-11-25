@@ -54,7 +54,7 @@ extern int m2p_remove_override(struct page *page, bool clear_pte);
 extern struct page *m2p_find_override(unsigned long mfn);
 extern unsigned long m2p_find_override_pfn(unsigned long mfn, unsigned long pfn);
 
-static inline unsigned long pfn_to_mfn(unsigned long pfn)
+static inline unsigned long __intentional_overflow(-1) pfn_to_mfn(unsigned long pfn)
 {
 	unsigned long mfn;
 
