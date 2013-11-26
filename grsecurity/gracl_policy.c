@@ -67,6 +67,7 @@ extern void gr_free_uidset(void);
 extern void gr_remove_uid(uid_t uid);
 extern int gr_find_uid(uid_t uid);
 
+extern struct acl_subject_label *__gr_get_subject_for_task(const struct gr_policy_state *state, struct task_struct *task, const char *filename);
 extern void __gr_apply_subject_to_task(struct gr_policy_state *state, struct task_struct *task, struct acl_subject_label *subj);
 extern int gr_streq(const char *a, const char *b, const unsigned int lena, const unsigned int lenb);
 extern void __insert_inodev_entry(const struct gr_policy_state *state, struct inodev_entry *entry);
@@ -1130,55 +1131,6 @@ copy_user_acl(struct gr_arg *arg)
 	return err;
 }
 
-static struct acl_subject_label *gr_get_subject_for_task(struct task_struct *task, const char *filename)
-{
-	char *tmpname;
-	struct acl_subject_label *tmpsubj;
-	struct file *filp;
-	struct name_entry *nmatch;
-
-	filp = task->exec_file;
-	if (filp == NULL)
-		return NULL;
-
-	/* the following is to apply the correct subject 
-	   on binaries running when the RBAC system 
-	   is enabled, when the binaries have been 
-	   replaced or deleted since their execution
-	   -----
-	   when the RBAC system starts, the inode/dev
-	   from exec_file will be one the RBAC system
-	   is unaware of.  It only knows the inode/dev
-	   of the present file on disk, or the absence
-	   of it.
-	*/
-
-	if (filename)
-		nmatch = __lookup_name_entry(polstate, filename);
-	else {
-		preempt_disable();
-		tmpname = gr_to_filename_rbac(filp->f_path.dentry, filp->f_path.mnt);
-			
-		nmatch = __lookup_name_entry(polstate, tmpname);
-		preempt_enable();
-	}
-	tmpsubj = NULL;
-	if (nmatch) {
-		if (nmatch->deleted)
-			tmpsubj = lookup_acl_subj_label_deleted(nmatch->inode, nmatch->device, task->role);
-		else
-			tmpsubj = lookup_acl_subj_label(nmatch->inode, nmatch->device, task->role);
-	}
-	/* this also works for the reload case -- if we don't match a potentially inherited subject
-	   then we fall back to a normal lookup based on the binary's ino/dev
-	*/
-	if (tmpsubj == NULL)
-		tmpsubj = chk_subj_label(filp->f_path.dentry, filp->f_path.mnt,
-					   task->role);
-
-	return tmpsubj;
-}
-
 static int gracl_reload_apply_policies(void *reload)
 {
 	struct gr_reload_state *reload_state = (struct gr_reload_state *)reload;
@@ -1215,8 +1167,8 @@ static int gracl_reload_apply_policies(void *reload)
 		}
 		/* this handles non-nested inherited subjects, nested subjects will still
 		   be dropped currently */
-		subj = gr_get_subject_for_task(task, task->acl->filename);
-		task->tmpacl = gr_get_subject_for_task(task, NULL);
+		subj = __gr_get_subject_for_task(polstate, task, task->acl->filename);
+		task->tmpacl = __gr_get_subject_for_task(polstate, task, NULL);
 		/* change the role back so that we've made no modifications to the policy */
 		task->role = rtmp;
 
@@ -1248,7 +1200,7 @@ static int gracl_reload_apply_policies(void *reload)
 			/* this handles non-nested inherited subjects, nested subjects will still
 			   be dropped currently */
 			if (!reload_state->oldmode && task->inherited)
-				subj = gr_get_subject_for_task(task, task->acl->filename);
+				subj = __gr_get_subject_for_task(polstate, task, task->acl->filename);
 			else {
 				/* looked up and tagged to the task previously */
 				subj = task->tmpacl;
@@ -1797,7 +1749,7 @@ gr_set_acls(const int type)
 		if (task->exec_file) {
 			cred = __task_cred(task);
 			task->role = __lookup_acl_role_label(polstate, task, cred->uid, cred->gid);
-			subj = gr_get_subject_for_task(task, NULL);
+			subj = __gr_get_subject_for_task(polstate, task, NULL);
 			if (subj == NULL) {
 				ret = -EINVAL;
 				read_unlock(&grsec_exec_file_lock);

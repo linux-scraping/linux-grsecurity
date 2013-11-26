@@ -1157,6 +1157,59 @@ gr_set_proc_res(struct task_struct *task)
 	read_lock(&grsec_exec_file_lock);
 */
 
+struct acl_subject_label *__gr_get_subject_for_task(const struct gr_policy_state *state, struct task_struct *task, const char *filename)
+{
+	char *tmpname;
+	struct acl_subject_label *tmpsubj;
+	struct file *filp;
+	struct name_entry *nmatch;
+
+	filp = task->exec_file;
+	if (filp == NULL)
+		return NULL;
+
+	/* the following is to apply the correct subject
+	   on binaries running when the RBAC system
+	   is enabled, when the binaries have been
+	   replaced or deleted since their execution
+	   -----
+	   when the RBAC system starts, the inode/dev
+	   from exec_file will be one the RBAC system
+	   is unaware of.  It only knows the inode/dev
+	   of the present file on disk, or the absence
+	   of it.
+	*/
+
+	if (filename)
+		nmatch = __lookup_name_entry(state, filename);
+	else {
+		preempt_disable();
+		tmpname = gr_to_filename_rbac(filp->f_path.dentry, filp->f_path.mnt);
+
+		nmatch = __lookup_name_entry(state, tmpname);
+		preempt_enable();
+	}
+	tmpsubj = NULL;
+	if (nmatch) {
+		if (nmatch->deleted)
+			tmpsubj = lookup_acl_subj_label_deleted(nmatch->inode, nmatch->device, task->role);
+		else
+			tmpsubj = lookup_acl_subj_label(nmatch->inode, nmatch->device, task->role);
+	}
+	/* this also works for the reload case -- if we don't match a potentially inherited subject
+	   then we fall back to a normal lookup based on the binary's ino/dev
+	*/
+	if (tmpsubj == NULL)
+		tmpsubj = chk_subj_label(filp->f_path.dentry, filp->f_path.mnt, task->role);
+
+	return tmpsubj;
+}
+
+static struct acl_subject_label *gr_get_subject_for_task(struct task_struct *task, const char *filename)
+{
+	return __gr_get_subject_for_task(&running_polstate, task, filename);
+}
+
 void __gr_apply_subject_to_task(const struct gr_policy_state *state, struct task_struct *task, struct acl_subject_label *subj)
 {
 	struct acl_object_label *obj;
@@ -1211,12 +1264,15 @@ gr_search_file(const struct dentry * dentry, const __u32 mode,
 		struct task_struct *task = init_pid_ns.child_reaper;
 
 		if (task->role != current->role) {
+			struct acl_subject_label *subj;
+
 			task->acl_sp_role = 0;
 			task->acl_role_id = current->acl_role_id;
 			task->role = current->role;
 			rcu_read_lock();
 			read_lock(&grsec_exec_file_lock);
-			gr_apply_subject_to_task(task, NULL);
+			subj = gr_get_subject_for_task(task, NULL);
+			gr_apply_subject_to_task(task, subj);
 			read_unlock(&grsec_exec_file_lock);
 			rcu_read_unlock();
 			gr_log_noargs(GR_DONT_AUDIT_GOOD, GR_INIT_TRANSFER_MSG);
