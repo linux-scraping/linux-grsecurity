@@ -1190,7 +1190,7 @@ static int gracl_reload_apply_policies(void *reload)
 	int role_applied;
 	int ret = 0;
 
-	memcpy(&reload_state->oldpolicy, reload_state->oldpolicy_ptr, sizeof(struct gr_reload_state));
+	memcpy(&reload_state->oldpolicy, reload_state->oldpolicy_ptr, sizeof(struct gr_policy_state));
 	memcpy(&reload_state->oldalloc, reload_state->oldalloc_ptr, sizeof(struct gr_alloc_state));
 
 	/* first make sure we'll be able to apply the new policy cleanly */

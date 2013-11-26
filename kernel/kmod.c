@@ -276,8 +276,9 @@ static int ____call_usermodehelper(void *data)
 	   out the path to be used prior to this point and are now operating
 	   on that copy
 	*/
-	if ((strncmp(sub_info->path, "/sbin/", 6) && strncmp(sub_info->path, "/usr/lib/systemd/", 17)) || strstr(sub_info->path, "..")) {
-		printk(KERN_ALERT "grsec: denied exec of usermode helper binary %.950s located outside of /sbin and /usr/lib/systemd\n", sub_info->path);
+	if ((strncmp(sub_info->path, "/sbin/", 6) && strncmp(sub_info->path, "/usr/lib/", 9) &&
+	     strncmp(sub_info->path, "/lib/", 5) && strncmp(sub_info->path, "/lib64/", 7)) || strstr(sub_info->path, "..")) {
+		printk(KERN_ALERT "grsec: denied exec of usermode helper binary %.950s located outside of /sbin and system library paths\n", sub_info->path);
 		retval = -EPERM;
 		goto fail;
 	}
