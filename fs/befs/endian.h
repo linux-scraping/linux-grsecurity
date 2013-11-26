@@ -47,7 +47,7 @@ cpu_to_fs32(const struct super_block *sb, u32 n)
 		return (__force fs32)cpu_to_be32(n);
 }
 
-static inline u16
+static inline u16 __intentional_overflow(-1)
 fs16_to_cpu(const struct super_block *sb, fs16 n)
 {
 	if (BEFS_SB(sb)->byte_order == BEFS_BYTESEX_LE)

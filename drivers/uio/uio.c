@@ -36,7 +36,6 @@ struct uio_device {
 	atomic_unchecked_t	event;
 	struct fasync_struct	*async_queue;
 	wait_queue_head_t	wait;
-	local_t			vma_count;
 	struct uio_info		*info;
 	struct kobject		*map_dir;
 	struct kobject		*portio_dir;
@@ -225,38 +224,42 @@ static struct kobj_type portio_attr_type = {
 	.default_attrs	= portio_attrs,
 };
 
-static ssize_t show_name(struct device *dev,
+static ssize_t name_show(struct device *dev,
 			 struct device_attribute *attr, char *buf)
 {
 	struct uio_device *idev = dev_get_drvdata(dev);
 	return sprintf(buf, "%s\n", idev->info->name);
 }
+static DEVICE_ATTR_RO(name);
 
-static ssize_t show_version(struct device *dev,
+static ssize_t version_show(struct device *dev,
 			    struct device_attribute *attr, char *buf)
 {
 	struct uio_device *idev = dev_get_drvdata(dev);
 	return sprintf(buf, "%s\n", idev->info->version);
 }
+static DEVICE_ATTR_RO(version);
 
-static ssize_t show_event(struct device *dev,
+static ssize_t event_show(struct device *dev,
 			  struct device_attribute *attr, char *buf)
 {
 	struct uio_device *idev = dev_get_drvdata(dev);
 	return sprintf(buf, "%u\n", (unsigned int)atomic_read_unchecked(&idev->event));
 }
+static DEVICE_ATTR_RO(event);
 
-static struct device_attribute uio_class_attributes[] = {
-	__ATTR(name, S_IRUGO, show_name, NULL),
-	__ATTR(version, S_IRUGO, show_version, NULL),
-	__ATTR(event, S_IRUGO, show_event, NULL),
-	{}
+static struct attribute *uio_attrs[] = {
+	&dev_attr_name.attr,
+	&dev_attr_version.attr,
+	&dev_attr_event.attr,
+	NULL,
 };
+ATTRIBUTE_GROUPS(uio);
 
 /* UIO class infrastructure */
 static struct class uio_class = {
 	.name = "uio",
-	.dev_attrs = uio_class_attributes,
+	.dev_groups = uio_groups,
 };
 
 /*
@@ -598,18 +601,6 @@ static int uio_find_mem_index(struct vm_area_struct *vma)
 	return -1;
 }
 
-static void uio_vma_open(struct vm_area_struct *vma)
-{
-	struct uio_device *idev = vma->vm_private_data;
-	local_inc(&idev->vma_count);
-}
-
-static void uio_vma_close(struct vm_area_struct *vma)
-{
-	struct uio_device *idev = vma->vm_private_data;
-	local_dec(&idev->vma_count);
-}
-
 static int uio_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
 	struct uio_device *idev = vma->vm_private_data;
@@ -636,8 +627,6 @@ static int uio_vma_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 }
 
 static const struct vm_operations_struct uio_logical_vm_ops = {
-	.open = uio_vma_open,
-	.close = uio_vma_close,
 	.fault = uio_vma_fault,
 };
 
@@ -645,7 +634,6 @@ static int uio_mmap_logical(struct vm_area_struct *vma)
 {
 	vma->vm_flags |= VM_DONTEXPAND | VM_DONTDUMP;
 	vma->vm_ops = &uio_logical_vm_ops;
-	uio_vma_open(vma);
 	return 0;
 }
 

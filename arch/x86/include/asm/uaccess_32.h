@@ -11,15 +11,15 @@
 #include <asm/page.h>
 
 unsigned long __must_check __copy_to_user_ll
-		(void __user *to, const void *from, unsigned long n) __size_overflow(3);
+		(void __user *to, const void *from, unsigned long n);
 unsigned long __must_check __copy_from_user_ll
-		(void *to, const void __user *from, unsigned long n) __size_overflow(3);
+		(void *to, const void __user *from, unsigned long n);
 unsigned long __must_check __copy_from_user_ll_nozero
-		(void *to, const void __user *from, unsigned long n) __size_overflow(3);
+		(void *to, const void __user *from, unsigned long n);
 unsigned long __must_check __copy_from_user_ll_nocache
-		(void *to, const void __user *from, unsigned long n) __size_overflow(3);
+		(void *to, const void __user *from, unsigned long n);
 unsigned long __must_check __copy_from_user_ll_nocache_nozero
-		(void *to, const void __user *from, unsigned long n) __size_overflow(3);
+		(void *to, const void __user *from, unsigned long n);
 
 /**
  * __copy_to_user_inatomic: - Copy a block of data into user space, with less checking.

@@ -99,7 +99,6 @@
 #include <linux/prefetch.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
-#include <linux/idr.h>
 #include <linux/dma-mapping.h>
 
 #include "musb_core.h"
@@ -1810,12 +1809,8 @@ static void musb_free(struct musb *musb)
 			disable_irq_wake(musb->nIrq);
 		free_irq(musb->nIrq, musb);
 	}
-	if (is_dma_capable() && musb->dma_controller) {
-		struct dma_controller	*c = musb->dma_controller;
-
-		(void) c->stop(c);
-		dma_controller_destroy(c);
-	}
+	if (musb->dma_controller)
+		dma_controller_destroy(musb->dma_controller);
 
 	musb_host_free(musb);
 }
@@ -1833,7 +1828,7 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 {
 	int			status;
 	struct musb		*musb;
-	struct musb_hdrc_platform_data *plat = dev->platform_data;
+	struct musb_hdrc_platform_data *plat = dev_get_platdata(dev);
 
 	/* The driver might handle more features than the board; OK.
 	 * Fail when the board needs a feature that's not enabled.
@@ -1890,19 +1885,8 @@ musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 
 	pm_runtime_get_sync(musb->controller);
 
-#ifndef CONFIG_MUSB_PIO_ONLY
-	if (use_dma && dev->dma_mask) {
-		struct dma_controller	*c;
-
-		c = dma_controller_create(musb, musb->mregs);
-		musb->dma_controller = c;
-		if (c)
-			(void) c->start(c);
-	}
-#endif
-	/* ideally this would be abstracted in platform setup */
-	if (!is_dma_capable() || !musb->dma_controller)
-		dev->dma_mask = NULL;
+	if (use_dma && dev->dma_mask)
+		musb->dma_controller = dma_controller_create(musb, musb->mregs);
 
 	/* be sure interrupts are disabled before connecting ISR */
 	musb_platform_disable(musb);
@@ -1990,6 +1974,8 @@ fail4:
 	musb_gadget_cleanup(musb);
 
 fail3:
+	if (musb->dma_controller)
+		dma_controller_destroy(musb->dma_controller);
 	pm_runtime_put_sync(musb->controller);
 
 fail2:
@@ -2048,9 +2034,6 @@ static int musb_remove(struct platform_device *pdev)
 
 	musb_free(musb);
 	device_init_wakeup(dev, 0);
-#ifndef CONFIG_MUSB_PIO_ONLY
-	dma_set_mask(dev, *dev->parent->dma_mask);
-#endif
 	return 0;
 }
 

@@ -287,7 +287,7 @@ int proc_fd_permission(struct inode *inode, int mask)
 	struct task_struct *task;
 	int rv = generic_permission(inode, mask);
 
-	if (task_pid(current) == proc_pid(inode))
+	if (task_tgid(current) == proc_pid(inode))
 		rv = 0;
 
 	task = get_proc_task(inode);

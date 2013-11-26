@@ -203,7 +203,9 @@ static void radeon_evict_flags(struct ttm_buffer_object *bo,
 
 static int radeon_verify_access(struct ttm_buffer_object *bo, struct file *filp)
 {
-	return 0;
+	struct radeon_bo *rbo = container_of(bo, struct radeon_bo, tbo);
+
+	return drm_vma_node_verify_access(&rbo->gem_base.vma_node, filp);
 }
 
 static void radeon_move_null(struct ttm_buffer_object *bo,
@@ -873,7 +875,7 @@ static int radeon_ttm_debugfs_init(struct radeon_device *rdev)
 			.show = &ttm_dma_page_alloc_debugfs,
 		},
 	};
-	unsigned i;
+	unsigned i = RADEON_DEBUGFS_MEM_TYPES + 1;
 
 	pax_open_kernel();
 	*(void **)&radeon_mem_types_list[0].data = rdev->mman.bdev.man[TTM_PL_VRAM].priv;

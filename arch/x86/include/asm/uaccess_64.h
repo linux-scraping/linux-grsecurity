@@ -26,7 +26,7 @@ copy_user_generic_string(void *to, const void *from, unsigned len) __size_overfl
 __must_check unsigned long
 copy_user_generic_unrolled(void *to, const void *from, unsigned len) __size_overflow(3);
 
-static __always_inline __must_check  __size_overflow(3) unsigned long
+static __always_inline __must_check  unsigned long
 copy_user_generic(void *to, const void *from, unsigned long len)
 {
 	unsigned ret;
@@ -311,7 +311,7 @@ __copy_to_user_inatomic(void __user *dst, const void *src, unsigned long size)
 }
 
 extern unsigned long __copy_user_nocache(void *dst, const void __user *src,
-				unsigned long size, int zerorest) __size_overflow(3);
+				unsigned long size, int zerorest);
 
 static inline unsigned long
 __copy_from_user_nocache(void *dst, const void __user *src, unsigned long size)

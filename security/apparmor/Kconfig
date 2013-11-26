@@ -30,11 +30,14 @@ config SECURITY_APPARMOR_BOOTPARAM_VALUE
 
 	  If you are unsure how to answer this question, answer 1.
 
-config SECURITY_APPARMOR_COMPAT_24
-	bool "Enable AppArmor 2.4 compatability"
+config SECURITY_APPARMOR_HASH
+	bool "SHA1 hash of loaded profiles"
 	depends on SECURITY_APPARMOR
+	depends on CRYPTO
+	select CRYPTO_SHA1
 	default y
+
 	help
-	  This option enables compatability with AppArmor 2.4.  It is
-          recommended if compatability with older versions of AppArmor
-          is desired.
+	  This option selects whether sha1 hashing is done against loaded
+          profiles and exported for inspection to user space via the apparmor
+          filesystem.

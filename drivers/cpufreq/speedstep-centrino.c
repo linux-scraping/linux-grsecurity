@@ -578,7 +578,6 @@ static struct cpufreq_driver centrino_driver = {
 	.target		= centrino_target,
 	.get		= get_cur_freq,
 	.attr           = centrino_attr,
-	.owner		= THIS_MODULE,
 };
 
 /*

@@ -54,9 +54,7 @@
 
 #include <linux/fs.h>
 #include <linux/file.h>
-#include <linux/stat.h>
 #include <linux/list.h>
-#include <asm/uaccess.h>
 
 #include <linux/proc_fs.h>
 #include <linux/sysctl.h>
@@ -221,7 +219,7 @@ DECLARE_PROC_HANDLER(proc_debug_mb)
 int LL_PROC_PROTO(proc_console_max_delay_cs)
 {
 	int rc, max_delay_cs;
-	ctl_table_t dummy = *table;
+	ctl_table_no_const dummy = *table;
 	cfs_duration_t d;
 
 	dummy.data = &max_delay_cs;
@@ -252,7 +250,7 @@ int LL_PROC_PROTO(proc_console_max_delay_cs)
 int LL_PROC_PROTO(proc_console_min_delay_cs)
 {
 	int rc, min_delay_cs;
-	ctl_table_t dummy = *table;
+	ctl_table_no_const dummy = *table;
 	cfs_duration_t d;
 
 	dummy.data = &min_delay_cs;
@@ -283,7 +281,7 @@ int LL_PROC_PROTO(proc_console_min_delay_cs)
 int LL_PROC_PROTO(proc_console_backoff)
 {
 	int rc, backoff;
-	ctl_table_t dummy = *table;
+	ctl_table_no_const dummy = *table;
 
 	dummy.data = &backoff;
 	dummy.proc_handler = &proc_dointvec;
@@ -564,7 +562,7 @@ int insert_proc(void)
 {
 #ifdef CONFIG_SYSCTL
 	if (lnet_table_header == NULL)
-		lnet_table_header = cfs_register_sysctl_table(top_table, 0);
+		lnet_table_header = register_sysctl_table(top_table);
 #endif
 	return 0;
 }

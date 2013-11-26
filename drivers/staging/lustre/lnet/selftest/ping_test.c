@@ -210,14 +210,12 @@ ping_server_handle(struct srpc_server_rpc *rpc)
 	return 0;
 }
 
-sfw_test_client_ops_t ping_test_client;
-void ping_init_test_client(void)
-{
-	ping_test_client.tso_init     = ping_client_init;
-	ping_test_client.tso_fini     = ping_client_fini;
-	ping_test_client.tso_prep_rpc = ping_client_prep_rpc;
-	ping_test_client.tso_done_rpc = ping_client_done_rpc;
-}
+sfw_test_client_ops_t ping_test_client = {
+	.tso_init     = ping_client_init,
+	.tso_fini     = ping_client_fini,
+	.tso_prep_rpc = ping_client_prep_rpc,
+	.tso_done_rpc = ping_client_done_rpc,
+};
 
 srpc_service_t ping_test_service;
 void ping_init_test_service(void)

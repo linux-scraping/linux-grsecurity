@@ -12,6 +12,9 @@
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/nsproxy.h>
+#ifdef CONFIG_GRKERNSEC
+#include <net/net_namespace.h>
+#endif
 #include "internal.h"
 
 extern int gr_handle_chroot_sysctl(const int op);
@@ -526,7 +529,7 @@ static ssize_t proc_sys_call_handler(struct file *filp, void __user *buf,
 		if (current->nsproxy->net_ns != table->extra2) {
 			if (!capable(CAP_SYS_ADMIN))
 				goto out;
-		} else if (!nsown_capable(CAP_NET_ADMIN))
+		} else if (!ns_capable(current->nsproxy->net_ns->user_ns, CAP_NET_ADMIN))
 			goto out;
 	}
 #endif

@@ -361,6 +361,13 @@ retry:
 	return 0;
 }
 
+static int hostfs_file_release(struct inode *inode, struct file *file)
+{
+	filemap_write_and_wait(inode->i_mapping);
+
+	return 0;
+}
+
 int hostfs_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 {
 	struct inode *inode = file->f_mapping->host;
@@ -386,7 +393,7 @@ static const struct file_operations hostfs_file_fops = {
 	.write		= do_sync_write,
 	.mmap		= generic_file_mmap,
 	.open		= hostfs_file_open,
-	.release	= NULL,
+	.release	= hostfs_file_release,
 	.fsync		= hostfs_fsync,
 };
 
@@ -897,7 +904,7 @@ static void *hostfs_follow_link(struct dentry *dentry, struct nameidata *nd)
 
 static void hostfs_put_link(struct dentry *dentry, struct nameidata *nd, void *cookie)
 {
-	char *s = nd_get_link(nd);
+	const char *s = nd_get_link(nd);
 	if (!IS_ERR(s))
 		__putname(s);
 }

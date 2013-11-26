@@ -501,7 +501,6 @@ out:
 static inline int l2tp_verify_udp_checksum(struct sock *sk,
 					   struct sk_buff *skb)
 {
-	struct l2tp_tunnel *tunnel = (struct l2tp_tunnel *)sk->sk_user_data;
 	struct udphdr *uh = udp_hdr(skb);
 	u16 ulen = ntohs(uh->len);
 	__wsum psum;

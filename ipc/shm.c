@@ -1133,6 +1133,7 @@ long do_shmat(int shmid, char __user *shmaddr, int shmflg, ulong *raddr,
 #endif
 
 	ipc_lock_object(&shp->shm_perm);
+
 	path = shp->shm_file->f_path;
 	path_get(&path);
 	shp->shm_nattch++;

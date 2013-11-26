@@ -35,11 +35,11 @@ struct outer_cache_fns {
 #endif
 	void (*set_debug)(unsigned long);
 	void (*resume)(void);
-} __no_const;
-
-#ifdef CONFIG_OUTER_CACHE
+} __do_const;
 
 extern struct outer_cache_fns outer_cache;
+
+#ifdef CONFIG_OUTER_CACHE
 
 static inline void outer_inv_range(phys_addr_t start, phys_addr_t end)
 {

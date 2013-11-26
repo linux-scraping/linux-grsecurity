@@ -74,6 +74,7 @@ struct net {
 	struct hlist_head	*dev_index_head;
 	unsigned int		dev_base_seq;	/* protected by rtnl_mutex */
 	int			ifindex;
+	unsigned int		dev_unreg_count;
 
 	/* core fib_rules */
 	struct list_head	rules_ops;
@@ -119,7 +120,6 @@ struct net {
 	struct netns_ipvs	*ipvs;
 #endif
 	struct sock		*diag_nlsk;
-	atomic_unchecked_t	rt_genid;
 	atomic_unchecked_t	fnhe_genid;
 };
 
@@ -337,14 +337,42 @@ static inline void unregister_net_sysctl_table(struct ctl_table_header *header)
 }
 #endif
 
-static inline int rt_genid(struct net *net)
+static inline int rt_genid_ipv4(struct net *net)
 {
-	return atomic_read_unchecked(&net->rt_genid);
+	return atomic_read_unchecked(&net->ipv4.rt_genid);
 }
 
-static inline void rt_genid_bump(struct net *net)
+static inline void rt_genid_bump_ipv4(struct net *net)
 {
-	atomic_inc_unchecked(&net->rt_genid);
+	atomic_inc_unchecked(&net->ipv4.rt_genid);
+}
+
+#if IS_ENABLED(CONFIG_IPV6)
+static inline int rt_genid_ipv6(struct net *net)
+{
+	return atomic_read_unchecked(&net->ipv6.rt_genid);
+}
+
+static inline void rt_genid_bump_ipv6(struct net *net)
+{
+	atomic_inc_unchecked(&net->ipv6.rt_genid);
+}
+#else
+static inline int rt_genid_ipv6(struct net *net)
+{
+	return 0;
+}
+
+static inline void rt_genid_bump_ipv6(struct net *net)
+{
+}
+#endif
+
+/* For callers who don't really care about whether it's IPv4 or IPv6 */
+static inline void rt_genid_bump_all(struct net *net)
+{
+	rt_genid_bump_ipv4(net);
+	rt_genid_bump_ipv6(net);
 }
 
 static inline int fnhe_genid(struct net *net)

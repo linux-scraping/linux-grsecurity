@@ -414,7 +414,7 @@ struct unix_gid {
 	struct group_info	*gi;
 };
 
-static int unix_gid_hash(kuid_t uid)
+static int __intentional_overflow(-1) unix_gid_hash(kuid_t uid)
 {
 	return hash_long(from_kuid(&init_user_ns, uid), GID_HASHBITS);
 }
@@ -470,7 +470,7 @@ static void unix_gid_request(struct cache_detail *cd,
 	(*bpp)[-1] = '\n';
 }
 
-static struct unix_gid *unix_gid_lookup(struct cache_detail *cd, kuid_t uid);
+static struct unix_gid * __intentional_overflow(-1) unix_gid_lookup(struct cache_detail *cd, kuid_t uid);
 
 static int unix_gid_parse(struct cache_detail *cd,
 			char *mesg, int mlen)

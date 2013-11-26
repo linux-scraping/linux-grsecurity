@@ -207,11 +207,11 @@ EXPORT_SYMBOL(boot_cpu_data);
 
 
 #ifdef CONFIG_X86_64
-unsigned long mmu_cr4_features __read_only = X86_CR4_PSE | X86_CR4_PAE | X86_CR4_PGE;
+__visible unsigned long mmu_cr4_features __read_only = X86_CR4_PSE | X86_CR4_PAE | X86_CR4_PGE;
 #elif defined(CONFIG_X86_PAE)
-unsigned long mmu_cr4_features __read_only = X86_CR4_PAE;
+__visible unsigned long mmu_cr4_features __read_only = X86_CR4_PAE;
 #else
-unsigned long mmu_cr4_features __read_only;
+__visible unsigned long mmu_cr4_features __read_only;
 #endif
 
 void set_in_cr4(unsigned long mask)
@@ -1110,7 +1110,7 @@ void __init setup_arch(char **cmdline_p)
 
 	cleanup_highmap();
 
-	memblock.current_limit = ISA_END_ADDRESS;
+	memblock_set_current_limit(ISA_END_ADDRESS);
 	memblock_x86_fill();
 
 	/*
@@ -1143,7 +1143,7 @@ void __init setup_arch(char **cmdline_p)
 
 	setup_real_mode();
 
-	memblock.current_limit = get_max_mapped();
+	memblock_set_current_limit(get_max_mapped());
 	dma_contiguous_reserve(0);
 
 	/*

@@ -349,8 +349,8 @@ static struct vm_area_struct *dup_vma(struct mm_struct *mm, struct mm_struct *ol
 {
 	struct vm_area_struct *tmp;
 	unsigned long charge;
-	struct mempolicy *pol;
 	struct file *file;
+	int retval;
 
 	charge = 0;
 	if (mpnt->vm_flags & VM_ACCOUNT) {
@@ -366,10 +366,9 @@ static struct vm_area_struct *dup_vma(struct mm_struct *mm, struct mm_struct *ol
 	*tmp = *mpnt;
 	tmp->vm_mm = mm;
 	INIT_LIST_HEAD(&tmp->anon_vma_chain);
-	pol = mpol_dup(vma_policy(mpnt));
-	if (IS_ERR(pol))
+	retval = vma_dup_policy(mpnt, tmp);
+	if (retval)
 		goto fail_nomem_policy;
-	vma_set_policy(tmp, pol);
 	if (anon_vma_fork(tmp, mpnt))
 		goto fail_nomem_anon_vma_fork;
 	tmp->vm_flags &= ~VM_LOCKED;
@@ -407,7 +406,7 @@ static struct vm_area_struct *dup_vma(struct mm_struct *mm, struct mm_struct *ol
 	return tmp;
 
 fail_nomem_anon_vma_fork:
-	mpol_put(pol);
+	mpol_put(vma_policy(tmp));
 fail_nomem_policy:
 	kmem_cache_free(vm_area_cachep, tmp);
 fail_nomem:
@@ -565,7 +564,7 @@ static void mm_init_aio(struct mm_struct *mm)
 {
 #ifdef CONFIG_AIO
 	spin_lock_init(&mm->ioctx_lock);
-	INIT_HLIST_HEAD(&mm->ioctx_list);
+	mm->ioctx_table = NULL;
 #endif
 }
 
@@ -1223,14 +1222,16 @@ static __latent_entropy struct task_struct *copy_process(unsigned long clone_fla
 		return ERR_PTR(-EINVAL);
 
 	/*
-	 * If the new process will be in a different pid namespace don't
-	 * allow it to share a thread group or signal handlers with the
-	 * forking task.
+	 * If the new process will be in a different pid or user namespace
+	 * do not allow it to share a thread group or signal handlers or
+	 * parent with the forking task.
 	 */
-	if ((clone_flags & (CLONE_SIGHAND | CLONE_NEWPID)) &&
-	    (task_active_pid_ns(current) !=
-	     current->nsproxy->pid_ns_for_children))
-		return ERR_PTR(-EINVAL);
+	if (clone_flags & (CLONE_SIGHAND | CLONE_PARENT)) {
+		if ((clone_flags & (CLONE_NEWUSER | CLONE_NEWPID)) ||
+		    (task_active_pid_ns(current) !=
+				current->nsproxy->pid_ns_for_children))
+			return ERR_PTR(-EINVAL);
+	}
 
 	retval = security_task_create(clone_flags);
 	if (retval)
@@ -1637,15 +1638,6 @@ long do_fork(unsigned long clone_flags,
 	long nr;
 
 	/*
-	 * Do some preliminary argument and permissions checking before we
-	 * actually start allocating stuff
-	 */
-	if (clone_flags & (CLONE_NEWUSER | CLONE_NEWPID)) {
-		if (clone_flags & (CLONE_THREAD|CLONE_PARENT))
-			return -EINVAL;
-	}
-
-	/*
 	 * Determine whether and which event to report to ptracer.  When
 	 * called from kernel_thread or CLONE_UNTRACED is explicitly
 	 * requested, no event is reported; otherwise, report if the event
@@ -1888,11 +1880,6 @@ SYSCALL_DEFINE1(unshare, unsigned long, unshare_flags)
 	 */
 	if (unshare_flags & CLONE_NEWUSER)
 		unshare_flags |= CLONE_THREAD | CLONE_FS;
-	/*
-	 * If unsharing a pid namespace must also unshare the thread.
-	 */
-	if (unshare_flags & CLONE_NEWPID)
-		unshare_flags |= CLONE_THREAD;
 	/*
 	 * If unsharing a thread from a thread group, must also unshare vm.
 	 */

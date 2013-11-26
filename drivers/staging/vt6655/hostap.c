@@ -85,7 +85,7 @@ static int hostap_enable_hostapd(PSDevice pDevice, int rtnl_locked)
 
 	apdev_priv = netdev_priv(pDevice->apdev);
 	*apdev_priv = *pDevice;
-	memcpy(pDevice->apdev->dev_addr, dev->dev_addr, ETH_ALEN);
+	eth_hw_addr_inherit(pDevice->apdev, dev);
 
 	/* only half broken now */
 	apdev_netdev_ops.ndo_start_xmit = pDevice->tx_80211;

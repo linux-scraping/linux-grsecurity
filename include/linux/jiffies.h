@@ -101,13 +101,13 @@ static inline u64 get_jiffies_64(void)
 #define time_after(a,b)		\
 	(typecheck(unsigned long, a) && \
 	 typecheck(unsigned long, b) && \
-	 ((long)(b) - (long)(a) < 0))
+	 ((long)((b) - (a)) < 0))
 #define time_before(a,b)	time_after(b,a)
 
 #define time_after_eq(a,b)	\
 	(typecheck(unsigned long, a) && \
 	 typecheck(unsigned long, b) && \
-	 ((long)(a) - (long)(b) >= 0))
+	 ((long)((a) - (b)) >= 0))
 #define time_before_eq(a,b)	time_after_eq(b,a)
 
 /*
@@ -130,13 +130,13 @@ static inline u64 get_jiffies_64(void)
 #define time_after64(a,b)	\
 	(typecheck(__u64, a) &&	\
 	 typecheck(__u64, b) && \
-	 ((__s64)(b) - (__s64)(a) < 0))
+	 ((__s64)((b) - (a)) < 0))
 #define time_before64(a,b)	time_after64(b,a)
 
 #define time_after_eq64(a,b)	\
 	(typecheck(__u64, a) && \
 	 typecheck(__u64, b) && \
-	 ((__s64)(a) - (__s64)(b) >= 0))
+	 ((__s64)((a) - (b)) >= 0))
 #define time_before_eq64(a,b)	time_after_eq64(b,a)
 
 #define time_in_range64(a, b, c) \
@@ -292,14 +292,14 @@ extern unsigned long preset_lpj;
 /*
  * Convert various time units to each other:
  */
-extern unsigned int jiffies_to_msecs(const unsigned long j);
-extern unsigned int jiffies_to_usecs(const unsigned long j);
-extern unsigned long msecs_to_jiffies(const unsigned int m);
-extern unsigned long usecs_to_jiffies(const unsigned int u);
-extern unsigned long timespec_to_jiffies(const struct timespec *value);
+extern unsigned int jiffies_to_msecs(const unsigned long j) __intentional_overflow(-1);
+extern unsigned int jiffies_to_usecs(const unsigned long j) __intentional_overflow(-1);
+extern unsigned long msecs_to_jiffies(const unsigned int m) __intentional_overflow(-1);
+extern unsigned long usecs_to_jiffies(const unsigned int u) __intentional_overflow(-1);
+extern unsigned long timespec_to_jiffies(const struct timespec *value) __intentional_overflow(-1);
 extern void jiffies_to_timespec(const unsigned long jiffies,
 				struct timespec *value);
-extern unsigned long timeval_to_jiffies(const struct timeval *value);
+extern unsigned long timeval_to_jiffies(const struct timeval *value) __intentional_overflow(-1);
 extern void jiffies_to_timeval(const unsigned long jiffies,
 			       struct timeval *value);
 
