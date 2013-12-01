@@ -577,6 +577,10 @@ static void __noreturn native_machine_emergency_restart(void)
 void native_machine_shutdown(void)
 {
 	/* Stop the cpus and apics */
+#ifdef CONFIG_X86_IO_APIC
+	disable_IO_APIC();
+#endif
+
 #ifdef CONFIG_SMP
 	/*
 	 * Stop all of the others. Also disable the local irq to
@@ -588,10 +592,6 @@ void native_machine_shutdown(void)
 #endif
 
 	lapic_shutdown();
-
-#ifdef CONFIG_X86_IO_APIC
-	disable_IO_APIC();
-#endif
 
 #ifdef CONFIG_HPET_TIMER
 	hpet_disable();
