@@ -342,7 +342,7 @@ static unsigned long get_next_ra_size(struct file_ra_state *ra,
  * 	- length of the sequential read sequence, or
  * 	- thrashing threshold in memory tight systems
  */
-static pgoff_t count_history_pages(struct address_space *mapping,
+static pgoff_t __intentional_overflow(-1) count_history_pages(struct address_space *mapping,
 				   struct file_ra_state *ra,
 				   pgoff_t offset, unsigned long max)
 {

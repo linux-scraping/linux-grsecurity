@@ -62,8 +62,8 @@ void proc_fork_connector(struct task_struct *task)
 	if (atomic_read(&proc_event_num_listeners) < 1)
 		return;
 
-	msg = (struct cn_msg *)buffer;
-	ev = (struct proc_event *)msg->data;
+	msg = (struct cn_msg*)buffer;
+	ev = (struct proc_event*)msg->data;
 	memset(&ev->event_data, 0, sizeof(ev->event_data));
 	get_seq(&msg->seq, &ev->cpu);
 	ktime_get_ts(&ts); /* get high res monotonic timestamp */
@@ -95,8 +95,8 @@ void proc_exec_connector(struct task_struct *task)
 	if (atomic_read(&proc_event_num_listeners) < 1)
 		return;
 
-	msg = (struct cn_msg *)buffer;
-	ev = (struct proc_event *)msg->data;
+	msg = (struct cn_msg*)buffer;
+	ev = (struct proc_event*)msg->data;
 	memset(&ev->event_data, 0, sizeof(ev->event_data));
 	get_seq(&msg->seq, &ev->cpu);
 	ktime_get_ts(&ts); /* get high res monotonic timestamp */
@@ -123,8 +123,8 @@ void proc_id_connector(struct task_struct *task, int which_id)
 	if (atomic_read(&proc_event_num_listeners) < 1)
 		return;
 
-	msg = (struct cn_msg *)buffer;
-	ev = (struct proc_event *)msg->data;
+	msg = (struct cn_msg*)buffer;
+	ev = (struct proc_event*)msg->data;
 	memset(&ev->event_data, 0, sizeof(ev->event_data));
 	ev->what = which_id;
 	ev->event_data.id.process_pid = task->pid;
@@ -253,8 +253,8 @@ void proc_exit_connector(struct task_struct *task)
 	if (atomic_read(&proc_event_num_listeners) < 1)
 		return;
 
-	msg = (struct cn_msg *)buffer;
-	ev = (struct proc_event *)msg->data;
+	msg = (struct cn_msg*)buffer;
+	ev = (struct proc_event*)msg->data;
 	memset(&ev->event_data, 0, sizeof(ev->event_data));
 	get_seq(&msg->seq, &ev->cpu);
 	ktime_get_ts(&ts); /* get high res monotonic timestamp */
@@ -290,8 +290,8 @@ static void cn_proc_ack(int err, int rcvd_seq, int rcvd_ack)
 	if (atomic_read(&proc_event_num_listeners) < 1)
 		return;
 
-	msg = (struct cn_msg *)buffer;
-	ev = (struct proc_event *)msg->data;
+	msg = (struct cn_msg*)buffer;
+	ev = (struct proc_event*)msg->data;
 	memset(&ev->event_data, 0, sizeof(ev->event_data));
 	msg->seq = rcvd_seq;
 	ktime_get_ts(&ts); /* get high res monotonic timestamp */
