@@ -11,21 +11,15 @@ config GRKERNSEC_KMEM
 	help
 	  If you say Y here, /dev/kmem and /dev/mem won't be allowed to
 	  be written to or read from to modify or leak the contents of the running
-	  kernel.  /dev/port will also not be allowed to be opened and support
-	  for /dev/cpu/*/msr will be removed.  If you have module
-	  support disabled, enabling this will close up five ways that are
-	  currently used  to insert malicious code into the running kernel.
+	  kernel.  /dev/port will also not be allowed to be opened, and support
+	  for /dev/cpu/*/msr and kexec will be removed.  If you have module
+	  support disabled, enabling this will close up six ways that are
+	  currently used to insert malicious code into the running kernel.
 
-	  Even with all these features enabled, we still highly recommend that
+	  Even with this feature enabled, we still highly recommend that
 	  you use the RBAC system, as it is still possible for an attacker to
-	  modify the running kernel through privileged I/O granted by ioperm/iopl.
+	  modify the running kernel through other more obscure methods.
 
-	  If you are not using XFree86, you may be able to stop this additional
-	  case by enabling the 'Disable privileged I/O' option. Though nothing
-	  legitimately writes to /dev/kmem, XFree86 does need to write to /dev/mem,
-	  but only to video memory, which is the only writing we allow in this
-	  case.  If /dev/kmem or /dev/mem are mmaped without PROT_WRITE, they will
-	  not be allowed to mprotect it with PROT_WRITE later.
 	  Enabling this feature will prevent the "cpupower" and "powertop" tools
 	  from working.
 
@@ -61,10 +55,11 @@ config GRKERNSEC_IO
 	  the most notable of which are XFree86 and hwclock.  hwclock can be
 	  remedied by having RTC support in the kernel, so real-time 
 	  clock support is enabled if this option is enabled, to ensure 
-	  that hwclock operates correctly.  XFree86 still will not 
-	  operate correctly with this option enabled, so DO NOT CHOOSE Y 
-	  IF YOU USE XFree86.  If you use XFree86 and you still want to 
-	  protect your kernel against modification, use the RBAC system.
+	  that hwclock operates correctly.
+
+	  If you're using XFree86 or a version of Xorg from 2012 or earlier,
+	  you may not be able to boot into a graphical environment with this
+	  option enabled.  In this case, you should use the RBAC system instead.
 
 config GRKERNSEC_JIT_HARDEN
 	bool "Harden BPF JIT against spray attacks"

@@ -2423,7 +2423,7 @@ static void rcu_sysidle_enter(struct rcu_dynticks *rdtp, int irq)
 
 	/* Record start of fully idle period. */
 	j = jiffies;
-	ACCESS_ONCE(rdtp->dynticks_idle_jiffies) = j;
+	ACCESS_ONCE_RW(rdtp->dynticks_idle_jiffies) = j;
 	smp_mb__before_atomic_inc();
 	atomic_inc_unchecked(&rdtp->dynticks_idle);
 	smp_mb__after_atomic_inc();
@@ -2598,7 +2598,7 @@ static void rcu_sysidle(unsigned long j)
 	case RCU_SYSIDLE_NOT:
 
 		/* First time all are idle, so note a short idle period. */
-		ACCESS_ONCE(full_sysidle_state) = RCU_SYSIDLE_SHORT;
+		ACCESS_ONCE_RW(full_sysidle_state) = RCU_SYSIDLE_SHORT;
 		break;
 
 	case RCU_SYSIDLE_SHORT:
@@ -2635,7 +2635,7 @@ static void rcu_sysidle(unsigned long j)
 static void rcu_sysidle_cancel(void)
 {
 	smp_mb();
-	ACCESS_ONCE(full_sysidle_state) = RCU_SYSIDLE_NOT;
+	ACCESS_ONCE_RW(full_sysidle_state) = RCU_SYSIDLE_NOT;
 }
 
 /*
@@ -2683,7 +2683,7 @@ static void rcu_sysidle_cb(struct rcu_head *rhp)
 	smp_mb();  /* grace period precedes setting inuse. */
 
 	rshp = container_of(rhp, struct rcu_sysidle_head, rh);
-	ACCESS_ONCE(rshp->inuse) = 0;
+	ACCESS_ONCE_RW(rshp->inuse) = 0;
 }
 
 /*
