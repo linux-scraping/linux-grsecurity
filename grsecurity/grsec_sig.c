@@ -82,7 +82,7 @@ static int __get_dumpable(unsigned long mm_flags)
 	int ret;
 
 	ret = mm_flags & MMF_DUMPABLE_MASK;
-	return (ret >= 2) ? 2 : ret;
+	return (ret > SUID_DUMPABLE_ENABLED) ? SUID_DUMPABLE_SAFE : ret;
 }
 #endif
 
@@ -106,8 +106,9 @@ void gr_handle_brute_attach(unsigned long mm_flags)
 	} else {
 		const struct cred *cred = __task_cred(p), *cred2;
 		struct task_struct *tsk, *tsk2;
+		int dumpable = __get_dumpable(mm_flags);
 
-		if (!__get_dumpable(mm_flags) && cred->uid) {
+		if (dumpable != SUID_DUMPABLE_ENABLED && cred->uid) {
 			struct user_struct *user;
 
 			uid = cred->uid;

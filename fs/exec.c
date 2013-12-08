@@ -1308,7 +1308,7 @@ void install_exec_creds(struct linux_binprm *bprm)
 	 * wait until new credentials are committed
 	 * by commit_creds() above
 	 */
-	if (get_dumpable(current->mm) != SUID_DUMP_USER)
+	if (get_dumpable(current->mm) != SUID_DUMPABLE_ENABLED)
 		perf_event_exit_task(current);
 	/*
 	 * cred_guard_mutex must be held at least to this point to prevent
