@@ -190,7 +190,7 @@ static int __ptrace_may_access(struct task_struct *task, unsigned int mode,
 	smp_rmb();
 	if (task->mm)
 		dumpable = get_dumpable(task->mm);
-	if (!dumpable &&
+	if (dumpable != SUID_DUMP_USER &&
 	     ((!log && !capable_nolog(CAP_SYS_PTRACE)) ||
 	      (log && !capable(CAP_SYS_PTRACE))))
 		return -EPERM;

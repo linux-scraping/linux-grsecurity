@@ -106,8 +106,9 @@ void gr_handle_brute_attach(unsigned long mm_flags)
 	} else {
 		const struct cred *cred = __task_cred(p), *cred2;
 		struct task_struct *tsk, *tsk2;
+		int dumpable = __get_dumpable(mm_flags);
 
-		if (!__get_dumpable(mm_flags) && cred->uid) {
+		if (dumpable != SUID_DUMP_USER && cred->uid) {
 			struct user_struct *user;
 
 			uid = cred->uid;

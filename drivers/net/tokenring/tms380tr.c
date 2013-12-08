@@ -1248,7 +1248,7 @@ void tms380tr_wait(unsigned long time)
 		tmp = schedule_timeout_interruptible(tmp);
 	} while(time_after(tmp, jiffies));
 #else
-	udelay(time);
+	mdelay(time / 1000);
 #endif
 	return;
 }
