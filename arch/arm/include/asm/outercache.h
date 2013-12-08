@@ -35,7 +35,7 @@ struct outer_cache_fns {
 #endif
 	void (*set_debug)(unsigned long);
 	void (*resume)(void);
-} __do_const;
+} __no_const;
 
 extern struct outer_cache_fns outer_cache;
 

@@ -501,6 +501,7 @@ void do_coredump(siginfo_t *siginfo)
 	bool core_dumped = false;
 	static atomic_unchecked_t core_dump_count = ATOMIC_INIT(0);
 	long signr = siginfo->si_signo;
+	int dumpable;
 	struct coredump_params cprm = {
 		.siginfo = siginfo,
 		.regs = signal_pt_regs(),
@@ -515,13 +516,15 @@ void do_coredump(siginfo_t *siginfo)
 
 	audit_core_dumps(signr);
 
+	dumpable = __get_dumpable(cprm.mm_flags);
+
 	if (signr == SIGSEGV || signr == SIGBUS || signr == SIGKILL || signr == SIGILL)
-		gr_handle_brute_attach(cprm.mm_flags);
+		gr_handle_brute_attach(dumpable);
 
 	binfmt = mm->binfmt;
 	if (!binfmt || !binfmt->core_dump)
 		goto fail;
-	if (!__get_dumpable(cprm.mm_flags))
+	if (!dumpable)
 		goto fail;
 
 	cred = prepare_creds();

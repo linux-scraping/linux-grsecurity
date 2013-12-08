@@ -45,7 +45,7 @@ struct l2x0_of_data {
 	void (*setup)(const struct device_node *, u32 *, u32 *);
 	void (*save)(void);
 	struct outer_cache_fns outer_cache;
-};
+} __do_const;
 
 static bool of_init = false;
 

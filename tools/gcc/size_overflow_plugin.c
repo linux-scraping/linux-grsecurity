@@ -123,7 +123,7 @@ static tree get_size_overflow_type(gimple stmt, const_tree node);
 static tree dup_assign(struct pointer_set_t *visited, gimple oldstmt, const_tree node, tree rhs1, tree rhs2, tree __unused rhs3);
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20131120beta",
+	.version	= "20131203beta",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
@@ -2061,12 +2061,17 @@ static void set_conditions(struct pointer_set_t *visited, bool *interesting_cond
 }
 
 // determine whether duplication will be necessary or not.
-static void search_interesting_conditions(const_tree arg, bool *interesting_conditions)
+static void search_interesting_conditions(struct interesting_node *cur_node, bool *interesting_conditions)
 {
 	struct pointer_set_t *visited;
 
+	if (gimple_assign_cast_p(cur_node->first_stmt))
+		interesting_conditions[CAST] = true;
+	else if (is_gimple_assign(cur_node->first_stmt) && gimple_num_ops(cur_node->first_stmt) > 2)
+		interesting_conditions[NOT_UNARY] = true;
+
 	visited = pointer_set_create();
-	set_conditions(visited, interesting_conditions, arg);
+	set_conditions(visited, interesting_conditions, cur_node->node);
 	pointer_set_destroy(visited);
 }
 
@@ -2532,7 +2537,7 @@ static struct next_cgraph_node *handle_interesting_stmt(struct next_cgraph_node 
 	if (cur_node->intentional_attr_decl == MARK_TURN_OFF || cur_node->intentional_attr_cur_fndecl == MARK_TURN_OFF)
 		return cnodes;
 
-	search_interesting_conditions(orig_node, interesting_conditions);
+	search_interesting_conditions(cur_node, interesting_conditions);
 
 	// error code
 	if (interesting_conditions[CAST] && interesting_conditions[FROM_CONST] && !interesting_conditions[NOT_UNARY])
@@ -2811,10 +2816,22 @@ static struct interesting_node *get_interesting_ret_or_call(struct pointer_set_t
 static void remove_size_overflow_asm(gimple stmt)
 {
 	gimple_stmt_iterator gsi;
+	tree input, output;
 
-	gcc_assert(gimple_code(stmt) == GIMPLE_ASM);
-	gsi = gsi_for_stmt(stmt);
-	gsi_remove(&gsi, true);
+	if (gimple_code(stmt) != GIMPLE_ASM)
+		return;
+	if (!is_size_overflow_asm(stmt))
+		return;
+
+	if (gimple_asm_noutputs(stmt) == 0) {
+		gsi = gsi_for_stmt(stmt);
+		gsi_remove(&gsi, true);
+		return;
+	}
+
+	input = gimple_asm_input_op(stmt, 0);
+	output = gimple_asm_output_op(stmt, 0);
+	replace_size_overflow_asm_with_assign(stmt, TREE_VALUE(output), TREE_VALUE(input));
 }
 
 /* handle the size_overflow asm stmts from the gimple pass and collect the interesting stmts.
@@ -2823,7 +2840,7 @@ static void remove_size_overflow_asm(gimple stmt)
  */
 static struct interesting_node *handle_stmt_by_size_overflow_asm(gimple stmt, struct interesting_node *head)
 {
-	const_tree output, input;
+	const_tree output;
 	struct pointer_set_t *visited;
 	gimple intentional_asm = NOT_INTENTIONAL_ASM;
 
@@ -2834,9 +2851,10 @@ static struct interesting_node *handle_stmt_by_size_overflow_asm(gimple stmt, st
 		intentional_asm = stmt;
 
 	gcc_assert(gimple_asm_ninputs(stmt) == 1);
-	input = gimple_asm_input_op(stmt, 0);
 
 	if (gimple_asm_noutputs(stmt) == 0) {
+		const_tree input = gimple_asm_input_op(stmt, 0);
+
 		remove_size_overflow_asm(stmt);
 		if (is_gimple_constant(TREE_VALUE(input)))
 			return head;
@@ -2847,12 +2865,11 @@ static struct interesting_node *handle_stmt_by_size_overflow_asm(gimple stmt, st
 		return head;
 	}
 
-	output = gimple_asm_output_op(stmt, 0);
-
 	if (!is_size_overflow_intentional_asm_yes(stmt) && !is_size_overflow_intentional_asm_turn_off(stmt))
-		replace_size_overflow_asm_with_assign(stmt, TREE_VALUE(output), TREE_VALUE(input));
+		remove_size_overflow_asm(stmt);
 
 	visited = pointer_set_create();
+	output = gimple_asm_output_op(stmt, 0);
 	head = get_interesting_ret_or_call(visited, head, TREE_VALUE(output), intentional_asm);
 	pointer_set_destroy(visited);
 	return head;
@@ -2970,6 +2987,18 @@ static void free_next_cgraph_node(struct next_cgraph_node *head)
 	}
 }
 
+static void remove_all_size_overflow_asm(void)
+{
+	basic_block bb;
+
+	FOR_ALL_BB(bb) {
+		gimple_stmt_iterator si;
+
+		for (si = gsi_start_bb(bb); !gsi_end_p(si); gsi_next(&si))
+			remove_size_overflow_asm(gsi_stmt(si));
+	}
+}
+
 /* Main recursive walk of the ipa pass: iterate over the collected interesting stmts in a function
  * (they are interesting if they have an associated size_overflow asm stmt) and recursively walk
  * the newly collected interesting functions (they are interesting if there is control flow between
@@ -2996,6 +3025,7 @@ static struct visited *handle_function(struct cgraph_node *node, struct next_cgr
 	}
 
 	free_interesting_node(head);
+	remove_all_size_overflow_asm();
 	unset_current_function_decl();
 
 	for (cur_cnodes = cnodes_head; cur_cnodes; cur_cnodes = cur_cnodes->next)

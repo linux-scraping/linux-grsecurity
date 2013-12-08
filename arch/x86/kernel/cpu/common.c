@@ -238,6 +238,7 @@ static __always_inline void setup_smap(struct cpuinfo_x86 *c)
 static __init int setup_disable_pcid(char *arg)
 {
 	setup_clear_cpu_cap(X86_FEATURE_PCID);
+	setup_clear_cpu_cap(X86_FEATURE_INVPCID);
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	if (clone_pgd_mask != ~(pgdval_t)0UL)
@@ -251,6 +252,7 @@ __setup("nopcid", setup_disable_pcid);
 static void setup_pcid(struct cpuinfo_x86 *c)
 {
 	if (!cpu_has(c, X86_FEATURE_PCID)) {
+		clear_cpu_cap(c, X86_FEATURE_INVPCID);
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 		if (clone_pgd_mask != ~(pgdval_t)0UL) {

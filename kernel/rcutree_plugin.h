@@ -744,7 +744,7 @@ static int rcu_preempted_readers_exp(struct rcu_node *rnp)
 static int sync_rcu_preempt_exp_done(struct rcu_node *rnp)
 {
 	return !rcu_preempted_readers_exp(rnp) &&
-	       ACCESS_ONCE(rnp->expmask) == 0;
+	       ACCESS_ONCE_RW(rnp->expmask) == 0;
 }
 
 /*

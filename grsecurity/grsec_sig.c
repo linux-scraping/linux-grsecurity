@@ -74,20 +74,10 @@ int gr_fake_force_sig(int sig, struct task_struct *t)
 }
 #endif
 
-#ifdef CONFIG_GRKERNSEC_BRUTE
 #define GR_USER_BAN_TIME (15 * 60)
 #define GR_DAEMON_BRUTE_TIME (30 * 60)
 
-static int __get_dumpable(unsigned long mm_flags)
-{
-	int ret;
-
-	ret = mm_flags & MMF_DUMPABLE_MASK;
-	return (ret >= 2) ? 2 : ret;
-}
-#endif
-
-void gr_handle_brute_attach(unsigned long mm_flags)
+void gr_handle_brute_attach(int dumpable)
 {
 #ifdef CONFIG_GRKERNSEC_BRUTE
 	struct task_struct *p = current;
@@ -108,7 +98,7 @@ void gr_handle_brute_attach(unsigned long mm_flags)
 		const struct cred *cred = __task_cred(p), *cred2;
 		struct task_struct *tsk, *tsk2;
 
-		if (!__get_dumpable(mm_flags) && gr_is_global_nonroot(cred->uid)) {
+		if (dumpable != SUID_DUMP_USER && gr_is_global_nonroot(cred->uid)) {
 			struct user_struct *user;
 
 			uid = cred->uid;

@@ -21,7 +21,7 @@
 
 int gr_handle_new_usb(void);
 
-void gr_handle_brute_attach(unsigned long mm_flags);
+void gr_handle_brute_attach(int dumpable);
 void gr_handle_brute_check(void);
 void gr_handle_kernel_exploit(void);
 

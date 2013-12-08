@@ -613,7 +613,7 @@ static int audit_log_common_recv_msg(struct audit_buffer **ab, u16 msg_type)
 	int rc = 0;
 	uid_t uid = from_kuid(&init_user_ns, current_uid());
 
-	if (!audit_enabled) {
+	if (!audit_enabled && msg_type != AUDIT_USER_AVC) {
 		*ab = NULL;
 		return rc;
 	}
@@ -1535,6 +1535,26 @@ void audit_log_name(struct audit_context *context, struct audit_names *n,
 			audit_log_format(ab, " obj=%s", ctx);
 			security_release_secctx(ctx, len);
 		}
+	}
+
+	/* log the audit_names record type */
+	audit_log_format(ab, " nametype=");
+	switch(n->type) {
+	case AUDIT_TYPE_NORMAL:
+		audit_log_format(ab, "NORMAL");
+		break;
+	case AUDIT_TYPE_PARENT:
+		audit_log_format(ab, "PARENT");
+		break;
+	case AUDIT_TYPE_CHILD_DELETE:
+		audit_log_format(ab, "DELETE");
+		break;
+	case AUDIT_TYPE_CHILD_CREATE:
+		audit_log_format(ab, "CREATE");
+		break;
+	default:
+		audit_log_format(ab, "UNKNOWN");
+		break;
 	}
 
 	audit_log_fcaps(ab, n);

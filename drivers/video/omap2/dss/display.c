@@ -137,12 +137,14 @@ int omapdss_register_display(struct omap_dss_device *dssdev)
 	snprintf(dssdev->alias, sizeof(dssdev->alias),
 			"display%d", disp_num_counter++);
 
+	pax_open_kernel();
 	if (drv && drv->get_resolution == NULL)
-		drv->get_resolution = omapdss_default_get_resolution;
+		*(void **)&drv->get_resolution = omapdss_default_get_resolution;
 	if (drv && drv->get_recommended_bpp == NULL)
-		drv->get_recommended_bpp = omapdss_default_get_recommended_bpp;
+		*(void **)&drv->get_recommended_bpp = omapdss_default_get_recommended_bpp;
 	if (drv && drv->get_timings == NULL)
-		drv->get_timings = omapdss_default_get_timings;
+		*(void **)&drv->get_timings = omapdss_default_get_timings;
+	pax_close_kernel();
 
 	mutex_lock(&panel_list_mutex);
 	list_add_tail(&dssdev->panel_list, &panel_list);

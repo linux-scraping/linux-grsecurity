@@ -1194,7 +1194,7 @@ static inline u64 memcg_memory_allocated_read(struct cg_proto *prot)
 	return ret >> PAGE_SHIFT;
 }
 
-static inline long
+static inline long __intentional_overflow(-1)
 sk_memory_allocated(const struct sock *sk)
 {
 	struct proto *prot = sk->sk_prot;
