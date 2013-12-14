@@ -1657,7 +1657,6 @@ calc_nr_buckets_17976 calc_nr_buckets 0 17976 NULL
 smk_write_cipso_17989 smk_write_cipso 3 17989 NULL
 ext4_num_overhead_clusters_18001 ext4_num_overhead_clusters 2 18001 NULL
 pvr2_v4l2_read_18006 pvr2_v4l2_read 3 18006 NULL
-prandom32_18007 prandom32 0 18007 NULL
 alloc_rx_desc_ring_18016 alloc_rx_desc_ring 2 18016 NULL
 fill_read_18019 fill_read 0 18019 NULL
 o2hb_highest_node_18034 o2hb_highest_node 2 18034 NULL

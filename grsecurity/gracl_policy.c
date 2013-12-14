@@ -456,12 +456,12 @@ init_variables(const struct gr_arg *arg, bool reload)
 	printk(KERN_ALERT "Obtained real root device=%d, inode=%lu\n", __get_dev(gr_real_root.dentry), gr_real_root.dentry->d_inode->i_ino);
 #endif
 
-		fakefs_obj_rw = acl_alloc(sizeof(struct acl_object_label));
+		fakefs_obj_rw = kzalloc(sizeof(struct acl_object_label), GFP_KERNEL);
 		if (fakefs_obj_rw == NULL)
 			return 1;
 		fakefs_obj_rw->mode = GR_FIND | GR_READ | GR_WRITE;
 	
-		fakefs_obj_rwx = acl_alloc(sizeof(struct acl_object_label));
+		fakefs_obj_rwx = kzalloc(sizeof(struct acl_object_label), GFP_KERNEL);
 		if (fakefs_obj_rwx == NULL)
 			return 1;
 		fakefs_obj_rwx->mode = GR_FIND | GR_READ | GR_WRITE | GR_EXEC;
@@ -538,6 +538,11 @@ free_variables(bool reload)
 			task->role = NULL;
 		} while_each_thread(task2, task);
 		read_unlock(&tasklist_lock);
+
+		kfree(fakefs_obj_rw);
+		fakefs_obj_rw = NULL;
+		kfree(fakefs_obj_rwx);
+		fakefs_obj_rwx = NULL;
 
 		/* release the reference to the real root dentry and vfsmount */
 		path_put(&gr_real_root);
