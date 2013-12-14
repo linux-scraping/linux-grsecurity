@@ -932,7 +932,7 @@ static int load_elf_binary(struct linux_binprm *bprm)
 		struct elfhdr elf_ex;
 		struct elfhdr interp_elf_ex;
 	} *loc;
-	unsigned long pax_task_size = TASK_SIZE;
+	unsigned long pax_task_size;
 
 	loc = kmalloc(sizeof(*loc), GFP_KERNEL);
 	if (!loc) {
@@ -1068,6 +1068,11 @@ static int load_elf_binary(struct linux_binprm *bprm)
 		goto out_free_dentry;
 
 	/* OK, This is the point of no return */
+	current->mm->def_flags = 0;
+
+	/* Do this immediately, since STACK_TOP as used in setup_arg_pages
+	   may depend on the personality.  */
+	SET_PERSONALITY(loc->elf_ex);
 
 #if defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)
 	current->mm->pax_flags = 0UL;
@@ -1085,8 +1090,6 @@ static int load_elf_binary(struct linux_binprm *bprm)
 	current->mm->delta_mmap = 0UL;
 	current->mm->delta_stack = 0UL;
 #endif
-
-	current->mm->def_flags = 0;
 
 #if defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)
 	if (0 > pax_parse_pax_flags(&loc->elf_ex, elf_phdata, bprm->file)) {
@@ -1115,8 +1118,10 @@ static int load_elf_binary(struct linux_binprm *bprm)
 		current->mm->context.user_cs_limit = TASK_SIZE-SEGMEXEC_TASK_SIZE;
 		pax_task_size = SEGMEXEC_TASK_SIZE;
 		current->mm->def_flags |= VM_NOHUGEPAGE;
-	}
+	} else
 #endif
+
+	pax_task_size = TASK_SIZE;
 
 #if defined(CONFIG_ARCH_TRACK_EXEC_LIMIT) || defined(CONFIG_PAX_SEGMEXEC)
 	if (current->mm->pax_flags & (MF_PAX_PAGEEXEC | MF_PAX_SEGMEXEC)) {
@@ -1124,10 +1129,6 @@ static int load_elf_binary(struct linux_binprm *bprm)
 		put_cpu();
 	}
 #endif
-
-	/* Do this immediately, since STACK_TOP as used in setup_arg_pages
-	   may depend on the personality.  */
-	SET_PERSONALITY(loc->elf_ex);
 
 #ifdef CONFIG_PAX_ASLR
 	if (current->mm->pax_flags & MF_PAX_RANDMMAP) {

@@ -143,21 +143,21 @@ static bool kernexec_cmodel_check(void)
 }
 
 /*
- * add special KERNEXEC instrumentation: reload %r10 after it has been clobbered
+ * add special KERNEXEC instrumentation: reload %r12 after it has been clobbered
  */
 static void kernexec_reload_fptr_mask(gimple_stmt_iterator *gsi)
 {
 	gimple asm_movabs_stmt;
 
-	// build asm volatile("movabs $0x8000000000000000, %%r10\n\t" : : : );
-	asm_movabs_stmt = gimple_build_asm_vec("movabs $0x8000000000000000, %%r10\n\t", NULL, NULL, NULL, NULL);
+	// build asm volatile("movabs $0x8000000000000000, %%r12\n\t" : : : );
+	asm_movabs_stmt = gimple_build_asm_vec("movabs $0x8000000000000000, %%r12\n\t", NULL, NULL, NULL, NULL);
 	gimple_asm_set_volatile(asm_movabs_stmt, true);
 	gsi_insert_after(gsi, asm_movabs_stmt, GSI_CONTINUE_LINKING);
 	update_stmt(asm_movabs_stmt);
 }
 
 /*
- * find all asm() stmts that clobber r10 and add a reload of r10
+ * find all asm() stmts that clobber r12 and add a reload of r12
  */
 static unsigned int execute_kernexec_reload(void)
 {
@@ -168,7 +168,7 @@ static unsigned int execute_kernexec_reload(void)
 		gimple_stmt_iterator gsi;
 
 		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
-			// gimple match: __asm__ ("" :  :  : "r10");
+			// gimple match: __asm__ ("" :  :  : "r12");
 			gimple asm_stmt;
 			size_t nclobbers;
 
@@ -177,11 +177,11 @@ static unsigned int execute_kernexec_reload(void)
 			if (gimple_code(asm_stmt) != GIMPLE_ASM)
 				continue;
 
-			// ... clobbering r10
+			// ... clobbering r12
 			nclobbers = gimple_asm_nclobbers(asm_stmt);
 			while (nclobbers--) {
 				tree op = gimple_asm_clobber_op(asm_stmt, nclobbers);
-				if (strcmp(TREE_STRING_POINTER(TREE_VALUE(op)), "r10"))
+				if (strcmp(TREE_STRING_POINTER(TREE_VALUE(op)), "r12"))
 					continue;
 				kernexec_reload_fptr_mask(&gsi);
 //print_gimple_stmt(stderr, asm_stmt, 0, TDF_LINENO);
@@ -264,7 +264,7 @@ static void kernexec_instrument_fptr_or(gimple_stmt_iterator *gsi)
 #endif
 	new_fptr = make_ssa_name(new_fptr, NULL);
 
-	// build asm volatile("orq %%r10, %0\n\t" : "=r"(new_fptr) : "0"(old_fptr));
+	// build asm volatile("orq %%r12, %0\n\t" : "=r"(new_fptr) : "0"(old_fptr));
 	input = build_tree_list(NULL_TREE, build_string(1, "0"));
 	input = chainon(NULL_TREE, build_tree_list(input, old_fptr));
 	output = build_tree_list(NULL_TREE, build_string(2, "=r"));
@@ -276,7 +276,7 @@ static void kernexec_instrument_fptr_or(gimple_stmt_iterator *gsi)
 	vec_safe_push(inputs, input);
 	vec_safe_push(outputs, output);
 #endif
-	asm_or_stmt = gimple_build_asm_vec("orq %%r10, %0\n\t", inputs, outputs, NULL, NULL);
+	asm_or_stmt = gimple_build_asm_vec("orq %%r12, %0\n\t", inputs, outputs, NULL, NULL);
 	SSA_NAME_DEF_STMT(new_fptr) = asm_or_stmt;
 	gimple_asm_set_volatile(asm_or_stmt, true);
 	gsi_insert_before(gsi, asm_or_stmt, GSI_SAME_STMT);
@@ -356,19 +356,19 @@ static void kernexec_instrument_retaddr_bts(rtx insn)
 	emit_insn_before(btsq, insn);
 }
 
-// add special KERNEXEC instrumentation: orq %r10,(%rsp) just before retn
+// add special KERNEXEC instrumentation: orq %r12,(%rsp) just before retn
 static void kernexec_instrument_retaddr_or(rtx insn)
 {
 	rtx orq;
 	rtvec argvec, constraintvec, labelvec;
 	int line;
 
-	// create asm volatile("orq %%r10,(%%rsp)":::)
+	// create asm volatile("orq %%r12,(%%rsp)":::)
 	argvec = rtvec_alloc(0);
 	constraintvec = rtvec_alloc(0);
 	labelvec = rtvec_alloc(0);
 	line = expand_location(RTL_LOCATION(insn)).line;
-	orq = gen_rtx_ASM_OPERANDS(VOIDmode, "orq %%r10,(%%rsp)", empty_string, 0, argvec, constraintvec, labelvec, line);
+	orq = gen_rtx_ASM_OPERANDS(VOIDmode, "orq %%r12,(%%rsp)", empty_string, 0, argvec, constraintvec, labelvec, line);
 	MEM_VOLATILE_P(orq) = 1;
 //	RTX_FRAME_RELATED_P(orq) = 1; // not for ASM_OPERANDS
 	emit_insn_before(orq, insn);
@@ -380,6 +380,9 @@ static void kernexec_instrument_retaddr_or(rtx insn)
 static unsigned int execute_kernexec_retaddr(void)
 {
 	rtx insn;
+
+//	if (stack_realign_drap)
+//		inform(DECL_SOURCE_LOCATION(current_function_decl), "drap detected in %s\n", IDENTIFIER_POINTER(DECL_NAME(current_function_decl)));
 
 	// 1. find function returns
 	for (insn = get_insns(); insn; insn = NEXT_INSN(insn)) {
@@ -452,7 +455,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 			} else if (!strcmp(argv[i].value, "or")) {
 				kernexec_instrument_fptr = kernexec_instrument_fptr_or;
 				kernexec_instrument_retaddr = kernexec_instrument_retaddr_or;
-				fix_register("r10", 1, 1);
+				fix_register("r12", 1, 1);
 			} else
 				error(G_("invalid option argument '-fplugin-arg-%s-%s=%s'"), plugin_name, argv[i].key, argv[i].value);
 			continue;

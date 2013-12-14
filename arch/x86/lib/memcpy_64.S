@@ -78,13 +78,13 @@ ENTRY(memcpy)
 	 */
 	movq 0*8(%rsi),	%r8
 	movq 1*8(%rsi),	%r9
-	movq 2*8(%rsi),	%rcx
+	movq 2*8(%rsi),	%r10
 	movq 3*8(%rsi),	%r11
 	leaq 4*8(%rsi),	%rsi
 
 	movq %r8,	0*8(%rdi)
 	movq %r9,	1*8(%rdi)
-	movq %rcx,	2*8(%rdi)
+	movq %r10,	2*8(%rdi)
 	movq %r11,	3*8(%rdi)
 	leaq 4*8(%rdi),	%rdi
 	jae  .Lcopy_forward_loop
@@ -107,12 +107,12 @@ ENTRY(memcpy)
 	subq $0x20,	%rdx
 	movq -1*8(%rsi),	%r8
 	movq -2*8(%rsi),	%r9
-	movq -3*8(%rsi),	%rcx
+	movq -3*8(%rsi),	%r10
 	movq -4*8(%rsi),	%r11
 	leaq -4*8(%rsi),	%rsi
 	movq %r8,		-1*8(%rdi)
 	movq %r9,		-2*8(%rdi)
-	movq %rcx,		-3*8(%rdi)
+	movq %r10,		-3*8(%rdi)
 	movq %r11,		-4*8(%rdi)
 	leaq -4*8(%rdi),	%rdi
 	jae  .Lcopy_backward_loop
@@ -132,11 +132,11 @@ ENTRY(memcpy)
 	 */
 	movq 0*8(%rsi), %r8
 	movq 1*8(%rsi),	%r9
-	movq -2*8(%rsi, %rdx),	%rcx
+	movq -2*8(%rsi, %rdx),	%r10
 	movq -1*8(%rsi, %rdx),	%r11
 	movq %r8,	0*8(%rdi)
 	movq %r9,	1*8(%rdi)
-	movq %rcx,	-2*8(%rdi, %rdx)
+	movq %r10,	-2*8(%rdi, %rdx)
 	movq %r11,	-1*8(%rdi, %rdx)
 	pax_force_retaddr
 	retq

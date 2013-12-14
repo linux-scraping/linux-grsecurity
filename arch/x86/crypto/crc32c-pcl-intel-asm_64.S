@@ -313,7 +313,7 @@ do_return:
 	popq    %rsi
 	popq    %rdi
 	popq    %rbx
-	pax_force_retaddr 0, 1
+	pax_force_retaddr
         ret
 
         ################################################################

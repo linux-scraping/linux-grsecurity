@@ -364,7 +364,7 @@ updateblock:
 	mov	frame_RSPSAVE(%rsp), %rsp
 
 nowork:
-	pax_force_retaddr 0, 1
+	pax_force_retaddr
 	ret
 ENDPROC(sha512_transform_ssse3)
 

@@ -64,8 +64,15 @@ static int get_offset(struct address_space *mapping)
 	return (unsigned long) mapping >> 8;
 }
 
-static unsigned long get_shared_area(struct file *filp, struct address_space *mapping,
-		unsigned long addr, unsigned long len, unsigned long pgoff, unsigned long flags)
+static unsigned long shared_align_offset(struct file *filp, unsigned long pgoff)
+{
+	struct address_space *mapping = filp ? filp->f_mapping : NULL;
+
+	return (get_offset(mapping) + pgoff) << PAGE_SHIFT;
+}
+
+static unsigned long get_shared_area(struct file *filp, unsigned long addr,
+		unsigned long len, unsigned long pgoff, unsigned long flags)
 {
 	struct vm_unmapped_area_info info;
 	unsigned long offset = gr_rand_threadstack_offset(current->mm, filp, flags);
@@ -75,8 +82,8 @@ static unsigned long get_shared_area(struct file *filp, struct address_space *ma
 	info.low_limit = PAGE_ALIGN(addr);
 	info.high_limit = TASK_SIZE;
 	info.align_mask = PAGE_MASK & (SHMLBA - 1);
-	info.align_offset = (get_offset(mapping) + pgoff) << PAGE_SHIFT;
 	info.threadstack_offset = offset;
+	info.align_offset = shared_align_offset(filp, pgoff);
 	return vm_unmapped_area(&info);
 }
 
@@ -87,7 +94,7 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 		return -ENOMEM;
 	if (flags & MAP_FIXED) {
 		if ((flags & MAP_SHARED) &&
-		    (addr - (pgoff << PAGE_SHIFT)) & (SHMLBA - 1))
+		    (addr - shared_align_offset(filp, pgoff)) & (SHMLBA - 1))
 			return -EINVAL;
 		return addr;
 	}
@@ -101,13 +108,11 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 
 	}
 
-	if (filp) {
-		addr = get_shared_area(filp, filp->f_mapping, addr, len, pgoff, flags);
-	} else if(flags & MAP_SHARED) {
-		addr = get_shared_area(filp, NULL, addr, len, pgoff, flags);
-	} else {
-		addr = get_unshared_area(filp, addr, len, flags);
-	}
+	if (filp || (flags & MAP_SHARED))
+		addr = get_shared_area(filp, addr, len, pgoff, flags);
+	else
+		addr = get_unshared_area(addr, len, flags);
+
 	return addr;
 }
 

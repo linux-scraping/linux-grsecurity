@@ -72,7 +72,7 @@
 	je	B192;			\
 	leaq	32(r9),r9;
 
-#define ret	pax_force_retaddr 0, 1; ret
+#define ret	pax_force_retaddr; ret
 
 #define epilogue(FUNC,r1,r2,r3,r4,r5,r6,r7,r8,r9) \
 	movq	r1,r2;			\

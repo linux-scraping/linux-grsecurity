@@ -679,7 +679,7 @@ done_hash:
 
 	# Restore Stack Pointer
 	mov	frame_RSPSAVE(%rsp), %rsp
-	pax_force_retaddr 0, 1
+	pax_force_retaddr
 	ret
 ENDPROC(sha512_transform_rorx)
 

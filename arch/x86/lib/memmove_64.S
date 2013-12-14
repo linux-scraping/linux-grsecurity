@@ -61,13 +61,13 @@ ENTRY(memmove)
 5:
 	sub $0x20, %rdx
 	movq 0*8(%rsi), %r11
-	movq 1*8(%rsi), %rcx
+	movq 1*8(%rsi), %r10
 	movq 2*8(%rsi), %r9
 	movq 3*8(%rsi), %r8
 	leaq 4*8(%rsi), %rsi
 
 	movq %r11, 0*8(%rdi)
-	movq %rcx, 1*8(%rdi)
+	movq %r10, 1*8(%rdi)
 	movq %r9, 2*8(%rdi)
 	movq %r8, 3*8(%rdi)
 	leaq 4*8(%rdi), %rdi
@@ -81,10 +81,10 @@ ENTRY(memmove)
 4:
 	movq %rdx, %rcx
 	movq -8(%rsi, %rdx), %r11
-	lea -8(%rdi, %rdx), %r9
+	lea -8(%rdi, %rdx), %r10
 	shrq $3, %rcx
 	rep movsq
-	movq %r11, (%r9)
+	movq %r11, (%r10)
 	jmp 13f
 .Lmemmove_end_forward:
 
@@ -95,14 +95,14 @@ ENTRY(memmove)
 7:
 	movq %rdx, %rcx
 	movq (%rsi), %r11
-	movq %rdi, %r9
+	movq %rdi, %r10
 	leaq -8(%rsi, %rdx), %rsi
 	leaq -8(%rdi, %rdx), %rdi
 	shrq $3, %rcx
 	std
 	rep movsq
 	cld
-	movq %r11, (%r9)
+	movq %r11, (%r10)
 	jmp 13f
 
 	/*
@@ -127,13 +127,13 @@ ENTRY(memmove)
 8:
 	subq $0x20, %rdx
 	movq -1*8(%rsi), %r11
-	movq -2*8(%rsi), %rcx
+	movq -2*8(%rsi), %r10
 	movq -3*8(%rsi), %r9
 	movq -4*8(%rsi), %r8
 	leaq -4*8(%rsi), %rsi
 
 	movq %r11, -1*8(%rdi)
-	movq %rcx, -2*8(%rdi)
+	movq %r10, -2*8(%rdi)
 	movq %r9, -3*8(%rdi)
 	movq %r8, -4*8(%rdi)
 	leaq -4*8(%rdi), %rdi
@@ -151,11 +151,11 @@ ENTRY(memmove)
 	 * Move data from 16 bytes to 31 bytes.
 	 */
 	movq 0*8(%rsi), %r11
-	movq 1*8(%rsi), %rcx
+	movq 1*8(%rsi), %r10
 	movq -2*8(%rsi, %rdx), %r9
 	movq -1*8(%rsi, %rdx), %r8
 	movq %r11, 0*8(%rdi)
-	movq %rcx, 1*8(%rdi)
+	movq %r10, 1*8(%rdi)
 	movq %r9, -2*8(%rdi, %rdx)
 	movq %r8, -1*8(%rdi, %rdx)
 	jmp 13f
@@ -167,9 +167,9 @@ ENTRY(memmove)
 	 * Move data from 8 bytes to 15 bytes.
 	 */
 	movq 0*8(%rsi), %r11
-	movq -1*8(%rsi, %rdx), %r9
+	movq -1*8(%rsi, %rdx), %r10
 	movq %r11, 0*8(%rdi)
-	movq %r9, -1*8(%rdi, %rdx)
+	movq %r10, -1*8(%rdi, %rdx)
 	jmp 13f
 10:
 	cmpq $4, %rdx
@@ -178,9 +178,9 @@ ENTRY(memmove)
 	 * Move data from 4 bytes to 7 bytes.
 	 */
 	movl (%rsi), %r11d
-	movl -4(%rsi, %rdx), %r9d
+	movl -4(%rsi, %rdx), %r10d
 	movl %r11d, (%rdi)
-	movl %r9d, -4(%rdi, %rdx)
+	movl %r10d, -4(%rdi, %rdx)
 	jmp 13f
 11:
 	cmp $2, %rdx
@@ -189,9 +189,9 @@ ENTRY(memmove)
 	 * Move data from 2 bytes to 3 bytes.
 	 */
 	movw (%rsi), %r11w
-	movw -2(%rsi, %rdx), %r9w
+	movw -2(%rsi, %rdx), %r10w
 	movw %r11w, (%rdi)
-	movw %r9w, -2(%rdi, %rdx)
+	movw %r10w, -2(%rdi, %rdx)
 	jmp 13f
 12:
 	cmp $1, %rdx

@@ -753,7 +753,7 @@ ENDPROC(pax_erase_kstack)
 .endm
 
 .macro TRACE_IRQS_IRETQ_DEBUG offset=ARGOFFSET
-	bt   $9,EFLAGS-\offset(%rsp)	/* interrupts off? */
+	bt   $X86_EFLAGS_IF_BIT,EFLAGS-\offset(%rsp)	/* interrupts off? */
 	jnc  1f
 	TRACE_IRQS_ON_DEBUG
 1:
@@ -789,27 +789,6 @@ ENDPROC(pax_erase_kstack)
 	movq \tmp,PER_CPU_VAR(old_rsp)
 	movq EFLAGS+\offset(%rsp),\tmp
 	movq \tmp,R11+\offset(%rsp)
-	.endm
-
-	.macro FAKE_STACK_FRAME child_rip
-	/* push in order ss, rsp, eflags, cs, rip */
-	xorl %eax, %eax
-	pushq_cfi $__KERNEL_DS /* ss */
-	/*CFI_REL_OFFSET	ss,0*/
-	pushq_cfi %rax /* rsp */
-	CFI_REL_OFFSET	rsp,0
-	pushq_cfi $(X86_EFLAGS_IF|X86_EFLAGS_FIXED) /* eflags - interrupts on */
-	/*CFI_REL_OFFSET	rflags,0*/
-	pushq_cfi $__KERNEL_CS /* cs */
-	/*CFI_REL_OFFSET	cs,0*/
-	pushq_cfi \child_rip /* rip */
-	CFI_REL_OFFSET	rip,0
-	pushq_cfi %rax /* orig rax */
-	.endm
-
-	.macro UNFAKE_STACK_FRAME
-	addq $8*6 + ARG_SKIP, %rsp
-	CFI_ADJUST_CFA_OFFSET	-(6*8 + ARG_SKIP)
 	.endm
 
 /*
@@ -878,25 +857,26 @@ ENDPROC(pax_erase_kstack)
 /* save partial stack frame */
 	.macro SAVE_ARGS_IRQ
 	cld
-	/* start from rbp in pt_regs and jump over */
-	movq_cfi rdi, (RDI-RBP)
-	movq_cfi rsi, (RSI-RBP)
-	movq_cfi rdx, (RDX-RBP)
-	movq_cfi rcx, (RCX-RBP)
-	movq_cfi rax, (RAX-RBP)
-	movq_cfi  r8,  (R8-RBP)
-	movq_cfi  r9,  (R9-RBP)
-	movq_cfi r10, (R10-RBP)
-	movq_cfi r11, (R11-RBP)
+	/* start from r15 in pt_regs and jump over */
+	movq_cfi rdi, RDI
+	movq_cfi rsi, RSI
+	movq_cfi rdx, RDX
+	movq_cfi rcx, RCX
+	movq_cfi rax, RAX
+	movq_cfi  r8,  R8
+	movq_cfi  r9,  R9
+	movq_cfi r10, R10
+	movq_cfi r11, R11
+	movq_cfi r12, R12
 
 	/* Save rbp so that we can unwind from get_irq_regs() */
-	movq_cfi rbp, 0
+	movq_cfi rbp, RBP
 
 	/* Save previous stack value */
 	movq %rsp, %rsi
 
-	leaq -RBP(%rsp),%rdi	/* arg1 for handler */
-	testb $3, CS-RBP(%rsi)
+	movq %rsp,%rdi	/* arg1 for handler */
+	testb $3, CS(%rsi)
 	je 1f
 	SWAPGS
 	/*
@@ -982,8 +962,6 @@ ENTRY(ret_from_fork)
 	jmp ret_from_sys_call			# go to the SYSRET fastpath
 
 1:
-	subq $REST_SKIP, %rsp	# leave space for volatiles
-	CFI_ADJUST_CFA_OFFSET	REST_SKIP
 	movq %rbp, %rdi
 	call *%rbx
 	movl $0, RAX(%rsp)
@@ -1066,7 +1044,7 @@ system_call_fastpath:
 	cmpl $__NR_syscall_max,%eax
 #endif
 	ja badsys
-	movq R10-ARGOFFSET(%rsp),%rcx
+	movq %r10,%rcx
 	call *sys_call_table(,%rax,8)  # XXX:	 rip relative
 	movq %rax,RAX-ARGOFFSET(%rsp)
 /*
@@ -1138,7 +1116,7 @@ badsys:
 	 * jump back to the normal fast path.
 	 */
 auditsys:
-	movq R10-ARGOFFSET(%rsp),%r9	/* 6th arg: 4th syscall arg */
+	movq %r10,%r9			/* 6th arg: 4th syscall arg */
 	movq %rdx,%r8			/* 5th arg: 3rd syscall arg */
 	movq %rsi,%rcx			/* 4th arg: 2nd syscall arg */
 	movq %rdi,%rdx			/* 3rd arg: 1st syscall arg */
@@ -1149,7 +1127,6 @@ auditsys:
 	pax_erase_kstack
 
 	LOAD_ARGS 0		/* reload call-clobbered registers */
-	pax_set_fptr_mask
 	jmp system_call_fastpath
 
 	/*
@@ -1186,8 +1163,7 @@ tracesys:
 	 * We don't reload %rax because syscall_trace_enter() returned
 	 * the value it wants us to use in the table lookup.
 	 */
-	LOAD_ARGS ARGOFFSET, 1
-	pax_set_fptr_mask
+	LOAD_ARGS 1
 	RESTORE_REST
 #if __SYSCALL_MASK == ~0
 	cmpq $__NR_syscall_max,%rax
@@ -1196,7 +1172,7 @@ tracesys:
 	cmpl $__NR_syscall_max,%eax
 #endif
 	ja   int_ret_from_sys_call	/* RAX(%rsp) set to -ENOSYS above */
-	movq R10-ARGOFFSET(%rsp),%rcx	/* fixup for C */
+	movq %r10,%rcx	/* fixup for C */
 	call *sys_call_table(,%rax,8)
 	movq %rax,RAX-ARGOFFSET(%rsp)
 	/* Use IRET because user could have changed frame */
@@ -1279,7 +1255,7 @@ ENTRY(stub_\func)
 	call sys_\func
 	RESTORE_TOP_OF_STACK %r11, 8
 	pax_force_retaddr
-	ret $REST_SKIP		/* pop extended registers */
+	ret
 	CFI_ENDPROC
 ENDPROC(stub_\func)
 	.endm
@@ -1301,20 +1277,6 @@ ENDPROC(\label)
 	FORK_LIKE  fork
 	FORK_LIKE  vfork
 	FIXED_FRAME stub_iopl, sys_iopl
-
-ENTRY(ptregscall_common)
-	DEFAULT_FRAME 1 8	/* offset 8: return address */
-	RESTORE_TOP_OF_STACK %r11, 8
-	movq_cfi_restore R15+8, r15
-	movq_cfi_restore R14+8, r14
-	movq_cfi_restore R13+8, r13
-	movq_cfi_restore R12+8, r12
-	movq_cfi_restore RBP+8, rbp
-	movq_cfi_restore RBX+8, rbx
-	pax_force_retaddr
-	ret $REST_SKIP		/* pop extended registers */
-	CFI_ENDPROC
-ENDPROC(ptregscall_common)
 
 ENTRY(stub_execve)
 	CFI_STARTPROC
@@ -1426,8 +1388,8 @@ END(interrupt)
 /* 0(%rsp): ~(interrupt number) */
 	.macro interrupt func
 	/* reserve pt_regs for scratch regs and rbp */
-	subq $ORIG_RAX-RBP, %rsp
-	CFI_ADJUST_CFA_OFFSET ORIG_RAX-RBP
+	subq $ORIG_RAX, %rsp
+	CFI_ADJUST_CFA_OFFSET ORIG_RAX
 	SAVE_ARGS_IRQ
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	testb $3, CS(%rdi)
@@ -1464,10 +1426,10 @@ ret_from_intr:
 
 	/* Restore saved previous stack */
 	popq %rsi
-	CFI_DEF_CFA rsi,SS+8-RBP	/* reg/off reset after def_cfa_expr */
-	leaq ARGOFFSET-RBP(%rsi), %rsp
+	CFI_DEF_CFA rsi,SS+8	/* reg/off reset after def_cfa_expr */
+	movq %rsi, %rsp
 	CFI_DEF_CFA_REGISTER	rsp
-	CFI_ADJUST_CFA_OFFSET	RBP-ARGOFFSET
+	CFI_ADJUST_CFA_OFFSET	-ARGOFFSET
 
 exit_intr:
 	GET_THREAD_INFO(%rcx)
@@ -1732,7 +1694,7 @@ ENTRY(\sym)
 ENDPROC(\sym)
 .endm
 
-#define INIT_TSS_IST(x) (TSS_ist + ((x) - 1) * 8)(%r12)
+#define INIT_TSS_IST(x) (TSS_ist + ((x) - 1) * 8)(%r13)
 .macro paranoidzeroentry_ist sym do_sym ist
 ENTRY(\sym)
 	INTR_FRAME
@@ -1756,10 +1718,10 @@ ENTRY(\sym)
 	movq %rsp,%rdi		/* pt_regs pointer */
 	xorl %esi,%esi		/* no error code */
 #ifdef CONFIG_SMP
-	imul $TSS_size, PER_CPU_VAR(cpu_number), %r12d
-	lea init_tss(%r12), %r12
+	imul $TSS_size, PER_CPU_VAR(cpu_number), %r13d
+	lea init_tss(%r13), %r13
 #else
-	lea init_tss(%rip), %r12
+	lea init_tss(%rip), %r13
 #endif
 	subq $EXCEPTION_STKSZ, INIT_TSS_IST(\ist)
 	call \do_sym
@@ -2399,9 +2361,9 @@ end_repeat_nmi:
 	 * NMI itself takes a page fault, the page fault that was preempted
 	 * will read the information from the NMI page fault and not the
 	 * origin fault. Save it off and restore it if it changes.
-	 * Use the r12 callee-saved register.
+	 * Use the r13 callee-saved register.
 	 */
-	movq %cr2, %r12
+	movq %cr2, %r13
 
 	pax_enter_kernel_nmi
 
@@ -2412,9 +2374,9 @@ end_repeat_nmi:
 
 	/* Did the NMI take a page fault? Restore cr2 if it did */
 	movq %cr2, %rcx
-	cmpq %rcx, %r12
+	cmpq %rcx, %r13
 	je 1f
-	movq %r12, %cr2
+	movq %r13, %cr2
 1:
 	
 	testl $1,%ebx				/* swapgs needed? */

@@ -282,7 +282,7 @@ __cast5_enc_blk16:
 	outunpack_blocks(RR3, RL3, RTMP, RX, RKM);
 	outunpack_blocks(RR4, RL4, RTMP, RX, RKM);
 
-	pax_force_retaddr 0, 1
+	pax_force_retaddr
 	ret;
 ENDPROC(__cast5_enc_blk16)
 
@@ -354,7 +354,7 @@ __cast5_dec_blk16:
 	outunpack_blocks(RR3, RL3, RTMP, RX, RKM);
 	outunpack_blocks(RR4, RL4, RTMP, RX, RKM);
 
-	pax_force_retaddr 0, 1
+	pax_force_retaddr
 	ret;
 
 .L__skip_dec:
@@ -435,10 +435,10 @@ ENTRY(cast5_cbc_dec_16way)
 	 *	%rdx: src
 	 */
 
-	pushq %r12;
+	pushq %r14;
 
 	movq %rsi, %r11;
-	movq %rdx, %r12;
+	movq %rdx, %r14;
 
 	vmovdqu (0*16)(%rdx), RL1;
 	vmovdqu (1*16)(%rdx), RR1;
@@ -452,16 +452,16 @@ ENTRY(cast5_cbc_dec_16way)
 	call __cast5_dec_blk16;
 
 	/* xor with src */
-	vmovq (%r12), RX;
+	vmovq (%r14), RX;
 	vpshufd $0x4f, RX, RX;
 	vpxor RX, RR1, RR1;
-	vpxor 0*16+8(%r12), RL1, RL1;
-	vpxor 1*16+8(%r12), RR2, RR2;
-	vpxor 2*16+8(%r12), RL2, RL2;
-	vpxor 3*16+8(%r12), RR3, RR3;
-	vpxor 4*16+8(%r12), RL3, RL3;
-	vpxor 5*16+8(%r12), RR4, RR4;
-	vpxor 6*16+8(%r12), RL4, RL4;
+	vpxor 0*16+8(%r14), RL1, RL1;
+	vpxor 1*16+8(%r14), RR2, RR2;
+	vpxor 2*16+8(%r14), RL2, RL2;
+	vpxor 3*16+8(%r14), RR3, RR3;
+	vpxor 4*16+8(%r14), RL3, RL3;
+	vpxor 5*16+8(%r14), RR4, RR4;
+	vpxor 6*16+8(%r14), RL4, RL4;
 
 	vmovdqu RR1, (0*16)(%r11);
 	vmovdqu RL1, (1*16)(%r11);
@@ -472,7 +472,7 @@ ENTRY(cast5_cbc_dec_16way)
 	vmovdqu RR4, (6*16)(%r11);
 	vmovdqu RL4, (7*16)(%r11);
 
-	popq %r12;
+	popq %r14;
 
 	pax_force_retaddr
 	ret;
@@ -486,10 +486,10 @@ ENTRY(cast5_ctr_16way)
 	 *	%rcx: iv (big endian, 64bit)
 	 */
 
-	pushq %r12;
+	pushq %r14;
 
 	movq %rsi, %r11;
-	movq %rdx, %r12;
+	movq %rdx, %r14;
 
 	vpcmpeqd RTMP, RTMP, RTMP;
 	vpsrldq $8, RTMP, RTMP; /* low: -1, high: 0 */
@@ -529,14 +529,14 @@ ENTRY(cast5_ctr_16way)
 	call __cast5_enc_blk16;
 
 	/* dst = src ^ iv */
-	vpxor (0*16)(%r12), RR1, RR1;
-	vpxor (1*16)(%r12), RL1, RL1;
-	vpxor (2*16)(%r12), RR2, RR2;
-	vpxor (3*16)(%r12), RL2, RL2;
-	vpxor (4*16)(%r12), RR3, RR3;
-	vpxor (5*16)(%r12), RL3, RL3;
-	vpxor (6*16)(%r12), RR4, RR4;
-	vpxor (7*16)(%r12), RL4, RL4;
+	vpxor (0*16)(%r14), RR1, RR1;
+	vpxor (1*16)(%r14), RL1, RL1;
+	vpxor (2*16)(%r14), RR2, RR2;
+	vpxor (3*16)(%r14), RL2, RL2;
+	vpxor (4*16)(%r14), RR3, RR3;
+	vpxor (5*16)(%r14), RL3, RL3;
+	vpxor (6*16)(%r14), RR4, RR4;
+	vpxor (7*16)(%r14), RL4, RL4;
 	vmovdqu RR1, (0*16)(%r11);
 	vmovdqu RL1, (1*16)(%r11);
 	vmovdqu RR2, (2*16)(%r11);
@@ -546,7 +546,7 @@ ENTRY(cast5_ctr_16way)
 	vmovdqu RR4, (6*16)(%r11);
 	vmovdqu RL4, (7*16)(%r11);
 
-	popq %r12;
+	popq %r14;
 
 	pax_force_retaddr
 	ret;

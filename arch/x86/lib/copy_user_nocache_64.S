@@ -71,19 +71,19 @@ ENTRY(__copy_user_nocache)
 	jz 17f
 1:	movq (%rsi),%r8
 2:	movq 1*8(%rsi),%r9
-3:	movq 2*8(%rsi),%rax
+3:	movq 2*8(%rsi),%r10
 4:	movq 3*8(%rsi),%r11
 5:	movnti %r8,(%rdi)
 6:	movnti %r9,1*8(%rdi)
-7:	movnti %rax,2*8(%rdi)
+7:	movnti %r10,2*8(%rdi)
 8:	movnti %r11,3*8(%rdi)
 9:	movq 4*8(%rsi),%r8
 10:	movq 5*8(%rsi),%r9
-11:	movq 6*8(%rsi),%rax
+11:	movq 6*8(%rsi),%r10
 12:	movq 7*8(%rsi),%r11
 13:	movnti %r8,4*8(%rdi)
 14:	movnti %r9,5*8(%rdi)
-15:	movnti %rax,6*8(%rdi)
+15:	movnti %r10,6*8(%rdi)
 16:	movnti %r11,7*8(%rdi)
 	leaq 64(%rsi),%rsi
 	leaq 64(%rdi),%rdi

@@ -16,11 +16,11 @@
 \name:
 	CFI_STARTPROC
 
-	/* this one pushes 9 elems, the next one would be %rIP */
-	SAVE_ARGS
+	/* this one pushes 15+1 elems, the next one would be %rIP */
+	SAVE_ARGS 8
 
 	.if \put_ret_addr_in_rdi
-	movq_cfi_restore 9*8, rdi
+	movq_cfi_restore RIP, rdi
 	.endif
 
 	call \func
@@ -39,9 +39,9 @@
 
 	/* SAVE_ARGS below is used only for the .cfi directives it contains. */
 	CFI_STARTPROC
-	SAVE_ARGS
+	SAVE_ARGS 8
 restore:
-	RESTORE_ARGS
+	RESTORE_ARGS 1,8
 	pax_force_retaddr
 	ret
 	CFI_ENDPROC

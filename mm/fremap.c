@@ -223,6 +223,8 @@ get_write_lock:
 				BUG_ON(addr != start);
 				err = 0;
 			}
+			vm_flags = vma->vm_flags;
+			vma = NULL;
 			goto out;
 		}
 		mutex_lock(&mapping->i_mmap_mutex);

@@ -21,14 +21,12 @@ ENDPROC(copy_page_rep)
 
 ENTRY(copy_page)
 	CFI_STARTPROC
-	subq	$3*8,	%rsp
-	CFI_ADJUST_CFA_OFFSET 3*8
+	subq	$2*8,	%rsp
+	CFI_ADJUST_CFA_OFFSET 2*8
 	movq	%rbx,	(%rsp)
 	CFI_REL_OFFSET rbx, 0
-	movq	%r12,	1*8(%rsp)
-	CFI_REL_OFFSET r12, 1*8
-	movq	%r13,	2*8(%rsp)
-	CFI_REL_OFFSET r13, 2*8
+	movq	%r13,	1*8(%rsp)
+	CFI_REL_OFFSET r13, 1*8
 
 	movl	$(4096/64)-5,	%ecx
 	.p2align 4
@@ -39,9 +37,9 @@ ENTRY(copy_page)
 	movq	0x8*2(%rsi), %rdx
 	movq	0x8*3(%rsi), %r8
 	movq	0x8*4(%rsi), %r9
-	movq	0x8*5(%rsi), %r13
+	movq	0x8*5(%rsi), %r10
 	movq	0x8*6(%rsi), %r11
-	movq	0x8*7(%rsi), %r12
+	movq	0x8*7(%rsi), %r13
 
 	prefetcht0 5*64(%rsi)
 
@@ -50,9 +48,9 @@ ENTRY(copy_page)
 	movq	%rdx, 0x8*2(%rdi)
 	movq	%r8,  0x8*3(%rdi)
 	movq	%r9,  0x8*4(%rdi)
-	movq	%r13, 0x8*5(%rdi)
+	movq	%r10, 0x8*5(%rdi)
 	movq	%r11, 0x8*6(%rdi)
-	movq	%r12, 0x8*7(%rdi)
+	movq	%r13, 0x8*7(%rdi)
 
 	leaq	64 (%rsi), %rsi
 	leaq	64 (%rdi), %rdi
@@ -69,18 +67,18 @@ ENTRY(copy_page)
 	movq	0x8*2(%rsi), %rdx
 	movq	0x8*3(%rsi), %r8
 	movq	0x8*4(%rsi), %r9
-	movq	0x8*5(%rsi), %r13
+	movq	0x8*5(%rsi), %r10
 	movq	0x8*6(%rsi), %r11
-	movq	0x8*7(%rsi), %r12
+	movq	0x8*7(%rsi), %r13
 
 	movq	%rax, 0x8*0(%rdi)
 	movq	%rbx, 0x8*1(%rdi)
 	movq	%rdx, 0x8*2(%rdi)
 	movq	%r8,  0x8*3(%rdi)
 	movq	%r9,  0x8*4(%rdi)
-	movq	%r13, 0x8*5(%rdi)
+	movq	%r10, 0x8*5(%rdi)
 	movq	%r11, 0x8*6(%rdi)
-	movq	%r12, 0x8*7(%rdi)
+	movq	%r13, 0x8*7(%rdi)
 
 	leaq	64(%rdi), %rdi
 	leaq	64(%rsi), %rsi
@@ -88,12 +86,10 @@ ENTRY(copy_page)
 
 	movq	(%rsp), %rbx
 	CFI_RESTORE rbx
-	movq	1*8(%rsp), %r12
-	CFI_RESTORE r12
-	movq	2*8(%rsp), %r13
+	movq	1*8(%rsp), %r13
 	CFI_RESTORE r13
-	addq	$3*8, %rsp
-	CFI_ADJUST_CFA_OFFSET -3*8
+	addq	$2*8, %rsp
+	CFI_ADJUST_CFA_OFFSET -2*8
 	pax_force_retaddr
 	ret
 .Lcopy_page_end:

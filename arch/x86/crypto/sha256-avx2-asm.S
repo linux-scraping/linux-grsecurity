@@ -721,7 +721,7 @@ done_hash:
 	popq	%r12
 	popq	%rbp
 	popq	%rbx
-	pax_force_retaddr 0, 1
+	pax_force_retaddr
 	ret
 ENDPROC(sha256_transform_rorx)
 
