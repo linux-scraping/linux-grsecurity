@@ -269,7 +269,7 @@ twofish_enc_blk:
 
 	popq	R1
 	movq	$1,%rax
-	pax_force_retaddr 0, 1
+	pax_force_retaddr
 	ret
 
 twofish_dec_blk:
@@ -321,5 +321,5 @@ twofish_dec_blk:
 
 	popq	R1
 	movq	$1,%rax
-	pax_force_retaddr 0, 1
+	pax_force_retaddr
 	ret

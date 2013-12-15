@@ -62,13 +62,13 @@
 ENTRY(memset)
 ENTRY(__memset)
 	CFI_STARTPROC
+	movq %rdi,%r10
 	movq %rdx,%r11
 
 	/* expand byte value  */
 	movzbl %sil,%ecx
 	movabs $0x0101010101010101,%rax
 	mul    %rcx		/* with rax, clobbers rdx */
-	movq  %rdi,%rdx
 
 	/* align dst */
 	movl  %edi,%r9d
@@ -122,7 +122,7 @@ ENTRY(__memset)
 	jnz     .Lloop_1
 
 .Lende:
-	movq	%rdx,%rax
+	movq	%r10,%rax
 	pax_force_retaddr
 	ret
 

@@ -63,12 +63,12 @@
 	 */
 	.macro LOAD_ARGS32 offset, _r9=0
 	.if \_r9
-	movl \offset+16(%rsp),%r9d
+	movl \offset+R9(%rsp),%r9d
 	.endif
-	movl \offset+40(%rsp),%ecx
-	movl \offset+48(%rsp),%edx
-	movl \offset+56(%rsp),%esi
-	movl \offset+64(%rsp),%edi
+	movl \offset+RCX(%rsp),%ecx
+	movl \offset+RDX(%rsp),%edx
+	movl \offset+RSI(%rsp),%esi
+	movl \offset+RDI(%rsp),%edi
 	movl %eax,%eax			/* zero extension */
 	.endm
 	
@@ -213,8 +213,8 @@ sysexit_from_sys_call:
 	pax_erase_kstack
 	andl    $~TS_COMPAT,TI_status(%r11)
 	/* clear IF, that popfq doesn't enable interrupts early */
-	andl  $~0x200,EFLAGS-R11(%rsp) 
-	movl	RIP-R11(%rsp),%edx		/* User %eip */
+	andl  $~X86_EFLAGS_IF,EFLAGS(%rsp) 
+	movl	RIP(%rsp),%edx		/* User %eip */
 	CFI_REGISTER rip,rdx
 	RESTORE_ARGS 0,24,0,0,0,0
 	xorq	%r8,%r8
@@ -391,7 +391,7 @@ sysretl_from_sys_call:
 	pax_exit_kernel_user
 	pax_erase_kstack
 	andl $~TS_COMPAT,TI_status(%r11)
-	RESTORE_ARGS 0,-ARG_SKIP,0,0,0
+	RESTORE_ARGS 0,-ORIG_RAX,0,0,0
 	movl RIP-ARGOFFSET(%rsp),%ecx
 	CFI_REGISTER rip,rcx
 	movl EFLAGS-ARGOFFSET(%rsp),%r11d	

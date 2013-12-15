@@ -153,11 +153,11 @@ __blowfish_enc_blk:
 	jnz __enc_xor;
 
 	write_block();
-	pax_force_retaddr 0, 1
+	pax_force_retaddr
 	ret;
 __enc_xor:
 	xor_block();
-	pax_force_retaddr 0, 1
+	pax_force_retaddr
 	ret;
 
 .align 8
@@ -192,7 +192,7 @@ blowfish_dec_blk:
 
 	movq %r11, %rbp;
 
-	pax_force_retaddr 0, 1
+	pax_force_retaddr
 	ret;
 
 /**********************************************************************
@@ -347,7 +347,7 @@ __blowfish_enc_blk_4way:
 
 	popq %rbx;
 	popq %rbp;
-	pax_force_retaddr 0, 1
+	pax_force_retaddr
 	ret;
 
 __enc_xor4:
@@ -355,7 +355,7 @@ __enc_xor4:
 
 	popq %rbx;
 	popq %rbp;
-	pax_force_retaddr 0, 1
+	pax_force_retaddr
 	ret;
 
 .align 8
@@ -393,6 +393,6 @@ blowfish_dec_blk_4way:
 	popq %rbx;
 	popq %rbp;
 
-	pax_force_retaddr 0, 1
+	pax_force_retaddr
 	ret;
 

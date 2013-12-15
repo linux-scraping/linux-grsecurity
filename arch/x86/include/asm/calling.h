@@ -82,103 +82,113 @@ For 32-bit we have the following conventions - kernel is built with
 #define RSP		(152)
 #define SS		(160)
 
-#define ARGOFFSET	R11
-#define SWFRAME		ORIG_RAX
+#define ARGOFFSET	R15
 
 	.macro SAVE_ARGS addskip=0, save_rcx=1, save_r891011=1
-	subq  $9*8+\addskip, %rsp
-	CFI_ADJUST_CFA_OFFSET	9*8+\addskip
-	movq_cfi rdi, 8*8
-	movq_cfi rsi, 7*8
-	movq_cfi rdx, 6*8
+	subq  $ORIG_RAX-ARGOFFSET+\addskip, %rsp
+	CFI_ADJUST_CFA_OFFSET	ORIG_RAX-ARGOFFSET+\addskip
+	movq_cfi rdi, RDI
+	movq_cfi rsi, RSI
+	movq_cfi rdx, RDX
 
 	.if \save_rcx
-	movq_cfi rcx, 5*8
+	movq_cfi rcx, RCX
 	.endif
 
-	movq_cfi rax, 4*8
+	movq_cfi rax, RAX
 
 	.if \save_r891011
-	movq_cfi r8,  3*8
-	movq_cfi r9,  2*8
-	movq_cfi r10, 1*8
-	movq_cfi r11, 0*8
+	movq_cfi r8,  R8
+	movq_cfi r9,  R9
+	movq_cfi r10, R10
+	movq_cfi r11, R11
 	.endif
+
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
+	movq_cfi r12, R12
+#endif
 
 	.endm
 
-#define ARG_SKIP	(9*8)
+#define ARG_SKIP	ORIG_RAX
 
 	.macro RESTORE_ARGS rstor_rax=1, addskip=0, rstor_rcx=1, rstor_r11=1, \
 			    rstor_r8910=1, rstor_rdx=1
+
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
+	movq_cfi_restore R12, r12
+#endif
+
 	.if \rstor_r11
-	movq_cfi_restore 0*8, r11
+	movq_cfi_restore R11, r11
 	.endif
 
 	.if \rstor_r8910
-	movq_cfi_restore 1*8, r10
-	movq_cfi_restore 2*8, r9
-	movq_cfi_restore 3*8, r8
+	movq_cfi_restore R10, r10
+	movq_cfi_restore R9, r9
+	movq_cfi_restore R8, r8
 	.endif
 
 	.if \rstor_rax
-	movq_cfi_restore 4*8, rax
+	movq_cfi_restore RAX, rax
 	.endif
 
 	.if \rstor_rcx
-	movq_cfi_restore 5*8, rcx
+	movq_cfi_restore RCX, rcx
 	.endif
 
 	.if \rstor_rdx
-	movq_cfi_restore 6*8, rdx
+	movq_cfi_restore RDX, rdx
 	.endif
 
-	movq_cfi_restore 7*8, rsi
-	movq_cfi_restore 8*8, rdi
+	movq_cfi_restore RSI, rsi
+	movq_cfi_restore RDI, rdi
 
-	.if ARG_SKIP+\addskip > 0
-	addq $ARG_SKIP+\addskip, %rsp
-	CFI_ADJUST_CFA_OFFSET	-(ARG_SKIP+\addskip)
+	.if ORIG_RAX+\addskip > 0
+	addq $ORIG_RAX+\addskip, %rsp
+	CFI_ADJUST_CFA_OFFSET	-(ORIG_RAX+\addskip)
 	.endif
 	.endm
 
-	.macro LOAD_ARGS offset, skiprax=0
-	movq \offset(%rsp),    %r11
-	movq \offset+8(%rsp),  %r10
-	movq \offset+16(%rsp), %r9
-	movq \offset+24(%rsp), %r8
-	movq \offset+40(%rsp), %rcx
-	movq \offset+48(%rsp), %rdx
-	movq \offset+56(%rsp), %rsi
-	movq \offset+64(%rsp), %rdi
+	.macro LOAD_ARGS skiprax=0
+	movq R11(%rsp),    %r11
+	movq R10(%rsp),  %r10
+	movq R9(%rsp), %r9
+	movq R8(%rsp), %r8
+	movq RCX(%rsp), %rcx
+	movq RDX(%rsp), %rdx
+	movq RSI(%rsp), %rsi
+	movq RDI(%rsp), %rdi
 	.if \skiprax
 	.else
-	movq \offset+72(%rsp), %rax
+	movq RAX(%rsp), %rax
 	.endif
 	.endm
 
-#define REST_SKIP	(6*8)
-
 	.macro SAVE_REST
-	subq $REST_SKIP, %rsp
-	CFI_ADJUST_CFA_OFFSET	REST_SKIP
-	movq_cfi rbx, 5*8
-	movq_cfi rbp, 4*8
-	movq_cfi r12, 3*8
-	movq_cfi r13, 2*8
-	movq_cfi r14, 1*8
-	movq_cfi r15, 0*8
+	movq_cfi rbx, RBX
+	movq_cfi rbp, RBP
+
+#ifndef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
+	movq_cfi r12, R12
+#endif
+
+	movq_cfi r13, R13
+	movq_cfi r14, R14
+	movq_cfi r15, R15
 	.endm
 
 	.macro RESTORE_REST
-	movq_cfi_restore 0*8, r15
-	movq_cfi_restore 1*8, r14
-	movq_cfi_restore 2*8, r13
-	movq_cfi_restore 3*8, r12
-	movq_cfi_restore 4*8, rbp
-	movq_cfi_restore 5*8, rbx
-	addq $REST_SKIP, %rsp
-	CFI_ADJUST_CFA_OFFSET	-(REST_SKIP)
+	movq_cfi_restore R15, r15
+	movq_cfi_restore R14, r14
+	movq_cfi_restore R13, r13
+
+#ifndef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
+	movq_cfi_restore R12, r12
+#endif
+
+	movq_cfi_restore RBP, rbp
+	movq_cfi_restore RBX, rbx
 	.endm
 
 	.macro SAVE_ALL

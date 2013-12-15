@@ -140,7 +140,7 @@ static inline __s32 sign_extend32(__u32 value, int index)
 	return (__s32)(value << shift) >> shift;
 }
 
-static inline unsigned fls_long(unsigned long l)
+static inline unsigned __intentional_overflow(-1) fls_long(unsigned long l)
 {
 	if (sizeof(l) == 4)
 		return fls(l);

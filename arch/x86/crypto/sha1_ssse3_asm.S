@@ -77,9 +77,9 @@
 \name:
 	push	%rbx
 	push	%rbp
-	push	%r12
+	push	%r14
 
-	mov	%rsp, %r12
+	mov	%rsp, %r14
 	sub	$64, %rsp		# allocate workspace
 	and	$~15, %rsp		# align stack
 
@@ -101,12 +101,12 @@
 	xor	%rax, %rax
 	rep stosq
 
-	mov	%r12, %rsp		# deallocate workspace
+	mov	%r14, %rsp		# deallocate workspace
 
-	pop	%r12
+	pop	%r14
 	pop	%rbp
 	pop	%rbx
-	pax_force_retaddr 0, 1
+	pax_force_retaddr
 	ret
 
 	.size	\name, .-\name

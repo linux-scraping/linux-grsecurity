@@ -34,13 +34,13 @@
 	.if \reload
 	pax_set_fptr_mask
 	.endif
-	orq %r10,\rip(%rsp)
+	orq %r12,\rip(%rsp)
 	.endm
 	.macro pax_force_fptr ptr
-	orq %r10,\ptr
+	orq %r12,\ptr
 	.endm
 	.macro pax_set_fptr_mask
-	movabs $0x8000000000000000,%r10
+	movabs $0x8000000000000000,%r12
 	.endm
 #endif
 #else

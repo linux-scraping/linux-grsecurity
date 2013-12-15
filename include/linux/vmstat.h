@@ -96,7 +96,7 @@ static inline void zone_page_state_add(long x, struct zone *zone,
 	atomic_long_add_unchecked(x, &vm_stat[item]);
 }
 
-static inline unsigned long global_page_state(enum zone_stat_item item)
+static inline unsigned long __intentional_overflow(-1) global_page_state(enum zone_stat_item item)
 {
 	long x = atomic_long_read_unchecked(&vm_stat[item]);
 #ifdef CONFIG_SMP
@@ -106,7 +106,7 @@ static inline unsigned long global_page_state(enum zone_stat_item item)
 	return x;
 }
 
-static inline unsigned long zone_page_state(struct zone *zone,
+static inline unsigned long __intentional_overflow(-1) zone_page_state(struct zone *zone,
 					enum zone_stat_item item)
 {
 	long x = atomic_long_read_unchecked(&zone->vm_stat[item]);

@@ -372,7 +372,7 @@ static inline unsigned long __intentional_overflow(-1) ffz(unsigned long word)
  *
  * Undefined if no set bit exists, so code should check against 0 first.
  */
-static inline unsigned long __fls(unsigned long word)
+static inline unsigned long __intentional_overflow(-1) __fls(unsigned long word)
 {
 	asm("bsr %1,%0"
 	    : "=r" (word)
@@ -419,7 +419,7 @@ static inline int ffs(int x)
  * set bit if value is nonzero. The last (most significant) bit is
  * at position 32.
  */
-static inline int fls(int x)
+static inline int __intentional_overflow(-1) fls(int x)
 {
 	int r;
 #ifdef CONFIG_X86_CMOV

@@ -331,6 +331,10 @@ int get_user_pages_fast(unsigned long start, int nr_pages, int write,
 		goto slow_irqon;
 #endif
 
+	if (unlikely(!__access_ok(write ? VERIFY_WRITE : VERIFY_READ,
+					(void __user *)start, len)))
+		return 0;
+
 	/*
 	 * XXX: batch / limit 'nr', to avoid large irq off latency
 	 * needs some instrumenting to determine the common sizes used by

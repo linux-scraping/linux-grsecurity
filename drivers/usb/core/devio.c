@@ -147,7 +147,7 @@ static ssize_t usbdev_read(struct file *file, char __user *buf, size_t nbytes,
 	struct dev_state *ps = file->private_data;
 	struct usb_device *dev = ps->dev;
 	ssize_t ret = 0;
-	unsigned len;
+	size_t len;
 	loff_t pos;
 	int i;
 
@@ -189,13 +189,13 @@ static ssize_t usbdev_read(struct file *file, char __user *buf, size_t nbytes,
 	for (i = 0; nbytes && i < dev->descriptor.bNumConfigurations; i++) {
 		struct usb_config_descriptor *config =
 			(struct usb_config_descriptor *)dev->rawdescriptors[i];
-		unsigned int length = le16_to_cpu(config->wTotalLength);
+		size_t length = le16_to_cpu(config->wTotalLength);
 
 		if (*ppos < pos + length) {
 
 			/* The descriptor may claim to be longer than it
 			 * really is.  Here is the actual allocated length. */
-			unsigned alloclen =
+			size_t alloclen =
 				le16_to_cpu(dev->config[i].desc.wTotalLength);
 
 			len = length - (*ppos - pos);

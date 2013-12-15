@@ -935,21 +935,20 @@ static void xfer_secondary_pool(struct entropy_store *r, size_t nbytes)
 
 static void _xfer_secondary_pool(struct entropy_store *r, size_t nbytes)
 {
-	__u32	tmp[OUTPUT_POOL_WORDS];
+	__u32 tmp[OUTPUT_POOL_WORDS];
+	int bytes, min_bytes;
 
 	/* For /dev/random's pool, always leave two wakeups' worth */
 	int rsvd_bytes = r->limit ? 0 : random_read_wakeup_bits / 4;
-	int bytes = nbytes;
 
 	/* pull at least as much as a wakeup */
-	bytes = max_t(int, bytes, random_read_wakeup_bits / 8);
+	min_bytes = random_read_wakeup_bits / 8;
 	/* but never more than the buffer size */
-	bytes = min_t(int, bytes, sizeof(tmp));
+	bytes = min(sizeof(tmp), max_t(size_t, min_bytes, nbytes));
 
 	trace_xfer_secondary_pool(r->name, bytes * 8, nbytes * 8,
 				  ENTROPY_BITS(r), ENTROPY_BITS(r->pull));
-	bytes = extract_entropy(r->pull, tmp, bytes,
-				random_read_wakeup_bits / 8, rsvd_bytes);
+	bytes = extract_entropy(r->pull, tmp, bytes, min_bytes, rsvd_bytes);
 	mix_pool_bytes(r, tmp, bytes, NULL);
 	credit_entropy_bits(r, bytes*8);
 }
@@ -990,7 +989,7 @@ retry:
 	ibytes = nbytes;
 	/* If limited, never pull more than available */
 	if (r->limit)
-		ibytes = min_t(size_t, ibytes, have_bytes - reserved);
+		ibytes = min_t(size_t, ibytes, max(0, have_bytes - reserved));
 	if (ibytes < min)
 		ibytes = 0;
 	entropy_count = max_t(int, 0,

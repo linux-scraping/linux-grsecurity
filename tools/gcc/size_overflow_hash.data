@@ -464,7 +464,6 @@ ata_tlink_add_5349 ata_tlink_add 0 5349 NULL
 ps_pspoll_utilization_read_5361 ps_pspoll_utilization_read 3 5361 NULL
 cciss_allocate_sg_chain_blocks_5368 cciss_allocate_sg_chain_blocks 2-3 5368 NULL
 bitmap_fold_5396 bitmap_fold 4 5396 NULL
-perf_adjust_period_5408 perf_adjust_period 2-3 5408 NULL
 nilfs_palloc_entries_per_group_5418 nilfs_palloc_entries_per_group 0 5418 NULL
 xfs_efd_init_5463 xfs_efd_init 3 5463 NULL
 xfs_efi_init_5476 xfs_efi_init 2 5476 NULL
@@ -2083,7 +2082,6 @@ mp_find_ioapic_pin_22499 mp_find_ioapic_pin 0-2 22499 NULL
 mutex_lock_interruptible_22505 mutex_lock_interruptible 0 22505 NULL
 pskb_may_pull_22546 pskb_may_pull 2 22546 NULL
 ocfs2_read_extent_block_22550 ocfs2_read_extent_block 0 22550 NULL
-atomic_long_read_unchecked_22551 atomic_long_read_unchecked 0 22551 NULL
 agp_alloc_page_array_22554 agp_alloc_page_array 1 22554 NULL
 snd_pcm_hw_params_choose_22560 snd_pcm_hw_params_choose 0 22560 NULL
 dbFindCtl_22587 dbFindCtl 0 22587 NULL
@@ -3339,7 +3337,6 @@ fat_ioctl_filldir_36621 fat_ioctl_filldir 3 36621 NULL
 vxge_config_vpaths_36636 vxge_config_vpaths 0 36636 NULL
 cxio_hal_rqtpool_alloc_36648 cxio_hal_rqtpool_alloc 2 36648 NULL nohasharray
 lpfc_idiag_extacc_alloc_get_36648 lpfc_idiag_extacc_alloc_get 0-3 36648 &cxio_hal_rqtpool_alloc_36648
-perf_calculate_period_36662 perf_calculate_period 2-3 36662 NULL
 osd_req_list_collection_objects_36664 osd_req_list_collection_objects 5 36664 NULL
 iscsi_host_alloc_36671 iscsi_host_alloc 2 36671 NULL
 ext4_mb_discard_group_preallocations_36685 ext4_mb_discard_group_preallocations 2 36685 NULL
@@ -3604,7 +3601,6 @@ sys_semop_39457 sys_semop 3 39457 NULL
 setkey_unaligned_39474 setkey_unaligned 3 39474 NULL
 btrfs_mksubvol_39479 btrfs_mksubvol 3 39479 NULL
 ieee80211_if_fmt_dot11MeshHWMPmaxPREQretries_39499 ieee80211_if_fmt_dot11MeshHWMPmaxPREQretries 3 39499 NULL
-atomic64_read_unchecked_39505 atomic64_read_unchecked 0 39505 NULL
 wm8350_i2c_read_device_39542 wm8350_i2c_read_device 3 39542 NULL nohasharray
 int_proc_write_39542 int_proc_write 3 39542 &wm8350_i2c_read_device_39542
 pp_write_39554 pp_write 3 39554 NULL
@@ -4807,7 +4803,6 @@ shrink_slab_52261 shrink_slab 2-3 52261 NULL
 sisusbcon_do_font_op_52271 sisusbcon_do_font_op 9 52271 NULL
 smk_write_load_list_52280 smk_write_load_list 3 52280 NULL
 handle_supp_msgs_52284 handle_supp_msgs 4 52284 NULL
-atomic64_read_52300 atomic64_read 0 52300 NULL
 ath6kl_wmi_get_new_buf_52304 ath6kl_wmi_get_new_buf 1 52304 NULL
 jbd2_free_52306 jbd2_free 2 52306 NULL
 kobject_set_name_vargs_52309 kobject_set_name_vargs 0 52309 NULL
@@ -5963,7 +5958,6 @@ scsi_add_host_with_dma_65093 scsi_add_host_with_dma 0 65093 NULL
 nf_bridge_mtu_reduction_65192 nf_bridge_mtu_reduction 0 65192 NULL
 nfulnl_alloc_skb_65207 nfulnl_alloc_skb 2-1 65207 NULL
 whci_n_caps_65247 whci_n_caps 0 65247 NULL
-atomic_long_read_65263 atomic_long_read 0 65263 NULL
 kmalloc_parameter_65279 kmalloc_parameter 1 65279 NULL
 compat_core_sys_select_65285 compat_core_sys_select 1 65285 NULL
 get_unaligned_le16_65293 get_unaligned_le16 0 65293 NULL
