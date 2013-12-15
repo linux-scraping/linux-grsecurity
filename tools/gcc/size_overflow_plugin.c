@@ -127,7 +127,7 @@ static tree get_size_overflow_type(gimple stmt, const_tree node);
 static tree dup_assign(struct pointer_set_t *visited, gimple oldstmt, const_tree node, tree rhs1, tree rhs2, tree __unused rhs3);
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20131211beta",
+	.version	= "20131214beta",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
@@ -1341,11 +1341,16 @@ static void check_size_overflow(struct cgraph_node *caller_node, gimple stmt, tr
 
 	cast_rhs_type = TREE_TYPE(cast_rhs);
 	type_max_type = TREE_TYPE(type_max);
-	type_min_type = TREE_TYPE(type_min);
 	gcc_assert(types_compatible_p(cast_rhs_type, type_max_type));
-	gcc_assert(types_compatible_p(type_max_type, type_min_type));
 
 	insert_check_size_overflow(caller_node, stmt, GT_EXPR, cast_rhs, type_max, before, MAX_CHECK);
+
+	// special case: get_size_overflow_type(), 32, u64->s
+	if (LONG_TYPE_SIZE == GET_MODE_BITSIZE(SImode) && TYPE_UNSIGNED(size_overflow_type) && !TYPE_UNSIGNED(rhs_type))
+		return;
+
+	type_min_type = TREE_TYPE(type_min);
+	gcc_assert(types_compatible_p(type_max_type, type_min_type));
 	insert_check_size_overflow(caller_node, stmt, LT_EXPR, cast_rhs, type_min, before, MIN_CHECK);
 }
 
