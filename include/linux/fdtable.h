@@ -71,7 +71,7 @@ struct file_operations;
 struct vfsmount;
 struct dentry;
 
-extern int expand_files(struct files_struct *, int nr);
+extern int expand_files(struct files_struct *, unsigned int nr);
 extern void free_fdtable_rcu(struct rcu_head *rcu);
 extern void __init files_defer_init(void);
 

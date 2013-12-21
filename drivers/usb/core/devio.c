@@ -198,7 +198,7 @@ static ssize_t usbdev_read(struct file *file, char __user *buf, size_t nbytes,
 			size_t alloclen =
 				le16_to_cpu(dev->config[i].desc.wTotalLength);
 
-			len = length - (*ppos - pos);
+			len = length + pos - *ppos;
 			if (len > nbytes)
 				len = nbytes;
 
