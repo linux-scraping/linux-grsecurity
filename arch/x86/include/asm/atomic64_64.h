@@ -28,7 +28,7 @@ static inline long atomic64_read(const atomic64_t *v)
  * Atomically reads the value of @v.
  * Doesn't imply a read memory barrier.
  */
-static inline long atomic64_read_unchecked(const atomic64_unchecked_t *v)
+static inline long __intentional_overflow(-1) atomic64_read_unchecked(const atomic64_unchecked_t *v)
 {
 	return (*(volatile const long *)&(v)->counter);
 }

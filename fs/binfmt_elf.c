@@ -799,34 +799,41 @@ static unsigned long pax_parse_xattr_pax(struct file * const file)
 	unsigned long pax_flags_hardmode = 0UL, pax_flags_softmode = 0UL;
 
 	xattr_size = pax_getxattr(file->f_path.dentry, xattr_value, sizeof xattr_value);
-	if (xattr_size <= 0 || xattr_size > sizeof xattr_value)
+	switch (xattr_size) {
+	default:
 		return ~0UL;
 
-	for (i = 0; i < xattr_size; i++)
-		switch (xattr_value[i]) {
-		default:
-			return ~0UL;
+	case -ENODATA:
+		break;
 
-#define parse_flag(option1, option2, flag)			\
-		case option1:					\
-			if (pax_flags_hardmode & MF_PAX_##flag)	\
-				return ~0UL;			\
-			pax_flags_hardmode |= MF_PAX_##flag;	\
-			break;					\
-		case option2:					\
-			if (pax_flags_softmode & MF_PAX_##flag)	\
-				return ~0UL;			\
-			pax_flags_softmode |= MF_PAX_##flag;	\
-			break;
+	case 0 ... sizeof xattr_value:
+		for (i = 0; i < xattr_size; i++)
+			switch (xattr_value[i]) {
+			default:
+				return ~0UL;
 
-		parse_flag('p', 'P', PAGEEXEC);
-		parse_flag('e', 'E', EMUTRAMP);
-		parse_flag('m', 'M', MPROTECT);
-		parse_flag('r', 'R', RANDMMAP);
-		parse_flag('s', 'S', SEGMEXEC);
+#define parse_flag(option1, option2, flag)				\
+			case option1:					\
+				if (pax_flags_hardmode & MF_PAX_##flag)	\
+					return ~0UL;			\
+				pax_flags_hardmode |= MF_PAX_##flag;	\
+				break;					\
+			case option2:					\
+				if (pax_flags_softmode & MF_PAX_##flag)	\
+					return ~0UL;			\
+				pax_flags_softmode |= MF_PAX_##flag;	\
+				break;
+
+			parse_flag('p', 'P', PAGEEXEC);
+			parse_flag('e', 'E', EMUTRAMP);
+			parse_flag('m', 'M', MPROTECT);
+			parse_flag('r', 'R', RANDMMAP);
+			parse_flag('s', 'S', SEGMEXEC);
 
 #undef parse_flag
-		}
+			}
+		break;
+	}
 
 	if (pax_flags_hardmode & pax_flags_softmode)
 		return ~0UL;

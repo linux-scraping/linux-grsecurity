@@ -31,7 +31,7 @@ static inline int atomic_read(const atomic_t *v)
  *
  * Atomically reads the value of @v.
  */
-static inline int atomic_read_unchecked(const atomic_unchecked_t *v)
+static inline int __intentional_overflow(-1) atomic_read_unchecked(const atomic_unchecked_t *v)
 {
 	return (*(volatile const int *)&(v)->counter);
 }
@@ -368,7 +368,7 @@ static inline int atomic_inc_return_unchecked(atomic_unchecked_t *v)
 }
 #define atomic_dec_return(v)  (atomic_sub_return(1, v))
 
-static inline int atomic_cmpxchg(atomic_t *v, int old, int new)
+static inline int __intentional_overflow(-1) atomic_cmpxchg(atomic_t *v, int old, int new)
 {
 	return cmpxchg(&v->counter, old, new);
 }
@@ -397,7 +397,7 @@ static inline int atomic_xchg_unchecked(atomic_unchecked_t *v, int new)
  * Atomically adds @a to @v, so long as @v was not already @u.
  * Returns the old value of @v.
  */
-static inline int __atomic_add_unless(atomic_t *v, int a, int u)
+static inline int __intentional_overflow(-1) __atomic_add_unless(atomic_t *v, int a, int u)
 {
 	int c, old, new;
 	c = atomic_read(v);

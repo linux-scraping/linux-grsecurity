@@ -2761,7 +2761,7 @@ int btrfs_search_old_slot(struct btrfs_root *root, struct btrfs_key *key,
 	int level;
 	int lowest_unlock = 1;
 	u8 lowest_level = 0;
-	int prev_cmp;
+	int prev_cmp = -1;
 
 	lowest_level = p->lowest_level;
 	WARN_ON(p->nodes[0] != NULL);
@@ -2772,7 +2772,6 @@ int btrfs_search_old_slot(struct btrfs_root *root, struct btrfs_key *key,
 	}
 
 again:
-	prev_cmp = -1;
 	b = get_old_root(root, time_seq);
 	level = btrfs_header_level(b);
 	p->locks[level] = BTRFS_READ_LOCK;
@@ -2790,6 +2789,11 @@ again:
 		 */
 		btrfs_unlock_up_safe(p, level + 1);
 
+		/*
+		 * Since we can unwind eb's we want to do a real search every
+		 * time.
+		 */
+		prev_cmp = -1;
 		ret = key_search(b, key, level, &prev_cmp, &slot);
 
 		if (level != 0) {

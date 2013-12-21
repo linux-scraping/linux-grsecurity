@@ -179,7 +179,7 @@ static inline long long atomic64_read(const atomic64_t *v)
  *
  * Atomically reads the value of @v and returns it.
  */
-static inline long long atomic64_read_unchecked(atomic64_unchecked_t *v)
+static inline long long __intentional_overflow(-1) atomic64_read_unchecked(atomic64_unchecked_t *v)
 {
 	long long r;
 	alternative_atomic64(read, "=&A" (r), "c" (v) : "memory");
