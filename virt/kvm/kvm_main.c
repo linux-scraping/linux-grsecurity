@@ -1618,8 +1618,17 @@ EXPORT_SYMBOL_GPL(kvm_read_guest_cached);
 
 int kvm_clear_guest_page(struct kvm *kvm, gfn_t gfn, int offset, int len)
 {
-	return kvm_write_guest_page(kvm, gfn, (const void *) empty_zero_page,
-				    offset, len);
+	int r;
+	unsigned long addr;
+
+	addr = gfn_to_hva(kvm, gfn);
+	if (kvm_is_error_hva(addr))
+		return -EFAULT;
+	r = __clear_user((void __user *)addr + offset, len);
+	if (r)
+		return -EFAULT;
+	mark_page_dirty(kvm, gfn);
+	return 0;
 }
 EXPORT_SYMBOL_GPL(kvm_clear_guest_page);
 
