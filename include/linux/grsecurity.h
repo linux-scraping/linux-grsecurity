@@ -121,6 +121,8 @@ __u32 gr_acl_handle_chown(const struct dentry *dentry,
 				 const struct vfsmount *mnt);
 __u32 gr_acl_handle_setxattr(const struct dentry *dentry,
 				 const struct vfsmount *mnt);
+__u32 gr_acl_handle_removexattr(const struct dentry *dentry,
+				 const struct vfsmount *mnt);
 int gr_handle_ptrace(struct task_struct *task, const long request);
 int gr_handle_proc_ptrace(struct task_struct *task);
 __u32 gr_acl_handle_execve(const struct dentry *dentry,
