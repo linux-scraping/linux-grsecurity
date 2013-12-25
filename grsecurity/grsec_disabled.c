@@ -255,6 +255,12 @@ gr_acl_handle_setxattr(const struct dentry * dentry, const struct vfsmount * mnt
 	return 1;
 }
 
+__u32
+gr_acl_handle_removexattr(const struct dentry * dentry, const struct vfsmount * mnt)
+{
+	return 1;
+}
+
 void
 grsecurity_init(void)
 {

@@ -734,7 +734,6 @@ menu "Miscellaneous hardening features"
 config PAX_MEMORY_SANITIZE
 	bool "Sanitize all freed memory"
 	default y if (GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_PRIORITY_SECURITY)
-	depends on !HIBERNATION
 	help
 	  By saying Y here the kernel will erase memory pages and slab objects
 	  as soon as they are freed.  This in turn reduces the lifetime of data
