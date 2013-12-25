@@ -650,7 +650,7 @@ SYSCALL_DEFINE3(flistxattr, int, fd, char __user *, list, size_t, size)
  * Extended attribute REMOVE operations
  */
 static long
-removexattr(struct dentry *d, const char __user *name)
+removexattr(struct path *path, const char __user *name)
 {
 	int error;
 	char kname[XATTR_NAME_MAX + 1];
@@ -661,7 +661,10 @@ removexattr(struct dentry *d, const char __user *name)
 	if (error < 0)
 		return error;
 
-	return vfs_removexattr(d, kname);
+	if (!gr_acl_handle_removexattr(path->dentry, path->mnt))
+		return -EACCES;
+
+	return vfs_removexattr(path->dentry, kname);
 }
 
 SYSCALL_DEFINE2(removexattr, const char __user *, pathname,
@@ -676,7 +679,7 @@ retry:
 		return error;
 	error = mnt_want_write(path.mnt);
 	if (!error) {
-		error = removexattr(path.dentry, name);
+		error = removexattr(&path, name);
 		mnt_drop_write(path.mnt);
 	}
 	path_put(&path);
@@ -699,7 +702,7 @@ retry:
 		return error;
 	error = mnt_want_write(path.mnt);
 	if (!error) {
-		error = removexattr(path.dentry, name);
+		error = removexattr(&path, name);
 		mnt_drop_write(path.mnt);
 	}
 	path_put(&path);
@@ -713,16 +716,16 @@ retry:
 SYSCALL_DEFINE2(fremovexattr, int, fd, const char __user *, name)
 {
 	struct fd f = fdget(fd);
-	struct dentry *dentry;
+	struct path *path;
 	int error = -EBADF;
 
 	if (!f.file)
 		return error;
-	dentry = f.file->f_path.dentry;
-	audit_inode(NULL, dentry, 0);
+	path = &f.file->f_path;
+	audit_inode(NULL, path->dentry, 0);
 	error = mnt_want_write_file(f.file);
 	if (!error) {
-		error = removexattr(dentry, name);
+		error = removexattr(path, name);
 		mnt_drop_write_file(f.file);
 	}
 	fdput(f);

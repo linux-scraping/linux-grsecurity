@@ -239,6 +239,12 @@ gr_acl_handle_setxattr(const struct dentry *dentry, const struct vfsmount *mnt)
 }
 
 __u32
+gr_acl_handle_removexattr(const struct dentry *dentry, const struct vfsmount *mnt)
+{
+	return generic_fs_handler(dentry, mnt, GR_WRITE, GR_REMOVEXATTR_ACL_MSG);
+}
+
+__u32
 gr_acl_handle_execve(const struct dentry *dentry, const struct vfsmount *mnt)
 {
 	return generic_fs_handler(dentry, mnt, GR_EXEC, GR_EXEC_ACL_MSG);

@@ -1618,6 +1618,10 @@ static int show_dsts(struct seq_file *m, void *data)
 	int err;
 	u32 retval = -1;
 
+#ifdef CONFIG_GRKERNSEC_KMEM
+	return -EPERM;
+#endif
+
 	err = asus_wmi_get_devstate(asus, asus->debug.dev_id, &retval);
 
 	if (err < 0)
@@ -1633,6 +1637,10 @@ static int show_devs(struct seq_file *m, void *data)
 	struct asus_wmi *asus = m->private;
 	int err;
 	u32 retval = -1;
+
+#ifdef CONFIG_GRKERNSEC_KMEM
+	return -EPERM;
+#endif
 
 	err = asus_wmi_set_devstate(asus->debug.dev_id, asus->debug.ctrl_param,
 				    &retval);
@@ -1657,6 +1665,10 @@ static int show_call(struct seq_file *m, void *data)
 	struct acpi_buffer output = { ACPI_ALLOCATE_BUFFER, NULL };
 	union acpi_object *obj;
 	acpi_status status;
+
+#ifdef CONFIG_GRKERNSEC_KMEM
+	return -EPERM;
+#endif
 
 	status = wmi_evaluate_method(ASUS_WMI_MGMT_GUID,
 				     1, asus->debug.method_id,

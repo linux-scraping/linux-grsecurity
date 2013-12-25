@@ -24,6 +24,8 @@ config HIBERNATE_CALLBACKS
 config HIBERNATION
 	bool "Hibernation (aka 'suspend to disk')"
 	depends on SWAP && ARCH_HIBERNATION_POSSIBLE
+	depends on !GRKERNSEC_KMEM
+	depends on !PAX_MEMORY_SANITIZE
 	select HIBERNATE_CALLBACKS
 	select LZO_COMPRESS
 	select LZO_DECOMPRESS
