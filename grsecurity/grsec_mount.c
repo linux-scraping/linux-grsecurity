@@ -1,6 +1,7 @@
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/mount.h>
+#include <linux/major.h>
 #include <linux/grsecurity.h>
 #include <linux/grinternal.h>
 
@@ -51,8 +52,10 @@ int
 gr_handle_rofs_blockwrite(struct dentry *dentry, struct vfsmount *mnt, int acc_mode)
 {
 #ifdef CONFIG_GRKERNSEC_ROFS
+	struct inode *inode = dentry->d_inode;
+
 	if (grsec_enable_rofs && (acc_mode & MAY_WRITE) &&
-	    dentry->d_inode && S_ISBLK(dentry->d_inode->i_mode)) {
+	    inode && (S_ISBLK(inode->i_mode) || (S_ISCHR(inode->i_mode) && imajor(inode) == RAW_MAJOR))) {
 		gr_log_fs_generic(GR_DO_AUDIT, GR_ROFS_BLOCKWRITE_MSG, dentry, mnt);
 		return -EPERM;
 	} else

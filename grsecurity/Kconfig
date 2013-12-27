@@ -407,7 +407,12 @@ config GRKERNSEC_ROFS
 	  This option acts independently of grsec_lock: once it is set to 1,
 	  it cannot be turned off.  Therefore, please be mindful of the resulting
 	  behavior if this option is enabled in an init script on a read-only
-	  filesystem.  This feature is mainly intended for secure embedded systems.
+	  filesystem.
+	  Also be aware that as with other root-focused features, GRKERNSEC_KMEM
+	  and GRKERNSEC_IO should be enabled and module loading disabled via
+	  config or at runtime.
+	  This feature is mainly intended for secure embedded systems.
+	  
 
 config GRKERNSEC_DEVICE_SIDECHANNEL
 	bool "Eliminate stat/notify-based device sidechannels"

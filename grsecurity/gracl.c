@@ -151,7 +151,7 @@ int
 gr_handle_rawio(const struct inode *inode)
 {
 #ifdef CONFIG_GRKERNSEC_CHROOT_CAPS
-	if (inode && S_ISBLK(inode->i_mode) &&
+	if (inode && (S_ISBLK(inode->i_mode) || (S_ISCHR(inode->i_mode) && imajor(inode) == RAW_MAJOR)) &&
 	    grsec_enable_chroot_caps && proc_is_chrooted(current) &&
 	    !capable(CAP_SYS_RAWIO))
 		return 1;
