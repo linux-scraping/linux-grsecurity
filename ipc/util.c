@@ -562,7 +562,8 @@ int ipcperms(struct ipc_namespace *ns, struct kern_ipc_perm *ipcp, short flag)
 		granted_mode >>= 6;
 	else if (in_group_p(ipcp->cgid) || in_group_p(ipcp->gid))
 		granted_mode >>= 3;
-	else if (!gr_ipc_permitted(ns, ipcp, requested_mode, granted_mode))
+
+	if (!gr_ipc_permitted(ns, ipcp, requested_mode, granted_mode))
 		return -1;
 
 	/* is there some bit set in requested_mode but not in granted_mode? */
