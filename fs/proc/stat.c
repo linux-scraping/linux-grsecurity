@@ -87,13 +87,28 @@ static int show_stat(struct seq_file *p, void *v)
 	u64 sum_softirq = 0;
 	unsigned int per_softirq_sums[NR_SOFTIRQS] = {0};
 	struct timespec boottime;
+	int unrestricted = 1;
+
+#ifdef CONFIG_GRKERNSEC_PROC_ADD
+#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+	if (!uid_eq(current_uid(), GLOBAL_ROOT_UID)
+#ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
+		&& !in_group_p(grsec_proc_gid)
+#endif
+	)
+		unrestricted = 0;
+#endif
+#endif
 
 	user = nice = system = idle = iowait =
 		irq = softirq = steal = 0;
 	guest = guest_nice = 0;
 	getboottime(&boottime);
 	jif = boottime.tv_sec;
+	if (!unrestricted)
+		jif = 0;
 
+	if (unrestricted) {
 	for_each_possible_cpu(i) {
 		user += kcpustat_cpu(i).cpustat[CPUTIME_USER];
 		nice += kcpustat_cpu(i).cpustat[CPUTIME_NICE];
@@ -116,6 +131,7 @@ static int show_stat(struct seq_file *p, void *v)
 		}
 	}
 	sum += arch_irq_stat();
+	}
 
 	seq_puts(p, "cpu ");
 	seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(user));
@@ -131,6 +147,7 @@ static int show_stat(struct seq_file *p, void *v)
 	seq_putc(p, '\n');
 
 	for_each_online_cpu(i) {
+		if (unrestricted) {
 		/* Copy values here to work around gcc-2.95.3, gcc-2.96 */
 		user = kcpustat_cpu(i).cpustat[CPUTIME_USER];
 		nice = kcpustat_cpu(i).cpustat[CPUTIME_NICE];
@@ -142,6 +159,7 @@ static int show_stat(struct seq_file *p, void *v)
 		steal = kcpustat_cpu(i).cpustat[CPUTIME_STEAL];
 		guest = kcpustat_cpu(i).cpustat[CPUTIME_GUEST];
 		guest_nice = kcpustat_cpu(i).cpustat[CPUTIME_GUEST_NICE];
+		}
 		seq_printf(p, "cpu%d", i);
 		seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(user));
 		seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(nice));
@@ -159,7 +177,7 @@ static int show_stat(struct seq_file *p, void *v)
 
 	/* sum again ? it could be updated? */
 	for_each_irq_nr(j)
-		seq_put_decimal_ull(p, ' ', kstat_irqs(j));
+		seq_put_decimal_ull(p, ' ', unrestricted ? kstat_irqs(j) : 0ULL);
 
 	seq_printf(p,
 		"\nctxt %llu\n"
@@ -167,11 +185,11 @@ static int show_stat(struct seq_file *p, void *v)
 		"processes %lu\n"
 		"procs_running %lu\n"
 		"procs_blocked %lu\n",
-		nr_context_switches(),
-		(unsigned long)jif,
-		total_forks,
-		nr_running(),
-		nr_iowait());
+		unrestricted ? nr_context_switches() : 0ULL,
+		unrestricted ? (unsigned long)jif : 0UL,
+		unrestricted ? total_forks : 0UL,
+		unrestricted ? nr_running() : 0UL,
+		unrestricted ? nr_iowait() : 0UL);
 
 	seq_printf(p, "softirq %llu", (unsigned long long)sum_softirq);
 
@@ -218,11 +236,7 @@ static const struct file_operations proc_stat_operations = {
 
 static int __init proc_stat_init(void)
 {
-#ifdef CONFIG_GRKERNSEC_PROC_ADD
-	proc_create_grsec("stat", 0, NULL, &proc_stat_operations);
-#else
 	proc_create("stat", 0, NULL, &proc_stat_operations);
-#endif
 	return 0;
 }
 module_init(proc_stat_init);
