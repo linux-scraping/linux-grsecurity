@@ -117,9 +117,8 @@ proc_bus_pci_write(struct file *file, const char __user *buf, size_t nbytes, lof
 	int size = dev->cfg_size;
 	int cnt;
 
-#ifdef CONFIG_GRKERNSEC_KMEM
-	return -EPERM;
-#endif
+	if (!capable(CAP_SYS_RAWIO))
+		return -EPERM;
 
 	if (pos >= size)
 		return 0;
@@ -200,10 +199,6 @@ static long proc_bus_pci_ioctl(struct file *file, unsigned int cmd,
 #endif /* HAVE_PCI_MMAP */
 	int ret = 0;
 
-#ifdef CONFIG_GRKERNSEC_KMEM
-	return -EPERM;
-#endif
-
 	switch (cmd) {
 	case PCIIOC_CONTROLLER:
 		ret = pci_domain_nr(dev->bus);
@@ -241,10 +236,6 @@ static int proc_bus_pci_mmap(struct file *file, struct vm_area_struct *vma)
 	struct pci_dev *dev = PDE_DATA(file_inode(file));
 	struct pci_filp_private *fpriv = file->private_data;
 	int i, ret;
-
-#ifdef CONFIG_GRKERNSEC_KMEM
-	return -EPERM;
-#endif
 
 	if (!capable(CAP_SYS_RAWIO))
 		return -EPERM;

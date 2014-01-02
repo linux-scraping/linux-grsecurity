@@ -634,9 +634,8 @@ pci_write_config(struct file* filp, struct kobject *kobj,
 	loff_t init_off = off;
 	u8 *data = (u8*) buf;
 
-#ifdef CONFIG_GRKERNSEC_KMEM
-	return -EPERM;
-#endif
+	if (!capable(CAP_SYS_RAWIO))
+		return -EPERM;
 
 	if (off > dev->cfg_size)
 		return 0;
@@ -944,9 +943,8 @@ pci_mmap_resource(struct kobject *kobj, struct bin_attribute *attr,
 	resource_size_t start, end;
 	int i;
 
-#ifdef CONFIG_GRKERNSEC_KMEM
-	return -EPERM;
-#endif
+	if (!capable(CAP_SYS_RAWIO))
+		return -EPERM;
 
 	for (i = 0; i < PCI_ROM_RESOURCE; i++)
 		if (res == &pdev->resource[i])
@@ -1005,6 +1003,9 @@ pci_resource_io(struct file *filp, struct kobject *kobj,
 	unsigned long port = off;
 	int i;
 
+	if (!capable(CAP_SYS_RAWIO))
+		return -EPERM;
+
 	for (i = 0; i < PCI_ROM_RESOURCE; i++)
 		if (res == &pdev->resource[i])
 			break;
@@ -1055,10 +1056,6 @@ pci_write_resource_io(struct file *filp, struct kobject *kobj,
 		      struct bin_attribute *attr, char *buf,
 		      loff_t off, size_t count)
 {
-#ifdef CONFIG_GRKERNSEC_KMEM
-	return -EPERM;
-#endif
-
 	return pci_resource_io(filp, kobj, attr, buf, off, count, true);
 }
 
