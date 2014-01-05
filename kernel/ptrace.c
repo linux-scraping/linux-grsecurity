@@ -248,7 +248,7 @@ ok:
 	smp_rmb();
 	if (task->mm)
 		dumpable = get_dumpable(task->mm);
-	if (dumpable != SUID_DUMPABLE_ENABLED &&
+	if (dumpable != SUID_DUMP_USER &&
 		((!log && !task_ns_capable_nolog(task, CAP_SYS_PTRACE)) ||
 		 (log && !task_ns_capable(task, CAP_SYS_PTRACE))))
 		return -EPERM;

@@ -1083,8 +1083,10 @@ isdnloop_start(isdnloop_card * card, isdnloop_sdef * sdefp)
 				spin_unlock_irqrestore(&card->isdnloop_lock, flags);
 				return -ENOMEM;
 			}
-			for (i = 0; i < 3; i++)
-				strlcpy(card->s0num[i], sdef.num[i], sizeof(card->s0num[0]));
+			for (i = 0; i < 3; i++) {
+				strlcpy(card->s0num[i], sdef.num[i],
+					sizeof(card->s0num[0]));
+			}
 			break;
 		case ISDN_PTYPE_1TR6:
 			if (isdnloop_fake(card, "DRV1.04TC-1TR6-CAPI-CNS-BASIS-29.11.95",
