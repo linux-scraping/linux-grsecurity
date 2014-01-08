@@ -113,7 +113,7 @@ struct n_tty_data {
 	int minimum_to_wake;
 
 	/* consumer-published */
-	size_t read_tail;
+	size_t read_tail __intentional_overflow(-1);
 	size_t line_start;
 
 	/* protected by output lock */

@@ -634,9 +634,6 @@ pci_write_config(struct file* filp, struct kobject *kobj,
 	loff_t init_off = off;
 	u8 *data = (u8*) buf;
 
-	if (!capable(CAP_SYS_RAWIO))
-		return -EPERM;
-
 	if (off > dev->cfg_size)
 		return 0;
 	if (off + count > dev->cfg_size) {
@@ -943,9 +940,6 @@ pci_mmap_resource(struct kobject *kobj, struct bin_attribute *attr,
 	resource_size_t start, end;
 	int i;
 
-	if (!capable(CAP_SYS_RAWIO))
-		return -EPERM;
-
 	for (i = 0; i < PCI_ROM_RESOURCE; i++)
 		if (res == &pdev->resource[i])
 			break;
@@ -1002,9 +996,6 @@ pci_resource_io(struct file *filp, struct kobject *kobj,
 	struct resource *res = attr->private;
 	unsigned long port = off;
 	int i;
-
-	if (!capable(CAP_SYS_RAWIO))
-		return -EPERM;
 
 	for (i = 0; i < PCI_ROM_RESOURCE; i++)
 		if (res == &pdev->resource[i])

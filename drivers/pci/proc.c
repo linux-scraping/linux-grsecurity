@@ -117,9 +117,6 @@ proc_bus_pci_write(struct file *file, const char __user *buf, size_t nbytes, lof
 	int size = dev->cfg_size;
 	int cnt;
 
-	if (!capable(CAP_SYS_RAWIO))
-		return -EPERM;
-
 	if (pos >= size)
 		return 0;
 	if (nbytes >= size)

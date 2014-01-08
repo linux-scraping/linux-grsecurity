@@ -244,7 +244,7 @@ static ssize_t usbdev_read(struct file *file, char __user *buf, size_t nbytes,
 
 			/* Simply don't write (skip over) unallocated parts */
 			if (alloclen > (*ppos - pos)) {
-				alloclen -= (*ppos - pos);
+				alloclen = alloclen + pos - *ppos;
 				if (copy_to_user(buf,
 				    dev->rawdescriptors[i] + (*ppos - pos),
 				    min(len, alloclen))) {

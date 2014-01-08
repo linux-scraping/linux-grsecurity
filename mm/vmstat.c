@@ -20,6 +20,7 @@
 #include <linux/writeback.h>
 #include <linux/compaction.h>
 #include <linux/mm_inline.h>
+#include <linux/grsecurity.h>
 
 #include "internal.h"
 
@@ -1148,10 +1149,22 @@ static void *vmstat_start(struct seq_file *m, loff_t *pos)
 	stat_items_size += sizeof(struct vm_event_state);
 #endif
 
-	v = kmalloc(stat_items_size, GFP_KERNEL);
+	v = kzalloc(stat_items_size, GFP_KERNEL);
 	m->private = v;
 	if (!v)
 		return ERR_PTR(-ENOMEM);
+
+#ifdef CONFIG_GRKERNSEC_PROC_ADD
+#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+        if (!uid_eq(current_uid(), GLOBAL_ROOT_UID)
+#ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
+                && !in_group_p(grsec_proc_gid)
+#endif
+        )
+		return (unsigned long *)m->private + *pos;
+#endif
+#endif
+
 	for (i = 0; i < NR_VM_ZONE_STAT_ITEMS; i++)
 		v[i] = global_page_state(i);
 	v += NR_VM_ZONE_STAT_ITEMS;
@@ -1288,11 +1301,7 @@ static int __init setup_vmstat(void)
 #endif
 		proc_create("buddyinfo", gr_mode, NULL, &fragmentation_file_operations);
 		proc_create("pagetypeinfo", gr_mode, NULL, &pagetypeinfo_file_ops);
-#ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
-		proc_create("vmstat", gr_mode | S_IRGRP, NULL, &proc_vmstat_file_operations);
-#else
-		proc_create("vmstat", gr_mode, NULL, &proc_vmstat_file_operations);
-#endif
+		proc_create("vmstat", S_IRUGO, NULL, &proc_vmstat_file_operations);
 		proc_create("zoneinfo", gr_mode, NULL, &proc_zoneinfo_file_operations);
 	}
 #endif
