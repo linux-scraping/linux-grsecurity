@@ -92,10 +92,6 @@ SYSCALL_DEFINE5(pciconfig_write, unsigned long, bus, unsigned long, dfn,
 	u32 dword;
 	int err = 0;
 
-#ifdef CONFIG_GRKERNSEC_KMEM
-	return -EPERM
-#endif
-
 	if (!capable(CAP_SYS_ADMIN))
 		return -EPERM;
 
