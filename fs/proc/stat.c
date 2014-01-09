@@ -106,8 +106,6 @@ static int show_stat(struct seq_file *p, void *v)
 	guest = guest_nice = 0;
 	getboottime(&boottime);
 	jif = boottime.tv_sec;
-	if (!unrestricted)
-		jif = 0;
 
 	if (unrestricted) {
 	for_each_possible_cpu(i) {
@@ -187,7 +185,7 @@ static int show_stat(struct seq_file *p, void *v)
 		"procs_running %lu\n"
 		"procs_blocked %lu\n",
 		unrestricted ? nr_context_switches() : 0ULL,
-		unrestricted ? (unsigned long)jif : 0UL,
+		(unsigned long)jif,
 		unrestricted ? total_forks : 0UL,
 		unrestricted ? nr_running() : 0UL,
 		unrestricted ? nr_iowait() : 0UL);
