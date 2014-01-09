@@ -214,7 +214,7 @@ get_write_lock:
 			unsigned long addr;
 			struct file *file = get_file(vma->vm_file);
 			/* mmap_region may free vma; grab the info now */
-			vm_flags = ACCESS_ONCE(vma->vm_flags);
+			vm_flags = vma->vm_flags;
 
 			addr = mmap_region(file, start, size, vm_flags, pgoff);
 			fput(file);

@@ -43,6 +43,7 @@ extern int unregister_reboot_notifier(struct notifier_block *);
  * Architecture-specific implementations of sys_reboot commands.
  */
 
+extern void migrate_to_reboot_cpu(void);
 extern void machine_restart(char *cmd) __noreturn;
 extern void machine_halt(void) __noreturn;
 extern void machine_power_off(void) __noreturn;
