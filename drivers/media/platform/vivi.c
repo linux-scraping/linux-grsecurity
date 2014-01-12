@@ -58,8 +58,8 @@ MODULE_AUTHOR("Mauro Carvalho Chehab, Ted Walther and John Sokol");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_VERSION(VIVI_VERSION);
 
-static unsigned video_nr = -1;
-module_param(video_nr, uint, 0644);
+static int video_nr = -1;
+module_param(video_nr, int, 0644);
 MODULE_PARM_DESC(video_nr, "videoX start number, -1 is autodetect");
 
 static unsigned n_devs = 1;
