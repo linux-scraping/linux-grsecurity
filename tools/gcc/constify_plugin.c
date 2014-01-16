@@ -44,7 +44,7 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info const_plugin_info = {
-	.version	= "201312032345",
+	.version	= "201401121315",
 	.help		= "no-constify\tturn off constification\n",
 };
 
@@ -224,7 +224,6 @@ static tree handle_no_const_attribute(tree *node, tree name, tree args, int flag
 	}
 
 	if (TYPE_P(*node)) {
-		*no_add_attrs = false;
 		type = *node;
 	} else {
 		gcc_assert(TREE_CODE(*node) == TYPE_DECL);
@@ -244,6 +243,8 @@ static tree handle_no_const_attribute(tree *node, tree name, tree args, int flag
 	if (TYPE_P(*node)) {
 		if (lookup_attribute("do_const", TYPE_ATTRIBUTES(type)))
 			error("%qE attribute used on type %qT is incompatible with 'do_const'", name, type);
+		else
+			*no_add_attrs = false;
 		return NULL_TREE;
 	}
 

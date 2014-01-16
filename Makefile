@@ -1,6 +1,6 @@
 VERSION = 3
 PATCHLEVEL = 12
-SUBLEVEL = 7
+SUBLEVEL = 8
 EXTRAVERSION =
 NAME = One Giant Leap for Frogkind
 
@@ -896,6 +896,8 @@ prepare1: prepare2 $(version_h) include/generated/utsrelease.h \
 
 archprepare: archheaders archscripts prepare1 scripts_basic
 
+prepare0: KBUILD_CFLAGS += $(GCC_PLUGINS_CFLAGS)
+prepare0: KBUILD_AFLAGS += $(GCC_PLUGINS_AFLAGS)
 prepare0: archprepare FORCE
 	$(Q)$(MAKE) $(build)=.
 

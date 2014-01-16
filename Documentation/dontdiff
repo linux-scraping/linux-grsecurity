@@ -125,6 +125,7 @@ cpustr.h
 crc32table.h*
 cscope.*
 defkeymap.c
+devicetable-offsets.h
 devlist.h*
 dnotify_test
 docproc
