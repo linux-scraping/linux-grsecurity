@@ -1,5 +1,5 @@
 /*
- * Copyright 2011, 2012, 2013 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011, 2012, 2013, 2014 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2, or (at your option) v3
  *
  * Homepage:
@@ -127,7 +127,7 @@ static tree get_size_overflow_type(gimple stmt, const_tree node);
 static tree dup_assign(struct pointer_set_t *visited, gimple oldstmt, const_tree node, tree rhs1, tree rhs2, tree __unused rhs3);
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20131214beta",
+	.version	= "20140102beta",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
@@ -3574,6 +3574,141 @@ static void create_size_overflow_asm(gimple stmt, tree output_node, unsigned int
 	create_asm_stmt(str, build_string(1, "0"), build_string(3, "=rm"), &asm_data);
 }
 
+// Insert an asm stmt with "MARK_TURN_OFF", "MARK_YES" or "MARK_NOT_INTENTIONAL".
+static bool create_mark_asm(gimple stmt, enum mark mark)
+{
+	struct asm_data asm_data;
+	const char *asm_str;
+
+	switch (mark) {
+	case MARK_TURN_OFF:
+		asm_str = TURN_OFF_ASM_STR;
+		break;
+	case MARK_NOT_INTENTIONAL:
+	case MARK_YES:
+		asm_str = YES_ASM_STR;
+		break;
+	default:
+		gcc_unreachable();
+	}
+
+	asm_data.def_stmt = stmt;
+	asm_data.output = gimple_call_lhs(stmt);
+
+	if (asm_data.output == NULL_TREE) {
+		asm_data.input = gimple_call_arg(stmt, 0);
+		if (is_gimple_constant(asm_data.input))
+			return false;
+		asm_data.output = NULL;
+		create_asm_stmt(asm_str, build_string(2, "rm"), NULL, &asm_data);
+		return true;
+	}
+
+	create_asm_input(stmt, 0, &asm_data);
+	gcc_assert(asm_data.input != NULL_TREE);
+
+	create_asm_stmt(asm_str, build_string(1, "0"), build_string(3, "=rm"), &asm_data);
+	return true;
+}
+
+static bool is_from_cast(const_tree node)
+{
+	gimple def_stmt = get_def_stmt(node);
+
+	if (!def_stmt)
+		return false;
+
+	if (gimple_assign_cast_p(def_stmt))
+		return true;
+
+	return false;
+}
+
+// Skip duplication when there is a minus expr and the type of rhs1 or rhs2 is a pointer_type.
+static bool skip_ptr_minus(gimple stmt)
+{
+	const_tree rhs1, rhs2, ptr1_rhs, ptr2_rhs;
+
+	if (gimple_assign_rhs_code(stmt) != MINUS_EXPR)
+		return false;
+
+	rhs1 = gimple_assign_rhs1(stmt);
+	if (!is_from_cast(rhs1))
+		return false;
+
+	rhs2 = gimple_assign_rhs2(stmt);
+	if (!is_from_cast(rhs2))
+		return false;
+
+	ptr1_rhs = gimple_assign_rhs1(get_def_stmt(rhs1));
+	ptr2_rhs = gimple_assign_rhs1(get_def_stmt(rhs2));
+
+	if (TREE_CODE(TREE_TYPE(ptr1_rhs)) != POINTER_TYPE && TREE_CODE(TREE_TYPE(ptr2_rhs)) != POINTER_TYPE)
+		return false;
+
+	create_mark_asm(stmt, MARK_YES);
+	return true;
+}
+
+static void walk_use_def_ptr(struct pointer_set_t *visited, const_tree lhs)
+{
+	gimple def_stmt;
+
+	def_stmt = get_def_stmt(lhs);
+	if (!def_stmt)
+		return;
+
+	if (pointer_set_insert(visited, def_stmt))
+		return;
+
+	switch (gimple_code(def_stmt)) {
+	case GIMPLE_NOP:
+	case GIMPLE_ASM:
+	case GIMPLE_CALL:
+		break;
+	case GIMPLE_PHI: {
+		unsigned int i, n = gimple_phi_num_args(def_stmt);
+
+		pointer_set_insert(visited, def_stmt);
+
+		for (i = 0; i < n; i++) {
+			tree arg = gimple_phi_arg_def(def_stmt, i);
+
+			walk_use_def_ptr(visited, arg);
+		}
+	}
+	case GIMPLE_ASSIGN:
+		switch (gimple_num_ops(def_stmt)) {
+		case 2:
+			walk_use_def_ptr(visited, gimple_assign_rhs1(def_stmt));
+			return;
+		case 3:
+			if (skip_ptr_minus(def_stmt))
+				return;
+
+			walk_use_def_ptr(visited, gimple_assign_rhs1(def_stmt));
+			walk_use_def_ptr(visited, gimple_assign_rhs2(def_stmt));
+			return;
+		default:
+			return;
+		}
+	default:
+		debug_gimple_stmt((gimple)def_stmt);
+		error("%s: unknown gimple code", __func__);
+		gcc_unreachable();
+	}
+}
+
+// Look for a ptr - ptr expression (e.g., cpuset_common_file_read() s - page)
+static void insert_mark_not_intentional_asm_at_ptr(const_tree arg)
+{
+	struct pointer_set_t *visited;
+
+	visited = pointer_set_create();
+	walk_use_def_ptr(visited, arg);
+	pointer_set_destroy(visited);
+}
+
 // Determine the return value and insert the asm stmt to mark the return stmt.
 static void insert_asm_ret(gimple stmt)
 {
@@ -3596,6 +3731,10 @@ static void insert_asm_arg(gimple stmt, unsigned int orig_argnum)
 
 	arg = gimple_call_arg(stmt, argnum - 1);
 	gcc_assert(arg != NULL_TREE);
+
+	// skip all ptr - ptr expressions
+	insert_mark_not_intentional_asm_at_ptr(arg);
+
 	create_size_overflow_asm(stmt, arg, argnum);
 }
 
@@ -3655,35 +3794,17 @@ static void search_interesting_args(tree fndecl, bool *argnums)
 
 /*
  * Look up the intentional_overflow attribute that turns off ipa based duplication
- * on the callee function, if found insert an asm stmt with "MARK_TURN_OFF".
+ * on the callee function.
  */
-static bool create_mark_turn_off_asm(gimple stmt)
+static bool is_mark_turn_off_attribute(gimple stmt)
 {
 	enum mark mark;
-	struct asm_data asm_data;
 	const_tree fndecl = gimple_call_fndecl(stmt);
 
 	mark = get_intentional_attr_type(DECL_ORIGIN(fndecl));
-	if (mark != MARK_TURN_OFF)
-		return false;
-
-	asm_data.def_stmt = stmt;
-	asm_data.output = gimple_call_lhs(stmt);
-
-	if (asm_data.output == NULL_TREE) {
-		asm_data.input = gimple_call_arg(stmt, 0);
-		if (is_gimple_constant(asm_data.input))
-			return false;
-		asm_data.output = NULL;
-		create_asm_stmt(TURN_OFF_ASM_STR, build_string(2, "rm"), NULL, &asm_data);
+	if (mark == MARK_TURN_OFF)
 		return true;
-	}
-
-	create_asm_input(stmt, 0, &asm_data);
-	gcc_assert(asm_data.input != NULL_TREE);
-
-	create_asm_stmt(TURN_OFF_ASM_STR, build_string(1, "0"), build_string(3, "=rm"), &asm_data);
-	return true;
+	return false;
 }
 
 // If the argument(s) of the callee function is/are in the hash table or are marked by an attribute then mark the call stmt with an asm stmt
@@ -3700,8 +3821,10 @@ static void handle_interesting_function(gimple stmt)
 		return;
 	fndecl = DECL_ORIGIN(fndecl);
 
-	if (create_mark_turn_off_asm(stmt))
+	if (is_mark_turn_off_attribute(stmt)) {
+		create_mark_asm(stmt, MARK_TURN_OFF);
 		return;
+	}
 
 	search_interesting_args(fndecl, orig_argnums);
 

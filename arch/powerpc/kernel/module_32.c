@@ -305,7 +305,7 @@ int apply_relocate_add(Elf32_Shdr *sechdrs,
 	}
 #ifdef CONFIG_DYNAMIC_FTRACE
 	module->arch.tramp =
-		do_plt_call(module->module_core,
+		do_plt_call(module->module_core_rx,
 			    (unsigned long)ftrace_caller,
 			    sechdrs, module);
 #endif

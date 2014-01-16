@@ -1043,6 +1043,8 @@ prepare1: prepare2 include/linux/version.h include/generated/utsrelease.h \
 
 archprepare: archscripts prepare1 scripts_basic
 
+prepare0: KBUILD_CFLAGS += $(GCC_PLUGINS_CFLAGS)
+prepare0: KBUILD_AFLAGS += $(GCC_PLUGINS_AFLAGS)
 prepare0: archprepare FORCE
 	$(Q)$(MAKE) $(build)=.
 

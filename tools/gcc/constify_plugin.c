@@ -44,7 +44,7 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info const_plugin_info = {
-	.version	= "201305231310",
+	.version	= "201401121315",
 	.help		= "no-constify\tturn off constification\n",
 };
 
@@ -209,22 +209,21 @@ static tree handle_no_const_attribute(tree *node, tree name, tree args, int flag
 
 	*no_add_attrs = true;
 	if (TREE_CODE(*node) == FUNCTION_DECL) {
-		error("%qE attribute does not apply to functions", name);
+		error("%qE attribute does not apply to functions (%qF)", name, *node);
 		return NULL_TREE;
 	}
 
 	if (TREE_CODE(*node) == PARM_DECL) {
-		error("%qE attribute does not apply to function parameters", name);
+		error("%qE attribute does not apply to function parameters (%qD)", name, *node);
 		return NULL_TREE;
 	}
 
 	if (TREE_CODE(*node) == VAR_DECL) {
-		error("%qE attribute does not apply to variables", name);
+		error("%qE attribute does not apply to variables (%qD)", name, *node);
 		return NULL_TREE;
 	}
 
 	if (TYPE_P(*node)) {
-		*no_add_attrs = false;
 		type = *node;
 	} else {
 		gcc_assert(TREE_CODE(*node) == TYPE_DECL);
@@ -232,18 +231,20 @@ static tree handle_no_const_attribute(tree *node, tree name, tree args, int flag
 	}
 
 	if (TREE_CODE(type) != RECORD_TYPE && TREE_CODE(type) != UNION_TYPE) {
-		error("%qE attribute applies to struct and union types only", name);
+		error("%qE attribute used on %qT applies to struct and union types only", name, type);
 		return NULL_TREE;
 	}
 
 	if (lookup_attribute(IDENTIFIER_POINTER(name), TYPE_ATTRIBUTES(type))) {
-		error("%qE attribute is already applied to the type", name);
+		error("%qE attribute is already applied to the type %qT", name, type);
 		return NULL_TREE;
 	}
 
 	if (TYPE_P(*node)) {
 		if (lookup_attribute("do_const", TYPE_ATTRIBUTES(type)))
-			error("%qE attribute is incompatible with 'do_const'", name);
+			error("%qE attribute used on type %qT is incompatible with 'do_const'", name, type);
+		else
+			*no_add_attrs = false;
 		return NULL_TREE;
 	}
 
@@ -254,7 +255,7 @@ static tree handle_no_const_attribute(tree *node, tree name, tree args, int flag
 		return NULL_TREE;
 	}
 
-	error("%qE attribute used on type that is not constified", name);
+	error("%qE attribute used on type %qT that is not constified", name, type);
 	return NULL_TREE;
 }
 
@@ -270,22 +271,22 @@ static tree handle_do_const_attribute(tree *node, tree name, tree args, int flag
 {
 	*no_add_attrs = true;
 	if (!TYPE_P(*node)) {
-		error("%qE attribute applies to types only", name);
+		error("%qE attribute applies to types only (%qD)", name, *node);
 		return NULL_TREE;
 	}
 
 	if (TREE_CODE(*node) != RECORD_TYPE && TREE_CODE(*node) != UNION_TYPE) {
-		error("%qE attribute applies to struct and union types only", name);
+		error("%qE attribute used on %qT applies to struct and union types only", name, *node);
 		return NULL_TREE;
 	}
 
 	if (lookup_attribute(IDENTIFIER_POINTER(name), TYPE_ATTRIBUTES(*node))) {
-		error("%qE attribute is already applied to the type", name);
+		error("%qE attribute used on %qT is already applied to the type", name, *node);
 		return NULL_TREE;
 	}
 
 	if (lookup_attribute("no_const", TYPE_ATTRIBUTES(*node))) {
-		error("%qE attribute is incompatible with 'no_const'", name);
+		error("%qE attribute used on %qT is incompatible with 'no_const'", name, *node);
 		return NULL_TREE;
 	}
 
@@ -343,30 +344,29 @@ static void finish_type(void *event_data, void *data)
 
 	constifiable(type, &cinfo);
 
-	if (TYPE_READONLY(type) && C_TYPE_FIELDS_READONLY(type)) {
-		if (!lookup_attribute("do_const", TYPE_ATTRIBUTES(type)))
-			return;
-		if (cinfo.has_writable_field)
-			return;
-		error("'do_const' attribute used on type that is%sconstified", cinfo.has_fptr_field ? " " : " not ");
-		return;
-	}
-
 	if (lookup_attribute("no_const", TYPE_ATTRIBUTES(type))) {
 		if ((cinfo.has_fptr_field && !cinfo.has_writable_field) || cinfo.has_do_const_field) {
 			deconstify_type(type);
 			TYPE_CONSTIFY_VISITED(type) = 1;
 		} else
-			error("'no_const' attribute used on type that is not constified");
+			error("'no_const' attribute used on type %qT that is not constified", type);
 		return;
 	}
 
 	if (lookup_attribute("do_const", TYPE_ATTRIBUTES(type))) {
+		if (!cinfo.has_writable_field) {
+			error("'do_const' attribute used on type %qT that is%sconstified", type, cinfo.has_fptr_field ? " " : " not ");
+			return;
+		}
 		constify_type(type);
 		return;
 	}
 
 	if (cinfo.has_fptr_field && !cinfo.has_writable_field) {
+		if (lookup_attribute("do_const", TYPE_ATTRIBUTES(type))) {
+			error("'do_const' attribute used on type %qT that is constified", type);
+			return;
+		}
 		constify_type(type);
 		return;
 	}
@@ -454,7 +454,6 @@ static unsigned int check_variables(void)
 	return check_local_variables();
 }
 
-	unsigned int ret = 0;
 static struct gimple_opt_pass pass_local_variable = {
 	{
 		.type			= GIMPLE_PASS,
