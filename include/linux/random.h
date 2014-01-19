@@ -39,8 +39,9 @@ unsigned long randomize_range(unsigned long start, unsigned long end, unsigned l
 u32 prandom_u32(void) __intentional_overflow(-1);
 void prandom_bytes(void *buf, int nbytes);
 void prandom_seed(u32 seed);
+void prandom_reseed_late(void);
 
-u32 prandom_u32_state(struct rnd_state *);
+u32 prandom_u32_state(struct rnd_state *state);
 void prandom_bytes_state(struct rnd_state *state, void *buf, int nbytes);
 
 static inline unsigned long __intentional_overflow(-1) pax_get_random_long(void)
@@ -65,9 +66,10 @@ static inline void prandom_seed_state(struct rnd_state *state, u64 seed)
 {
 	u32 i = (seed >> 32) ^ (seed << 10) ^ seed;
 
-	state->s1 = __seed(i, 2);
-	state->s2 = __seed(i, 8);
-	state->s3 = __seed(i, 16);
+	state->s1 = __seed(i,   2U);
+	state->s2 = __seed(i,   8U);
+	state->s3 = __seed(i,  16U);
+	state->s4 = __seed(i, 128U);
 }
 
 #ifdef CONFIG_ARCH_RANDOM

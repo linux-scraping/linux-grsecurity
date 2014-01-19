@@ -41,7 +41,7 @@ struct rand_pool_info {
 };
 
 struct rnd_state {
-	__u32 s1, s2, s3;
+	__u32 s1, s2, s3, s4;
 };
 
 /* Exported functions */

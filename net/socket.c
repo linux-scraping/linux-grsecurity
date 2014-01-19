@@ -1891,7 +1891,7 @@ SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, ubuf, size_t, size,
 	struct socket *sock;
 	struct iovec iov;
 	struct msghdr msg;
-	struct sockaddr_storage address = { };
+	struct sockaddr_storage address;
 	int err, err2;
 	int fput_needed;
 
@@ -2264,7 +2264,7 @@ static int ___sys_recvmsg(struct socket *sock, struct msghdr __user *msg,
 	int err, total_len, len;
 
 	/* kernel mode address */
-	struct sockaddr_storage addr = { };
+	struct sockaddr_storage addr;
 
 	/* user mode address pointers */
 	struct sockaddr __user *uaddr;
