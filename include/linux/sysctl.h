@@ -155,12 +155,6 @@ enum
 	KERN_PANIC_ON_NMI=76, /* int: whether we will panic on an unrecovered */
 };
 
-#ifdef CONFIG_PAX_SOFTMODE
-enum {
-	PAX_SOFTMODE=1		/* PaX: disable/enable soft mode */
-};
-#endif
-
 /* CTL_VM names: */
 enum
 {

@@ -1664,6 +1664,7 @@ extern int pax_softmode;
 #endif
 
 extern int pax_check_flags(unsigned long *);
+#define PAX_PARSE_FLAGS_FALLBACK	(~0UL)
 
 /* if tsk != current then task_lock must be held on it */
 #if defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)

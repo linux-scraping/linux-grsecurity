@@ -44,7 +44,7 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info const_plugin_info = {
-	.version	= "201401121315",
+	.version	= "201401140130",
 	.help		= "no-constify\tturn off constification\n",
 };
 
@@ -170,8 +170,10 @@ static void deconstify_type(tree type)
 	}
 	TYPE_READONLY(type) = 0;
 	C_TYPE_FIELDS_READONLY(type) = 0;
-	if (lookup_attribute("do_const", TYPE_ATTRIBUTES(type)))
+	if (lookup_attribute("do_const", TYPE_ATTRIBUTES(type))) {
+		TYPE_ATTRIBUTES(type) = copy_list(TYPE_ATTRIBUTES(type));
 		TYPE_ATTRIBUTES(type) = remove_attribute("do_const", TYPE_ATTRIBUTES(type));
+	}
 }
 
 static void deconstify_tree(tree node)
@@ -264,6 +266,7 @@ static void constify_type(tree type)
 	TYPE_READONLY(type) = 1;
 	C_TYPE_FIELDS_READONLY(type) = 1;
 	TYPE_CONSTIFY_VISITED(type) = 1;
+//	TYPE_ATTRIBUTES(type) = copy_list(TYPE_ATTRIBUTES(type));
 //	TYPE_ATTRIBUTES(type) = tree_cons(get_identifier("do_const"), NULL_TREE, TYPE_ATTRIBUTES(type));
 }
 
@@ -375,7 +378,7 @@ static void finish_type(void *event_data, void *data)
 	TYPE_CONSTIFY_VISITED(type) = 1;
 }
 
-static void check_global_variables(void)
+static void check_global_variables(void *event_data, void *data)
 {
 	struct varpool_node *node;
 
@@ -448,21 +451,15 @@ static unsigned int check_local_variables(void)
 	return ret;
 }
 
-static unsigned int check_variables(void)
-{
-	check_global_variables();
-	return check_local_variables();
-}
-
 static struct gimple_opt_pass pass_local_variable = {
 	{
 		.type			= GIMPLE_PASS,
-		.name			= "check_variables",
+		.name			= "check_local_variables",
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
 		.gate			= NULL,
-		.execute		= check_variables,
+		.execute		= check_local_variables,
 		.sub			= NULL,
 		.next			= NULL,
 		.static_pass_number	= 0,
@@ -549,6 +546,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 
 	register_callback(plugin_name, PLUGIN_INFO, NULL, &const_plugin_info);
 	if (constify) {
+		register_callback(plugin_name, PLUGIN_ALL_IPA_PASSES_START, check_global_variables, NULL);
 		register_callback(plugin_name, PLUGIN_FINISH_TYPE, finish_type, NULL);
 		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &local_variable_pass_info);
 		register_callback(plugin_name, PLUGIN_START_UNIT, constify_start_unit, NULL);

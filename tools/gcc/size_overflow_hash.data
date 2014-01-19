@@ -656,6 +656,7 @@ ext4_ext_insert_extent_7576 ext4_ext_insert_extent 0 7576 NULL
 ext3_try_to_allocate_7590 ext3_try_to_allocate 3-5-0 7590 NULL
 create_dir_7614 create_dir 0 7614 NULL nohasharray
 groups_alloc_7614 groups_alloc 1 7614 &create_dir_7614
+cpumask_first_7648 cpumask_first 0 7648 NULL
 set_connectable_7649 set_connectable 4 7649 NULL
 skb_copy_expand_7685 skb_copy_expand 3-2 7685 NULL nohasharray
 acpi_ex_allocate_name_string_7685 acpi_ex_allocate_name_string 1-2 7685 &skb_copy_expand_7685
@@ -2842,6 +2843,7 @@ compat_sys_mq_timedsend_31060 compat_sys_mq_timedsend 3 31060 NULL
 lbs_failcount_read_31063 lbs_failcount_read 3 31063 NULL
 find_next_bit_le_31064 find_next_bit_le 0-2-3 31064 NULL
 sys_mincore_31079 sys_mincore 2-1 31079 NULL
+scb_status_31084 scb_status 0 31084 NULL
 sctp_setsockopt_context_31091 sctp_setsockopt_context 3 31091 NULL
 find_mergeable_31093 find_mergeable 2 31093 NULL
 compat_sys_get_mempolicy_31109 compat_sys_get_mempolicy 3 31109 NULL
@@ -4429,6 +4431,7 @@ timblogiw_read_48305 timblogiw_read 3 48305 NULL
 hash_setkey_48310 hash_setkey 3 48310 NULL
 bcm_download_config_file_48313 bcm_download_config_file 0 48313 NULL
 skb_add_data_48363 skb_add_data 3 48363 NULL
+eexp_start_irq_48364 eexp_start_irq 2 48364 NULL
 iscsi_complete_pdu_48372 iscsi_complete_pdu 4 48372 NULL
 lbs_debugfs_write_48413 lbs_debugfs_write 3 48413 NULL
 snd_power_wait_48422 snd_power_wait 0 48422 NULL
