@@ -249,7 +249,7 @@ ldlm_process_flock_lock(struct ldlm_lock *req, __u64 *flags, int first_enq,
 	int added = (mode == LCK_NL);
 	int overlaps = 0;
 	int splitted = 0;
-	const struct ldlm_callback_suite null_cbs = { NULL };
+	const struct ldlm_callback_suite null_cbs = { };
 	int rc;
 
 	CDEBUG(D_DLMTRACE, "flags %#llx owner "LPU64" pid %u mode %u start "

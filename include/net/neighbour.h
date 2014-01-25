@@ -178,7 +178,7 @@ struct neigh_table {
 	struct neigh_statistics	__percpu *stats;
 	struct neigh_hash_table __rcu *nht;
 	struct pneigh_entry	**phash_buckets;
-};
+} __randomize_layout;
 
 #define NEIGH_PRIV_ALIGN	sizeof(long long)
 #define NEIGH_ENTRY_SIZE(size)	ALIGN((size), NEIGH_PRIV_ALIGN)

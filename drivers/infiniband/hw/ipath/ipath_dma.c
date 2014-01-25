@@ -176,17 +176,17 @@ static void ipath_dma_free_coherent(struct ib_device *dev, size_t size,
 }
 
 struct ib_dma_mapping_ops ipath_dma_mapping_ops = {
-	ipath_mapping_error,
-	ipath_dma_map_single,
-	ipath_dma_unmap_single,
-	ipath_dma_map_page,
-	ipath_dma_unmap_page,
-	ipath_map_sg,
-	ipath_unmap_sg,
-	ipath_sg_dma_address,
-	ipath_sg_dma_len,
-	ipath_sync_single_for_cpu,
-	ipath_sync_single_for_device,
-	ipath_dma_alloc_coherent,
-	ipath_dma_free_coherent
+	.mapping_error = ipath_mapping_error,
+	.map_single = ipath_dma_map_single,
+	.unmap_single = ipath_dma_unmap_single,
+	.map_page = ipath_dma_map_page,
+	.unmap_page = ipath_dma_unmap_page,
+	.map_sg = ipath_map_sg,
+	.unmap_sg = ipath_unmap_sg,
+	.dma_address = ipath_sg_dma_address,
+	.dma_len = ipath_sg_dma_len,
+	.sync_single_for_cpu = ipath_sync_single_for_cpu,
+	.sync_single_for_device = ipath_sync_single_for_device,
+	.alloc_coherent = ipath_dma_alloc_coherent,
+	.free_coherent = ipath_dma_free_coherent
 };

@@ -120,8 +120,8 @@ static int __init alsa_emu8000_init(void)
 {
 	
 	static struct snd_seq_dev_ops ops = {
-		snd_emu8000_new_device,
-		snd_emu8000_delete_device,
+		.init_device = snd_emu8000_new_device,
+		.free_device = snd_emu8000_delete_device,
 	};
 	return snd_seq_device_register_driver(SNDRV_SEQ_DEV_ID_EMU8000, &ops,
 					      sizeof(struct snd_emu8000*));

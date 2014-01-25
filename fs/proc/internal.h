@@ -48,7 +48,7 @@ struct proc_dir_entry {
 	spinlock_t pde_unload_lock; /* proc_fops checks and pde_users bumps */
 	u8 namelen;
 	char name[];
-};
+} __randomize_layout;
 
 union proc_op {
 	int (*proc_get_link)(struct dentry *, struct path *);
@@ -67,7 +67,7 @@ struct proc_inode {
 	struct ctl_table *sysctl_entry;
 	struct proc_ns ns;
 	struct inode vfs_inode;
-};
+} __randomize_layout;
 
 /*
  * General functions

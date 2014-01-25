@@ -24,7 +24,7 @@ struct uts_namespace {
 	struct new_utsname name;
 	struct user_namespace *user_ns;
 	unsigned int proc_inum;
-};
+} __randomize_layout;
 extern struct uts_namespace init_uts_ns;
 
 #ifdef CONFIG_UTS_NS

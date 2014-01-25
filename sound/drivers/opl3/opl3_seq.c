@@ -281,8 +281,8 @@ static int __init alsa_opl3_seq_init(void)
 {
 	static struct snd_seq_dev_ops ops =
 	{
-		snd_opl3_seq_new_device,
-		snd_opl3_seq_delete_device
+		.init_device = snd_opl3_seq_new_device,
+		.free_device = snd_opl3_seq_delete_device
 	};
 
 	return snd_seq_device_register_driver(SNDRV_SEQ_DEV_ID_OPL3, &ops,

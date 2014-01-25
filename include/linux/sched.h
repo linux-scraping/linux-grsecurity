@@ -636,7 +636,7 @@ struct signal_struct {
 	struct mutex cred_guard_mutex;	/* guard against foreign influences on
 					 * credential calculations
 					 * (notably. ptrace) */
-};
+} __randomize_layout;
 
 /*
  * Bits in flags field of signal_struct.
@@ -705,7 +705,7 @@ struct user_struct {
 #ifdef CONFIG_PERF_EVENTS
 	atomic_long_t locked_vm;
 #endif
-};
+} __randomize_layout;
 
 extern int uids_sysfs_init(void);
 
@@ -1475,7 +1475,7 @@ struct task_struct {
 	u8 gr_is_chrooted;
 #endif
 
-};
+} __randomize_layout;
 
 #define MF_PAX_PAGEEXEC		0x01000000	/* Paging based non-executable pages */
 #define MF_PAX_EMUTRAMP		0x02000000	/* Emulate trampolines */

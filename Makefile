@@ -599,6 +599,14 @@ KERNEXEC_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/kernexec_plugin.so
 KERNEXEC_PLUGIN_CFLAGS += -fplugin-arg-kernexec_plugin-method=$(CONFIG_PAX_KERNEXEC_PLUGIN_METHOD) -DKERNEXEC_PLUGIN
 KERNEXEC_PLUGIN_AFLAGS := -DKERNEXEC_PLUGIN
 endif
+ifdef CONFIG_GRKERNSEC_RANDSTRUCT
+GRKERNSEC_RANDSTRUCT_SEED := $(shell $(CONFIG_SHELL) $(srctree)/scripts/gen-random-seed.sh)
+RANDSTRUCT_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/randomize_layout_plugin.so -DRANDSTRUCT_PLUGIN
+RANDSTRUCT_PLUGIN_CFLAGS += -fplugin-arg-randomize_layout_plugin-seed=$(GRKERNSEC_RANDSTRUCT_SEED)
+ifdef CONFIG_GRKERNSEC_RANDSTRUCT
+RANDSTRUCT_PLUGIN_CFLAGS += -fplugin-arg-randomize_layout_plugin-performance-mode
+endif
+endif
 ifdef CONFIG_CHECKER_PLUGIN
 ifeq ($(call cc-ifversion, -ge, 0406, y), y)
 CHECKER_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/checker_plugin.so -DCHECKER_PLUGIN
@@ -617,6 +625,7 @@ endif
 GCC_PLUGINS_CFLAGS := $(CONSTIFY_PLUGIN_CFLAGS) $(STACKLEAK_PLUGIN_CFLAGS) $(KALLOCSTAT_PLUGIN_CFLAGS)
 GCC_PLUGINS_CFLAGS += $(KERNEXEC_PLUGIN_CFLAGS) $(CHECKER_PLUGIN_CFLAGS) $(COLORIZE_PLUGIN_CFLAGS)
 GCC_PLUGINS_CFLAGS += $(SIZE_OVERFLOW_PLUGIN_CFLAGS) $(LATENT_ENTROPY_PLUGIN_CFLAGS) $(STRUCTLEAK_PLUGIN_CFLAGS)
+GCC_PLUGINS_CFLAGS += $(RANDSTRUCT_PLUGIN_CFLAGS)
 GCC_PLUGINS_AFLAGS := $(KERNEXEC_PLUGIN_AFLAGS)
 export PLUGINCC GCC_PLUGINS_CFLAGS GCC_PLUGINS_AFLAGS CONSTIFY_PLUGIN
 ifeq ($(KBUILD_EXTMOD),)
@@ -1093,7 +1102,8 @@ MRPROPER_FILES += .config .config.old .version .old_version $(version_h) \
 		  Module.symvers tags TAGS cscope* GPATH GTAGS GRTAGS GSYMS \
 		  signing_key.priv signing_key.x509 x509.genkey		\
 		  extra_certificates signing_key.x509.keyid		\
-		  signing_key.x509.signer tools/gcc/size_overflow_hash.h
+		  signing_key.x509.signer tools/gcc/size_overflow_hash.h \
+		  tools/gcc/randstruct.seed
 
 # clean - Delete most, but leave enough to build external modules
 #

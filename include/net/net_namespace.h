@@ -121,7 +121,7 @@ struct net {
 #endif
 	struct sock		*diag_nlsk;
 	atomic_unchecked_t	fnhe_genid;
-};
+} __randomize_layout;
 
 /*
  * ifindex generation is per-net namespace, and loopback is

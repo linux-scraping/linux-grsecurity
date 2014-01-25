@@ -198,8 +198,8 @@ static int snd_opl4_seq_delete_device(struct snd_seq_device *dev)
 static int __init alsa_opl4_synth_init(void)
 {
 	static struct snd_seq_dev_ops ops = {
-		snd_opl4_seq_new_device,
-		snd_opl4_seq_delete_device
+		.init_device = snd_opl4_seq_new_device,
+		.free_device = snd_opl4_seq_delete_device
 	};
 
 	return snd_seq_device_register_driver(SNDRV_SEQ_DEV_ID_OPL4, &ops,

@@ -158,7 +158,6 @@ config GRKERNSEC_BRUTE
 	  If the sysctl option is enabled, a sysctl option with name
 	  "deter_bruteforce" is created.
 
-
 config GRKERNSEC_MODHARDEN
 	bool "Harden module auto-loading"
 	default y if GRKERNSEC_CONFIG_AUTO
@@ -210,6 +209,36 @@ config GRKERNSEC_HIDESYM
 
 	  It is highly recommended that you enable GRKERNSEC_PERF_HARDEN
 	  in addition to this feature.
+
+config GRKERNSEC_RANDSTRUCT
+	bool "Randomize layout of sensitive kernel structures"
+	default y if GRKERNSEC_CONFIG_AUTO
+	help
+	  If you say Y here, the layouts of a number of sensitive kernel
+	  structures (task, fs, cred, etc) and all structures composed entirely
+	  of function pointers (aka "ops" structs) will be randomized at compile-time.
+	  This can introduce the requirement of an additional infoleak
+	  vulnerability for exploits targeting these structure types.
+
+	  Enabling this feature will introduce some performance impact, slightly
+	  increase memory usage, and prevent the use of forensic tools like
+	  Volatility against the system (unless the kernel source tree isn't
+	  cleaned after kernel installation).
+
+	  The seed used for compilation is located at tools/gcc/randstruct.seed.
+	  It remains after a make clean to allow for external modules to be compiled
+	  with the existing seed and will be removed by a make mrproper or
+	  make distclean.
+
+config GRKERNSEC_RANDSTRUCT_PERFORMANCE
+	bool "Use cacheline-aware structure randomization"
+	depends on GRKERNSEC_RANDSTRUCT
+	default y if GRKERNSEC_CONFIG_PRIORITY_PERF
+	help
+	  If you say Y here, the RANDSTRUCT randomization will make a best effort
+	  at restricting randomization to cacheline-sized groups of elements.  It
+	  will further not randomize bitfields in structures.  This reduces the
+	  performance hit of RANDSTRUCT at the cost of weakened randomization.
 
 config GRKERNSEC_KERN_LOCKOUT
 	bool "Active kernel exploit response"

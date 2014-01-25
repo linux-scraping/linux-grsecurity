@@ -227,6 +227,7 @@ r200_reg_safe.h
 r300_reg_safe.h
 r420_reg_safe.h
 r600_reg_safe.h
+randstruct.seed
 realmode.lds
 realmode.relocs
 recordmcount

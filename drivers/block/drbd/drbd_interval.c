@@ -67,9 +67,9 @@ static void augment_rotate(struct rb_node *rb_old, struct rb_node *rb_new)
 }
 
 static const struct rb_augment_callbacks augment_callbacks = {
-	augment_propagate,
-	augment_copy,
-	augment_rotate,
+	.propagate = augment_propagate,
+	.copy = augment_copy,
+	.rotate = augment_rotate,
 };
 
 /**

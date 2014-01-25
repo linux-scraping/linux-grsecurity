@@ -21,6 +21,7 @@ $(HOSTLIBS)-y += colorize_plugin.so
 $(HOSTLIBS)-$(CONFIG_PAX_SIZE_OVERFLOW) += size_overflow_plugin.so
 $(HOSTLIBS)-$(CONFIG_PAX_LATENT_ENTROPY) += latent_entropy_plugin.so
 $(HOSTLIBS)-$(CONFIG_PAX_MEMORY_STRUCTLEAK) += structleak_plugin.so
+$(HOSTLIBS)-$(CONFIG_GRKERNSEC_RANDSTRUCT) += randomize_layout_plugin.so
 
 always := $($(HOSTLIBS)-y)
 
@@ -33,6 +34,7 @@ colorize_plugin-objs := colorize_plugin.o
 size_overflow_plugin-objs := size_overflow_plugin.o
 latent_entropy_plugin-objs := latent_entropy_plugin.o
 structleak_plugin-objs := structleak_plugin.o
+randomize_layout_plugin-objs := randomize_layout_plugin.o
 
 $(obj)/size_overflow_plugin.o: $(objtree)/$(obj)/size_overflow_hash.h
 

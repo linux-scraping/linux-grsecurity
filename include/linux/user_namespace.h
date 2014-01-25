@@ -27,7 +27,7 @@ struct user_namespace {
 	kuid_t			owner;
 	kgid_t			group;
 	unsigned int		proc_inum;
-};
+} __randomize_layout;
 
 extern struct user_namespace init_user_ns;
 

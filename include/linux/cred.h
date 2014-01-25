@@ -35,7 +35,7 @@ struct group_info {
 	int		nblocks;
 	kgid_t		small_block[NGROUPS_SMALL];
 	kgid_t		*blocks[0];
-};
+} __randomize_layout;
 
 /**
  * get_group_info - Get a reference to a group info structure
@@ -136,7 +136,7 @@ struct cred {
 	struct user_namespace *user_ns; /* user_ns the caps and keyrings are relative to. */
 	struct group_info *group_info;	/* supplementary groups for euid/fsgid */
 	struct rcu_head	rcu;		/* RCU deletion hook */
-};
+} __randomize_layout;
 
 extern void __put_cred(struct cred *);
 extern void exit_creds(struct task_struct *);
