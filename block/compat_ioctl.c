@@ -155,7 +155,7 @@ static int compat_cdrom_generic_command(struct block_device *bdev, fmode_t mode,
 	cgc = compat_alloc_user_space(sizeof(*cgc));
 	cgc32 = compat_ptr(arg);
 
-	if (copy_in_user(&cgc->cmd, &cgc32->cmd, sizeof(cgc->cmd)) ||
+	if (copy_in_user(cgc->cmd, cgc32->cmd, sizeof(cgc->cmd)) ||
 	    get_user(data, &cgc32->buffer) ||
 	    put_user(compat_ptr(data), &cgc->buffer) ||
 	    copy_in_user(&cgc->buflen, &cgc32->buflen,

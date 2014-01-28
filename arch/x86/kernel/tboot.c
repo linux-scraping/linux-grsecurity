@@ -241,7 +241,7 @@ void tboot_shutdown(u32 shutdown_type)
 
 	switch_to_tboot_pt();
 
-	shutdown = (void *)tboot->shutdown_entry;
+	shutdown = (void *)(unsigned long)tboot->shutdown_entry;
 	shutdown();
 
 	/* should not reach here */

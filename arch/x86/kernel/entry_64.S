@@ -677,11 +677,21 @@ ENTRY(save_paranoid)
 	js 1f	/* negative -> in kernel */
 	SWAPGS
 	xorl %ebx,%ebx
-1:	pax_force_retaddr_bts
+1:
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	testb $3, CS+8(%rsp)
+	jnz 1f
+	pax_enter_kernel
+	jmp 2f
+1:	pax_enter_kernel_user
+2:
+#else
+	pax_enter_kernel
+#endif
+	pax_force_retaddr
 	ret
 	CFI_ENDPROC
 ENDPROC(save_paranoid)
-	.popsection
 
 /*
  * A newly forked process directly context switches into this address.
@@ -1346,16 +1356,6 @@ ENTRY(\sym)
 	CFI_ADJUST_CFA_OFFSET ORIG_RAX-R15
 	call error_entry
 	DEFAULT_FRAME 0
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	testb $3, CS(%rsp)
-	jnz 1f
-	pax_enter_kernel
-	jmp 2f
-1:	pax_enter_kernel_user
-2:
-#else
-	pax_enter_kernel
-#endif
 	movq %rsp,%rdi		/* pt_regs pointer */
 	xorl %esi,%esi		/* no error code */
 	call \do_sym
@@ -1373,16 +1373,6 @@ ENTRY(\sym)
 	CFI_ADJUST_CFA_OFFSET ORIG_RAX-R15
 	call save_paranoid
 	TRACE_IRQS_OFF
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	testb $3, CS(%rsp)
-	jnz 1f
-	pax_enter_kernel
-	jmp 2f
-1:	pax_enter_kernel_user
-2:
-#else
-	pax_enter_kernel
-#endif
 	movq %rsp,%rdi		/* pt_regs pointer */
 	xorl %esi,%esi		/* no error code */
 	call \do_sym
@@ -1401,16 +1391,6 @@ ENTRY(\sym)
 	CFI_ADJUST_CFA_OFFSET ORIG_RAX-R15
 	call save_paranoid
 	TRACE_IRQS_OFF
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	testb $3, CS(%rsp)
-	jnz 1f
-	pax_enter_kernel
-	jmp 2f
-1:	pax_enter_kernel_user
-2:
-#else
-	pax_enter_kernel
-#endif
 	movq %rsp,%rdi		/* pt_regs pointer */
 	xorl %esi,%esi		/* no error code */
 #ifdef CONFIG_SMP
@@ -1435,16 +1415,6 @@ ENTRY(\sym)
 	CFI_ADJUST_CFA_OFFSET ORIG_RAX-R15
 	call error_entry
 	DEFAULT_FRAME 0
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	testb $3, CS(%rsp)
-	jnz 1f
-	pax_enter_kernel
-	jmp 2f
-1:	pax_enter_kernel_user
-2:
-#else
-	pax_enter_kernel
-#endif
 	movq %rsp,%rdi			/* pt_regs pointer */
 	movq ORIG_RAX(%rsp),%rsi	/* get error code */
 	movq $-1,ORIG_RAX(%rsp)		/* no syscall to restart */
@@ -1464,16 +1434,6 @@ ENTRY(\sym)
 	call save_paranoid
 	DEFAULT_FRAME 0
 	TRACE_IRQS_OFF
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	testb $3, CS(%rsp)
-	jnz 1f
-	pax_enter_kernel
-	jmp 2f
-1:	pax_enter_kernel_user
-2:
-#else
-	pax_enter_kernel
-#endif
 	movq %rsp,%rdi			/* pt_regs pointer */
 	movq ORIG_RAX(%rsp),%rsi	/* get error code */
 	movq $-1,ORIG_RAX(%rsp)		/* no syscall to restart */
@@ -1825,8 +1785,18 @@ ENTRY(error_entry)
 error_swapgs:
 	SWAPGS
 error_sti:
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	testb $3, CS+8(%rsp)
+	jnz 1f
+	pax_enter_kernel
+	jmp 2f
+1:	pax_enter_kernel_user
+2:
+#else
+	pax_enter_kernel
+#endif
 	TRACE_IRQS_OFF
-	pax_force_retaddr_bts
+	pax_force_retaddr
 	ret
 
 /*
@@ -1885,16 +1855,6 @@ ENTRY(nmi)
 	CFI_ADJUST_CFA_OFFSET ORIG_RAX-R15
 	call save_paranoid
 	DEFAULT_FRAME 0
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	testb $3, CS(%rsp)
-	jnz 1f
-	pax_enter_kernel
-	jmp 2f
-1:	pax_enter_kernel_user
-2:
-#else
-	pax_enter_kernel
-#endif
 
 	/* paranoidentry do_nmi, 0; without TRACE_IRQS_OFF */
 	movq %rsp,%rdi

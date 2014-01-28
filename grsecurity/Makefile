@@ -4,7 +4,7 @@
 #
 # All code in this directory and various hooks inserted throughout the kernel
 # are copyright Brad Spengler - Open Source Security, Inc., and released 
-# under the GPL v2 or higher
+# under the GPL v2
 
 KBUILD_CFLAGS += -Werror
 

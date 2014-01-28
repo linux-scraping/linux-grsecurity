@@ -280,7 +280,7 @@ asmlinkage long sys32_sigreturn(struct pt_regs *regs)
 	if (__get_user(set.sig[0], &frame->sc.oldmask)
 	    || (_COMPAT_NSIG_WORDS > 1
 		&& __copy_from_user((((char *) &set.sig) + 4),
-				    &frame->extramask,
+				    frame->extramask,
 				    sizeof(frame->extramask))))
 		goto badframe;
 
@@ -451,7 +451,7 @@ int ia32_setup_frame(int sig, struct k_sigaction *ka,
 			restorer = VDSO32_SYMBOL(current->mm->context.vdso,
 						 sigreturn);
 		else
-			restorer = &frame->retcode;
+			restorer = frame->retcode;
 	}
 
 	put_user_try {
@@ -537,7 +537,7 @@ int ia32_setup_rt_frame(int sig, struct k_sigaction *ka, siginfo_t *info,
 			/* Return stub is in 32bit vsyscall page */
 			restorer = VDSO32_SYMBOL(current->mm->context.vdso, rt_sigreturn);
 		else
-			restorer = &frame->retcode;
+			restorer = frame->retcode;
 		put_user_ex(ptr_to_compat(restorer), &frame->pretcode);
 
 		/*

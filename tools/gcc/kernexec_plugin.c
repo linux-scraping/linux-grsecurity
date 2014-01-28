@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2013 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2014 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -14,133 +14,18 @@
  * BUGS:
  * - none known
  */
-#include "gcc-plugin.h"
-#include "config.h"
-#include "system.h"
-#include "coretypes.h"
-#include "tree.h"
-#include "tree-pass.h"
-#include "flags.h"
-#include "intl.h"
-#include "toplev.h"
-#include "plugin.h"
-//#include "expr.h" where are you...
-#include "diagnostic.h"
-#include "plugin-version.h"
-#include "tm.h"
-#include "function.h"
-#include "basic-block.h"
-#include "gimple.h"
-#include "rtl.h"
-#include "emit-rtl.h"
-#include "tree-flow.h"
 
-extern void print_gimple_stmt(FILE *, gimple, int, int);
-extern rtx emit_move_insn(rtx x, rtx y);
-
-#if BUILDING_GCC_VERSION <= 4006
-#define ANY_RETURN_P(rtx) (GET_CODE(rtx) == RETURN)
-#endif
-
-#if BUILDING_GCC_VERSION >= 4008
-#define TODO_dump_func 0
-#endif
+#include "gcc-common.h"
 
 int plugin_is_GPL_compatible;
 
 static struct plugin_info kernexec_plugin_info = {
-	.version	= "201308230150",
+	.version	= "201401260140",
 	.help		= "method=[bts|or]\tinstrumentation method\n"
 };
 
-static unsigned int execute_kernexec_reload(void);
-static unsigned int execute_kernexec_fptr(void);
-static unsigned int execute_kernexec_retaddr(void);
-static bool kernexec_cmodel_check(void);
-
 static void (*kernexec_instrument_fptr)(gimple_stmt_iterator *);
 static void (*kernexec_instrument_retaddr)(rtx);
-
-static struct gimple_opt_pass kernexec_reload_pass = {
-	.pass = {
-		.type			= GIMPLE_PASS,
-		.name			= "kernexec_reload",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-		.gate			= kernexec_cmodel_check,
-		.execute		= execute_kernexec_reload,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-		.tv_id			= TV_NONE,
-		.properties_required	= 0,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0,
-		.todo_flags_finish	= TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_remove_unused_locals | TODO_update_ssa_no_phi
-	}
-};
-
-static struct gimple_opt_pass kernexec_fptr_pass = {
-	.pass = {
-		.type			= GIMPLE_PASS,
-		.name			= "kernexec_fptr",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-		.gate			= kernexec_cmodel_check,
-		.execute		= execute_kernexec_fptr,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-		.tv_id			= TV_NONE,
-		.properties_required	= 0,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0,
-		.todo_flags_finish	= TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_remove_unused_locals | TODO_update_ssa_no_phi
-	}
-};
-
-static struct rtl_opt_pass kernexec_retaddr_pass = {
-	.pass = {
-		.type			= RTL_PASS,
-		.name			= "kernexec_retaddr",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-		.gate			= kernexec_cmodel_check,
-		.execute		= execute_kernexec_retaddr,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-		.tv_id			= TV_NONE,
-		.properties_required	= 0,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0,
-		.todo_flags_finish	= TODO_dump_func | TODO_ggc_collect
-	}
-};
-
-static bool kernexec_cmodel_check(void)
-{
-	tree section;
-
-	if (ix86_cmodel != CM_KERNEL)
-		return false;
-
-	section = lookup_attribute("section", DECL_ATTRIBUTES(current_function_decl));
-	if (!section || !TREE_VALUE(section))
-		return true;
-
-	section = TREE_VALUE(TREE_VALUE(section));
-	if (strncmp(TREE_STRING_POINTER(section), ".vsyscall_", 10))
-		return true;
-
-	return false;
-}
 
 /*
  * add special KERNEXEC instrumentation: reload %r12 after it has been clobbered
@@ -164,7 +49,7 @@ static unsigned int execute_kernexec_reload(void)
 	basic_block bb;
 
 	// 1. loop through BBs and GIMPLE statements
-	FOR_EACH_BB(bb) {
+	FOR_EACH_BB_FN(bb, cfun) {
 		gimple_stmt_iterator gsi;
 
 		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
@@ -207,9 +92,7 @@ static void kernexec_instrument_fptr_bts(gimple_stmt_iterator *gsi)
 
 	// create temporary unsigned long variable used for bitops and cast fptr to it
 	intptr = create_tmp_var(long_unsigned_type_node, "kernexec_bts");
-#if BUILDING_GCC_VERSION <= 4007
 	add_referenced_var(intptr);
-#endif
 	intptr = make_ssa_name(intptr, NULL);
 	assign_intptr = gimple_build_assign(intptr, fold_convert(long_unsigned_type_node, old_fptr));
 	SSA_NAME_DEF_STMT(intptr) = assign_intptr;
@@ -228,9 +111,7 @@ static void kernexec_instrument_fptr_bts(gimple_stmt_iterator *gsi)
 
 	// cast temporary unsigned long back to a temporary fptr variable
 	new_fptr = create_tmp_var(TREE_TYPE(old_fptr), "kernexec_fptr");
-#if BUILDING_GCC_VERSION <= 4007
 	add_referenced_var(new_fptr);
-#endif
 	new_fptr = make_ssa_name(new_fptr, NULL);
 	assign_new_fptr = gimple_build_assign(new_fptr, fold_convert(TREE_TYPE(old_fptr), intptr));
 	SSA_NAME_DEF_STMT(new_fptr) = assign_new_fptr;
@@ -259,9 +140,7 @@ static void kernexec_instrument_fptr_or(gimple_stmt_iterator *gsi)
 
 	// create temporary fptr variable
 	new_fptr = create_tmp_var(TREE_TYPE(old_fptr), "kernexec_or");
-#if BUILDING_GCC_VERSION <= 4007
 	add_referenced_var(new_fptr);
-#endif
 	new_fptr = make_ssa_name(new_fptr, NULL);
 
 	// build asm volatile("orq %%r12, %0\n\t" : "=r"(new_fptr) : "0"(old_fptr));
@@ -295,7 +174,7 @@ static unsigned int execute_kernexec_fptr(void)
 	basic_block bb;
 
 	// 1. loop through BBs and GIMPLE statements
-	FOR_EACH_BB(bb) {
+	FOR_EACH_BB_FN(bb, cfun) {
 		gimple_stmt_iterator gsi;
 
 		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
@@ -408,30 +287,196 @@ static unsigned int execute_kernexec_retaddr(void)
 	return 0;
 }
 
+static bool kernexec_cmodel_check(void)
+{
+	tree section;
+
+	if (ix86_cmodel != CM_KERNEL)
+		return false;
+
+	section = lookup_attribute("section", DECL_ATTRIBUTES(current_function_decl));
+	if (!section || !TREE_VALUE(section))
+		return true;
+
+	section = TREE_VALUE(TREE_VALUE(section));
+	if (strncmp(TREE_STRING_POINTER(section), ".vsyscall_", 10))
+		return true;
+
+	return false;
+}
+
+#if BUILDING_GCC_VERSION >= 4009
+static const struct pass_data kernexec_reload_pass_data = {
+#else
+static struct gimple_opt_pass kernexec_reload_pass = {
+	.pass = {
+#endif
+		.type			= GIMPLE_PASS,
+		.name			= "kernexec_reload",
+#if BUILDING_GCC_VERSION >= 4008
+		.optinfo_flags		= OPTGROUP_NONE,
+#endif
+#if BUILDING_GCC_VERSION >= 4009
+		.has_gate		= true,
+		.has_execute		= true,
+#else
+		.gate			= kernexec_cmodel_check,
+		.execute		= execute_kernexec_reload,
+		.sub			= NULL,
+		.next			= NULL,
+		.static_pass_number	= 0,
+#endif
+		.tv_id			= TV_NONE,
+		.properties_required	= 0,
+		.properties_provided	= 0,
+		.properties_destroyed	= 0,
+		.todo_flags_start	= 0,
+		.todo_flags_finish	= TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_remove_unused_locals | TODO_update_ssa_no_phi
+#if BUILDING_GCC_VERSION < 4009
+	}
+#endif
+};
+
+#if BUILDING_GCC_VERSION >= 4009
+static const struct pass_data kernexec_fptr_pass_data = {
+#else
+static struct gimple_opt_pass kernexec_fptr_pass = {
+	.pass = {
+#endif
+		.type			= GIMPLE_PASS,
+		.name			= "kernexec_fptr",
+#if BUILDING_GCC_VERSION >= 4008
+		.optinfo_flags		= OPTGROUP_NONE,
+#endif
+#if BUILDING_GCC_VERSION >= 4009
+		.has_gate		= true,
+		.has_execute		= true,
+#else
+		.gate			= kernexec_cmodel_check,
+		.execute		= execute_kernexec_fptr,
+		.sub			= NULL,
+		.next			= NULL,
+		.static_pass_number	= 0,
+#endif
+		.tv_id			= TV_NONE,
+		.properties_required	= 0,
+		.properties_provided	= 0,
+		.properties_destroyed	= 0,
+		.todo_flags_start	= 0,
+		.todo_flags_finish	= TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_remove_unused_locals | TODO_update_ssa_no_phi
+#if BUILDING_GCC_VERSION < 4009
+	}
+#endif
+};
+
+#if BUILDING_GCC_VERSION >= 4009
+static const struct pass_data kernexec_retaddr_pass_data = {
+#else
+static struct rtl_opt_pass kernexec_retaddr_pass = {
+	.pass = {
+#endif
+		.type			= RTL_PASS,
+		.name			= "kernexec_retaddr",
+#if BUILDING_GCC_VERSION >= 4008
+		.optinfo_flags		= OPTGROUP_NONE,
+#endif
+#if BUILDING_GCC_VERSION >= 4009
+		.has_gate		= true,
+		.has_execute		= true,
+#else
+		.gate			= kernexec_cmodel_check,
+		.execute		= execute_kernexec_retaddr,
+		.sub			= NULL,
+		.next			= NULL,
+		.static_pass_number	= 0,
+#endif
+		.tv_id			= TV_NONE,
+		.properties_required	= 0,
+		.properties_provided	= 0,
+		.properties_destroyed	= 0,
+		.todo_flags_start	= 0,
+		.todo_flags_finish	= TODO_dump_func | TODO_ggc_collect
+#if BUILDING_GCC_VERSION < 4009
+	}
+#endif
+};
+
+#if BUILDING_GCC_VERSION >= 4009
+namespace {
+class kernexec_reload_pass : public gimple_opt_pass {
+public:
+	kernexec_reload_pass() : gimple_opt_pass(kernexec_reload_pass_data, g) {}
+	bool gate() { return kernexec_cmodel_check(); }
+	unsigned int execute() { return execute_kernexec_reload(); }
+};
+
+class kernexec_fptr_pass : public gimple_opt_pass {
+public:
+	kernexec_fptr_pass() : gimple_opt_pass(kernexec_fptr_pass_data, g) {}
+	bool gate() { return kernexec_cmodel_check(); }
+	unsigned int execute() { return execute_kernexec_fptr(); }
+};
+
+class kernexec_retaddr_pass : public rtl_opt_pass {
+public:
+	kernexec_retaddr_pass() : rtl_opt_pass(kernexec_retaddr_pass_data, g) {}
+	bool gate() { return kernexec_cmodel_check(); }
+	unsigned int execute() { return execute_kernexec_retaddr(); }
+};
+}
+#endif
+
+static struct opt_pass *make_kernexec_reload_pass(void)
+{
+#if BUILDING_GCC_VERSION >= 4009
+	return new kernexec_reload_pass();
+#else
+	return &kernexec_reload_pass.pass;
+#endif
+}
+
+static struct opt_pass *make_kernexec_fptr_pass(void)
+{
+#if BUILDING_GCC_VERSION >= 4009
+	return new kernexec_fptr_pass();
+#else
+	return &kernexec_fptr_pass.pass;
+#endif
+}
+
+static struct opt_pass *make_kernexec_retaddr_pass(void)
+{
+#if BUILDING_GCC_VERSION >= 4009
+	return new kernexec_retaddr_pass();
+#else
+	return &kernexec_retaddr_pass.pass;
+#endif
+}
+
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
 	const char * const plugin_name = plugin_info->base_name;
 	const int argc = plugin_info->argc;
 	const struct plugin_argument * const argv = plugin_info->argv;
 	int i;
-	struct register_pass_info kernexec_reload_pass_info = {
-		.pass				= &kernexec_reload_pass.pass,
-		.reference_pass_name		= "ssa",
-		.ref_pass_instance_number	= 1,
-		.pos_op 			= PASS_POS_INSERT_AFTER
-	};
-	struct register_pass_info kernexec_fptr_pass_info = {
-		.pass				= &kernexec_fptr_pass.pass,
-		.reference_pass_name		= "ssa",
-		.ref_pass_instance_number	= 1,
-		.pos_op 			= PASS_POS_INSERT_AFTER
-	};
-	struct register_pass_info kernexec_retaddr_pass_info = {
-		.pass				= &kernexec_retaddr_pass.pass,
-		.reference_pass_name		= "pro_and_epilogue",
-		.ref_pass_instance_number	= 1,
-		.pos_op 			= PASS_POS_INSERT_AFTER
-	};
+	struct register_pass_info kernexec_reload_pass_info;
+	struct register_pass_info kernexec_fptr_pass_info;
+	struct register_pass_info kernexec_retaddr_pass_info;
+
+	kernexec_reload_pass_info.pass				= make_kernexec_reload_pass();
+	kernexec_reload_pass_info.reference_pass_name		= "ssa";
+	kernexec_reload_pass_info.ref_pass_instance_number	= 1;
+	kernexec_reload_pass_info.pos_op 			= PASS_POS_INSERT_AFTER;
+
+	kernexec_fptr_pass_info.pass				= make_kernexec_fptr_pass();
+	kernexec_fptr_pass_info.reference_pass_name		= "ssa";
+	kernexec_fptr_pass_info.ref_pass_instance_number	= 1;
+	kernexec_fptr_pass_info.pos_op 				= PASS_POS_INSERT_AFTER;
+
+	kernexec_retaddr_pass_info.pass				= make_kernexec_retaddr_pass();
+	kernexec_retaddr_pass_info.reference_pass_name		= "pro_and_epilogue";
+	kernexec_retaddr_pass_info.ref_pass_instance_number	= 1;
+	kernexec_retaddr_pass_info.pos_op 			= PASS_POS_INSERT_AFTER;
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));

@@ -1260,7 +1260,7 @@ static int do_fscreeninfo_to_user(struct fb_fix_screeninfo *fix,
 	__u32 data;
 	int err;
 
-	err = copy_to_user(&fix32->id, &fix->id, sizeof(fix32->id));
+	err = copy_to_user(fix32->id, &fix->id, sizeof(fix32->id));
 
 	data = (__u32) (unsigned long) fix->smem_start;
 	err |= put_user(data, &fix32->smem_start);

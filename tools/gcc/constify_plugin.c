@@ -1,6 +1,6 @@
 /*
  * Copyright 2011 by Emese Revfy <re.emese@gmail.com>
- * Copyright 2011-2013 by PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2014 by PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2, or (at your option) v3
  *
  * This gcc plugin constifies all structures which contain only function pointers or are explicitly marked for constification.
@@ -13,38 +13,15 @@
  * $ gcc -fplugin=constify_plugin.so test.c -O2
  */
 
-#include "gcc-plugin.h"
-#include "config.h"
-#include "system.h"
-#include "coretypes.h"
-#include "tree.h"
-#include "tree-pass.h"
-#include "flags.h"
-#include "intl.h"
-#include "toplev.h"
-#include "plugin.h"
-#include "diagnostic.h"
-#include "plugin-version.h"
-#include "tm.h"
-#include "function.h"
-#include "basic-block.h"
-#include "gimple.h"
-#include "rtl.h"
-#include "emit-rtl.h"
-#include "tree-flow.h"
-#include "target.h"
-#include "langhooks.h"
+#include "gcc-common.h"
 
-// should come from c-tree.h if only it were installed for gcc 4.5...
-#define C_TYPE_FIELDS_READONLY(TYPE) TREE_LANG_FLAG_1(TYPE)
-
-// unused type flag in all versions 4.5-4.8
+// unused C type flag in all versions 4.5-4.9
 #define TYPE_CONSTIFY_VISITED(TYPE) TYPE_LANG_FLAG_4(TYPE)
 
 int plugin_is_GPL_compatible;
 
 static struct plugin_info const_plugin_info = {
-	.version	= "201401140130",
+	.version	= "201401270210",
 	.help		= "no-constify\tturn off constification\n",
 };
 
@@ -119,7 +96,7 @@ static bool constified(const_tree node)
 	gcc_assert(TREE_CODE(node) == RECORD_TYPE || TREE_CODE(node) == UNION_TYPE);
 
 	if (lookup_attribute("no_const", TYPE_ATTRIBUTES(node))) {
-		gcc_assert(!TYPE_READONLY(node));
+//		gcc_assert(!TYPE_READONLY(node));
 		return false;
 	}
 
@@ -148,15 +125,17 @@ static void deconstify_type(tree type)
 
 		// special case handling of simple ptr-to-same-array-type members
 		if (TREE_CODE(TREE_TYPE(field)) == POINTER_TYPE) {
-			const_tree ptrtype = TREE_TYPE(TREE_TYPE(field));
+			tree ptrtype = TREE_TYPE(TREE_TYPE(field));
 
+			if (TREE_TYPE(TREE_TYPE(field)) == type)
+				continue;
 			if (TREE_CODE(ptrtype) != RECORD_TYPE && TREE_CODE(ptrtype) != UNION_TYPE)
 				continue;
-			if (TREE_TYPE(TREE_TYPE(field)) == type)
+			if (!constified(ptrtype))
 				continue;
 			if (TYPE_MAIN_VARIANT(ptrtype) == TYPE_MAIN_VARIANT(type)) {
 				TREE_TYPE(field) = copy_node(TREE_TYPE(field));
-				TREE_TYPE(TREE_TYPE(field)) = type;
+				TREE_TYPE(TREE_TYPE(field)) = build_qualified_type(type, TYPE_QUALS(ptrtype) & ~TYPE_QUAL_CONST);
 			}
 			continue;
 		}
@@ -382,13 +361,8 @@ static void check_global_variables(void *event_data, void *data)
 {
 	struct varpool_node *node;
 
-#if BUILDING_GCC_VERSION <= 4007
-	for (node = varpool_nodes; node; node = node->next) {
-		tree var = node->decl;
-#else
 	FOR_EACH_VARIABLE(node) {
-		tree var = node->symbol.decl;
-#endif
+		tree var = NODE_DECL(node);
 		tree type = TREE_TYPE(var);
 
 		if (TREE_CODE(type) != RECORD_TYPE && TREE_CODE(type) != UNION_TYPE)
@@ -418,18 +392,9 @@ static unsigned int check_local_variables(void)
 	unsigned int ret = 0;
 	tree var;
 
-#if BUILDING_GCC_VERSION == 4005
-	tree vars;
-#else
 	unsigned int i;
-#endif
 
-#if BUILDING_GCC_VERSION == 4005
-	for (vars = cfun->local_decls; vars; vars = TREE_CHAIN(vars)) {
-		var = TREE_VALUE(vars);
-#else
 	FOR_EACH_LOCAL_DECL(cfun, i, var) {
-#endif
 		tree type = TREE_TYPE(var);
 
 		gcc_assert(DECL_P(var));
@@ -451,26 +416,56 @@ static unsigned int check_local_variables(void)
 	return ret;
 }
 
-static struct gimple_opt_pass pass_local_variable = {
-	{
+#if BUILDING_GCC_VERSION >= 4009
+static const struct pass_data check_local_variables_pass_data = {
+#else
+static struct gimple_opt_pass check_local_variables_pass = {
+	.pass = {
+#endif
 		.type			= GIMPLE_PASS,
 		.name			= "check_local_variables",
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
+#if BUILDING_GCC_VERSION >= 4009
+		.has_gate		= false,
+		.has_execute		= true,
+#else
 		.gate			= NULL,
 		.execute		= check_local_variables,
 		.sub			= NULL,
 		.next			= NULL,
 		.static_pass_number	= 0,
+#endif
 		.tv_id			= TV_NONE,
 		.properties_required	= 0,
 		.properties_provided	= 0,
 		.properties_destroyed	= 0,
 		.todo_flags_start	= 0,
 		.todo_flags_finish	= 0
+#if BUILDING_GCC_VERSION < 4009
 	}
+#endif
 };
+
+#if BUILDING_GCC_VERSION >= 4009
+namespace {
+class check_local_variables_pass : public gimple_opt_pass {
+public:
+	check_local_variables_pass() : gimple_opt_pass(check_local_variables_pass_data, g) {}
+	unsigned int execute() { return check_local_variables(); }
+};
+}
+#endif
+
+static struct opt_pass *make_check_local_variables_pass(void)
+{
+#if BUILDING_GCC_VERSION >= 4009
+	return new check_local_variables_pass();
+#else
+	return &check_local_variables_pass.pass;
+#endif
+}
 
 static struct {
 	const char *name;
@@ -519,12 +514,12 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	int i;
 	bool constify = true;
 
-	struct register_pass_info local_variable_pass_info = {
-		.pass				= &pass_local_variable.pass,
-		.reference_pass_name		= "ssa",
-		.ref_pass_instance_number	= 1,
-		.pos_op				= PASS_POS_INSERT_BEFORE
-	};
+	struct register_pass_info check_local_variables_pass_info;
+
+	check_local_variables_pass_info.pass				= make_check_local_variables_pass();
+	check_local_variables_pass_info.reference_pass_name		= "ssa";
+	check_local_variables_pass_info.ref_pass_instance_number	= 1;
+	check_local_variables_pass_info.pos_op				= PASS_POS_INSERT_BEFORE;
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));
@@ -548,7 +543,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	if (constify) {
 		register_callback(plugin_name, PLUGIN_ALL_IPA_PASSES_START, check_global_variables, NULL);
 		register_callback(plugin_name, PLUGIN_FINISH_TYPE, finish_type, NULL);
-		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &local_variable_pass_info);
+		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &check_local_variables_pass_info);
 		register_callback(plugin_name, PLUGIN_START_UNIT, constify_start_unit, NULL);
 	}
 	register_callback(plugin_name, PLUGIN_ATTRIBUTES, register_attributes, NULL);
