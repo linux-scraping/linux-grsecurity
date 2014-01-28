@@ -628,6 +628,18 @@ ENDPROC(pax_erase_kstack)
 			0x06 /* DW_OP_deref */, \
 			0x08 /* DW_OP_const1u */, SS+8-RBP, \
 			0x22 /* DW_OP_plus */
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	testb $3, CS(%rdi)
+	jnz 1f
+	pax_enter_kernel
+	jmp 2f
+1:	pax_enter_kernel_user
+2:
+#else
+	pax_enter_kernel
+#endif
+
 	/* We entered an interrupt context - irqs are off: */
 	TRACE_IRQS_OFF
 	.endm
@@ -1114,16 +1126,6 @@ END(interrupt)
 	subq $ORIG_RAX, %rsp
 	CFI_ADJUST_CFA_OFFSET ORIG_RAX
 	SAVE_ARGS_IRQ
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	testb $3, CS(%rdi)
-	jnz 1f
-	pax_enter_kernel
-	jmp 2f
-1:	pax_enter_kernel_user
-2:
-#else
-	pax_enter_kernel
-#endif
 	call \func
 	.endm
 

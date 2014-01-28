@@ -1506,7 +1506,7 @@ static inline u32 skb_network_header_len(const struct sk_buff *skb)
 	return skb->transport_header - skb->network_header;
 }
 
-static inline int skb_network_offset(const struct sk_buff *skb)
+static inline int __intentional_overflow(0) skb_network_offset(const struct sk_buff *skb)
 {
 	return skb_network_header(skb) - skb->data;
 }
