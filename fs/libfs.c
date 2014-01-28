@@ -10,6 +10,7 @@
 #include <linux/vfs.h>
 #include <linux/quotaops.h>
 #include <linux/mutex.h>
+#include <linux/namei.h>
 #include <linux/exportfs.h>
 #include <linux/writeback.h>
 #include <linux/buffer_head.h> /* sync_mapping_buffers */
@@ -31,6 +32,7 @@ int simple_getattr(struct vfsmount *mnt, struct dentry *dentry,
 	stat->blocks = inode->i_mapping->nrpages << (PAGE_CACHE_SHIFT - 9);
 	return 0;
 }
+EXPORT_SYMBOL(simple_getattr);
 
 int simple_statfs(struct dentry *dentry, struct kstatfs *buf)
 {
@@ -39,15 +41,22 @@ int simple_statfs(struct dentry *dentry, struct kstatfs *buf)
 	buf->f_namelen = NAME_MAX;
 	return 0;
 }
+EXPORT_SYMBOL(simple_statfs);
 
 /*
  * Retaining negative dentries for an in-memory filesystem just wastes
  * memory and lookup time: arrange for them to be deleted immediately.
  */
-static int simple_delete_dentry(const struct dentry *dentry)
+int always_delete_dentry(const struct dentry *dentry)
 {
 	return 1;
 }
+EXPORT_SYMBOL(always_delete_dentry);
+
+const struct dentry_operations simple_dentry_operations = {
+	.d_delete = always_delete_dentry,
+};
+EXPORT_SYMBOL(simple_dentry_operations);
 
 /*
  * Lookup the data. This is trivial - if the dentry didn't already
@@ -55,10 +64,6 @@ static int simple_delete_dentry(const struct dentry *dentry)
  */
 struct dentry *simple_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)
 {
-	static const struct dentry_operations simple_dentry_operations = {
-		.d_delete = simple_delete_dentry,
-	};
-
 	if (dentry->d_name.len > NAME_MAX)
 		return ERR_PTR(-ENAMETOOLONG);
 	if (!dentry->d_sb->s_d_op)
@@ -66,6 +71,7 @@ struct dentry *simple_lookup(struct inode *dir, struct dentry *dentry, unsigned 
 	d_add(dentry, NULL);
 	return NULL;
 }
+EXPORT_SYMBOL(simple_lookup);
 
 int dcache_dir_open(struct inode *inode, struct file *file)
 {
@@ -75,12 +81,14 @@ int dcache_dir_open(struct inode *inode, struct file *file)
 
 	return file->private_data ? 0 : -ENOMEM;
 }
+EXPORT_SYMBOL(dcache_dir_open);
 
 int dcache_dir_close(struct inode *inode, struct file *file)
 {
 	dput(file->private_data);
 	return 0;
 }
+EXPORT_SYMBOL(dcache_dir_close);
 
 loff_t dcache_dir_lseek(struct file *file, loff_t offset, int whence)
 {
@@ -123,6 +131,7 @@ loff_t dcache_dir_lseek(struct file *file, loff_t offset, int whence)
 	mutex_unlock(&dentry->d_inode->i_mutex);
 	return offset;
 }
+EXPORT_SYMBOL(dcache_dir_lseek);
 
 /* Relationship between i_mode and the DT_xxx types */
 static inline unsigned char dt_type(struct inode *inode)
@@ -180,11 +189,13 @@ int dcache_readdir(struct file *file, struct dir_context *ctx)
 	spin_unlock(&dentry->d_lock);
 	return 0;
 }
+EXPORT_SYMBOL(dcache_readdir);
 
 ssize_t generic_read_dir(struct file *filp, char __user *buf, size_t siz, loff_t *ppos)
 {
 	return -EISDIR;
 }
+EXPORT_SYMBOL(generic_read_dir);
 
 const struct file_operations simple_dir_operations = {
 	.open		= dcache_dir_open,
@@ -194,10 +205,12 @@ const struct file_operations simple_dir_operations = {
 	.iterate	= dcache_readdir,
 	.fsync		= noop_fsync,
 };
+EXPORT_SYMBOL(simple_dir_operations);
 
 const struct inode_operations simple_dir_inode_operations = {
 	.lookup		= simple_lookup,
 };
+EXPORT_SYMBOL(simple_dir_inode_operations);
 
 static const struct super_operations simple_super_operations = {
 	.statfs		= simple_statfs,
@@ -252,6 +265,7 @@ Enomem:
 	deactivate_locked_super(s);
 	return ERR_PTR(-ENOMEM);
 }
+EXPORT_SYMBOL(mount_pseudo);
 
 int simple_open(struct inode *inode, struct file *file)
 {
@@ -259,6 +273,7 @@ int simple_open(struct inode *inode, struct file *file)
 		file->private_data = inode->i_private;
 	return 0;
 }
+EXPORT_SYMBOL(simple_open);
 
 int simple_link(struct dentry *old_dentry, struct inode *dir, struct dentry *dentry)
 {
@@ -271,6 +286,7 @@ int simple_link(struct dentry *old_dentry, struct inode *dir, struct dentry *den
 	d_instantiate(dentry, inode);
 	return 0;
 }
+EXPORT_SYMBOL(simple_link);
 
 int simple_empty(struct dentry *dentry)
 {
@@ -291,6 +307,7 @@ out:
 	spin_unlock(&dentry->d_lock);
 	return ret;
 }
+EXPORT_SYMBOL(simple_empty);
 
 int simple_unlink(struct inode *dir, struct dentry *dentry)
 {
@@ -301,6 +318,7 @@ int simple_unlink(struct inode *dir, struct dentry *dentry)
 	dput(dentry);
 	return 0;
 }
+EXPORT_SYMBOL(simple_unlink);
 
 int simple_rmdir(struct inode *dir, struct dentry *dentry)
 {
@@ -312,6 +330,7 @@ int simple_rmdir(struct inode *dir, struct dentry *dentry)
 	drop_nlink(dir);
 	return 0;
 }
+EXPORT_SYMBOL(simple_rmdir);
 
 int simple_rename(struct inode *old_dir, struct dentry *old_dentry,
 		struct inode *new_dir, struct dentry *new_dentry)
@@ -338,6 +357,7 @@ int simple_rename(struct inode *old_dir, struct dentry *old_dentry,
 
 	return 0;
 }
+EXPORT_SYMBOL(simple_rename);
 
 /**
  * simple_setattr - setattr for simple filesystem
@@ -378,6 +398,7 @@ int simple_readpage(struct file *file, struct page *page)
 	unlock_page(page);
 	return 0;
 }
+EXPORT_SYMBOL(simple_readpage);
 
 int simple_write_begin(struct file *file, struct address_space *mapping,
 			loff_t pos, unsigned len, unsigned flags,
@@ -401,6 +422,7 @@ int simple_write_begin(struct file *file, struct address_space *mapping,
 	}
 	return 0;
 }
+EXPORT_SYMBOL(simple_write_begin);
 
 /**
  * simple_write_end - .write_end helper for non-block-device FSes
@@ -452,6 +474,7 @@ int simple_write_end(struct file *file, struct address_space *mapping,
 
 	return copied;
 }
+EXPORT_SYMBOL(simple_write_end);
 
 /*
  * the inodes created here are not hashed. If you use iunique to generate
@@ -520,6 +543,7 @@ out:
 	dput(root);
 	return -ENOMEM;
 }
+EXPORT_SYMBOL(simple_fill_super);
 
 static DEFINE_SPINLOCK(pin_fs_lock);
 
@@ -542,6 +566,7 @@ int simple_pin_fs(struct file_system_type *type, struct vfsmount **mount, int *c
 	mntput(mnt);
 	return 0;
 }
+EXPORT_SYMBOL(simple_pin_fs);
 
 void simple_release_fs(struct vfsmount **mount, int *count)
 {
@@ -553,6 +578,7 @@ void simple_release_fs(struct vfsmount **mount, int *count)
 	spin_unlock(&pin_fs_lock);
 	mntput(mnt);
 }
+EXPORT_SYMBOL(simple_release_fs);
 
 /**
  * simple_read_from_buffer - copy data from the buffer to user space
@@ -587,6 +613,7 @@ ssize_t simple_read_from_buffer(void __user *to, size_t count, loff_t *ppos,
 	*ppos = pos + count;
 	return count;
 }
+EXPORT_SYMBOL(simple_read_from_buffer);
 
 /**
  * simple_write_to_buffer - copy data from user space to the buffer
@@ -621,6 +648,7 @@ ssize_t simple_write_to_buffer(void *to, size_t available, loff_t *ppos,
 	*ppos = pos + count;
 	return count;
 }
+EXPORT_SYMBOL(simple_write_to_buffer);
 
 /**
  * memory_read_from_buffer - copy data from the buffer
@@ -652,6 +680,7 @@ ssize_t memory_read_from_buffer(void *to, size_t count, loff_t *ppos,
 
 	return count;
 }
+EXPORT_SYMBOL(memory_read_from_buffer);
 
 /*
  * Transaction based IO.
@@ -673,6 +702,7 @@ void simple_transaction_set(struct file *file, size_t n)
 	smp_mb();
 	ar->size = n;
 }
+EXPORT_SYMBOL(simple_transaction_set);
 
 char *simple_transaction_get(struct file *file, const char __user *buf, size_t size)
 {
@@ -704,6 +734,7 @@ char *simple_transaction_get(struct file *file, const char __user *buf, size_t s
 
 	return ar->data;
 }
+EXPORT_SYMBOL(simple_transaction_get);
 
 ssize_t simple_transaction_read(struct file *file, char __user *buf, size_t size, loff_t *pos)
 {
@@ -713,12 +744,14 @@ ssize_t simple_transaction_read(struct file *file, char __user *buf, size_t size
 		return 0;
 	return simple_read_from_buffer(buf, size, pos, ar->data, ar->size);
 }
+EXPORT_SYMBOL(simple_transaction_read);
 
 int simple_transaction_release(struct inode *inode, struct file *file)
 {
 	free_page((unsigned long)file->private_data);
 	return 0;
 }
+EXPORT_SYMBOL(simple_transaction_release);
 
 /* Simple attribute files */
 
@@ -754,12 +787,14 @@ int simple_attr_open(struct inode *inode, struct file *file,
 
 	return nonseekable_open(inode, file);
 }
+EXPORT_SYMBOL_GPL(simple_attr_open);
 
 int simple_attr_release(struct inode *inode, struct file *file)
 {
 	kfree(file->private_data);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(simple_attr_release);	/* GPL-only?  This?  Really? */
 
 /* read from the buffer that is filled with the get function */
 ssize_t simple_attr_read(struct file *file, char __user *buf,
@@ -795,6 +830,7 @@ out:
 	mutex_unlock(&attr->mutex);
 	return ret;
 }
+EXPORT_SYMBOL_GPL(simple_attr_read);
 
 /* interpret the buffer as a number to call the set function with */
 ssize_t simple_attr_write(struct file *file, const char __user *buf,
@@ -827,6 +863,7 @@ out:
 	mutex_unlock(&attr->mutex);
 	return ret;
 }
+EXPORT_SYMBOL_GPL(simple_attr_write);
 
 /**
  * generic_fh_to_dentry - generic helper for the fh_to_dentry export operation
@@ -965,42 +1002,16 @@ int noop_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 {
 	return 0;
 }
-
-EXPORT_SYMBOL(dcache_dir_close);
-EXPORT_SYMBOL(dcache_dir_lseek);
-EXPORT_SYMBOL(dcache_dir_open);
-EXPORT_SYMBOL(dcache_readdir);
-EXPORT_SYMBOL(generic_read_dir);
-EXPORT_SYMBOL(mount_pseudo);
-EXPORT_SYMBOL(simple_write_begin);
-EXPORT_SYMBOL(simple_write_end);
-EXPORT_SYMBOL(simple_dir_inode_operations);
-EXPORT_SYMBOL(simple_dir_operations);
-EXPORT_SYMBOL(simple_empty);
-EXPORT_SYMBOL(simple_fill_super);
-EXPORT_SYMBOL(simple_getattr);
-EXPORT_SYMBOL(simple_open);
-EXPORT_SYMBOL(simple_link);
-EXPORT_SYMBOL(simple_lookup);
-EXPORT_SYMBOL(simple_pin_fs);
-EXPORT_SYMBOL(simple_readpage);
-EXPORT_SYMBOL(simple_release_fs);
-EXPORT_SYMBOL(simple_rename);
-EXPORT_SYMBOL(simple_rmdir);
-EXPORT_SYMBOL(simple_statfs);
 EXPORT_SYMBOL(noop_fsync);
-EXPORT_SYMBOL(simple_unlink);
-EXPORT_SYMBOL(simple_read_from_buffer);
-EXPORT_SYMBOL(simple_write_to_buffer);
-EXPORT_SYMBOL(memory_read_from_buffer);
-EXPORT_SYMBOL(simple_transaction_set);
-EXPORT_SYMBOL(simple_transaction_get);
-EXPORT_SYMBOL(simple_transaction_read);
-EXPORT_SYMBOL(simple_transaction_release);
-EXPORT_SYMBOL_GPL(simple_attr_open);
-EXPORT_SYMBOL_GPL(simple_attr_release);
-EXPORT_SYMBOL_GPL(simple_attr_read);
-EXPORT_SYMBOL_GPL(simple_attr_write);
+
+void kfree_put_link(struct dentry *dentry, struct nameidata *nd,
+				void *cookie)
+{
+	const char *s = nd_get_link(nd);
+	if (!IS_ERR(s))
+		kfree(s);
+}
+EXPORT_SYMBOL(kfree_put_link);
 
 /*
  * nop .set_page_dirty method so that people can use .page_mkwrite on

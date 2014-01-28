@@ -1,6 +1,6 @@
 VERSION = 3
-PATCHLEVEL = 12
-SUBLEVEL = 8
+PATCHLEVEL = 13
+SUBLEVEL = 0
 EXTRAVERSION =
 NAME = One Giant Leap for Frogkind
 
@@ -21,6 +21,9 @@ unexport LC_ALL
 LC_COLLATE=C
 LC_NUMERIC=C
 export LC_COLLATE LC_NUMERIC
+
+# Avoid interference with shell env settings
+unexport GREP_OPTIONS
 
 # We are using a recursive build, so we need to do a little thinking
 # to get the ordering right.
@@ -603,6 +606,8 @@ ifdef CONFIG_GRKERNSEC_RANDSTRUCT
 GRKERNSEC_RANDSTRUCT_SEED := $(shell $(CONFIG_SHELL) $(srctree)/scripts/gen-random-seed.sh)
 RANDSTRUCT_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/randomize_layout_plugin.so -DRANDSTRUCT_PLUGIN
 RANDSTRUCT_PLUGIN_CFLAGS += -fplugin-arg-randomize_layout_plugin-seed=$(GRKERNSEC_RANDSTRUCT_SEED)
+RANDSTRUCT_HASHED_SEED := $(shell cat "$(srctree)/tools/gcc/randstruct.hashed_seed")
+RANDSTRUCT_PLUGIN_CFLAGS += -DRANDSTRUCT_HASHED_SEED="\"$(RANDSTRUCT_HASHED_SEED)\""
 ifdef CONFIG_GRKERNSEC_RANDSTRUCT
 RANDSTRUCT_PLUGIN_CFLAGS += -fplugin-arg-randomize_layout_plugin-performance-mode
 endif
@@ -728,6 +733,12 @@ KBUILD_CFLAGS	+= $(call cc-option,-fno-strict-overflow)
 # conserve stack if available
 KBUILD_CFLAGS   += $(call cc-option,-fconserve-stack)
 
+# disallow errors like 'EXPORT_GPL(foo);' with missing header
+KBUILD_CFLAGS   += $(call cc-option,-Werror=implicit-int)
+
+# require functions to have arguments in prototypes, not empty 'int foo()'
+KBUILD_CFLAGS   += $(call cc-option,-Werror=strict-prototypes)
+
 # use the deterministic mode of AR if available
 KBUILD_ARFLAGS := $(call ar-option,D)
 
@@ -789,6 +800,18 @@ mod_strip_cmd = true
 endif # INSTALL_MOD_STRIP
 export mod_strip_cmd
 
+# Select initial ramdisk compression format, default is gzip(1).
+# This shall be used by the dracut(8) tool while creating an initramfs image.
+#
+INITRD_COMPRESS-y                  := gzip
+INITRD_COMPRESS-$(CONFIG_RD_BZIP2) := bzip2
+INITRD_COMPRESS-$(CONFIG_RD_LZMA)  := lzma
+INITRD_COMPRESS-$(CONFIG_RD_XZ)    := xz
+INITRD_COMPRESS-$(CONFIG_RD_LZO)   := lzo
+INITRD_COMPRESS-$(CONFIG_RD_LZ4)   := lz4
+# do not export INITRD_COMPRESS, since we didn't actually
+# choose a sane default compression above.
+# export INITRD_COMPRESS := $(INITRD_COMPRESS-y)
 
 ifdef CONFIG_MODULE_SIG_ALL
 MODSECKEY = ./signing_key.priv
@@ -1103,7 +1126,7 @@ MRPROPER_FILES += .config .config.old .version .old_version $(version_h) \
 		  signing_key.priv signing_key.x509 x509.genkey		\
 		  extra_certificates signing_key.x509.keyid		\
 		  signing_key.x509.signer tools/gcc/size_overflow_hash.h \
-		  tools/gcc/randstruct.seed
+		  tools/gcc/randstruct.seed tools/gcc/randstruct.hashed_seed
 
 # clean - Delete most, but leave enough to build external modules
 #

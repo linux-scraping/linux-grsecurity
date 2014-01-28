@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2013 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2012-2014 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -18,63 +18,16 @@
  * BUGS:
  * - LTO needs -flto-partition=none for now
  */
-#include "gcc-plugin.h"
-#include "config.h"
-#include "system.h"
-#include "coretypes.h"
-#include "tree.h"
-#include "tree-pass.h"
-#include "flags.h"
-#include "intl.h"
-#include "toplev.h"
-#include "plugin.h"
-//#include "expr.h" where are you...
-#include "diagnostic.h"
-#include "plugin-version.h"
-#include "tm.h"
-#include "function.h"
-#include "basic-block.h"
-#include "gimple.h"
-#include "rtl.h"
-#include "emit-rtl.h"
-#include "tree-flow.h"
-#include "langhooks.h"
 
-#if BUILDING_GCC_VERSION >= 4008
-#define TODO_dump_func 0
-#endif
+#include "gcc-common.h"
 
 int plugin_is_GPL_compatible;
 
 static tree latent_entropy_decl;
 
 static struct plugin_info latent_entropy_plugin_info = {
-	.version	= "201308230230",
+	.version	= "201401260140",
 	.help		= NULL
-};
-
-static unsigned int execute_latent_entropy(void);
-static bool gate_latent_entropy(void);
-
-static struct gimple_opt_pass latent_entropy_pass = {
-	.pass = {
-		.type			= GIMPLE_PASS,
-		.name			= "latent_entropy",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-		.gate			= gate_latent_entropy,
-		.execute		= execute_latent_entropy,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-		.tv_id			= TV_NONE,
-		.properties_required	= PROP_gimple_leh | PROP_cfg,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0, //TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts,
-		.todo_flags_finish	= TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_update_ssa
-	}
 };
 
 static unsigned HOST_WIDE_INT seed;
@@ -187,17 +140,13 @@ static void perturb_latent_entropy(basic_block bb, tree rhs)
 
 	// 1. create temporary copy of latent_entropy
 	temp = create_tmp_var(unsigned_intDI_type_node, "temp_latent_entropy");
-#if BUILDING_GCC_VERSION <= 4007
 	add_referenced_var(temp);
-#endif
 
 	// 2. read...
 	temp = make_ssa_name(temp, NULL);
 	assign = gimple_build_assign(temp, latent_entropy_decl);
 	SSA_NAME_DEF_STMT(temp) = assign;
-#if BUILDING_GCC_VERSION <= 4007
 	add_referenced_var(latent_entropy_decl);
-#endif
 	gsi = gsi_after_labels(bb);
 	gsi_insert_after(&gsi, assign, GSI_NEW_STMT);
 	update_stmt(assign);
@@ -226,13 +175,9 @@ static unsigned int execute_latent_entropy(void)
 	if (!latent_entropy_decl) {
 		struct varpool_node *node;
 
-#if BUILDING_GCC_VERSION <= 4007
-		for (node = varpool_nodes; node; node = node->next) {
-			tree var = node->decl;
-#else
 		FOR_EACH_VARIABLE(node) {
-			tree var = node->symbol.decl;
-#endif
+			tree var = NODE_DECL(node);
+
 			if (strcmp(IDENTIFIER_POINTER(DECL_NAME(var)), "latent_entropy"))
 				continue;
 			latent_entropy_decl = var;
@@ -249,15 +194,13 @@ static unsigned int execute_latent_entropy(void)
 
 	// 1. create local entropy variable
 	local_entropy = create_tmp_var(unsigned_intDI_type_node, "local_entropy");
-#if BUILDING_GCC_VERSION <= 4007
 	add_referenced_var(local_entropy);
 	mark_sym_for_renaming(local_entropy);
-#endif
 
 	// 2. initialize local entropy variable
-	bb = split_block_after_labels(ENTRY_BLOCK_PTR)->dest;
+	bb = split_block_after_labels(ENTRY_BLOCK_PTR_FOR_FN(cfun))->dest;
 	if (dom_info_available_p(CDI_DOMINATORS))
-		set_immediate_dominator(CDI_DOMINATORS, bb, ENTRY_BLOCK_PTR);
+		set_immediate_dominator(CDI_DOMINATORS, bb, ENTRY_BLOCK_PTR_FOR_FN(cfun));
 	gsi = gsi_start_bb(bb);
 
 	assign = gimple_build_assign(local_entropy, build_int_cstu(unsigned_intDI_type_node, get_random_const()));
@@ -268,15 +211,15 @@ static unsigned int execute_latent_entropy(void)
 	bb = bb->next_bb;
 
 	// 3. instrument each BB with an operation on the local entropy variable
-	while (bb != EXIT_BLOCK_PTR) {
+	while (bb != EXIT_BLOCK_PTR_FOR_FN(cfun)) {
 		perturb_local_entropy(bb, local_entropy);
 //debug_bb(bb);
 		bb = bb->next_bb;
 	};
 
 	// 4. mix local entropy into the global entropy variable
-	perturb_latent_entropy(EXIT_BLOCK_PTR->prev_bb, local_entropy);
-//debug_bb(EXIT_BLOCK_PTR->prev_bb);
+	perturb_latent_entropy(EXIT_BLOCK_PTR_FOR_FN(cfun)->prev_bb, local_entropy);
+//debug_bb(EXIT_BLOCK_PTR_FOR_FN(cfun)->prev_bb);
 	return 0;
 }
 
@@ -284,12 +227,7 @@ static void start_unit_callback(void *gcc_data, void *user_data)
 {
 	tree latent_entropy_type;
 
-#if BUILDING_GCC_VERSION >= 4007
 	seed = get_random_seed(false);
-#else
-	sscanf(get_random_seed(false), "%" HOST_WIDE_INT_PRINT "x", &seed);
-	seed *= seed;
-#endif
 
 	if (in_lto_p)
 		return;
@@ -311,15 +249,67 @@ static void start_unit_callback(void *gcc_data, void *user_data)
 //	varpool_mark_needed_node(latent_entropy_decl);
 }
 
+#if BUILDING_GCC_VERSION >= 4009
+static const struct pass_data latent_entropy_pass_data = {
+#else
+static struct gimple_opt_pass latent_entropy_pass = {
+	.pass = {
+#endif
+		.type			= GIMPLE_PASS,
+		.name			= "latent_entropy",
+#if BUILDING_GCC_VERSION >= 4008
+		.optinfo_flags		= OPTGROUP_NONE,
+#endif
+#if BUILDING_GCC_VERSION >= 4009
+		.has_gate		= true,
+		.has_execute		= true,
+#else
+		.gate			= gate_latent_entropy,
+		.execute		= execute_latent_entropy,
+		.sub			= NULL,
+		.next			= NULL,
+		.static_pass_number	= 0,
+#endif
+		.tv_id			= TV_NONE,
+		.properties_required	= PROP_gimple_leh | PROP_cfg,
+		.properties_provided	= 0,
+		.properties_destroyed	= 0,
+		.todo_flags_start	= 0, //TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts,
+		.todo_flags_finish	= TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_update_ssa
+#if BUILDING_GCC_VERSION < 4009
+	}
+#endif
+};
+
+#if BUILDING_GCC_VERSION >= 4009
+namespace {
+class latent_entropy_pass : public gimple_opt_pass {
+public:
+	latent_entropy_pass() : gimple_opt_pass(latent_entropy_pass_data, g) {}
+	bool gate() { return gate_latent_entropy(); }
+	unsigned int execute() { return execute_latent_entropy(); }
+};
+}
+#endif
+
+static struct opt_pass *make_latent_entropy_pass(void)
+{
+#if BUILDING_GCC_VERSION >= 4009
+	return new latent_entropy_pass();
+#else
+	return &latent_entropy_pass.pass;
+#endif
+}
+
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
 	const char * const plugin_name = plugin_info->base_name;
-	struct register_pass_info latent_entropy_pass_info = {
-		.pass				= &latent_entropy_pass.pass,
-		.reference_pass_name		= "optimized",
-		.ref_pass_instance_number	= 1,
-		.pos_op 			= PASS_POS_INSERT_BEFORE
-	};
+	struct register_pass_info latent_entropy_pass_info;
+
+	latent_entropy_pass_info.pass				= make_latent_entropy_pass();
+	latent_entropy_pass_info.reference_pass_name		= "optimized";
+	latent_entropy_pass_info.ref_pass_instance_number	= 1;
+	latent_entropy_pass_info.pos_op 			= PASS_POS_INSERT_BEFORE;
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));

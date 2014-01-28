@@ -407,7 +407,6 @@ out_tpm:
 out:
 	return NULL;
 }
-EXPORT_SYMBOL_GPL(tpm_bios_log_setup);
 
 void tpm_bios_log_teardown(struct dentry **lst)
 {
@@ -416,5 +415,3 @@ void tpm_bios_log_teardown(struct dentry **lst)
 	for (i = 0; i < 3; i++)
 		securityfs_remove(lst[i]);
 }
-EXPORT_SYMBOL_GPL(tpm_bios_log_teardown);
-MODULE_LICENSE("GPL");

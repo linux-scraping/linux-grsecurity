@@ -1129,7 +1129,7 @@ COMPAT_SYSCALL_DEFINE2(sched_rr_get_interval,
 	mm_segment_t old_fs = get_fs();
 
 	set_fs(KERNEL_DS);
-	ret = sys_sched_rr_get_interval(pid, (struct timespec __user *)&t);
+	ret = sys_sched_rr_get_interval(pid, (struct timespec __force_user *)&t);
 	set_fs(old_fs);
 	if (put_compat_timespec(&t, interval))
 		return -EFAULT;

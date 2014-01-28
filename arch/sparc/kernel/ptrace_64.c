@@ -27,6 +27,7 @@
 #include <trace/syscall.h>
 #include <linux/compat.h>
 #include <linux/elf.h>
+#include <linux/context_tracking.h>
 
 #include <asm/asi.h>
 #include <asm/pgtable.h>
@@ -1070,6 +1071,9 @@ asmlinkage int syscall_trace_enter(struct pt_regs *regs)
 	/* do the secure computing check first */
 	secure_computing_strict(regs->u_regs[UREG_G1]);
 
+	if (test_thread_flag(TIF_NOHZ))
+		user_exit();
+
 #ifdef CONFIG_GRKERNSEC_SETXID
 	if (unlikely(test_and_clear_thread_flag(TIF_GRSEC_SETXID)))
 		gr_delayed_cred_worker();
@@ -1095,6 +1099,9 @@ asmlinkage int syscall_trace_enter(struct pt_regs *regs)
 
 asmlinkage void syscall_trace_leave(struct pt_regs *regs)
 {
+	if (test_thread_flag(TIF_NOHZ))
+		user_exit();
+
 #ifdef CONFIG_GRKERNSEC_SETXID
 	if (unlikely(test_and_clear_thread_flag(TIF_GRSEC_SETXID)))
 		gr_delayed_cred_worker();
@@ -1107,4 +1114,7 @@ asmlinkage void syscall_trace_leave(struct pt_regs *regs)
 
 	if (test_thread_flag(TIF_SYSCALL_TRACE))
 		tracehook_report_syscall_exit(regs, 0);
+
+	if (test_thread_flag(TIF_NOHZ))
+		user_enter();
 }

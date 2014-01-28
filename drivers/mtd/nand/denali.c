@@ -1395,7 +1395,7 @@ static struct nand_bbt_descr bbt_mirror_descr = {
 };
 
 /* initialize driver data structures */
-void denali_drv_init(struct denali_nand_info *denali)
+static void denali_drv_init(struct denali_nand_info *denali)
 {
 	denali->idx = 0;
 
@@ -1521,7 +1521,7 @@ int denali_init(struct denali_nand_info *denali)
 	 * so just let controller do 15bit ECC for MLC and 8bit ECC for
 	 * SLC if possible.
 	 * */
-	if (denali->nand.cellinfo & NAND_CI_CELLTYPE_MSK &&
+	if (!nand_is_slc(&denali->nand) &&
 			(denali->mtd.oobsize > (denali->bbtskipbytes +
 			ECC_15BITS * (denali->mtd.writesize /
 			ECC_SECTOR_SIZE)))) {

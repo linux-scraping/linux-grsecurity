@@ -34,7 +34,7 @@
 #include <asm/sys_ia32.h>
 #include <asm/smap.h>
 
-int copy_siginfo_to_user32(compat_siginfo_t __user *to, siginfo_t *from)
+int copy_siginfo_to_user32(compat_siginfo_t __user *to, const siginfo_t *from)
 {
 	int err = 0;
 	bool ia32 = test_thread_flag(TIF_IA32);
@@ -218,7 +218,7 @@ asmlinkage long sys32_sigreturn(void)
 	if (__get_user(set.sig[0], &frame->sc.oldmask)
 	    || (_COMPAT_NSIG_WORDS > 1
 		&& __copy_from_user((((char *) &set.sig) + 4),
-				    &frame->extramask,
+				    frame->extramask,
 				    sizeof(frame->extramask))))
 		goto badframe;
 
@@ -386,7 +386,7 @@ int ia32_setup_frame(int sig, struct ksignal *ksig,
 			restorer = VDSO32_SYMBOL(current->mm->context.vdso,
 						 sigreturn);
 		else
-			restorer = &frame->retcode;
+			restorer = frame->retcode;
 	}
 
 	put_user_try {
@@ -465,7 +465,7 @@ int ia32_setup_rt_frame(int sig, struct ksignal *ksig,
 			/* Return stub is in 32bit vsyscall page */
 			restorer = VDSO32_SYMBOL(current->mm->context.vdso, rt_sigreturn);
 		else
-			restorer = &frame->retcode;
+			restorer = frame->retcode;
 		put_user_ex(ptr_to_compat(restorer), &frame->pretcode);
 
 		/*

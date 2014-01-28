@@ -82,8 +82,6 @@ static inline struct thread_info *current_thread_info(void)
 
 #endif /* __ASSEMBLY__ */
 
-#define PREEMPT_ACTIVE		0x10000000
-
 /*
  * thread information flag bit numbers
  */
@@ -106,7 +104,10 @@ static inline struct thread_info *current_thread_info(void)
 #define TIF_EMULATE_STACK_STORE	16	/* Is an instruction emulation
 						for stack store? */
 #define TIF_MEMDIE		17	/* is terminating due to OOM killer */
-#define TIF_PERFMON_WORK	18	/* work for pfm_handle_work() */
+#if defined(CONFIG_PPC64)
+#define TIF_ELF2ABI		18	/* function descriptors must die! */
+#endif
+#define TIF_PERFMON_WORK	19	/* work for pfm_handle_work() */
 /* mask must be expressable within 16 bits to satisfy 'andi' instruction reqs */
 #define TIF_GRSEC_SETXID	5	/* update credentials on syscall entry/exit */
 
@@ -186,6 +187,12 @@ static inline bool test_thread_local_flags(unsigned int flags)
 #define is_32bit_task()	(test_thread_flag(TIF_32BIT))
 #else
 #define is_32bit_task()	(1)
+#endif
+
+#if defined(CONFIG_PPC64)
+#define is_elf2_task() (test_thread_flag(TIF_ELF2ABI))
+#else
+#define is_elf2_task() (0)
 #endif
 
 #endif	/* !__ASSEMBLY__ */

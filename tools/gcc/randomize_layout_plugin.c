@@ -1,7 +1,7 @@
 /*
  * Copyright 2014 by Open Source Security, Inc., Brad Spengler <spender@grsecurity.net>
  *                   and PaX Team <pageexec@freemail.hu>
- * Licensed under the GPL v2, or (at your option) v3
+ * Licensed under the GPL v2
  *
  * Usage:
  * $ # for 4.5/4.6/C based 4.7
@@ -11,39 +11,12 @@
  * $ gcc -fplugin=./randomize_layout_plugin.so test.c -O2
  */
 
-#include "gcc-plugin.h"
-#include "config.h"
-#include "system.h"
-#include "coretypes.h"
-#include "tree.h"
-#include "tree-pass.h"
-#include "intl.h"
-#include "plugin-version.h"
-#include "tm.h"
-#include "toplev.h"
-#include "function.h"
-#include "tree-flow.h"
-#include "plugin.h"
-#include "gimple.h"
-#include "diagnostic.h"
-#include "cfgloop.h"
-#include "langhooks.h"
+#include "gcc-common.h"
 
 #define ORIG_TYPE_NAME(node) \
 	(TYPE_NAME(TYPE_MAIN_VARIANT(node)) != NULL_TREE ? ((const unsigned char *)IDENTIFIER_POINTER(TYPE_NAME(TYPE_MAIN_VARIANT(node)))) : (const unsigned char *)"anonymous")
-#define DNAME(node) ((const char *)IDENTIFIER_POINTER(DECL_NAME(node)))
-
-#if BUILDING_GCC_VERSION >= 4008
-#define TODO_dump_func 0
-#define TODO_dump_cgraph 0
-#endif
-
-#if BUILDING_GCC_VERSION == 4005
-#define DECL_CHAIN(NODE) (TREE_CHAIN(DECL_MINIMAL_CHECK(NODE)))
-#endif
 
 int plugin_is_GPL_compatible;
-void debug_gimple_stmt(gimple gs);
 
 static int performance_mode;
 
@@ -643,7 +616,7 @@ static unsigned int find_bad_casts(void)
 				const_tree ssa_name_var = SSA_NAME_VAR(rhs1);
 				/* skip bogus type casts introduced by container_of */
 				if (ssa_name_var != NULL_TREE && DECL_NAME(ssa_name_var) && 
-				    !strcmp(DNAME(ssa_name_var), "__mptr"))
+				    !strcmp((const char *)DECL_NAME_POINTER(ssa_name_var), "__mptr"))
 					continue;
 #ifndef __DEBUG_PLUGIN
 				if (lookup_attribute("randomize_performed", TYPE_ATTRIBUTES(ptr_rhs_type)))
@@ -656,26 +629,56 @@ static unsigned int find_bad_casts(void)
 	return 0;
 }
 
+#if BUILDING_GCC_VERSION >= 4009
+static const struct pass_data randomize_layout_bad_cast_data = {
+#else
 static struct gimple_opt_pass randomize_layout_bad_cast = {
 	.pass = {
+#endif
 		.type			= GIMPLE_PASS,
 		.name			= "randomize_layout_bad_cast",
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
+#if BUILDING_GCC_VERSION >= 4009
+		.has_gate		= false,
+		.has_execute		= true,
+#else
 		.gate			= NULL,
 		.execute		= find_bad_casts,
 		.sub			= NULL,
 		.next			= NULL,
 		.static_pass_number	= 0,
+#endif
 		.tv_id			= TV_NONE,
 		.properties_required	= PROP_cfg,
 		.properties_provided	= 0,
 		.properties_destroyed	= 0,
 		.todo_flags_start	= 0,
 		.todo_flags_finish	= TODO_dump_func | TODO_verify_ssa | TODO_verify_stmts | TODO_remove_unused_locals | TODO_update_ssa_no_phi | TODO_cleanup_cfg | TODO_ggc_collect | TODO_verify_flow
+#if BUILDING_GCC_VERSION < 4009
 	}
+#endif
 };
+
+#if BUILDING_GCC_VERSION >= 4009
+namespace {
+class randomize_layout_bad_cast : public gimple_opt_pass {
+public:
+	randomize_layout_bad_cast() : gimple_opt_pass(randomize_layout_bad_cast_data, g) {}
+	unsigned int execute() { return find_bad_casts(); }
+};
+}
+#endif
+
+static struct opt_pass *make_randomize_layout_bad_cast(void)
+{
+#if BUILDING_GCC_VERSION >= 4009
+	return new randomize_layout_bad_cast();
+#else
+	return &randomize_layout_bad_cast.pass;
+#endif
+}
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
@@ -685,17 +688,21 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	const struct plugin_argument * const argv = plugin_info->argv;
 	bool enable = true;
 	int obtained_seed = 0;
+	struct register_pass_info randomize_layout_bad_cast_info;
 
-	struct register_pass_info randomize_layout_bad_cast_info = {
-		.pass				= &randomize_layout_bad_cast.pass,
-		.reference_pass_name		= "ssa",
-		.ref_pass_instance_number	= 1,
-		.pos_op				= PASS_POS_INSERT_AFTER
-	};
+	randomize_layout_bad_cast_info.pass			= make_randomize_layout_bad_cast();
+	randomize_layout_bad_cast_info.reference_pass_name	= "ssa";
+	randomize_layout_bad_cast_info.ref_pass_instance_number	= 1;
+	randomize_layout_bad_cast_info.pos_op			= PASS_POS_INSERT_AFTER;
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));
 		return 1;
+	}
+
+	if (strcmp(lang_hooks.name, "GNU C")) {
+		inform(UNKNOWN_LOCATION, G_("%s supports C only"), plugin_name);
+		enable = false;
 	}
 
 	for (i = 0; i < argc; ++i) {

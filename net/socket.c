@@ -1823,7 +1823,7 @@ SYSCALL_DEFINE3(getpeername, int, fd, struct sockaddr __user *, usockaddr,
  *	the protocol.
  */
 
-asmlinkage long sys_sendto(int, void *, size_t, unsigned, struct sockaddr *, int);
+asmlinkage long sys_sendto(int, void __user *, size_t, unsigned, struct sockaddr __user *, int);
 
 SYSCALL_DEFINE6(sendto, int, fd, void __user *, buff, size_t, len,
 		unsigned int, flags, struct sockaddr __user *, addr,
@@ -2937,7 +2937,7 @@ static int ethtool_ioctl(struct net *net, struct compat_ifreq __user *ifr32)
 	ifr = compat_alloc_user_space(buf_size);
 	rxnfc = (void __user *)ifr + ALIGN(sizeof(struct ifreq), 8);
 
-	if (copy_in_user(&ifr->ifr_name, &ifr32->ifr_name, IFNAMSIZ))
+	if (copy_in_user(ifr->ifr_name, ifr32->ifr_name, IFNAMSIZ))
 		return -EFAULT;
 
 	if (put_user(convert_in ? rxnfc : compat_ptr(data),
@@ -3058,7 +3058,7 @@ static int bond_ioctl(struct net *net, unsigned int cmd,
 	case SIOCBONDSLAVEINFOQUERY:
 	case SIOCBONDINFOQUERY:
 		uifr = compat_alloc_user_space(sizeof(*uifr));
-		if (copy_in_user(&uifr->ifr_name, &ifr32->ifr_name, IFNAMSIZ))
+		if (copy_in_user(uifr->ifr_name, ifr32->ifr_name, IFNAMSIZ))
 			return -EFAULT;
 
 		if (get_user(data, &ifr32->ifr_ifru.ifru_data))

@@ -679,7 +679,7 @@ int sk_unattached_filter_create(struct sk_filter **pfp,
 	fp = kmalloc(sk_filter_size(fprog->len), GFP_KERNEL);
 	if (!fp)
 		return -ENOMEM;
-	memcpy(fp->insns, fprog->filter, fsize);
+	memcpy(fp->insns, (void __force_kernel *)fprog->filter, fsize);
 
 	atomic_set(&fp->refcnt, 1);
 	fp->len = fprog->len;

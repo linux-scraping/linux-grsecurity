@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2014 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -15,27 +15,8 @@
  * BUGS:
  * - none known
  */
-#include "gcc-plugin.h"
-#include "config.h"
-#include "system.h"
-#include "coretypes.h"
-#include "tree.h"
-#include "tree-pass.h"
-#include "flags.h"
-#include "intl.h"
-#include "toplev.h"
-#include "plugin.h"
-//#include "expr.h" where are you...
-#include "diagnostic.h"
-#include "plugin-version.h"
-#include "tm.h"
-#include "function.h"
-#include "basic-block.h"
-#include "gimple.h"
-#include "rtl.h"
-#include "emit-rtl.h"
-#include "tree-flow.h"
-#include "target.h"
+
+#include "gcc-common.h"
 
 extern void c_register_addr_space (const char *str, addr_space_t as);
 extern enum machine_mode default_addr_space_pointer_mode (addr_space_t);
@@ -44,13 +25,10 @@ extern bool default_addr_space_valid_pointer_mode(enum machine_mode mode, addr_s
 extern bool default_addr_space_legitimate_address_p(enum machine_mode mode, rtx mem, bool strict, addr_space_t as);
 extern rtx default_addr_space_legitimize_address(rtx x, rtx oldx, enum machine_mode mode, addr_space_t as);
 
-extern void print_gimple_stmt(FILE *, gimple, int, int);
-extern rtx emit_move_insn(rtx x, rtx y);
-
 int plugin_is_GPL_compatible;
 
 static struct plugin_info checker_plugin_info = {
-	.version	= "201111150100",
+	.version	= "201304082245",
 	.help		= NULL,
 };
 

@@ -796,7 +796,7 @@ static int compat_ioctl_preallocate(struct file *file,
 	    copy_in_user(&p->l_len,	&p32->l_len,	sizeof(s64)) ||
 	    copy_in_user(&p->l_sysid,	&p32->l_sysid,	sizeof(s32)) ||
 	    copy_in_user(&p->l_pid,	&p32->l_pid,	sizeof(u32)) ||
-	    copy_in_user(p->l_pad,	&p32->l_pad,	4*sizeof(u32)))
+	    copy_in_user(p->l_pad,	p32->l_pad,	4*sizeof(u32)))
 		return -EFAULT;
 
 	return ioctl_preallocate(file, p);
@@ -1583,13 +1583,13 @@ asmlinkage long compat_sys_ioctl(unsigned int fd, unsigned int cmd,
 		/*FALL THROUGH*/
 
 	default:
-		if (f.file->f_op && f.file->f_op->compat_ioctl) {
+		if (f.file->f_op->compat_ioctl) {
 			error = f.file->f_op->compat_ioctl(f.file, cmd, arg);
 			if (error != -ENOIOCTLCMD)
 				goto out_fput;
 		}
 
-		if (!f.file->f_op || !f.file->f_op->unlocked_ioctl)
+		if (!f.file->f_op->unlocked_ioctl)
 			goto do_ioctl;
 		break;
 	}

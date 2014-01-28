@@ -1227,7 +1227,7 @@ struct v4l2_ext_control {
 	union {
 		__s32 value;
 		__s64 value64;
-		char *string;
+		char __user *string;
 	};
 } __attribute__ ((packed));
 

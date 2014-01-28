@@ -85,7 +85,7 @@
 
 #if defined(CONFIG_X86_64) || defined(CONFIG_X86_PAE)
 #define _PAGE_NX	(_AT(pteval_t, 1) << _PAGE_BIT_NX)
-#elif defined(CONFIG_KMEMCHECK)
+#elif defined(CONFIG_KMEMCHECK) || defined(CONFIG_MEM_SOFT_DIRTY)
 #define _PAGE_NX	(_AT(pteval_t, 0))
 #else
 #define _PAGE_NX	(_AT(pteval_t, 1) << _PAGE_BIT_HIDDEN)

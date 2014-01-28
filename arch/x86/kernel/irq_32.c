@@ -130,46 +130,29 @@ void irq_ctx_init(int cpu)
 
 	per_cpu(hardirq_ctx, cpu) = page_address(alloc_pages_node(cpu_to_node(cpu), THREADINFO_GFP, THREAD_SIZE_ORDER));
 	per_cpu(softirq_ctx, cpu) = page_address(alloc_pages_node(cpu_to_node(cpu), THREADINFO_GFP, THREAD_SIZE_ORDER));
-
-	printk(KERN_DEBUG "CPU %u irqstacks, hard=%p soft=%p\n",
-	       cpu, per_cpu(hardirq_ctx, cpu),  per_cpu(softirq_ctx, cpu));
 }
 
-asmlinkage void do_softirq(void)
+void do_softirq_own_stack(void)
 {
-	unsigned long flags;
 	union irq_ctx *irqctx;
 	u32 *isp;
 
-	if (in_interrupt())
-		return;
+	irqctx = __this_cpu_read(softirq_ctx);
+	irqctx->previous_esp = current_stack_pointer;
 
-	local_irq_save(flags);
-
-	if (local_softirq_pending()) {
-		irqctx = __this_cpu_read(softirq_ctx);
-		irqctx->previous_esp = current_stack_pointer;
-
-		/* build the stack frame on the softirq stack */
-		isp = (u32 *) ((char *)irqctx + sizeof(*irqctx) - 8);
+	/* build the stack frame on the softirq stack */
+	isp = (u32 *) ((char *)irqctx + sizeof(*irqctx) - 8);
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-		__set_fs(MAKE_MM_SEG(0));
+	__set_fs(MAKE_MM_SEG(0));
 #endif
 
-		call_on_stack(__do_softirq, isp);
+	call_on_stack(__do_softirq, isp);
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-		__set_fs(current_thread_info()->addr_limit);
+	__set_fs(current_thread_info()->addr_limit);
 #endif
 
-		/*
-		 * Shouldn't happen, we returned above if in_interrupt():
-		 */
-		WARN_ON_ONCE(softirq_count());
-	}
-
-	local_irq_restore(flags);
 }
 
 bool handle_irq(unsigned irq, struct pt_regs *regs)

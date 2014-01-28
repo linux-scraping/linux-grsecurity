@@ -33,11 +33,11 @@
 #include <linux/utsname.h>
 #include <linux/personality.h>
 
-static unsigned long get_unshared_area(struct file *filp, unsigned long addr, unsigned long len,
+static unsigned long get_unshared_area(unsigned long addr, unsigned long len,
 					unsigned long flags)
 {
 	struct vm_unmapped_area_info info;
-	unsigned long offset = gr_rand_threadstack_offset(current->mm, filp, flags);
+	unsigned long offset = gr_rand_threadstack_offset(current->mm, NULL, flags);
 
 	info.flags = 0;
 	info.length = len;
@@ -82,8 +82,8 @@ static unsigned long get_shared_area(struct file *filp, unsigned long addr,
 	info.low_limit = PAGE_ALIGN(addr);
 	info.high_limit = TASK_SIZE;
 	info.align_mask = PAGE_MASK & (SHMLBA - 1);
-	info.threadstack_offset = offset;
 	info.align_offset = shared_align_offset(filp, pgoff);
+	info.threadstack_offset = offset;
 	return vm_unmapped_area(&info);
 }
 

@@ -2341,7 +2341,7 @@ video_usercopy(struct file *file, unsigned int cmd, unsigned long arg,
 		err = -ENOTTY;
 
 	if (has_array_args) {
-		*kernel_ptr = user_ptr;
+		*kernel_ptr = (void __force_kernel *)user_ptr;
 		if (copy_to_user(user_ptr, mbuf, array_size))
 			err = -EFAULT;
 		goto out_array_args;

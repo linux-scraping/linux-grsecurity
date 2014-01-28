@@ -530,17 +530,17 @@ static inline void __vringh_notify_disable(struct vringh *vrh,
 /* Userspace access helpers: in this case, addresses are really userspace. */
 static inline int getu16_user(u16 *val, const u16 *p)
 {
-	return get_user(*val, (__force u16 __user *)p);
+	return get_user(*val, (u16 __force_user *)p);
 }
 
 static inline int putu16_user(u16 *p, u16 val)
 {
-	return put_user(val, (__force u16 __user *)p);
+	return put_user(val, (u16 __force_user *)p);
 }
 
 static inline int copydesc_user(void *dst, const void *src, size_t len)
 {
-	return copy_from_user(dst, (__force void __user *)src, len) ?
+	return copy_from_user(dst, (void __force_user *)src, len) ?
 		-EFAULT : 0;
 }
 
@@ -548,19 +548,19 @@ static inline int putused_user(struct vring_used_elem *dst,
 			       const struct vring_used_elem *src,
 			       unsigned int num)
 {
-	return copy_to_user((__force void __user *)dst, src,
+	return copy_to_user((void __force_user *)dst, src,
 			    sizeof(*dst) * num) ? -EFAULT : 0;
 }
 
 static inline int xfer_from_user(void *src, void *dst, size_t len)
 {
-	return copy_from_user(dst, (__force void __user *)src, len) ?
+	return copy_from_user(dst, (void __force_user *)src, len) ?
 		-EFAULT : 0;
 }
 
 static inline int xfer_to_user(void *dst, void *src, size_t len)
 {
-	return copy_to_user((__force void __user *)dst, src, len) ?
+	return copy_to_user((void __force_user *)dst, src, len) ?
 		-EFAULT : 0;
 }
 
@@ -596,9 +596,9 @@ int vringh_init_user(struct vringh *vrh, u32 features,
 	vrh->last_used_idx = 0;
 	vrh->vring.num = num;
 	/* vring expects kernel addresses, but only used via accessors. */
-	vrh->vring.desc = (__force struct vring_desc *)desc;
-	vrh->vring.avail = (__force struct vring_avail *)avail;
-	vrh->vring.used = (__force struct vring_used *)used;
+	vrh->vring.desc = (__force_kernel struct vring_desc *)desc;
+	vrh->vring.avail = (__force_kernel struct vring_avail *)avail;
+	vrh->vring.used = (__force_kernel struct vring_used *)used;
 	return 0;
 }
 EXPORT_SYMBOL(vringh_init_user);

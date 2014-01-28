@@ -228,6 +228,7 @@ r300_reg_safe.h
 r420_reg_safe.h
 r600_reg_safe.h
 randstruct.seed
+randstruct.hashed_seed
 realmode.lds
 realmode.relocs
 recordmcount

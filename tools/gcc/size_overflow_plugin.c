@@ -1,5 +1,5 @@
 /*
- * Copyright 2011, 2012, 2013, 2014 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011-2014 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2, or (at your option) v3
  *
  * Homepage:
@@ -17,32 +17,15 @@
  * $ gcc -fplugin=size_overflow_plugin.so test.c  -O2
  */
 
-#include "gcc-plugin.h"
-#include "config.h"
-#include "system.h"
-#include "coretypes.h"
-#include "tree.h"
-#include "tree-pass.h"
-#include "intl.h"
-#include "plugin-version.h"
-#include "tm.h"
-#include "toplev.h"
-#include "function.h"
-#include "tree-flow.h"
-#include "plugin.h"
-#include "gimple.h"
-#include "diagnostic.h"
-#include "cfgloop.h"
+#include "gcc-common.h"
 
-#if BUILDING_GCC_VERSION >= 4008
-#define TODO_dump_func 0
-#define TODO_dump_cgraph 0
-#endif
+int plugin_is_GPL_compatible;
 
-#define __unused __attribute__((__unused__))
-#define ASM_NAME(node) IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(node))
-#define NAME(node) IDENTIFIER_POINTER(DECL_NAME(node))
-#define NAME_LEN(node) IDENTIFIER_LENGTH(DECL_NAME(node))
+static struct plugin_info size_overflow_plugin_info = {
+	.version	= "20140128",
+	.help		= "no-size-overflow\tturn off size overflow checking\n",
+};
+
 #define BEFORE_STMT true
 #define AFTER_STMT false
 #define CREATE_NEW_VAR NULL_TREE
@@ -62,10 +45,6 @@
 #define YES_ASM_STR "# size_overflow MARK_YES "
 #define OK_ASM_STR "# size_overflow "
 
-#if BUILDING_GCC_VERSION == 4005
-#define DECL_CHAIN(NODE) (TREE_CHAIN(DECL_MINIMAL_CHECK(NODE)))
-#endif
-
 struct size_overflow_hash {
 	const struct size_overflow_hash * const next;
 	const char * const name;
@@ -84,7 +63,7 @@ struct visited {
 	struct visited *next;
 	const_tree fndecl;
 	unsigned int num;
-	const_gimple first_stmt;
+	const_tree rhs;
 };
 
 struct next_cgraph_node {
@@ -110,9 +89,6 @@ struct interesting_node {
 	gimple intentional_mark_from_gimple;
 };
 
-int plugin_is_GPL_compatible;
-void debug_gimple_stmt(gimple gs);
-
 static tree report_size_overflow_decl;
 static const_tree const_char_ptr_type_node;
 
@@ -125,11 +101,6 @@ static void search_size_overflow_attribute(struct pointer_set_t *visited, tree l
 static void check_size_overflow(struct cgraph_node *caller_node, gimple stmt, tree size_overflow_type, tree cast_rhs, tree rhs, bool before);
 static tree get_size_overflow_type(gimple stmt, const_tree node);
 static tree dup_assign(struct pointer_set_t *visited, gimple oldstmt, const_tree node, tree rhs1, tree rhs2, tree __unused rhs3);
-
-static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20140111beta",
-	.help		= "no-size-overflow\tturn off size overflow checking\n",
-};
 
 static tree handle_size_overflow_attribute(tree *node, tree __unused name, tree args, int __unused flags, bool *no_add_attrs)
 {
@@ -335,7 +306,7 @@ static unsigned char get_tree_code(const_tree type)
 struct function_hash {
 	size_t tree_codes_len;
 	unsigned char tree_codes[CODES_LIMIT];
-	tree fndecl;
+	const_tree fndecl;
 	unsigned int hash;
 };
 
@@ -427,7 +398,7 @@ static void set_function_codes(struct function_hash *fn_hash_data)
 		set_node_codes(TREE_VALUE(arg), fn_hash_data);
 }
 
-static const struct size_overflow_hash *get_function_hash(tree fndecl)
+static const struct size_overflow_hash *get_function_hash(const_tree fndecl)
 {
 	const struct size_overflow_hash *entry;
 	struct function_hash fn_hash_data;
@@ -443,7 +414,7 @@ static const struct size_overflow_hash *get_function_hash(tree fndecl)
 	set_function_codes(&fn_hash_data);
 	gcc_assert(fn_hash_data.tree_codes_len != 0);
 
-	func_name = ASM_NAME(fn_hash_data.fndecl);
+	func_name = DECL_NAME_POINTER(fn_hash_data.fndecl);
 	set_hash(func_name, &fn_hash_data);
 
 	entry = size_overflow_hash[fn_hash_data.hash];
@@ -456,7 +427,7 @@ static const struct size_overflow_hash *get_function_hash(tree fndecl)
 	return NULL;
 }
 
-static void print_missing_msg(tree func, unsigned int argnum)
+static void print_missing_msg(const_tree func, unsigned int argnum)
 {
 	location_t loc;
 	const char *curfunc;
@@ -466,7 +437,7 @@ static void print_missing_msg(tree func, unsigned int argnum)
 	fn_hash_data.tree_codes_len = 0;
 
 	loc = DECL_SOURCE_LOCATION(fn_hash_data.fndecl);
-	curfunc = ASM_NAME(fn_hash_data.fndecl);
+	curfunc = DECL_NAME_POINTER(fn_hash_data.fndecl);
 
 	set_function_codes(&fn_hash_data);
 	set_hash(curfunc, &fn_hash_data);
@@ -483,7 +454,7 @@ static unsigned int find_arg_number_tree(const_tree arg, const_tree func)
 		arg = SSA_NAME_VAR(arg);
 
 	for (var = DECL_ARGUMENTS(func); var; var = TREE_CHAIN(var), argnum++) {
-		if (!operand_equal_p(arg, var, 0) && strcmp(NAME(var), NAME(arg)))
+		if (!operand_equal_p(arg, var, 0) && strcmp(DECL_NAME_POINTER(var), DECL_NAME_POINTER(arg)))
 			continue;
 		if (!skip_types(var))
 			return argnum;
@@ -496,9 +467,7 @@ static tree create_new_var(tree type)
 {
 	tree new_var = create_tmp_var(type, "cicus");
 
-#if BUILDING_GCC_VERSION <= 4007
 	add_referenced_var(new_var);
-#endif
 	return new_var;
 }
 
@@ -717,7 +686,7 @@ static tree dup_assign(struct pointer_set_t *visited, gimple oldstmt, const_tree
 
 	if (rhs2 != NULL_TREE)
 		gimple_assign_set_rhs2(stmt, rhs2);
-#if BUILDING_GCC_VERSION >= 4007
+#if BUILDING_GCC_VERSION >= 4006
 	if (rhs3 != NULL_TREE)
 		gimple_assign_set_rhs3(stmt, rhs3);
 #endif
@@ -740,9 +709,9 @@ static tree cast_parm_decl(tree phi_ssa_name, tree arg, tree size_overflow_type,
 	gcc_assert(SSA_NAME_IS_DEFAULT_DEF(arg));
 
 	if (bb->index == 0) {
-		first_bb = split_block_after_labels(ENTRY_BLOCK_PTR)->dest;
+		first_bb = split_block_after_labels(ENTRY_BLOCK_PTR_FOR_FN(cfun))->dest;
 		gcc_assert(dom_info_available_p(CDI_DOMINATORS));
-		set_immediate_dominator(CDI_DOMINATORS, first_bb, ENTRY_BLOCK_PTR);
+		set_immediate_dominator(CDI_DOMINATORS, first_bb, ENTRY_BLOCK_PTR_FOR_FN(cfun));
 		bb = first_bb;
 	}
 
@@ -856,9 +825,9 @@ static gimple overflow_create_phi_node(gimple oldstmt, tree result)
 }
 
 #if BUILDING_GCC_VERSION <= 4007
-static tree create_new_phi_node(VEC(tree, gc) *args, tree ssa_name_var, gimple oldstmt)
+static tree create_new_phi_node(VEC(tree, heap) **args, tree ssa_name_var, gimple oldstmt)
 #else
-static tree create_new_phi_node(vec<tree, va_gc> *args, tree ssa_name_var, gimple oldstmt)
+static tree create_new_phi_node(vec<tree, va_heap, vl_embed> *&args, tree ssa_name_var, gimple oldstmt)
 #endif
 {
 	gimple new_phi;
@@ -867,7 +836,7 @@ static tree create_new_phi_node(vec<tree, va_gc> *args, tree ssa_name_var, gimpl
 	location_t loc = gimple_location(oldstmt);
 
 #if BUILDING_GCC_VERSION <= 4007
-	gcc_assert(!VEC_empty(tree, args));
+	gcc_assert(!VEC_empty(tree, *args));
 #else
 	gcc_assert(!args->is_empty());
 #endif
@@ -876,21 +845,17 @@ static tree create_new_phi_node(vec<tree, va_gc> *args, tree ssa_name_var, gimpl
 	result = gimple_phi_result(new_phi);
 	ssa_name_var = SSA_NAME_VAR(result);
 
-
-#if BUILDING_GCC_VERSION == 4005
-	for (i = 0; i < VEC_length(tree, args); i++) {
-		arg = VEC_index(tree, args, i);
-#elif BUILDING_GCC_VERSION <= 4007
-	FOR_EACH_VEC_ELT(tree, args, i, arg) {
+#if BUILDING_GCC_VERSION <= 4007
+	FOR_EACH_VEC_ELT(tree, *args, i, arg) {
 #else
-	FOR_EACH_VEC_ELT(*args, i, arg) {
+	FOR_EACH_VEC_SAFE_ELT(args, i, arg) {
 #endif
 		arg = create_new_phi_arg(ssa_name_var, arg, oldstmt, i);
 		add_phi_arg(new_phi, arg, gimple_phi_arg_edge(oldstmt, i), loc);
 	}
 
 #if BUILDING_GCC_VERSION <= 4007
-	VEC_free(tree, gc, args);
+	VEC_free(tree, heap, *args);
 #else
 	vec_free(args);
 #endif
@@ -902,19 +867,14 @@ static tree handle_phi(struct pointer_set_t *visited, struct cgraph_node *caller
 {
 	tree ssa_name_var = NULL_TREE;
 #if BUILDING_GCC_VERSION <= 4007
-	VEC(tree, gc) *args;
+	VEC(tree, heap) *args = NULL;
 #else
-	vec<tree, va_gc> *args;
+	vec<tree, va_heap, vl_embed> *args = NULL;
 #endif
 	gimple oldstmt = get_def_stmt(orig_result);
 	unsigned int i, len = gimple_phi_num_args(oldstmt);
 
 	pointer_set_insert(visited, oldstmt);
-#if BUILDING_GCC_VERSION <= 4007
-	args = VEC_alloc(tree, gc, len);
-#else
-	vec_alloc(args, len);
-#endif
 	for (i = 0; i < len; i++) {
 		tree arg, new_arg;
 
@@ -931,13 +891,17 @@ static tree handle_phi(struct pointer_set_t *visited, struct cgraph_node *caller
 		}
 
 #if BUILDING_GCC_VERSION <= 4007
-		VEC_safe_push(tree, gc, args, new_arg);
+		VEC_safe_push(tree, heap, args, new_arg);
 #else
 		vec_safe_push(args, new_arg);
 #endif
 	}
 
+#if BUILDING_GCC_VERSION <= 4007
+	return create_new_phi_node(&args, ssa_name_var, oldstmt);
+#else
 	return create_new_phi_node(args, ssa_name_var, oldstmt);
+#endif
 }
 
 static tree change_assign_rhs(gimple stmt, const_tree orig_rhs, tree new_rhs)
@@ -1205,20 +1169,6 @@ static tree create_string_param(tree string)
 	return build1(ADDR_EXPR, ptr_type_node, string);
 }
 
-#if BUILDING_GCC_VERSION <= 4006
-struct cgraph_node *cgraph_get_create_node(tree decl);
-
-struct cgraph_node *cgraph_get_create_node(tree decl)
-{
-	struct cgraph_node *node;
-
-	node = cgraph_get_node(decl);
-	if (node)
-		return node;
-	return cgraph_node(decl);
-}
-#endif
-
 static void insert_cond_result(struct cgraph_node *caller_node, basic_block bb_true, const_gimple stmt, const_tree arg, bool min)
 {
 	gimple func_stmt;
@@ -1247,12 +1197,12 @@ static void insert_cond_result(struct cgraph_node *caller_node, basic_block bb_t
 	loc_file = build_string(strlen(xloc.file) + 1, xloc.file);
 	loc_file = create_string_param(loc_file);
 
-	current_func = build_string(NAME_LEN(current_function_decl) + 1, NAME(current_function_decl));
+	current_func = build_string(DECL_NAME_LENGTH(current_function_decl) + 1, DECL_NAME_POINTER(current_function_decl));
 	current_func = create_string_param(current_func);
 
 	gcc_assert(DECL_NAME(SSA_NAME_VAR(arg)) != NULL);
 	call_count++;
-	len = asprintf(&ssa_name_buf, "%s_%u %s, count: %u\n", NAME(SSA_NAME_VAR(arg)), SSA_NAME_VERSION(arg), min ? "min" : "max", call_count);
+	len = asprintf(&ssa_name_buf, "%s_%u %s, count: %u\n", DECL_NAME_POINTER(SSA_NAME_VAR(arg)), SSA_NAME_VERSION(arg), min ? "min" : "max", call_count);
 	gcc_assert(len > 0);
 	ssa_name = build_string(len + 1, ssa_name_buf);
 	free(ssa_name_buf);
@@ -1265,11 +1215,7 @@ static void insert_cond_result(struct cgraph_node *caller_node, basic_block bb_t
 	callee_node = cgraph_get_create_node(report_size_overflow_decl);
 	frequency = compute_call_stmt_bb_frequency(current_function_decl, bb_true);
 
-#if BUILDING_GCC_VERSION <= 4006
 	edge = cgraph_create_edge(caller_node, callee_node, func_stmt, bb_true->count, frequency, bb_true->loop_depth);
-#else
-	edge = cgraph_create_edge(caller_node, callee_node, func_stmt, bb_true->count, frequency);
-#endif
 	gcc_assert(edge != NULL);
 }
 
@@ -1566,7 +1512,7 @@ static tree handle_binary_ops(struct pointer_set_t *visited, struct cgraph_node 
 	return dup_assign(visited, def_stmt, lhs, new_rhs1, new_rhs2, NULL_TREE);
 }
 
-#if BUILDING_GCC_VERSION >= 4007
+#if BUILDING_GCC_VERSION >= 4006
 static tree get_new_rhs(struct pointer_set_t *visited, struct cgraph_node *caller_node, tree size_overflow_type, tree rhs)
 {
 	if (is_gimple_constant(rhs))
@@ -1688,7 +1634,7 @@ static tree expand(struct pointer_set_t *visited, struct cgraph_node *caller_nod
 			return handle_unary_ops(visited, caller_node, def_stmt);
 		case 3:
 			return handle_binary_ops(visited, caller_node, lhs);
-#if BUILDING_GCC_VERSION >= 4007
+#if BUILDING_GCC_VERSION >= 4006
 		case 4:
 			return handle_ternary_ops(visited, caller_node, lhs);
 #endif
@@ -1731,7 +1677,7 @@ static void change_orig_node(struct interesting_node *cur_node, tree new_node)
 		case 2:
 			set_rhs = &gimple_assign_set_rhs2;
 			break;
-#if BUILDING_GCC_VERSION > 4005
+#if BUILDING_GCC_VERSION >= 4006
 		case 3:
 			set_rhs = &gimple_assign_set_rhs3;
 			break;
@@ -1750,7 +1696,7 @@ static void change_orig_node(struct interesting_node *cur_node, tree new_node)
 	update_stmt(stmt);
 }
 
-static unsigned int get_correct_arg_count(unsigned int argnum, tree fndecl)
+static unsigned int get_correct_arg_count(unsigned int argnum, const_tree fndecl)
 {
 	const struct size_overflow_hash *hash;
 	unsigned int new_argnum;
@@ -1777,7 +1723,7 @@ static unsigned int get_correct_arg_count(unsigned int argnum, tree fndecl)
 	gcc_assert(origarg != NULL_TREE);
 
 	for (arg = DECL_ARGUMENTS(fndecl), new_argnum = 1; arg; arg = TREE_CHAIN(arg), new_argnum++)
-		if (operand_equal_p(origarg, arg, 0) || !strcmp(NAME(origarg), NAME(arg)))
+		if (operand_equal_p(origarg, arg, 0) || !strcmp(DECL_NAME_POINTER(origarg), DECL_NAME_POINTER(arg)))
 			return new_argnum;
 
 	return CANNOT_FIND_ARG;
@@ -1790,20 +1736,12 @@ static bool is_in_next_cgraph_node(struct next_cgraph_node *head, struct cgraph_
 	struct next_cgraph_node *cur_node;
 
 	if (fndecl == RET_CHECK)
-#if BUILDING_GCC_VERSION <= 4007
-		new_callee_fndecl = node->decl;
-#else
-		new_callee_fndecl = node->symbol.decl;
-#endif
+		new_callee_fndecl = NODE_DECL(node);
 	else
 		new_callee_fndecl = fndecl;
 
 	for (cur_node = head; cur_node; cur_node = cur_node->next) {
-#if BUILDING_GCC_VERSION <= 4007
-		if (!operand_equal_p(cur_node->current_function->decl, node->decl, 0))
-#else
-		if (!operand_equal_p(cur_node->current_function->symbol.decl, node->symbol.decl, 0))
-#endif
+		if (!operand_equal_p(NODE_DECL(cur_node->current_function), NODE_DECL(node), 0))
 			continue;
 		if (!operand_equal_p(cur_node->callee_fndecl, new_callee_fndecl, 0))
 			continue;
@@ -1829,11 +1767,7 @@ static struct next_cgraph_node *create_new_next_cgraph_node(struct next_cgraph_n
 	new_node->next = NULL;
 	new_node->num = num;
 	if (fndecl == RET_CHECK)
-#if BUILDING_GCC_VERSION <= 4007
-		new_node->callee_fndecl = node->decl;
-#else
-		new_node->callee_fndecl = node->symbol.decl;
-#endif
+		new_node->callee_fndecl = NODE_DECL(node);
 	else
 		new_node->callee_fndecl = fndecl;
 
@@ -1870,7 +1804,7 @@ static bool is_a_return_check(const_tree node)
 	return false;
 }
 
-static bool is_in_hash_table(tree fndecl, unsigned int num)
+static bool is_in_hash_table(const_tree fndecl, unsigned int num)
 {
 	const struct size_overflow_hash *hash;
 
@@ -1910,7 +1844,7 @@ static struct missing_functions *create_new_missing_function(struct missing_func
 /* Check if the function has a size_overflow attribute or it is in the size_overflow hash table.
  * If the function is missing everywhere then print the missing message into stderr.
  */
-static bool is_missing_function(tree orig_fndecl, unsigned int num)
+static bool is_missing_function(const_tree orig_fndecl, unsigned int num)
 {
 	switch (DECL_FUNCTION_CODE(orig_fndecl)) {
 #if BUILDING_GCC_VERSION >= 4008
@@ -1926,9 +1860,9 @@ static bool is_missing_function(tree orig_fndecl, unsigned int num)
 	}
 
 	// skip test.c
-	if (strcmp(NAME(current_function_decl), "coolmalloc")) {
+	if (strcmp(DECL_NAME_POINTER(current_function_decl), "coolmalloc")) {
 		if (lookup_attribute("size_overflow", DECL_ATTRIBUTES(orig_fndecl)))
-			warning(0, "unnecessary size_overflow attribute on: %s\n", NAME(orig_fndecl));
+			warning(0, "unnecessary size_overflow attribute on: %s\n", DECL_NAME_POINTER(orig_fndecl));
 	}
 
 	if (is_in_hash_table(orig_fndecl, num))
@@ -1953,7 +1887,7 @@ static unsigned int get_function_num(const_tree node, const_tree orig_fndecl)
 static struct next_cgraph_node *check_missing_overflow_attribute_and_create_next_node(struct next_cgraph_node *cnodes, struct missing_functions *missing_fn_head)
 {
 	unsigned int num;
-	tree orig_fndecl;
+	const_tree orig_fndecl;
 	struct cgraph_node *next_node = NULL;
 
 	orig_fndecl = DECL_ORIGIN(missing_fn_head->fndecl);
@@ -1980,10 +1914,7 @@ static struct next_cgraph_node *search_overflow_attribute(struct next_cgraph_nod
 	tree node;
 	struct missing_functions *cur, *missing_fn_head = NULL;
 
-#if BUILDING_GCC_VERSION == 4005
-	for (i = 0; i < VEC_length(tree, cur_node->last_nodes); i++) {
-		node = VEC_index(tree, cur_node->last_nodes, i);
-#elif BUILDING_GCC_VERSION <= 4007
+#if BUILDING_GCC_VERSION <= 4007
 	FOR_EACH_VEC_ELT(tree, cur_node->last_nodes, i, node) {
 #else
 	FOR_EACH_VEC_ELT(*cur_node->last_nodes, i, node) {
@@ -2251,7 +2182,7 @@ static void print_missing_intentional(enum mark callee_attr, enum mark caller_at
 		return;
 
 	loc = DECL_SOURCE_LOCATION(decl);
-	inform(loc, "The intentional_overflow attribute is missing from +%s+%u+", NAME(decl), argnum);
+	inform(loc, "The intentional_overflow attribute is missing from +%s+%u+", DECL_NAME_POINTER(decl), argnum);
 }
 
 /* Get the type of the intentional_overflow attribute of a node
@@ -2305,10 +2236,7 @@ static enum mark search_last_nodes_intentional(struct interesting_node *cur_node
 	tree last_node;
 	enum mark mark = MARK_NO;
 
-#if BUILDING_GCC_VERSION == 4005
-	for (i = 0; i < VEC_length(tree, cur_node->last_nodes); i++) {
-		last_node = VEC_index(tree, cur_node->last_nodes, i);
-#elif BUILDING_GCC_VERSION <= 4007
+#if BUILDING_GCC_VERSION <= 4007
 	FOR_EACH_VEC_ELT(tree, cur_node->last_nodes, i, last_node) {
 #else
 	FOR_EACH_VEC_ELT(*cur_node->last_nodes, i, last_node) {
@@ -2436,10 +2364,7 @@ static void insert_last_node(struct interesting_node *cur_node, tree node)
 	if (code != PARM_DECL && code != FUNCTION_DECL && code != COMPONENT_REF)
 		return;
 
-#if BUILDING_GCC_VERSION == 4005
-	for (i = 0; i < VEC_length(tree, cur_node->last_nodes); i++) {
-		element = VEC_index(tree, cur_node->last_nodes, i);
-#elif BUILDING_GCC_VERSION <= 4007
+#if BUILDING_GCC_VERSION <= 4007
 	FOR_EACH_VEC_ELT(tree, cur_node->last_nodes, i, element) {
 #else
 	FOR_EACH_VEC_ELT(*cur_node->last_nodes, i, element) {
@@ -2696,7 +2621,8 @@ static struct interesting_node *handle_stmt_by_cgraph_nodes_ret(struct interesti
 static struct interesting_node *handle_stmt_by_cgraph_nodes_call(struct interesting_node *head, gimple stmt, struct next_cgraph_node *next_node)
 {
 	unsigned int argnum;
-	tree fndecl, arg;
+	tree arg;
+	const_tree fndecl;
 	struct next_cgraph_node *cur_node;
 
 	fndecl = gimple_call_fndecl(stmt);
@@ -2844,6 +2770,7 @@ static void remove_size_overflow_asm(gimple stmt)
 
 	if (gimple_asm_noutputs(stmt) == 0) {
 		gsi = gsi_for_stmt(stmt);
+		ipa_remove_stmt_references(cgraph_get_create_node(current_function_decl), stmt);
 		gsi_remove(&gsi, true);
 		return;
 	}
@@ -2908,7 +2835,7 @@ static struct interesting_node *collect_interesting_stmts(struct next_cgraph_nod
 	basic_block bb;
 	struct interesting_node *head = NULL;
 
-	FOR_ALL_BB(bb) {
+	FOR_ALL_BB_FN(bb, cfun) {
 		gimple_stmt_iterator gsi;
 
 		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
@@ -2970,7 +2897,7 @@ static struct visited *insert_visited_function(struct visited *head, struct inte
 	new_visited = (struct visited *)xmalloc(sizeof(*new_visited));
 	new_visited->fndecl = cur_node->fndecl;
 	new_visited->num = cur_node->num;
-	new_visited->first_stmt = cur_node->first_stmt;
+	new_visited->rhs = cur_node->node;
 	new_visited->next = NULL;
 
 	if (!head)
@@ -2995,7 +2922,7 @@ static bool is_visited_function(struct visited *head, struct interesting_node *c
 			continue;
 		if (cur_node->num != cur->num)
 			continue;
-		if (cur_node->first_stmt == cur->first_stmt)
+		if (cur_node->node == cur->rhs)
 			return true;
 	}
 	return false;
@@ -3016,7 +2943,7 @@ static void remove_all_size_overflow_asm(void)
 {
 	basic_block bb;
 
-	FOR_ALL_BB(bb) {
+	FOR_ALL_BB_FN(bb, cfun) {
 		gimple_stmt_iterator si;
 
 		for (si = gsi_start_bb(bb); !gsi_end_p(si); gsi_next(&si))
@@ -3034,11 +2961,7 @@ static struct visited *handle_function(struct cgraph_node *node, struct next_cgr
 	struct interesting_node *head, *cur_node;
 	struct next_cgraph_node *cur_cnodes, *cnodes_head = NULL;
 
-#if BUILDING_GCC_VERSION <= 4007
-	set_current_function_decl(node->decl);
-#else
-	set_current_function_decl(node->symbol.decl);
-#endif
+	set_current_function_decl(NODE_DECL(node));
 	call_count = 0;
 
 	head = collect_interesting_stmts(next_node);
@@ -3076,7 +2999,7 @@ static void set_plf_false(void)
 {
 	basic_block bb;
 
-	FOR_ALL_BB(bb) {
+	FOR_ALL_BB_FN(bb, cfun) {
 		gimple_stmt_iterator si;
 
 		for (si = gsi_start_bb(bb); !gsi_end_p(si); gsi_next(&si))
@@ -3086,38 +3009,6 @@ static void set_plf_false(void)
 	}
 }
 
-#if BUILDING_GCC_VERSION <= 4006
-static bool cgraph_function_with_gimple_body_p(struct cgraph_node *node)
-{
-	return node->analyzed && !node->thunk.thunk_p && !node->alias;
-}
-
-static struct cgraph_node *cgraph_first_function_with_gimple_body(void)
-{
-	struct cgraph_node *node;
-
-	for (node = cgraph_nodes; node; node = node->next) {
-		if (cgraph_function_with_gimple_body_p(node))
-			return node;
-	}
-	return NULL;
-}
-
-static inline struct cgraph_node *cgraph_next_function_with_gimple_body(struct cgraph_node *node)
-{
-	for (node = node->next; node; node = node->next) {
-		if (cgraph_function_with_gimple_body_p(node))
-			return node;
-	}
-	return NULL;
-}
-
-#define FOR_EACH_FUNCTION_WITH_GIMPLE_BODY(node) \
-	for ((node) = cgraph_first_function_with_gimple_body (); (node); \
-		(node) = cgraph_next_function_with_gimple_body (node))
-
-#endif
-
 // Main entry point of the ipa pass: erases the plf flag of all stmts and iterates over all the functions
 static unsigned int search_function(void)
 {
@@ -3125,11 +3016,7 @@ static unsigned int search_function(void)
 	struct visited *visited = NULL;
 
 	FOR_EACH_FUNCTION_WITH_GIMPLE_BODY(node) {
-#if BUILDING_GCC_VERSION <= 4007
-		set_current_function_decl(node->decl);
-#else
-		set_current_function_decl(node->symbol.decl);
-#endif
+		set_current_function_decl(NODE_DECL(node));
 		set_plf_false();
 		unset_current_function_decl();
 	}
@@ -3147,24 +3034,34 @@ static unsigned int search_function(void)
 	return 0;
 }
 
-static struct ipa_opt_pass_d pass_ipa = {
+#if BUILDING_GCC_VERSION >= 4009
+static const struct pass_data ipa_pass_data = {
+#else
+static struct ipa_opt_pass_d ipa_pass = {
 	.pass = {
+#endif
 		.type			= SIMPLE_IPA_PASS,
 		.name			= "size_overflow",
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
+#if BUILDING_GCC_VERSION >= 4009
+		.has_gate		= false,
+		.has_execute		= true,
+#else
 		.gate			= NULL,
 		.execute		= search_function,
 		.sub			= NULL,
 		.next			= NULL,
 		.static_pass_number	= 0,
+#endif
 		.tv_id			= TV_NONE,
 		.properties_required	= 0,
 		.properties_provided	= 0,
 		.properties_destroyed	= 0,
 		.todo_flags_start	= 0,
 		.todo_flags_finish	= TODO_verify_ssa | TODO_verify_stmts | TODO_remove_unused_locals | TODO_ggc_collect | TODO_verify_flow | TODO_dump_cgraph | TODO_dump_func | TODO_update_ssa_no_phi,
+#if BUILDING_GCC_VERSION < 4009
 	},
 	.generate_summary		= NULL,
 	.write_summary			= NULL,
@@ -3177,7 +3074,27 @@ static struct ipa_opt_pass_d pass_ipa = {
 	.function_transform_todo_flags_start		= 0,
 	.function_transform		= NULL,
 	.variable_transform		= NULL,
+#endif
 };
+
+#if BUILDING_GCC_VERSION >= 4009
+namespace {
+class ipa_pass : public ipa_opt_pass_d {
+public:
+	ipa_pass() : ipa_opt_pass_d(ipa_pass_data, g, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL) {}
+	unsigned int execute() { return search_function(); }
+};
+}
+#endif
+
+static struct opt_pass *make_ipa_pass(void)
+{
+#if BUILDING_GCC_VERSION >= 4009
+	return new ipa_pass();
+#else
+	return &ipa_pass.pass;
+#endif
+}
 
 // data for the size_overflow asm stmt
 struct asm_data {
@@ -3483,9 +3400,9 @@ static char *create_asm_comment(unsigned int argnum, const_gimple stmt , const c
 	unsigned int len;
 
 	if (argnum == 0)
-		fn_name = NAME(current_function_decl);
+		fn_name = DECL_NAME_POINTER(current_function_decl);
 	else
-		fn_name = NAME(gimple_call_fndecl(stmt));
+		fn_name = DECL_NAME_POINTER(gimple_call_fndecl(stmt));
 
 	len = asprintf(&asm_comment, "%s %s %u", mark_str, fn_name, argnum);
 	gcc_assert(len > 0);
@@ -3871,7 +3788,7 @@ static unsigned int search_interesting_functions(void)
 {
 	basic_block bb;
 
-	FOR_ALL_BB(bb) {
+	FOR_ALL_BB_FN(bb, cfun) {
 		gimple_stmt_iterator gsi;
 
 		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
@@ -3894,26 +3811,56 @@ static unsigned int search_interesting_functions(void)
  * this pass inserts asm stmts to mark the interesting args
  * that the ipa pass will detect and insert the size overflow checks for.
  */
+#if BUILDING_GCC_VERSION >= 4009
+static const struct pass_data insert_size_overflow_asm_pass_data = {
+#else
 static struct gimple_opt_pass insert_size_overflow_asm_pass = {
 	.pass = {
+#endif
 		.type			= GIMPLE_PASS,
 		.name			= "insert_size_overflow_asm",
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
+#if BUILDING_GCC_VERSION >= 4009
+		.has_gate		= false,
+		.has_execute		= true,
+#else
 		.gate			= NULL,
 		.execute		= search_interesting_functions,
 		.sub			= NULL,
 		.next			= NULL,
 		.static_pass_number	= 0,
+#endif
 		.tv_id			= TV_NONE,
 		.properties_required	= PROP_cfg,
 		.properties_provided	= 0,
 		.properties_destroyed	= 0,
 		.todo_flags_start	= 0,
 		.todo_flags_finish	= TODO_dump_func | TODO_verify_ssa | TODO_verify_stmts | TODO_remove_unused_locals | TODO_update_ssa_no_phi | TODO_cleanup_cfg | TODO_ggc_collect | TODO_verify_flow
+#if BUILDING_GCC_VERSION < 4009
 	}
+#endif
 };
+
+#if BUILDING_GCC_VERSION >= 4009
+namespace {
+class insert_size_overflow_asm_pass : public gimple_opt_pass {
+public:
+	insert_size_overflow_asm_pass() : gimple_opt_pass(insert_size_overflow_asm_pass_data, g) {}
+	unsigned int execute() { return search_interesting_functions(); }
+};
+}
+#endif
+
+static struct opt_pass *make_insert_size_overflow_asm_pass(void)
+{
+#if BUILDING_GCC_VERSION >= 4009
+	return new insert_size_overflow_asm_pass();
+#else
+	return &insert_size_overflow_asm_pass.pass;
+#endif
+}
 
 // Create the noreturn report_size_overflow() function decl.
 static void start_unit_callback(void __unused *gcc_data, void __unused *user_data)
@@ -3945,17 +3892,12 @@ static unsigned int dump_functions(void)
 	FOR_EACH_FUNCTION_WITH_GIMPLE_BODY(node) {
 		basic_block bb;
 
-#if BUILDING_GCC_VERSION <= 4007
-		push_cfun(DECL_STRUCT_FUNCTION(node->decl));
-		current_function_decl = node->decl;
-#else
-		push_cfun(DECL_STRUCT_FUNCTION(node->symbol.decl));
-		current_function_decl = node->symbol.decl;
-#endif
+		push_cfun(DECL_STRUCT_FUNCTION(NODE_DECL(node)));
+		current_function_decl = NODE_DECL(node);
 
-		fprintf(stderr, "-----------------------------------------\n%s\n-----------------------------------------\n", NAME(current_function_decl));
+		fprintf(stderr, "-----------------------------------------\n%s\n-----------------------------------------\n", DECL_NAME_POINTER(current_function_decl));
 
-		FOR_ALL_BB(bb) {
+		FOR_ALL_BB_FN(bb, cfun) {
 			gimple_stmt_iterator si;
 
 			fprintf(stderr, "<bb %u>:\n", bb->index);
@@ -3977,24 +3919,34 @@ static unsigned int dump_functions(void)
 	return 0;
 }
 
-static struct ipa_opt_pass_d pass_dump = {
+#if BUILDING_GCC_VERSION >= 4009
+static const struct pass_data dump_pass_data = {
+#else
+static struct ipa_opt_pass_d dump_pass = {
 	.pass = {
+#endif
 		.type			= SIMPLE_IPA_PASS,
 		.name			= "dump",
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
+#if BUILDING_GCC_VERSION >= 4009
+		.has_gate		= false,
+		.has_execute		= true,
+#else
 		.gate			= NULL,
 		.execute		= dump_functions,
 		.sub			= NULL,
 		.next			= NULL,
 		.static_pass_number	= 0,
+#endif
 		.tv_id			= TV_NONE,
 		.properties_required	= 0,
 		.properties_provided	= 0,
 		.properties_destroyed	= 0,
 		.todo_flags_start	= 0,
 		.todo_flags_finish	= 0,
+#if BUILDING_GCC_VERSION < 4009
 	},
 	.generate_summary		= NULL,
 	.write_summary			= NULL,
@@ -4007,7 +3959,27 @@ static struct ipa_opt_pass_d pass_dump = {
 	.function_transform_todo_flags_start		= 0,
 	.function_transform		= NULL,
 	.variable_transform		= NULL,
+#endif
 };
+
+#if BUILDING_GCC_VERSION >= 4009
+namespace {
+class dump_pass : public ipa_opt_pass_d {
+public:
+	dump_pass() : ipa_opt_pass_d(dump_pass_data, g, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL) {}
+	unsigned int execute() { return dump_functions(); }
+};
+}
+#endif
+
+static struct opt_pass *make_dump_pass(void)
+{
+#if BUILDING_GCC_VERSION >= 4009
+	return new dump_pass();
+#else
+	return &dump_pass.pass;
+#endif
+}
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
@@ -4016,34 +3988,30 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	const int argc = plugin_info->argc;
 	const struct plugin_argument * const argv = plugin_info->argv;
 	bool enable = true;
+	struct register_pass_info insert_size_overflow_asm_pass_info;
+	struct register_pass_info __unused dump_before_pass_info;
+	struct register_pass_info __unused dump_after_pass_info;
+	struct register_pass_info ipa_pass_info;
 
-	struct register_pass_info insert_size_overflow_asm_pass_info = {
-		.pass				= &insert_size_overflow_asm_pass.pass,
-		.reference_pass_name		= "ssa",
-		.ref_pass_instance_number	= 1,
-		.pos_op				= PASS_POS_INSERT_AFTER
-	};
+	insert_size_overflow_asm_pass_info.pass				= make_insert_size_overflow_asm_pass();
+	insert_size_overflow_asm_pass_info.reference_pass_name		= "ssa";
+	insert_size_overflow_asm_pass_info.ref_pass_instance_number	= 1;
+	insert_size_overflow_asm_pass_info.pos_op			= PASS_POS_INSERT_AFTER;
 
-	struct register_pass_info __unused dump_before_pass_info = {
-		.pass				= &pass_dump.pass,
-		.reference_pass_name		= "increase_alignment",
-		.ref_pass_instance_number	= 1,
-		.pos_op				= PASS_POS_INSERT_BEFORE
-	};
+	dump_before_pass_info.pass			= make_dump_pass();
+	dump_before_pass_info.reference_pass_name	= "increase_alignment";
+	dump_before_pass_info.ref_pass_instance_number	= 1;
+	dump_before_pass_info.pos_op			= PASS_POS_INSERT_BEFORE;
 
-	struct register_pass_info ipa_pass_info = {
-		.pass				= &pass_ipa.pass,
-		.reference_pass_name		= "increase_alignment",
-		.ref_pass_instance_number	= 1,
-		.pos_op				= PASS_POS_INSERT_BEFORE
-	};
+	ipa_pass_info.pass			= make_ipa_pass();
+	ipa_pass_info.reference_pass_name	= "increase_alignment";
+	ipa_pass_info.ref_pass_instance_number	= 1;
+	ipa_pass_info.pos_op			= PASS_POS_INSERT_BEFORE;
 
-	struct register_pass_info __unused dump_after_pass_info = {
-		.pass				= &pass_dump.pass,
-		.reference_pass_name		= "increase_alignment",
-		.ref_pass_instance_number	= 1,
-		.pos_op				= PASS_POS_INSERT_BEFORE
-	};
+	dump_after_pass_info.pass			= make_dump_pass();
+	dump_after_pass_info.reference_pass_name	= "increase_alignment";
+	dump_after_pass_info.ref_pass_instance_number	= 1;
+	dump_after_pass_info.pos_op			= PASS_POS_INSERT_BEFORE;
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));

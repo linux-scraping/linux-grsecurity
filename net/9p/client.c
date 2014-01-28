@@ -588,7 +588,7 @@ static int p9_check_zc_errors(struct p9_client *c, struct p9_req_t *req,
 				       len - inline_len);
 			} else {
 				err = copy_from_user(ename + inline_len,
-						     uidata, len - inline_len);
+						     (char __force_user *)uidata, len - inline_len);
 				if (err) {
 					err = -EFAULT;
 					goto out_err;
@@ -1563,7 +1563,7 @@ p9_client_read(struct p9_fid *fid, char *data, char __user *udata, u64 offset,
 			kernel_buf = 1;
 			indata = data;
 		} else
-			indata = (__force char *)udata;
+			indata = (__force_kernel char *)udata;
 		/*
 		 * response header len is 11
 		 * PDU Header(7) + IO Size (4)
@@ -1638,7 +1638,7 @@ p9_client_write(struct p9_fid *fid, char *data, const char __user *udata,
 			kernel_buf = 1;
 			odata = data;
 		} else
-			odata = (char *)udata;
+			odata = (char __force_kernel *)udata;
 		req = p9_client_zc_rpc(clnt, P9_TWRITE, NULL, odata, 0, rsize,
 				       P9_ZC_HDR_SZ, kernel_buf, "dqd",
 				       fid->fid, offset, rsize);

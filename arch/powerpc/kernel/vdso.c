@@ -34,9 +34,8 @@
 #include <asm/firmware.h>
 #include <asm/vdso.h>
 #include <asm/vdso_datapage.h>
+#include <asm/setup.h>
 #include <asm/mman.h>
-
-#include "setup.h"
 
 #undef DEBUG
 

@@ -7,7 +7,7 @@
 #include <linux/compiler.h>
 #include <linux/thread_info.h>
 #include <linux/string.h>
-#include <linux/sched.h>
+#include <linux/spinlock.h>
 #include <asm/asm.h>
 #include <asm/page.h>
 #include <asm/smap.h>
@@ -83,6 +83,7 @@ void set_fs(mm_segment_t x);
  * checks that the pointer is in the user space range - after calling
  * this function, memory access functions may still return -EFAULT.
  */
+extern int _cond_resched(void);
 #define __access_ok(type, addr, size) (likely(__range_not_ok(addr, size, user_addr_max()) == 0))
 #define access_ok(type, addr, size)					\
 ({									\
@@ -96,7 +97,7 @@ void set_fs(mm_segment_t x);
 			char __c_ao;					\
 			__addr_ao += PAGE_SIZE;				\
 			if (__size > PAGE_SIZE)				\
-				cond_resched();				\
+				_cond_resched();			\
 			if (__get_user(__c_ao, (char __user *)__addr))	\
 				break;					\
 			if (type != VERIFY_WRITE) {			\
@@ -608,11 +609,108 @@ extern struct movsl_mask {
 
 #define ARCH_HAS_NOCACHE_UACCESS 1
 
+#ifdef CONFIG_DEBUG_STRICT_USER_COPY_CHECKS
+# define copy_user_diag __compiletime_error
+#else
+# define copy_user_diag __compiletime_warning
+#endif
+
+extern void copy_user_diag("copy_from_user() buffer size is too small")
+copy_from_user_overflow(void);
+extern void copy_user_diag("copy_to_user() buffer size is too small")
+copy_to_user_overflow(void);
+
+#undef copy_user_diag
+
+#ifdef CONFIG_DEBUG_STRICT_USER_COPY_CHECKS
+
+extern void
+__compiletime_warning("copy_from_user() buffer size is not provably correct")
+__copy_from_user_overflow(void) __asm__("copy_from_user_overflow");
+#define __copy_from_user_overflow(size, count) __copy_from_user_overflow()
+
+extern void
+__compiletime_warning("copy_to_user() buffer size is not provably correct")
+__copy_to_user_overflow(void) __asm__("copy_to_user_overflow");
+#define __copy_to_user_overflow(size, count) __copy_to_user_overflow()
+
+#else
+
+static inline void
+__copy_from_user_overflow(int size, unsigned long count)
+{
+	WARN(1, "Buffer overflow detected (%d < %lu)!\n", size, count);
+}
+
+#define __copy_to_user_overflow __copy_from_user_overflow
+
+#endif
+
 #ifdef CONFIG_X86_32
 # include <asm/uaccess_32.h>
 #else
 # include <asm/uaccess_64.h>
 #endif
+
+static inline unsigned long __must_check
+copy_from_user(void *to, const void __user *from, unsigned long n)
+{
+	size_t sz = __compiletime_object_size(to);
+
+	might_fault();
+
+	/*
+	 * While we would like to have the compiler do the checking for us
+	 * even in the non-constant size case, any false positives there are
+	 * a problem (especially when DEBUG_STRICT_USER_COPY_CHECKS, but even
+	 * without - the [hopefully] dangerous looking nature of the warning
+	 * would make people go look at the respecitive call sites over and
+	 * over again just to find that there's no problem).
+	 *
+	 * And there are cases where it's just not realistic for the compiler
+	 * to prove the count to be in range. For example when multiple call
+	 * sites of a helper function - perhaps in different source files -
+	 * all doing proper range checking, yet the helper function not doing
+	 * so again.
+	 *
+	 * Therefore limit the compile time checking to the constant size
+	 * case, and do only runtime checking for non-constant sizes.
+	 */
+
+	if (likely(sz != (size_t)-1  && sz < n)) {
+		 if(__builtin_constant_p(n))
+			copy_from_user_overflow();
+		else
+			__copy_from_user_overflow(sz, n);
+	} if (access_ok(VERIFY_READ, from, n))
+		n = __copy_from_user(to, from, n);
+	else if ((long)n > 0)
+		memset(to, 0, n);
+
+	return n;
+}
+
+static inline unsigned long __must_check
+copy_to_user(void __user *to, const void *from, unsigned long n)
+{
+	size_t sz = __compiletime_object_size(from);
+
+	might_fault();
+
+	/* See the comment in copy_from_user() above. */
+	if (likely(sz != (size_t)-1  && sz < n)) {
+		 if(__builtin_constant_p(n))
+			copy_to_user_overflow();
+		else
+			__copy_to_user_overflow(sz, n);
+	} else if (access_ok(VERIFY_WRITE, to, n))
+		n = __copy_to_user(to, from, n);
+
+	return n;
+}
+
+#undef __copy_from_user_overflow
+#undef __copy_to_user_overflow
 
 #endif /* _ASM_X86_UACCESS_H */
 

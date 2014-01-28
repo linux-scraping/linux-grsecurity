@@ -23,7 +23,7 @@ gr_acl_handle_hidden_file(const struct dentry * dentry,
 {
 	__u32 mode;
 
-	if (unlikely(!dentry->d_inode))
+	if (unlikely(d_is_negative(dentry)))
 		return GR_FIND;
 
 	mode =
@@ -48,7 +48,7 @@ gr_acl_handle_open(const struct dentry * dentry, const struct vfsmount * mnt,
 	__u32 reqmode = GR_FIND;
 	__u32 mode;
 
-	if (unlikely(!dentry->d_inode))
+	if (unlikely(d_is_negative(dentry)))
 		return reqmode;
 
 	if (acc_mode & MAY_APPEND)
@@ -372,7 +372,7 @@ gr_acl_handle_rename(struct dentry *new_dentry,
 	if (unlikely(!gr_acl_is_enabled()))
 		return 0;
 
-	if (!new_dentry->d_inode) {
+	if (d_is_negative(new_dentry)) {
 		comp1 = gr_check_create(new_dentry, parent_dentry, parent_mnt,
 					GR_READ | GR_WRITE | GR_CREATE | GR_AUDIT_READ |
 					GR_AUDIT_WRITE | GR_AUDIT_CREATE | GR_SUPPRESS);

@@ -42,6 +42,13 @@ EXPORT_SYMBOL(strstr);
 EXPORT_SYMBOL(csum_partial);
 EXPORT_SYMBOL(empty_zero_page);
 
+#ifdef CONFIG_PREEMPT
+EXPORT_SYMBOL(___preempt_schedule);
+#ifdef CONFIG_CONTEXT_TRACKING
+EXPORT_SYMBOL(___preempt_schedule_context);
+#endif
+#endif
+
 #ifdef CONFIG_PAX_KERNEXEC
 EXPORT_SYMBOL(__LOAD_PHYSICAL_ADDR);
 #endif

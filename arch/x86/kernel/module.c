@@ -49,7 +49,7 @@ static inline void *__module_alloc(unsigned long size, pgprot_t prot)
 		return NULL;
 	return __vmalloc_node_range(size, 1, MODULES_VADDR, MODULES_END,
 				GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO, prot,
-				-1, __builtin_return_address(0));
+				NUMA_NO_NODE, __builtin_return_address(0));
 }
 
 void *module_alloc(unsigned long size)

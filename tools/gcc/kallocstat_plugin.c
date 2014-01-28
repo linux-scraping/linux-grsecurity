@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2013 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2014 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -14,29 +14,15 @@
  * BUGS:
  * - none known
  */
-#include "gcc-plugin.h"
-#include "config.h"
-#include "system.h"
-#include "coretypes.h"
-#include "tree.h"
-#include "tree-pass.h"
-#include "flags.h"
-#include "intl.h"
-#include "toplev.h"
-#include "plugin.h"
-//#include "expr.h" where are you...
-#include "diagnostic.h"
-#include "plugin-version.h"
-#include "tm.h"
-#include "function.h"
-#include "basic-block.h"
-#include "gimple.h"
-#include "rtl.h"
-#include "emit-rtl.h"
 
-extern void print_gimple_stmt(FILE *, gimple, int, int);
+#include "gcc-common.h"
 
 int plugin_is_GPL_compatible;
+
+static struct plugin_info kallocstat_plugin_info = {
+	.version	= "201401260140",
+	.help		= NULL
+};
 
 static const char * const kalloc_functions[] = {
 	"__kmalloc",
@@ -48,33 +34,6 @@ static const char * const kalloc_functions[] = {
 	"kmalloc_slab",
 	"kzalloc",
 	"kzalloc_node",
-};
-
-static struct plugin_info kallocstat_plugin_info = {
-	.version	= "201302112000",
-};
-
-static unsigned int execute_kallocstat(void);
-
-static struct gimple_opt_pass kallocstat_pass = {
-	.pass = {
-		.type			= GIMPLE_PASS,
-		.name			= "kallocstat",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-		.gate			= NULL,
-		.execute		= execute_kallocstat,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-		.tv_id			= TV_NONE,
-		.properties_required	= 0,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0,
-		.todo_flags_finish	= 0
-	}
 };
 
 static bool is_kalloc(const char *fnname)
@@ -92,52 +51,54 @@ static unsigned int execute_kallocstat(void)
 	basic_block bb;
 
 	// 1. loop through BBs and GIMPLE statements
-	FOR_EACH_BB(bb) {
+	FOR_EACH_BB_FN(bb, cfun) {
 		gimple_stmt_iterator gsi;
 		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
 			// gimple match: 
 			tree fndecl, size;
-			gimple call_stmt;
+			gimple stmt;
 			const char *fnname;
 
 			// is it a call
-			call_stmt = gsi_stmt(gsi);
-			if (!is_gimple_call(call_stmt))
+			stmt = gsi_stmt(gsi);
+			if (!is_gimple_call(stmt))
 				continue;
-			fndecl = gimple_call_fndecl(call_stmt);
+			fndecl = gimple_call_fndecl(stmt);
 			if (fndecl == NULL_TREE)
 				continue;
 			if (TREE_CODE(fndecl) != FUNCTION_DECL)
 				continue;
 
 			// is it a call to k*alloc
-			fnname = IDENTIFIER_POINTER(DECL_NAME(fndecl));
+			fnname = DECL_NAME_POINTER(fndecl);
 			if (!is_kalloc(fnname))
 				continue;
 
-			// is the size arg the result of a simple const assignment
-			size = gimple_call_arg(call_stmt, 0);
+			// is the size arg const or the result of a simple const assignment
+			size = gimple_call_arg(stmt, 0);
 			while (true) {
-				gimple def_stmt;
 				expanded_location xloc;
 				size_t size_val;
 
+				if (TREE_CONSTANT(size)) {
+					xloc = expand_location(gimple_location(stmt));
+					if (!xloc.file)
+						xloc = expand_location(DECL_SOURCE_LOCATION(current_function_decl));
+					size_val = TREE_INT_CST_LOW(size);
+					fprintf(stderr, "kallocsize: %8zu %8zx %s %s:%u\n", size_val, size_val, fnname, xloc.file, xloc.line);
+					break;
+				}
+
 				if (TREE_CODE(size) != SSA_NAME)
 					break;
-				def_stmt = SSA_NAME_DEF_STMT(size);
-				if (!def_stmt || !is_gimple_assign(def_stmt))
+				stmt = SSA_NAME_DEF_STMT(size);
+//debug_gimple_stmt(stmt);
+//debug_tree(size);
+				if (!stmt || !is_gimple_assign(stmt))
 					break;
-				if (gimple_num_ops(def_stmt) != 2)
+				if (gimple_num_ops(stmt) != 2)
 					break;
-				size = gimple_assign_rhs1(def_stmt);
-				if (!TREE_CONSTANT(size))
-					continue;
-				xloc = expand_location(gimple_location(def_stmt));
-				if (!xloc.file)
-					xloc = expand_location(DECL_SOURCE_LOCATION(current_function_decl));
-				size_val = TREE_INT_CST_LOW(size);
-				fprintf(stderr, "kallocsize: %8zu %8zx %s %s:%u\n", size_val, size_val, fnname, xloc.file, xloc.line);
-				break;
+				size = gimple_assign_rhs1(stmt);
 			}
 //print_gimple_stmt(stderr, call_stmt, 0, TDF_LINENO);
 //debug_tree(gimple_call_fn(call_stmt));
@@ -148,15 +109,66 @@ static unsigned int execute_kallocstat(void)
 	return 0;
 }
 
+#if BUILDING_GCC_VERSION >= 4009
+static const struct pass_data kallocstat_pass_data = {
+#else
+static struct gimple_opt_pass kallocstat_pass = {
+	.pass = {
+#endif
+		.type			= GIMPLE_PASS,
+		.name			= "kallocstat",
+#if BUILDING_GCC_VERSION >= 4008
+		.optinfo_flags		= OPTGROUP_NONE,
+#endif
+#if BUILDING_GCC_VERSION >= 4009
+		.has_gate		= false,
+		.has_execute		= true,
+#else
+		.gate			= NULL,
+		.execute		= execute_kallocstat,
+		.sub			= NULL,
+		.next			= NULL,
+		.static_pass_number	= 0,
+#endif
+		.tv_id			= TV_NONE,
+		.properties_required	= 0,
+		.properties_provided	= 0,
+		.properties_destroyed	= 0,
+		.todo_flags_start	= 0,
+		.todo_flags_finish	= 0
+#if BUILDING_GCC_VERSION < 4009
+	}
+#endif
+};
+
+#if BUILDING_GCC_VERSION >= 4009
+namespace {
+class kallocstat_pass : public gimple_opt_pass {
+public:
+	kallocstat_pass() : gimple_opt_pass(kallocstat_pass_data, g) {}
+	unsigned int execute() { return execute_kallocstat(); }
+};
+}
+#endif
+
+static struct opt_pass *make_kallocstat_pass(void)
+{
+#if BUILDING_GCC_VERSION >= 4009
+	return new kallocstat_pass();
+#else
+	return &kallocstat_pass.pass;
+#endif
+}
+
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
 	const char * const plugin_name = plugin_info->base_name;
-	struct register_pass_info kallocstat_pass_info = {
-		.pass				= &kallocstat_pass.pass,
-		.reference_pass_name		= "ssa",
-		.ref_pass_instance_number	= 1,
-		.pos_op 			= PASS_POS_INSERT_AFTER
-	};
+	struct register_pass_info kallocstat_pass_info;
+
+	kallocstat_pass_info.pass			= make_kallocstat_pass();
+	kallocstat_pass_info.reference_pass_name	= "ssa";
+	kallocstat_pass_info.ref_pass_instance_number	= 1;
+	kallocstat_pass_info.pos_op 			= PASS_POS_INSERT_AFTER;
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));

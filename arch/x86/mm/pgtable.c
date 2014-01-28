@@ -25,8 +25,12 @@ pgtable_t pte_alloc_one(struct mm_struct *mm, unsigned long address)
 	struct page *pte;
 
 	pte = alloc_pages(__userpte_alloc_gfp, 0);
-	if (pte)
-		pgtable_page_ctor(pte);
+	if (!pte)
+		return NULL;
+	if (!pgtable_page_ctor(pte)) {
+		__free_page(pte);
+		return NULL;
+	}
 	return pte;
 }
 
@@ -57,6 +61,7 @@ void ___pte_free_tlb(struct mmu_gather *tlb, struct page *pte)
 #if PAGETABLE_LEVELS > 2
 void ___pmd_free_tlb(struct mmu_gather *tlb, pmd_t *pmd)
 {
+	struct page *page = virt_to_page(pmd);
 	paravirt_release_pmd(__pa(pmd) >> PAGE_SHIFT);
 	/*
 	 * NOTE! For PAE, any changes to the top page-directory-pointer-table
@@ -65,7 +70,8 @@ void ___pmd_free_tlb(struct mmu_gather *tlb, pmd_t *pmd)
 #ifdef CONFIG_X86_PAE
 	tlb->need_flush_all = 1;
 #endif
-	tlb_remove_page(tlb, virt_to_page(pmd));
+	pgtable_pmd_page_dtor(page);
+	tlb_remove_page(tlb, page);
 }
 
 #if PAGETABLE_LEVELS > 3
@@ -134,6 +140,8 @@ void __clone_user_pgds(pgd_t *dst, const pgd_t *src)
 #define pxd_t				pud_t
 #define pyd_t				pgd_t
 #define paravirt_release_pxd(pfn)	paravirt_release_pud(pfn)
+#define pgtable_pxd_page_ctor(page)	true
+#define pgtable_pxd_page_dtor(page)
 #define pxd_free(mm, pud)		pud_free((mm), (pud))
 #define pyd_populate(mm, pgd, pud)	pgd_populate((mm), (pgd), (pud))
 #define pyd_offset(mm, address)		pgd_offset((mm), (address))
@@ -142,6 +150,8 @@ void __clone_user_pgds(pgd_t *dst, const pgd_t *src)
 #define pxd_t				pmd_t
 #define pyd_t				pud_t
 #define paravirt_release_pxd(pfn)	paravirt_release_pmd(pfn)
+#define pgtable_pxd_page_ctor(page)	pgtable_pmd_page_ctor(page)
+#define pgtable_pxd_page_dtor(page)	pgtable_pmd_page_dtor(page)
 #define pxd_free(mm, pud)		pmd_free((mm), (pud))
 #define pyd_populate(mm, pgd, pud)	pud_populate((mm), (pgd), (pud))
 #define pyd_offset(mm, address)		pud_offset((mm), (address))
@@ -249,8 +259,10 @@ static void free_pxds(pxd_t *pxds[])
 	int i;
 
 	for(i = 0; i < PREALLOCATED_PXDS; i++)
-		if (pxds[i])
+		if (pxds[i]) {
+			pgtable_pxd_page_dtor(virt_to_page(pxds[i]));
 			free_page((unsigned long)pxds[i]);
+		}
 }
 
 static int preallocate_pxds(pxd_t *pxds[])
@@ -260,8 +272,13 @@ static int preallocate_pxds(pxd_t *pxds[])
 
 	for(i = 0; i < PREALLOCATED_PXDS; i++) {
 		pxd_t *pxd = (pxd_t *)__get_free_page(PGALLOC_GFP);
-		if (pxd == NULL)
+		if (!pxd)
 			failed = true;
+		if (pxd && !pgtable_pxd_page_ctor(virt_to_page(pxd))) {
+			free_page((unsigned long)pxd);
+			pxd = NULL;
+			failed = true;
+		}
 		pxds[i] = pxd;
 	}
 

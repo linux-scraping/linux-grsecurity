@@ -65,6 +65,13 @@ EXPORT_SYMBOL(empty_zero_page);
 EXPORT_SYMBOL(native_load_gs_index);
 #endif
 
+#ifdef CONFIG_PREEMPT
+EXPORT_SYMBOL(___preempt_schedule);
+#ifdef CONFIG_CONTEXT_TRACKING
+EXPORT_SYMBOL(___preempt_schedule_context);
+#endif
+#endif
+
 #ifdef CONFIG_PAX_PER_CPU_PGD
 EXPORT_SYMBOL(cpu_pgd);
 #endif

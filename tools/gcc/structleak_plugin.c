@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 by PaX Team <pageexec@freemail.hu>
+ * Copyright 2013-2014 by PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -24,38 +24,15 @@
  *       increase type coverage
  */
 
-#include "gcc-plugin.h"
-#include "config.h"
-#include "system.h"
-#include "coretypes.h"
-#include "tree.h"
-#include "tree-pass.h"
-#include "intl.h"
-#include "plugin-version.h"
-#include "tm.h"
-#include "toplev.h"
-#include "function.h"
-#include "tree-flow.h"
-#include "plugin.h"
-#include "gimple.h"
-#include "diagnostic.h"
-#include "cfgloop.h"
-#include "langhooks.h"
+#include "gcc-common.h"
 
-#if BUILDING_GCC_VERSION >= 4008
-#define TODO_dump_func 0
-#endif
-
-#define NAME(node) IDENTIFIER_POINTER(DECL_NAME(node))
-
-// unused type flag in all versions 4.5-4.8
+// unused C type flag in all versions 4.5-4.9
 #define TYPE_USERSPACE(TYPE) TYPE_LANG_FLAG_3(TYPE)
 
 int plugin_is_GPL_compatible;
-void debug_gimple_stmt(gimple gs);
 
 static struct plugin_info structleak_plugin_info = {
-	.version	= "201304082245",
+	.version	= "201401260140",
 	.help		= "disable\tdo not activate plugin\n",
 };
 
@@ -133,7 +110,7 @@ static void initialize(tree var)
 
 	// this is the original entry bb before the forced split
 	// TODO: check further BBs in case more splits occured before us
-	bb = ENTRY_BLOCK_PTR->next_bb->next_bb;
+	bb = ENTRY_BLOCK_PTR_FOR_FN(cfun)->next_bb->next_bb;
 
 	// first check if the variable is already initialized, warn otherwise
 	for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
@@ -165,7 +142,7 @@ static void initialize(tree var)
 
 	// build the initializer stmt
 	init_stmt = gimple_build_assign(var, initializer);
-	gsi = gsi_start_bb(ENTRY_BLOCK_PTR->next_bb);
+	gsi = gsi_start_bb(ENTRY_BLOCK_PTR_FOR_FN(cfun)->next_bb);
 	gsi_insert_before(&gsi, init_stmt, GSI_NEW_STMT);
 	update_stmt(init_stmt);
 }
@@ -175,25 +152,15 @@ static unsigned int handle_function(void)
 	basic_block bb;
 	unsigned int ret = 0;
 	tree var;
-
-#if BUILDING_GCC_VERSION == 4005
-	tree vars;
-#else
 	unsigned int i;
-#endif
 
 	// split the first bb where we can put the forced initializers
-	bb = split_block_after_labels(ENTRY_BLOCK_PTR)->dest;
+	bb = split_block_after_labels(ENTRY_BLOCK_PTR_FOR_FN(cfun))->dest;
 	if (dom_info_available_p(CDI_DOMINATORS))
-		set_immediate_dominator(CDI_DOMINATORS, bb, ENTRY_BLOCK_PTR);
+		set_immediate_dominator(CDI_DOMINATORS, bb, ENTRY_BLOCK_PTR_FOR_FN(cfun));
 
 	// enumarate all local variables and forcibly initialize our targets
-#if BUILDING_GCC_VERSION == 4005
-	for (vars = cfun->local_decls; vars; vars = TREE_CHAIN(vars)) {
-		var = TREE_VALUE(vars);
-#else
 	FOR_EACH_LOCAL_DECL(cfun, i, var) {
-#endif
 		tree type = TREE_TYPE(var);
 
 		gcc_assert(DECL_P(var));
@@ -212,26 +179,56 @@ static unsigned int handle_function(void)
 	return ret;
 }
 
+#if BUILDING_GCC_VERSION >= 4009
+static const struct pass_data structleak_pass_data = {
+#else
 static struct gimple_opt_pass structleak_pass = {
 	.pass = {
+#endif
 		.type			= GIMPLE_PASS,
 		.name			= "structleak",
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
+#if BUILDING_GCC_VERSION >= 4009
+		.has_gate		= false,
+		.has_execute		= true,
+#else
 		.gate			= NULL,
 		.execute		= handle_function,
 		.sub			= NULL,
 		.next			= NULL,
 		.static_pass_number	= 0,
+#endif
 		.tv_id			= TV_NONE,
 		.properties_required	= PROP_cfg,
 		.properties_provided	= 0,
 		.properties_destroyed	= 0,
 		.todo_flags_start	= 0,
 		.todo_flags_finish	= TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_remove_unused_locals | TODO_update_ssa | TODO_ggc_collect | TODO_verify_flow
+#if BUILDING_GCC_VERSION < 4009
 	}
+#endif
 };
+
+#if BUILDING_GCC_VERSION >= 4009
+namespace {
+class structleak_pass : public gimple_opt_pass {
+public:
+	structleak_pass() : gimple_opt_pass(structleak_pass_data, g) {}
+	unsigned int execute() { return handle_function(); }
+};
+}
+#endif
+
+static struct opt_pass *make_structleak_pass(void)
+{
+#if BUILDING_GCC_VERSION >= 4009
+	return new structleak_pass();
+#else
+	return &structleak_pass.pass;
+#endif
+}
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
@@ -240,13 +237,12 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	const int argc = plugin_info->argc;
 	const struct plugin_argument * const argv = plugin_info->argv;
 	bool enable = true;
+	struct register_pass_info structleak_pass_info;
 
-	struct register_pass_info structleak_pass_info = {
-		.pass				= &structleak_pass.pass,
-		.reference_pass_name		= "ssa",
-		.ref_pass_instance_number	= 1,
-		.pos_op				= PASS_POS_INSERT_AFTER
-	};
+	structleak_pass_info.pass			= make_structleak_pass();
+	structleak_pass_info.reference_pass_name	= "ssa";
+	structleak_pass_info.ref_pass_instance_number	= 1;
+	structleak_pass_info.pos_op			= PASS_POS_INSERT_AFTER;
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));

@@ -1,2 +1,3 @@
 size_overflow_hash.h
 randstruct.seed
+randstruct.hashed_seed

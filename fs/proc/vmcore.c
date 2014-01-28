@@ -174,7 +174,7 @@ int __weak remap_oldmem_pfn_range(struct vm_area_struct *vma,
 static int copy_to(void *target, void *src, size_t size, int userbuf)
 {
 	if (userbuf) {
-		if (copy_to_user((char __user *) target, src, size))
+		if (copy_to_user((char __force_user *) target, src, size))
 			return -EFAULT;
 	} else {
 		memcpy(target, src, size);
@@ -257,7 +257,7 @@ static ssize_t __read_vmcore(char *buffer, size_t buflen, loff_t *fpos,
 static ssize_t read_vmcore(struct file *file, char __user *buffer,
 			   size_t buflen, loff_t *fpos)
 {
-	return __read_vmcore((__force char *) buffer, buflen, fpos, 1);
+	return __read_vmcore((__force_kernel char *) buffer, buflen, fpos, 1);
 }
 
 /*
