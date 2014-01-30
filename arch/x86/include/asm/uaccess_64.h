@@ -256,13 +256,13 @@ unsigned long __copy_in_user(void __user *dst, const void __user *src, unsigned 
 static __must_check __always_inline unsigned long
 __copy_from_user_inatomic(void *dst, const void __user *src, unsigned long size)
 {
-	return __copy_from_user_nocheck(dst, ____m(src), size);
+	return __copy_from_user_nocheck(dst, src, size);
 }
 
 static __must_check __always_inline unsigned long
 __copy_to_user_inatomic(void __user *dst, const void *src, unsigned long size)
 {
-	return __copy_to_user_nocheck(____m(dst), src, size);
+	return __copy_to_user_nocheck(dst, src, size);
 }
 
 extern unsigned long __copy_user_nocache(void *dst, const void __user *src,
