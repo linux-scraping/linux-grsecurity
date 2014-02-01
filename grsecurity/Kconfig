@@ -214,6 +214,7 @@ config GRKERNSEC_RANDSTRUCT
 	bool "Randomize layout of sensitive kernel structures"
 	default y if GRKERNSEC_CONFIG_AUTO
 	select GRKERNSEC_HIDESYM
+	select MODVERSIONS if MODULES
 	help
 	  If you say Y here, the layouts of a number of sensitive kernel
 	  structures (task, fs, cred, etc) and all structures composed entirely

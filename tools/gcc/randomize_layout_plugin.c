@@ -296,6 +296,7 @@ static int relayout_struct(tree type)
 	unsigned long i;
 	tree list;
 	tree variant;
+	expanded_location xloc;
 
 	if (TYPE_FIELDS(type) == NULL_TREE)
 		return 0;
@@ -310,6 +311,12 @@ static int relayout_struct(tree type)
 	if (lookup_attribute("randomize_performed", TYPE_ATTRIBUTES(type)) ||
 	    lookup_attribute("no_randomize_layout", TYPE_ATTRIBUTES(TYPE_MAIN_VARIANT(type))))
 		return 0;
+
+	/* throw out any structs in uapi */
+	xloc = expand_location(DECL_SOURCE_LOCATION(TYPE_FIELDS(type)));
+
+	if (strstr(xloc.file, "/uapi/"))
+		error(G_("attempted to randomize userland API struct %s"), ORIG_TYPE_NAME(type));
 
 	for (field = TYPE_FIELDS(type), i = 0; field; field = TREE_CHAIN(field), i++) {
 		gcc_assert(TREE_CODE(field) == FIELD_DECL);
@@ -528,7 +535,7 @@ static unsigned int find_bad_casts(void)
 {
 	basic_block bb;
 
-	FOR_ALL_BB(bb) {
+	FOR_ALL_BB_FN(bb, cfun) {
 		gimple_stmt_iterator gsi;
 
 		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
