@@ -21,7 +21,7 @@ int plugin_is_GPL_compatible;
 static int performance_mode;
 
 static struct plugin_info randomize_layout_plugin_info = {
-	.version	= "201401251240",
+	.version	= "201402011940",
 	.help		= "disable\t\t\tdo not activate plugin\n"
 			  "seed\t\t\tprovide a required 64-byte seed in hex format\n"
 			  "performance-mode\tenable cacheline-aware layout randomization\n"
@@ -525,6 +525,138 @@ static void register_attributes(void *event_data, void *data)
 	register_attribute(&randomize_performed_attr);
 }
 
+static void check_bad_casts_in_constructor(tree var, tree init)
+{
+	unsigned HOST_WIDE_INT idx;
+	tree field, val;
+	tree field_type, val_type;
+
+	FOR_EACH_CONSTRUCTOR_ELT(CONSTRUCTOR_ELTS(init), idx, field, val) {
+		if (TREE_CODE(val) == CONSTRUCTOR) {
+			check_bad_casts_in_constructor(var, val);
+			continue;
+		}
+
+		field_type = TREE_TYPE(field);
+		val_type = TREE_TYPE(val);
+
+		if (TREE_CODE(field_type) != POINTER_TYPE || TREE_CODE(val_type) != POINTER_TYPE)
+			continue;
+
+		if (field_type == val_type)
+			continue;
+
+		field_type = TYPE_MAIN_VARIANT(strip_array_types(TYPE_MAIN_VARIANT(TREE_TYPE(field_type))));
+		val_type = TYPE_MAIN_VARIANT(strip_array_types(TYPE_MAIN_VARIANT(TREE_TYPE(val_type))));
+
+		if (field_type == void_type_node)
+			continue;
+		if (field_type == val_type)
+			continue;
+		if (TREE_CODE(val_type) != RECORD_TYPE)
+			continue;
+
+		if (!lookup_attribute("randomize_performed", TYPE_ATTRIBUTES(val_type)))
+			continue;
+		inform(DECL_SOURCE_LOCATION(var), "found mismatched struct pointer types: %qT and %qT\n", TYPE_MAIN_VARIANT(field_type), TYPE_MAIN_VARIANT(val_type));
+	}
+}
+
+/* derived from the constify plugin */
+static void check_global_variables(void *event_data, void *data)
+{
+	struct varpool_node *node;
+	tree init;
+
+#if BUILDING_GCC_VERSION <= 4007
+	for (node = varpool_nodes; node; node = node->next) {
+		tree var = node->decl;
+#else
+	FOR_EACH_VARIABLE(node) {
+		tree var = node->symbol.decl;
+#endif
+		init = DECL_INITIAL(var);
+		if (init == NULL_TREE)
+			continue;
+
+		if (TREE_CODE(init) != CONSTRUCTOR)
+			continue;
+
+		check_bad_casts_in_constructor(var, init);
+	}
+}
+
+static bool dominated_by_is_err(const_tree rhs, basic_block bb)
+{
+	basic_block dom;
+	gimple dom_stmt;
+	gimple call_stmt;
+	const_tree dom_lhs;
+	const_tree poss_is_err_cond;
+	const_tree poss_is_err_func;
+	const_tree is_err_arg;
+
+	dom = get_immediate_dominator(CDI_DOMINATORS, bb);
+	if (!dom)
+		return false;
+
+	dom_stmt = last_stmt(dom);
+	if (!dom_stmt)
+		return false;
+
+	if (gimple_code(dom_stmt) != GIMPLE_COND)
+		return false;
+
+	if (gimple_cond_code(dom_stmt) != NE_EXPR)
+		return false;
+
+	if (!integer_zerop(gimple_cond_rhs(dom_stmt)))
+		return false;
+
+	poss_is_err_cond = gimple_cond_lhs(dom_stmt);
+
+	if (TREE_CODE(poss_is_err_cond) != SSA_NAME)
+		return false;
+
+	call_stmt = SSA_NAME_DEF_STMT(poss_is_err_cond);
+
+	if (gimple_code(call_stmt) != GIMPLE_CALL)
+		return false;
+
+	dom_lhs = gimple_get_lhs(call_stmt);
+	poss_is_err_func = gimple_call_fndecl(call_stmt);
+	if (!poss_is_err_func)
+		return false;
+	if (dom_lhs != poss_is_err_cond)
+		return false;
+	if (strcmp(DECL_NAME_POINTER(poss_is_err_func), "IS_ERR"))
+		return false;
+
+	is_err_arg = gimple_call_arg(call_stmt, 0);
+	if (!is_err_arg)
+		return false;
+
+	if (is_err_arg != rhs)
+		return false;
+
+	return true;
+}
+
+static void handle_local_var_initializers(void)
+{
+	tree var;
+	unsigned int i;
+
+	FOR_EACH_LOCAL_DECL(cfun, i, var) {
+		tree init = DECL_INITIAL(var);
+		if (!init)
+			continue;
+		if (TREE_CODE(init) != CONSTRUCTOR)
+			continue;
+		check_bad_casts_in_constructor(var, init);
+	}
+}
+
 /*
  * iterate over all statements to find "bad" casts:
  * those where the address of the start of a structure is cast
@@ -534,6 +666,8 @@ static void register_attributes(void *event_data, void *data)
 static unsigned int find_bad_casts(void)
 {
 	basic_block bb;
+
+	handle_local_var_initializers();
 
 	FOR_ALL_BB_FN(bb, cfun) {
 		gimple_stmt_iterator gsi;
@@ -582,13 +716,16 @@ static unsigned int find_bad_casts(void)
 			    TREE_CODE(lhs_type) != POINTER_TYPE)
 				continue;
 
-			ptr_lhs_type = strip_array_types(TYPE_MAIN_VARIANT(TREE_TYPE(lhs_type)));
-			ptr_rhs_type = strip_array_types(TYPE_MAIN_VARIANT(TREE_TYPE(rhs_type)));
-
-			if (TREE_CODE(ptr_lhs_type) != RECORD_TYPE)
-				continue;
+			ptr_lhs_type = TYPE_MAIN_VARIANT(strip_array_types(TYPE_MAIN_VARIANT(TREE_TYPE(lhs_type))));
+			ptr_rhs_type = TYPE_MAIN_VARIANT(strip_array_types(TYPE_MAIN_VARIANT(TREE_TYPE(rhs_type))));
 
 			if (ptr_rhs_type == void_type_node)
+				continue;
+
+			if (ptr_lhs_type == void_type_node)
+				continue;
+
+			if (dominated_by_is_err(rhs1, bb))
 				continue;
 
 			if (TREE_CODE(ptr_rhs_type) != RECORD_TYPE) {
@@ -611,7 +748,7 @@ static unsigned int find_bad_casts(void)
 				if (TREE_CODE(op0) != VAR_DECL)
 					continue;
 
-				op0_type = strip_array_types(TYPE_MAIN_VARIANT(TREE_TYPE(op0)));
+				op0_type = TYPE_MAIN_VARIANT(strip_array_types(TYPE_MAIN_VARIANT(TREE_TYPE(op0))));
 				if (op0_type == ptr_lhs_type)
 					continue;
 
@@ -662,7 +799,7 @@ static struct gimple_opt_pass randomize_layout_bad_cast = {
 		.properties_provided	= 0,
 		.properties_destroyed	= 0,
 		.todo_flags_start	= 0,
-		.todo_flags_finish	= TODO_dump_func | TODO_verify_ssa | TODO_verify_stmts | TODO_remove_unused_locals | TODO_update_ssa_no_phi | TODO_cleanup_cfg | TODO_ggc_collect | TODO_verify_flow
+		.todo_flags_finish	= TODO_dump_func
 #if BUILDING_GCC_VERSION < 4009
 	}
 #endif
@@ -744,6 +881,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 
 	register_callback(plugin_name, PLUGIN_INFO, NULL, &randomize_layout_plugin_info);
 	if (enable) {
+		register_callback(plugin_name, PLUGIN_ALL_IPA_PASSES_START, check_global_variables, NULL);
 		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &randomize_layout_bad_cast_info);
 		register_callback(plugin_name, PLUGIN_FINISH_TYPE, finish_type, NULL);
 	}
