@@ -1,10 +1,20 @@
-# grsecurity's ACL system was originally written in 2001 by Michael Dalton
-# during 2001-2009 it has been completely redesigned by Brad Spengler
-# into an RBAC system
+# grsecurity – access control and security hardening for Linux
+# All code in this directory and various hooks located throughout the Linux kernel are
+# Copyright (C) 2001-2014 Bradley Spengler, Open Source Security, Inc.
+# http://www.grsecurity.net spender@grsecurity.net
 #
-# All code in this directory and various hooks inserted throughout the kernel
-# are copyright Brad Spengler - Open Source Security, Inc., and released 
-# under the GPL v2
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License version 2
+# as published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 KBUILD_CFLAGS += -Werror
 

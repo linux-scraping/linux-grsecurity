@@ -317,7 +317,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	}
 
 	register_callback(plugin_name, PLUGIN_INFO, NULL, &latent_entropy_plugin_info);
-	register_callback ("start_unit", PLUGIN_START_UNIT, &start_unit_callback, NULL);
+	register_callback(plugin_name, PLUGIN_START_UNIT, &start_unit_callback, NULL);
 	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &latent_entropy_pass_info);
 	register_callback(plugin_name, PLUGIN_ATTRIBUTES, register_attributes, NULL);
 
