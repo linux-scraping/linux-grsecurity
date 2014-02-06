@@ -430,6 +430,28 @@ static void randomize_type(tree type)
 #endif
 }
 
+static void finish_decl(void *event_data, void *data)
+{
+	tree decl = (tree)event_data;
+	tree type;
+
+	if (decl == NULL_TREE || decl == error_mark_node)
+		return;
+
+	type = TREE_TYPE(decl);
+
+	if (TREE_CODE(decl) != VAR_DECL)
+		return;
+
+	if (TREE_CODE(type) != RECORD_TYPE && TREE_CODE(type) != UNION_TYPE)
+		return;
+
+	if (!lookup_attribute("randomize_performed", TYPE_ATTRIBUTES(type)))
+		return;
+
+	relayout_decl(decl);
+}
+
 static void finish_type(void *event_data, void *data)
 {
 	tree type = (tree)event_data;
@@ -884,6 +906,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 		register_callback(plugin_name, PLUGIN_ALL_IPA_PASSES_START, check_global_variables, NULL);
 		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &randomize_layout_bad_cast_info);
 		register_callback(plugin_name, PLUGIN_FINISH_TYPE, finish_type, NULL);
+		register_callback(plugin_name, PLUGIN_FINISH_DECL, finish_decl, NULL);
 	}
 	register_callback(plugin_name, PLUGIN_ATTRIBUTES, register_attributes, NULL);
 

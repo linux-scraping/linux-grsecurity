@@ -608,7 +608,7 @@ RANDSTRUCT_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/randomize_layout_plugi
 RANDSTRUCT_PLUGIN_CFLAGS += -fplugin-arg-randomize_layout_plugin-seed=$(GRKERNSEC_RANDSTRUCT_SEED)
 RANDSTRUCT_HASHED_SEED := $(shell cat "$(srctree)/tools/gcc/randstruct.hashed_seed")
 RANDSTRUCT_PLUGIN_CFLAGS += -DRANDSTRUCT_HASHED_SEED="\"$(RANDSTRUCT_HASHED_SEED)\""
-ifdef CONFIG_GRKERNSEC_RANDSTRUCT
+ifdef CONFIG_GRKERNSEC_RANDSTRUCT_PERFORMANCE
 RANDSTRUCT_PLUGIN_CFLAGS += -fplugin-arg-randomize_layout_plugin-performance-mode
 endif
 endif

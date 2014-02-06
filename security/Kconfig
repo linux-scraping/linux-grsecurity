@@ -35,6 +35,7 @@ config GRKERNSEC
 	select PROC_FS
 	select STOP_MACHINE
 	select TTY
+	select DEBUG_KERNEL
 	select DEBUG_LIST
 	help
 	  If you say Y here, you will be able to configure many features
