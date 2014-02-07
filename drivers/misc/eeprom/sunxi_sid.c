@@ -127,7 +127,9 @@ static int sunxi_sid_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, sid_data);
 
-	sid_bin_attr.size = sid_data->keysize;
+	pax_open_kernel();
+	*(size_t *)&sid_bin_attr.size = sid_data->keysize;
+	pax_close_kernel();
 	if (device_create_bin_file(&pdev->dev, &sid_bin_attr))
 		return -ENODEV;
 

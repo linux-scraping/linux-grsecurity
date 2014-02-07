@@ -1017,6 +1017,7 @@ struct drm_info_list {
 	u32 driver_features; /**< Required driver features for this entry */
 	void *data;
 } __do_const;
+typedef struct drm_info_list __no_const drm_info_list_no_const;
 
 /**
  * debugfs node structure. This structure represents a debugfs file.

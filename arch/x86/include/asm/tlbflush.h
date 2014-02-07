@@ -75,7 +75,6 @@ static inline void __native_flush_tlb_global(void)
 
 static inline void __native_flush_tlb_single(unsigned long addr)
 {
-
 	if (static_cpu_has(X86_FEATURE_INVPCID)) {
 		u64 descriptor[2];
 

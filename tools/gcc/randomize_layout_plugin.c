@@ -12,6 +12,7 @@
  */
 
 #include "gcc-common.h"
+#include "randomize_layout_seed.h"
 
 #define ORIG_TYPE_NAME(node) \
 	(TYPE_NAME(TYPE_MAIN_VARIANT(node)) != NULL_TREE ? ((const unsigned char *)IDENTIFIER_POINTER(TYPE_NAME(TYPE_MAIN_VARIANT(node)))) : (const unsigned char *)"anonymous")
@@ -21,9 +22,8 @@ int plugin_is_GPL_compatible;
 static int performance_mode;
 
 static struct plugin_info randomize_layout_plugin_info = {
-	.version	= "201402011940",
+	.version	= "201402061950",
 	.help		= "disable\t\t\tdo not activate plugin\n"
-			  "seed\t\t\tprovide a required 64-byte seed in hex format\n"
 			  "performance-mode\tenable cacheline-aware layout randomization\n"
 };
 
@@ -590,13 +590,8 @@ static void check_global_variables(void *event_data, void *data)
 	struct varpool_node *node;
 	tree init;
 
-#if BUILDING_GCC_VERSION <= 4007
-	for (node = varpool_nodes; node; node = node->next) {
-		tree var = node->decl;
-#else
 	FOR_EACH_VARIABLE(node) {
-		tree var = node->symbol.decl;
-#endif
+		tree var = NODE_DECL(node);
 		init = DECL_INITIAL(var);
 		if (init == NULL_TREE)
 			continue;
@@ -880,22 +875,15 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 			performance_mode = 1;
 			continue;
 		}
-		if (!strcmp(argv[i].key, "seed")) {
-			if (!argv[i].value) {
-				error(G_("no value supplied for option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
-				continue;
-			}
-			if (strlen(argv[i].value) != 64) {
-				error(G_("invalid value supplied for option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
-				continue;
-			}
-			obtained_seed = sscanf(argv[i].value, "%016llx%016llx%016llx%016llx",
-				&shuffle_seed[0], &shuffle_seed[1], &shuffle_seed[2], &shuffle_seed[3]);
-			continue;
-		}
 		error(G_("unkown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
 	}
 
+	if (strlen(randstruct_seed) != 64) {
+		error(G_("invalid seed value supplied for %s plugin"), plugin_name);
+		return 1;
+	}
+	obtained_seed = sscanf(randstruct_seed, "%016llx%016llx%016llx%016llx",
+		&shuffle_seed[0], &shuffle_seed[1], &shuffle_seed[2], &shuffle_seed[3]);
 	if (obtained_seed != 4) {
 		error(G_("Invalid seed supplied for %s plugin"), plugin_name);
 		return 1;

@@ -1,6 +1,6 @@
 VERSION = 3
 PATCHLEVEL = 13
-SUBLEVEL = 1
+SUBLEVEL = 2
 EXTRAVERSION =
 NAME = One Giant Leap for Frogkind
 
@@ -312,8 +312,14 @@ endif
 # If the user is running make -s (silent mode), suppress echoing of
 # commands
 
+ifneq ($(filter 4.%,$(MAKE_VERSION)),)	# make-4
+ifneq ($(filter %s ,$(firstword x$(MAKEFLAGS))),)
+ quiet=silent_
+endif
+else					# make-3.8x
 ifneq ($(filter s% -s%,$(MAKEFLAGS)),)
   quiet=silent_
+endif
 endif
 
 export quiet Q KBUILD_VERBOSE
@@ -603,10 +609,8 @@ KERNEXEC_PLUGIN_CFLAGS += -fplugin-arg-kernexec_plugin-method=$(CONFIG_PAX_KERNE
 KERNEXEC_PLUGIN_AFLAGS := -DKERNEXEC_PLUGIN
 endif
 ifdef CONFIG_GRKERNSEC_RANDSTRUCT
-GRKERNSEC_RANDSTRUCT_SEED := $(shell $(CONFIG_SHELL) $(srctree)/scripts/gen-random-seed.sh)
 RANDSTRUCT_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/randomize_layout_plugin.so -DRANDSTRUCT_PLUGIN
-RANDSTRUCT_PLUGIN_CFLAGS += -fplugin-arg-randomize_layout_plugin-seed=$(GRKERNSEC_RANDSTRUCT_SEED)
-RANDSTRUCT_HASHED_SEED := $(shell cat "$(srctree)/tools/gcc/randstruct.hashed_seed")
+RANDSTRUCT_HASHED_SEED := $(shell cat "$(objtree)/tools/gcc/randomize_layout_hash.data")
 RANDSTRUCT_PLUGIN_CFLAGS += -DRANDSTRUCT_HASHED_SEED="\"$(RANDSTRUCT_HASHED_SEED)\""
 ifdef CONFIG_GRKERNSEC_RANDSTRUCT_PERFORMANCE
 RANDSTRUCT_PLUGIN_CFLAGS += -fplugin-arg-randomize_layout_plugin-performance-mode
@@ -690,7 +694,7 @@ endif
 
 ifdef CONFIG_DEBUG_INFO
 KBUILD_CFLAGS	+= -g
-KBUILD_AFLAGS	+= -gdwarf-2
+KBUILD_AFLAGS	+= -Wa,--gdwarf-2
 endif
 
 ifdef CONFIG_DEBUG_INFO_REDUCED
@@ -1126,7 +1130,7 @@ MRPROPER_FILES += .config .config.old .version .old_version $(version_h) \
 		  signing_key.priv signing_key.x509 x509.genkey		\
 		  extra_certificates signing_key.x509.keyid		\
 		  signing_key.x509.signer tools/gcc/size_overflow_hash.h \
-		  tools/gcc/randstruct.seed tools/gcc/randstruct.hashed_seed
+		  tools/gcc/randomize_layout_seed.h tools/gcc/randomize_layout_hash.data
 
 # clean - Delete most, but leave enough to build external modules
 #

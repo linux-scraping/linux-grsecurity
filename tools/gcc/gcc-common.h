@@ -88,6 +88,7 @@
 #if BUILDING_GCC_VERSION >= 4009
 #include "tree-ssa-operands.h"
 #include "tree-phinodes.h"
+#include "tree-cfg.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "ssa-iterators.h"
