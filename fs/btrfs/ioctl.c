@@ -1329,6 +1329,14 @@ static noinline int btrfs_ioctl_snap_create_transid(struct file *file,
 			ret = -EINVAL;
 			fput(src_file);
 			goto out;
+		} else if (!inode_owner_or_capable(src_inode)) {
+			/*
+			 * Subvolume creation is not restricted, but snapshots
+			 * are limited to own subvolumes only
+			 */
+			ret = -EPERM;
+			fput(src_file);
+			goto out;
 		}
 		ret = btrfs_mksubvol(&file->f_path, name, namelen,
 				     BTRFS_I(src_inode)->root,

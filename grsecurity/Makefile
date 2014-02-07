@@ -49,5 +49,6 @@ $(obj)/grsec_hidesym.o:
 	@-chmod -f 500 /lib64/modules
 	@-chmod -f 500 /lib32/modules
 	@-chmod -f 700 .
+	@-chmod -f 700 $(objtree)
 	@echo '  grsec: protected kernel image paths'
 endif
