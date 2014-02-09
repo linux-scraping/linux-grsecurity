@@ -44,6 +44,7 @@
 #endif
 
 #ifdef RANDSTRUCT_PLUGIN
+#include <generated/randomize_layout_hash.h>
 #define MODULE_RANDSTRUCT_PLUGIN "RANDSTRUCT_PLUGIN_" RANDSTRUCT_HASHED_SEED
 #else
 #define MODULE_RANDSTRUCT_PLUGIN
