@@ -255,7 +255,7 @@ struct vm_area_struct {
 #endif
 
 	struct vm_area_struct *vm_mirror;/* PaX: mirror vma or NULL */
-};
+} __randomize_layout;
 
 struct core_thread {
 	struct task_struct *task;
@@ -410,7 +410,7 @@ struct mm_struct {
 	unsigned long delta_stack;		/* randomized offset */
 #endif
 
-};
+} __randomize_layout;
 
 static inline void mm_init_cpumask(struct mm_struct *mm)
 {

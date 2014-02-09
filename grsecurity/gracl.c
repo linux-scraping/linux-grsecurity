@@ -2628,8 +2628,8 @@ gr_acl_handle_mprotect(const struct file *file, const unsigned long prot)
 void
 gr_acl_handle_psacct(struct task_struct *task, const long code)
 {
-	unsigned long runtime;
-	unsigned long cputime;
+	unsigned long runtime, cputime;
+	cputime_t utime, stime;
 	unsigned int wday, cday;
 	__u8 whr, chr;
 	__u8 wmin, cmin;
@@ -2642,19 +2642,20 @@ gr_acl_handle_psacct(struct task_struct *task, const long code)
 
 	do_posix_clock_monotonic_gettime(&timeval);
 	runtime = timeval.tv_sec - task->start_time.tv_sec;
-	wday = runtime / (3600 * 24);
-	runtime -= wday * (3600 * 24);
-	whr = runtime / 3600;
-	runtime -= whr * 3600;
+	wday = runtime / (60 * 60 * 24);
+	runtime -= wday * (60 * 60 * 24);
+	whr = runtime / (60 * 60);
+	runtime -= whr * (60 * 60);
 	wmin = runtime / 60;
 	runtime -= wmin * 60;
 	wsec = runtime;
 
-	cputime = (task->utime + task->stime) / HZ;
-	cday = cputime / (3600 * 24);
-	cputime -= cday * (3600 * 24);
-	chr = cputime / 3600;
-	cputime -= chr * 3600;
+	task_times(task, &utime, &stime);
+	cputime = cputime_to_secs(utime + stime);
+	cday = cputime / (60 * 60 * 24);
+	cputime -= cday * (60 * 60 * 24);
+	chr = cputime / (60 * 60);
+	cputime -= chr * (60 * 60);
 	cmin = cputime / 60;
 	cputime -= cmin * 60;
 	csec = cputime;

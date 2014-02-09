@@ -313,8 +313,14 @@ endif
 # If the user is running make -s (silent mode), suppress echoing of
 # commands
 
+ifneq ($(filter 4.%,$(MAKE_VERSION)),)	# make-4
+ifneq ($(filter %s ,$(firstword x$(MAKEFLAGS))),)
+ quiet=silent_
+endif
+else					# make-3.8x
 ifneq ($(findstring s,$(MAKEFLAGS)),)
   quiet=silent_
+endif
 endif
 
 export quiet Q KBUILD_VERBOSE
@@ -587,6 +593,14 @@ KERNEXEC_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/kernexec_plugin.so
 KERNEXEC_PLUGIN_CFLAGS += -fplugin-arg-kernexec_plugin-method=$(CONFIG_PAX_KERNEXEC_PLUGIN_METHOD) -DKERNEXEC_PLUGIN
 KERNEXEC_PLUGIN_AFLAGS := -DKERNEXEC_PLUGIN
 endif
+ifdef CONFIG_GRKERNSEC_RANDSTRUCT
+RANDSTRUCT_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/randomize_layout_plugin.so -DRANDSTRUCT_PLUGIN
+RANDSTRUCT_HASHED_SEED := $(shell cat "$(objtree)/tools/gcc/randomize_layout_hash.data")
+RANDSTRUCT_PLUGIN_CFLAGS += -DRANDSTRUCT_HASHED_SEED="\"$(RANDSTRUCT_HASHED_SEED)\""
+ifdef CONFIG_GRKERNSEC_RANDSTRUCT_PERFORMANCE
+RANDSTRUCT_PLUGIN_CFLAGS += -fplugin-arg-randomize_layout_plugin-performance-mode
+endif
+endif
 ifdef CONFIG_CHECKER_PLUGIN
 ifeq ($(call cc-ifversion, -ge, 0406, y), y)
 CHECKER_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/checker_plugin.so -DCHECKER_PLUGIN
@@ -605,6 +619,7 @@ endif
 GCC_PLUGINS_CFLAGS := $(CONSTIFY_PLUGIN_CFLAGS) $(STACKLEAK_PLUGIN_CFLAGS) $(KALLOCSTAT_PLUGIN_CFLAGS)
 GCC_PLUGINS_CFLAGS += $(KERNEXEC_PLUGIN_CFLAGS) $(CHECKER_PLUGIN_CFLAGS) $(COLORIZE_PLUGIN_CFLAGS)
 GCC_PLUGINS_CFLAGS += $(SIZE_OVERFLOW_PLUGIN_CFLAGS) $(LATENT_ENTROPY_PLUGIN_CFLAGS) $(STRUCTLEAK_PLUGIN_CFLAGS)
+GCC_PLUGINS_CFLAGS += $(RANDSTRUCT_PLUGIN_CFLAGS)
 GCC_PLUGINS_AFLAGS := $(KERNEXEC_PLUGIN_AFLAGS)
 export PLUGINCC CONSTIFY_PLUGIN
 ifeq ($(KBUILD_EXTMOD),)
@@ -654,7 +669,7 @@ endif
 
 ifdef CONFIG_DEBUG_INFO
 KBUILD_CFLAGS	+= -g
-KBUILD_AFLAGS	+= -gdwarf-2
+KBUILD_AFLAGS	+= -Wa,--gdwarf-2
 endif
 
 ifdef CONFIG_DEBUG_INFO_REDUCED
@@ -1231,7 +1246,8 @@ MRPROPER_DIRS  += include/config usr/include include/generated          \
                   arch/*/include/generated
 MRPROPER_FILES += .config .config.old .version .old_version             \
                   include/linux/version.h tools/gcc/size_overflow_hash.h\
-		  Module.symvers tags TAGS cscope* GPATH GTAGS GRTAGS GSYMS
+		  Module.symvers tags TAGS cscope* GPATH GTAGS GRTAGS GSYMS \
+		  tools/gcc/randomize_layout_seed.h tools/gcc/randomize_layout_hash.data
 
 # clean - Delete most, but leave enough to build external modules
 #

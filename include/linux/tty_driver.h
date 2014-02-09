@@ -321,7 +321,7 @@ struct tty_driver {
 
 	const struct tty_operations *ops;
 	struct list_head tty_drivers;
-};
+} __randomize_layout;
 
 extern struct list_head tty_drivers;
 

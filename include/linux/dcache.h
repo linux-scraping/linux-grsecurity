@@ -142,7 +142,7 @@ struct dentry {
 	} d_u;
 	struct list_head d_subdirs;	/* our children */
 	struct list_head d_alias;	/* inode alias list */
-};
+} __randomize_layout;
 
 /*
  * dentry->d_lock spinlock nesting subclasses:

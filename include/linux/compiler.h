@@ -286,6 +286,14 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
 # define __attribute_const__	/* unimplemented */
 #endif
 
+#ifndef __randomize_layout
+# define __randomize_layout
+#endif
+
+#ifndef __no_randomize_layout
+# define __no_randomize_layout
+#endif
+
 #ifndef __no_const
 # define __no_const
 #endif

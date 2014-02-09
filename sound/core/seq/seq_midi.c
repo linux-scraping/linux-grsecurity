@@ -462,8 +462,8 @@ snd_seq_midisynth_unregister_port(struct snd_seq_device *dev)
 static int __init alsa_seq_midi_init(void)
 {
 	static struct snd_seq_dev_ops ops = {
-		snd_seq_midisynth_register_port,
-		snd_seq_midisynth_unregister_port,
+		.init_device = snd_seq_midisynth_register_port,
+		.free_device = snd_seq_midisynth_unregister_port,
 	};
 	memset(&synths, 0, sizeof(synths));
 	snd_seq_autoload_lock();

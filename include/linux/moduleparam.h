@@ -159,13 +159,13 @@ struct kparam_array
 	    { arg } }
 
 /* Obsolete - use module_param_cb() */
-#define module_param_call(name, set, get, arg, perm)			\
+#define module_param_call(name, _set, _get, arg, perm)			\
 	static struct kernel_param_ops __param_ops_##name =		\
-		 { (void *)set, (void *)get };				\
+		 { .set = (void *)_set, .get = (void *)_get };		\
 	__module_param_call(MODULE_PARAM_PREFIX,			\
 			    name, &__param_ops_##name, arg,		\
 			    __same_type(arg, bool *),			\
-			    (perm) + sizeof(__check_old_set_param(set))*0)
+			    (perm) + sizeof(__check_old_set_param(_set))*0)
 
 /* We don't get oldget: it's often a new-style param_get_uint, etc. */
 static inline int

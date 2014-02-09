@@ -2254,6 +2254,7 @@ source "kernel/Kconfig.preempt"
 config KEXEC
 	bool "Kexec system call (EXPERIMENTAL)"
 	depends on EXPERIMENTAL
+	depends on !GRKERNSEC_KMEM
 	help
 	  kexec is a system call that implements the ability to shutdown your
 	  current kernel, and to start another kernel.  It is like a reboot

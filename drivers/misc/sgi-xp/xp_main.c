@@ -78,13 +78,13 @@ xpc_notloaded(void)
 }
 
 struct xpc_interface xpc_interface = {
-	(void (*)(int))xpc_notloaded,
-	(void (*)(int))xpc_notloaded,
-	(enum xp_retval(*)(short, int, u32, void *, u16))xpc_notloaded,
-	(enum xp_retval(*)(short, int, u32, void *, u16, xpc_notify_func,
+	.connect = (void (*)(int))xpc_notloaded,
+	.disconnect = (void (*)(int))xpc_notloaded,
+	.send = (enum xp_retval(*)(short, int, u32, void *, u16))xpc_notloaded,
+	.send_notify = (enum xp_retval(*)(short, int, u32, void *, u16, xpc_notify_func,
 			   void *))xpc_notloaded,
-	(void (*)(short, int, void *))xpc_notloaded,
-	(enum xp_retval(*)(short, void *))xpc_notloaded
+	.received = (void (*)(short, int, void *))xpc_notloaded,
+	.partid_to_nasids = (enum xp_retval(*)(short, void *))xpc_notloaded
 };
 EXPORT_SYMBOL_GPL(xpc_interface);
 

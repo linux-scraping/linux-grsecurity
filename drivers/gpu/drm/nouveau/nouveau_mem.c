@@ -812,11 +812,11 @@ nouveau_vram_manager_debug(struct ttm_mem_type_manager *man, const char *prefix)
 }
 
 const struct ttm_mem_type_manager_func nouveau_vram_manager = {
-	nouveau_vram_manager_init,
-	nouveau_vram_manager_fini,
-	nouveau_vram_manager_new,
-	nouveau_vram_manager_del,
-	nouveau_vram_manager_debug
+	.init = nouveau_vram_manager_init,
+	.takedown = nouveau_vram_manager_fini,
+	.get_node = nouveau_vram_manager_new,
+	.put_node = nouveau_vram_manager_del,
+	.debug = nouveau_vram_manager_debug
 };
 
 static int
@@ -869,9 +869,9 @@ nouveau_gart_manager_debug(struct ttm_mem_type_manager *man, const char *prefix)
 }
 
 const struct ttm_mem_type_manager_func nouveau_gart_manager = {
-	nouveau_gart_manager_init,
-	nouveau_gart_manager_fini,
-	nouveau_gart_manager_new,
-	nouveau_gart_manager_del,
-	nouveau_gart_manager_debug
+	.init = nouveau_gart_manager_init,
+	.takedown = nouveau_gart_manager_fini,
+	.get_node = nouveau_gart_manager_new,
+	.put_node = nouveau_gart_manager_del,
+	.debug = nouveau_gart_manager_debug
 };

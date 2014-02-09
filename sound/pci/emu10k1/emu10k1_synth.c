@@ -108,8 +108,8 @@ static int __init alsa_emu10k1_synth_init(void)
 {
 	
 	static struct snd_seq_dev_ops ops = {
-		snd_emu10k1_synth_new_device,
-		snd_emu10k1_synth_delete_device,
+		.init_device = snd_emu10k1_synth_new_device,
+		.free_device = snd_emu10k1_synth_delete_device,
 	};
 	return snd_seq_device_register_driver(SNDRV_SEQ_DEV_ID_EMU10K1_SYNTH, &ops,
 					      sizeof(struct snd_emu10k1_synth_arg));

@@ -435,6 +435,15 @@ struct ctl_table grsecurity_table[] = {
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
+#ifdef CONFIG_GRKERNSEC_HARDEN_IPC
+	{
+		.procname	= "harden_ipc",
+		.data		= &grsec_enable_harden_ipc,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
 	{
 		.procname	= "grsec_lock",
 		.data		= &grsec_lock,

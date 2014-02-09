@@ -75,8 +75,8 @@ static int __init alsa_seq_oss_init(void)
 {
 	int rc;
 	static struct snd_seq_dev_ops ops = {
-		snd_seq_oss_synth_register,
-		snd_seq_oss_synth_unregister,
+		.init_device = snd_seq_oss_synth_register,
+		.free_device = snd_seq_oss_synth_unregister,
 	};
 
 	snd_seq_autoload_lock();

@@ -1043,7 +1043,7 @@ struct ctl_table
 	struct ctl_table_poll *poll;
 	void *extra1;
 	void *extra2;
-} __do_const;
+} __do_const __randomize_layout;
 typedef struct ctl_table __no_const ctl_table_no_const;
 typedef struct ctl_table ctl_table;
 

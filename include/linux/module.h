@@ -43,7 +43,7 @@ struct module_kobject {
 	struct module *mod;
 	struct kobject *drivers_dir;
 	struct module_param_attrs *mp;
-};
+} __randomize_layout;
 
 struct module_attribute {
 	struct attribute attr;
@@ -362,7 +362,7 @@ struct module
 	ctor_fn_t *ctors;
 	unsigned int num_ctors;
 #endif
-};
+} __randomize_layout;
 #ifndef MODULE_ARCH_INIT
 #define MODULE_ARCH_INIT {}
 #endif

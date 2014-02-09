@@ -687,7 +687,7 @@ struct signal_struct {
 	struct mutex cred_guard_mutex;	/* guard against foreign influences on
 					 * credential calculations
 					 * (notably. ptrace) */
-};
+} __randomize_layout;
 
 /* Context switch must be unlocked if interrupts are to be enabled */
 #ifdef __ARCH_WANT_INTERRUPTS_ON_CTXSW
@@ -761,7 +761,7 @@ struct user_struct {
 #ifdef CONFIG_PERF_EVENTS
 	atomic_long_t locked_vm;
 #endif
-};
+} __randomize_layout;
 
 extern int uids_sysfs_init(void);
 
@@ -1650,7 +1650,7 @@ struct task_struct {
 #ifdef CONFIG_HAVE_HW_BREAKPOINT
 	atomic_t ptrace_bp_refcnt;
 #endif
-};
+} __randomize_layout;
 
 #define MF_PAX_PAGEEXEC		0x01000000	/* Paging based non-executable pages */
 #define MF_PAX_EMUTRAMP		0x02000000	/* Emulate trampolines */

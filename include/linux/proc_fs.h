@@ -76,7 +76,7 @@ struct proc_dir_entry {
 	spinlock_t pde_unload_lock; /* proc_fops checks and pde_users bumps */
 	u8 namelen;
 	char name[];
-};
+} __randomize_layout;
 
 enum kcore_type {
 	KCORE_TEXT,
@@ -286,7 +286,7 @@ struct proc_inode {
 	void *ns;
 	const struct proc_ns_operations *ns_ops;
 	struct inode vfs_inode;
-};
+} __randomize_layout;
 
 static inline struct proc_inode *PROC_I(const struct inode *inode)
 {

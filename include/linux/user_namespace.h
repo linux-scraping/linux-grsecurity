@@ -14,7 +14,7 @@ struct user_namespace {
 	struct hlist_head	uidhash_table[UIDHASH_SZ];
 	struct user_struct	*creator;
 	struct work_struct	destroyer;
-};
+} __randomize_layout;
 
 extern struct user_namespace init_user_ns;
 

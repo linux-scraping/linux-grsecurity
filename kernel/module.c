@@ -1064,13 +1064,29 @@ static int check_version(Elf_Shdr *sechdrs,
 		goto bad_version;
 	}
 
-	printk(KERN_WARNING "%s: no symbol version for %s\n",
-	       mod->name, symname);
+#ifdef CONFIG_GRKERNSEC_RANDSTRUCT
+	/*
+	 * avoid potentially printing jibberish on attempted load
+	 * of a module randomized with a different seed
+	 */
+	pr_warn("no symbol version for %s\n", symname);
+#else
+	pr_warn("%s: no symbol version for %s\n", mod->name, symname);
+#endif
 	return 0;
 
 bad_version:
+#ifdef CONFIG_GRKERNSEC_RANDSTRUCT
+	/*
+	 * avoid potentially printing jibberish on attempted load
+	 * of a module randomized with a different seed
+	 */
+	printk("attempted module disagrees about version of symbol %s\n",
+	       symname);
+#else
 	printk("%s: disagrees about version of symbol %s\n",
 	       mod->name, symname);
+#endif
 	return 0;
 }
 
@@ -2495,8 +2511,15 @@ static struct module *setup_load_info(struct load_info *info)
 	mod = (void *)info->sechdrs[info->index.mod].sh_addr;
 
 	if (info->index.sym == 0) {
-		printk(KERN_WARNING "%s: module has no symbols (stripped?)\n",
-		       mod->name);
+#ifdef CONFIG_GRKERNSEC_RANDSTRUCT
+		/*
+		 * avoid potentially printing jibberish on attempted load
+		 * of a module randomized with a different seed
+		 */
+		pr_warn("module has no symbols (stripped?)\n");
+#else
+		pr_warn("%s: module has no symbols (stripped?)\n", mod->name);
+#endif
 		return ERR_PTR(-ENOEXEC);
 	}
 

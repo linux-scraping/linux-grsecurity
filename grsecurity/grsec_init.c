@@ -15,6 +15,7 @@ int grsec_enable_brute;
 int grsec_enable_link;
 int grsec_enable_dmesg;
 int grsec_enable_harden_ptrace;
+int grsec_enable_harden_ipc;
 int grsec_enable_fifo;
 int grsec_enable_execlog;
 int grsec_enable_signal;
@@ -153,6 +154,9 @@ grsecurity_init(void)
 #endif
 #ifdef CONFIG_GRKERNSEC_HARDEN_PTRACE
 	grsec_enable_harden_ptrace = 1;
+#endif
+#ifdef CONFIG_GRKERNSEC_HARDEN_IPC
+	grsec_enable_harden_ipc = 1;
 #endif
 #ifdef CONFIG_GRKERNSEC_AUDIT_MOUNT
 	grsec_enable_mount = 1;

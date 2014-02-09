@@ -65,7 +65,7 @@ struct ipc_namespace {
 
 	/* user_ns which owns the ipc ns */
 	struct user_namespace *user_ns;
-};
+} __randomize_layout;
 
 extern struct ipc_namespace init_ipc_ns;
 extern atomic_t nr_ipc_ns;

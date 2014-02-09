@@ -80,6 +80,7 @@ extern int grsec_resource_logging;
 extern int grsec_enable_blackhole;
 extern int grsec_lastack_retries;
 extern int grsec_enable_brute;
+extern int grsec_enable_harden_ipc;
 extern int grsec_lock;
 
 extern spinlock_t grsec_alert_lock;

@@ -47,6 +47,11 @@
 
 #if __GNUC_MINOR__ >= 5
 
+#ifdef RANDSTRUCT_PLUGIN
+#define __randomize_layout __attribute__((randomize_layout))
+#define __no_randomize_layout __attribute__((no_randomize_layout))
+#endif
+
 #ifdef CONSTIFY_PLUGIN
 #define __no_const __attribute__((no_const))
 #define __do_const __attribute__((do_const))

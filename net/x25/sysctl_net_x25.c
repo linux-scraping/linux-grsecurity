@@ -70,7 +70,7 @@ static struct ctl_table x25_table[] = {
 		.mode = 	0644,
 		.proc_handler = proc_dointvec,
 	},
-	{ 0, },
+	{ },
 };
 
 static struct ctl_path x25_path[] = {

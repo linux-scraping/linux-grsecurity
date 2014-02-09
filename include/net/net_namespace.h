@@ -101,7 +101,7 @@ struct net {
 	struct netns_xfrm	xfrm;
 #endif
 	struct netns_ipvs	*ipvs;
-};
+} __randomize_layout;
 
 
 #include <linux/seq_file_net.h>

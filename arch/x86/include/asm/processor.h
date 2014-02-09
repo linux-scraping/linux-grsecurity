@@ -110,7 +110,7 @@ struct cpuinfo_x86 {
 	/* Index into per_cpu list: */
 	u16			cpu_index;
 	u32			microcode;
-} __attribute__((__aligned__(SMP_CACHE_BYTES)));
+} __attribute__((__aligned__(SMP_CACHE_BYTES))) __randomize_layout;
 
 #define X86_VENDOR_INTEL	0
 #define X86_VENDOR_CYRIX	1

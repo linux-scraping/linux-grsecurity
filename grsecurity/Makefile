@@ -21,7 +21,7 @@ KBUILD_CFLAGS += -Werror
 obj-y = grsec_chdir.o grsec_chroot.o grsec_exec.o grsec_fifo.o grsec_fork.o \
 	grsec_mount.o grsec_sig.o grsec_sysctl.o \
 	grsec_time.o grsec_tpe.o grsec_link.o grsec_pax.o grsec_ptrace.o \
-	grsec_usb.o
+	grsec_usb.o grsec_ipc.o
 
 obj-$(CONFIG_GRKERNSEC) += grsec_init.o grsum.o gracl.o gracl_segv.o \
 	gracl_cap.o gracl_alloc.o gracl_shm.o grsec_mem.o gracl_fs.o \
