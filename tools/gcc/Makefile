@@ -37,8 +37,7 @@ structleak_plugin-objs := structleak_plugin.o
 randomize_layout_plugin-objs := randomize_layout_plugin.o
 
 $(obj)/size_overflow_plugin.o: $(objtree)/$(obj)/size_overflow_hash.h
-$(obj)/randomize_layout_plugin.o: $(objtree)/$(obj)/randomize_layout_seed.h \
-	$(objtree)/$(obj)/randomize_layout_hash.data
+$(obj)/randomize_layout_plugin.o: $(objtree)/$(obj)/randomize_layout_seed.h
 
 quiet_cmd_build_size_overflow_hash = GENHASH  $@
       cmd_build_size_overflow_hash = \
@@ -48,8 +47,8 @@ $(objtree)/$(obj)/size_overflow_hash.h: $(src)/size_overflow_hash.data FORCE
 
 quiet_cmd_create_randomize_layout_seed = GENSEED  $@
       cmd_create_randomize_layout_seed = \
-	$(CONFIG_SHELL) $(srctree)/$(src)/gen-random-seed.sh $@ $(objtree)/$(obj)/randomize_layout_hash.data
-$(objtree)/$(obj)/randomize_layout_seed.h $(objtree)/$(obj)/randomize_layout_hash.data: FORCE
+	$(CONFIG_SHELL) $(srctree)/$(src)/gen-random-seed.sh $@ $(objtree)/include/generated/randomize_layout_hash.h
+$(objtree)/$(obj)/randomize_layout_seed.h: FORCE
 	$(call if_changed,create_randomize_layout_seed)
 
-targets += size_overflow_hash.h randomize_layout_seed.h randomize_layout_hash.data
+targets += size_overflow_hash.h randomize_layout_seed.h randomize_layout_hash.h

@@ -610,8 +610,6 @@ KERNEXEC_PLUGIN_AFLAGS := -DKERNEXEC_PLUGIN
 endif
 ifdef CONFIG_GRKERNSEC_RANDSTRUCT
 RANDSTRUCT_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/randomize_layout_plugin.so -DRANDSTRUCT_PLUGIN
-RANDSTRUCT_HASHED_SEED := $(shell cat "$(objtree)/tools/gcc/randomize_layout_hash.data")
-RANDSTRUCT_PLUGIN_CFLAGS += -DRANDSTRUCT_HASHED_SEED="\"$(RANDSTRUCT_HASHED_SEED)\""
 ifdef CONFIG_GRKERNSEC_RANDSTRUCT_PERFORMANCE
 RANDSTRUCT_PLUGIN_CFLAGS += -fplugin-arg-randomize_layout_plugin-performance-mode
 endif
@@ -1130,7 +1128,7 @@ MRPROPER_FILES += .config .config.old .version .old_version $(version_h) \
 		  signing_key.priv signing_key.x509 x509.genkey		\
 		  extra_certificates signing_key.x509.keyid		\
 		  signing_key.x509.signer tools/gcc/size_overflow_hash.h \
-		  tools/gcc/randomize_layout_seed.h tools/gcc/randomize_layout_hash.data
+		  tools/gcc/randomize_layout_seed.h
 
 # clean - Delete most, but leave enough to build external modules
 #
