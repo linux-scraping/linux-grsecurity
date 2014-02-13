@@ -434,8 +434,8 @@ void gr_put_exec_file(struct task_struct *task)
 	return;
 }
 
-EXPORT_SYMBOL(gr_learn_resource);
+EXPORT_SYMBOL_GPL(gr_learn_resource);
 #ifdef CONFIG_SECURITY
-EXPORT_SYMBOL(gr_check_user_change);
-EXPORT_SYMBOL(gr_check_group_change);
+EXPORT_SYMBOL_GPL(gr_check_user_change);
+EXPORT_SYMBOL_GPL(gr_check_group_change);
 #endif

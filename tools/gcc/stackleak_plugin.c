@@ -25,10 +25,11 @@ int plugin_is_GPL_compatible;
 static int track_frame_size = -1;
 static const char track_function[] = "pax_track_stack";
 static const char check_function[] = "pax_check_alloca";
+static tree track_function_decl, check_function_decl;
 static bool init_locals;
 
 static struct plugin_info stackleak_plugin_info = {
-	.version	= "201401260140",
+	.version	= "201402131920",
 	.help		= "track-lowest-sp=nn\ttrack sp in functions whose frame size is at least nn bytes\n"
 //			  "initialize-locals\t\tforcibly initialize all stack frames\n"
 };
@@ -36,29 +37,20 @@ static struct plugin_info stackleak_plugin_info = {
 static void stackleak_check_alloca(gimple_stmt_iterator *gsi)
 {
 	gimple check_alloca;
-	tree fntype, fndecl, alloca_size;
-
-	fntype = build_function_type_list(void_type_node, long_unsigned_type_node, NULL_TREE);
-	fndecl = build_fn_decl(check_function, fntype);
-	DECL_ASSEMBLER_NAME(fndecl); // for LTO
+	tree alloca_size;
 
 	// insert call to void pax_check_alloca(unsigned long size)
 	alloca_size = gimple_call_arg(gsi_stmt(*gsi), 0);
-	check_alloca = gimple_build_call(fndecl, 1, alloca_size);
+	check_alloca = gimple_build_call(check_function_decl, 1, alloca_size);
 	gsi_insert_before(gsi, check_alloca, GSI_SAME_STMT);
 }
 
 static void stackleak_add_instrumentation(gimple_stmt_iterator *gsi)
 {
 	gimple track_stack;
-	tree fntype, fndecl;
-
-	fntype = build_function_type_list(void_type_node, NULL_TREE);
-	fndecl = build_fn_decl(track_function, fntype);
-	DECL_ASSEMBLER_NAME(fndecl); // for LTO
 
 	// insert call to void pax_track_stack(void)
-	track_stack = gimple_build_call(fndecl, 0);
+	track_stack = gimple_build_call(track_function_decl, 0);
 	gsi_insert_after(gsi, track_stack, GSI_CONTINUE_LINKING);
 }
 
@@ -185,6 +177,27 @@ static bool gate_stackleak_track_stack(void)
 	return track_frame_size >= 0;
 }
 
+static void stackleak_start_unit(void *gcc_data, void *user_data)
+{
+	tree fntype;
+
+	// void pax_track_stack(void)
+	fntype = build_function_type_list(void_type_node, NULL_TREE);
+	track_function_decl = build_fn_decl(track_function, fntype);
+	DECL_ASSEMBLER_NAME(track_function_decl); // for LTO
+	TREE_PUBLIC(track_function_decl) = 1;
+	DECL_EXTERNAL(track_function_decl) = 1;
+	DECL_ARTIFICIAL(track_function_decl) = 1;
+
+	// void pax_check_alloca(unsigned long)
+	fntype = build_function_type_list(void_type_node, long_unsigned_type_node, NULL_TREE);
+	check_function_decl = build_fn_decl(check_function, fntype);
+	DECL_ASSEMBLER_NAME(check_function_decl); // for LTO
+	TREE_PUBLIC(check_function_decl) = 1;
+	DECL_EXTERNAL(check_function_decl) = 1;
+	DECL_ARTIFICIAL(check_function_decl) = 1;
+}
+
 #if BUILDING_GCC_VERSION >= 4009
 static const struct pass_data stackleak_tree_instrument_pass_data = {
 #else
@@ -293,6 +306,23 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	int i;
 	struct register_pass_info stackleak_tree_instrument_pass_info;
 	struct register_pass_info stackleak_final_pass_info;
+	static const struct ggc_root_tab gt_ggc_r_gt_stackleak[] = {
+		{
+			.base = &track_function_decl,
+			.nelt = 1,
+			.stride = sizeof(track_function_decl),
+			.cb = &gt_ggc_mx_tree_node,
+			.pchw = &gt_pch_nx_tree_node
+		},
+		{
+			.base = &check_function_decl,
+			.nelt = 1,
+			.stride = sizeof(check_function_decl),
+			.cb = &gt_ggc_mx_tree_node,
+			.pchw = &gt_pch_nx_tree_node
+		},
+		LAST_GGC_ROOT_TAB
+	};
 
 	stackleak_tree_instrument_pass_info.pass			= make_stackleak_tree_instrument_pass();
 //	stackleak_tree_instrument_pass_info.reference_pass_name		= "tree_profile";
@@ -334,6 +364,8 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 		error(G_("unkown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
 	}
 
+	register_callback(plugin_name, PLUGIN_START_UNIT, &stackleak_start_unit, NULL);
+	register_callback(plugin_name, PLUGIN_REGISTER_GGC_ROOTS, NULL, (void *)&gt_ggc_r_gt_stackleak);
 	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &stackleak_tree_instrument_pass_info);
 	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &stackleak_final_pass_info);
 

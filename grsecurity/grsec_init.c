@@ -46,7 +46,7 @@ int grsec_enable_tpe;
 int grsec_tpe_gid;
 int grsec_enable_blackhole;
 #ifdef CONFIG_IPV6_MODULE
-EXPORT_SYMBOL(grsec_enable_blackhole);
+EXPORT_SYMBOL_GPL(grsec_enable_blackhole);
 #endif
 int grsec_lastack_retries;
 int grsec_enable_tpe_all;

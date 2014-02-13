@@ -155,5 +155,5 @@ int gr_is_capable_nolog(const int cap)
 #endif
 }
 
-EXPORT_SYMBOL(gr_is_capable);
-EXPORT_SYMBOL(gr_is_capable_nolog);
+EXPORT_SYMBOL_GPL(gr_is_capable);
+EXPORT_SYMBOL_GPL(gr_is_capable_nolog);

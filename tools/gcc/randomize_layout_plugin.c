@@ -14,6 +14,10 @@
 #include "gcc-common.h"
 #include "randomize_layout_seed.h"
 
+#if BUILDING_GCC_MAJOR < 4 || BUILDING_GCC_MINOR < 6 || (BUILDING_GCC_MINOR == 6 && BUILDING_GCC_PATCHLEVEL < 4)
+#error "The RANDSTRUCT plugin requires GCC 4.6.4 or newer."
+#endif
+
 #define ORIG_TYPE_NAME(node) \
 	(TYPE_NAME(TYPE_MAIN_VARIANT(node)) != NULL_TREE ? ((const unsigned char *)IDENTIFIER_POINTER(TYPE_NAME(TYPE_MAIN_VARIANT(node)))) : (const unsigned char *)"anonymous")
 
@@ -430,7 +434,7 @@ static void randomize_type(tree type)
 #endif
 }
 
-static void finish_decl(void *event_data, void *data)
+static void randomize_layout_finish_decl(void *event_data, void *data)
 {
 	tree decl = (tree)event_data;
 	tree type;
@@ -894,7 +898,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 		register_callback(plugin_name, PLUGIN_ALL_IPA_PASSES_START, check_global_variables, NULL);
 		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &randomize_layout_bad_cast_info);
 		register_callback(plugin_name, PLUGIN_FINISH_TYPE, finish_type, NULL);
-		register_callback(plugin_name, PLUGIN_FINISH_DECL, finish_decl, NULL);
+		register_callback(plugin_name, PLUGIN_FINISH_DECL, randomize_layout_finish_decl, NULL);
 	}
 	register_callback(plugin_name, PLUGIN_ATTRIBUTES, register_attributes, NULL);
 

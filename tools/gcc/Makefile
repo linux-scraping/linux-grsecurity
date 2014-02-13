@@ -9,7 +9,7 @@ HOSTLIBS := hostlibs
 HOST_EXTRACFLAGS += -I$(GCCPLUGINS_DIR)/include -std=gnu99 -ggdb
 else
 HOSTLIBS := hostcxxlibs
-HOST_EXTRACXXFLAGS += -I$(GCCPLUGINS_DIR)/include -std=gnu++98 -fno-rtti -ggdb -Wno-unused-parameter
+HOST_EXTRACXXFLAGS += -I$(GCCPLUGINS_DIR)/include -std=gnu++98 -fno-rtti -ggdb -Wno-unused-parameter -Wno-narrowing
 endif
 
 $(HOSTLIBS)-$(CONFIG_PAX_CONSTIFY_PLUGIN) := constify_plugin.so

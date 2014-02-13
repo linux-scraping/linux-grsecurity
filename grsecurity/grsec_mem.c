@@ -2,7 +2,15 @@
 #include <linux/sched.h>
 #include <linux/mm.h>
 #include <linux/mman.h>
+#include <linux/module.h>
 #include <linux/grinternal.h>
+
+void gr_handle_msr_write(void)
+{
+	gr_log_noargs(GR_DONT_AUDIT, GR_MSRWRITE_MSG);
+	return;
+}
+EXPORT_SYMBOL_GPL(gr_handle_msr_write);
 
 void
 gr_handle_ioperm(void)
