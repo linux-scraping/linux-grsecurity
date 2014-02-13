@@ -26,7 +26,7 @@ int plugin_is_GPL_compatible;
 static tree latent_entropy_decl;
 
 static struct plugin_info latent_entropy_plugin_info = {
-	.version	= "201401260140",
+	.version	= "201402131900",
 	.help		= NULL
 };
 
@@ -223,7 +223,7 @@ static unsigned int execute_latent_entropy(void)
 	return 0;
 }
 
-static void start_unit_callback(void *gcc_data, void *user_data)
+static void latent_entropy_start_unit(void *gcc_data, void *user_data)
 {
 	tree latent_entropy_type;
 
@@ -310,6 +310,16 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	latent_entropy_pass_info.reference_pass_name		= "optimized";
 	latent_entropy_pass_info.ref_pass_instance_number	= 1;
 	latent_entropy_pass_info.pos_op 			= PASS_POS_INSERT_BEFORE;
+	static const struct ggc_root_tab gt_ggc_r_gt_latent_entropy[] = {
+		{
+			.base = &latent_entropy_decl,
+			.nelt = 1,
+			.stride = sizeof(latent_entropy_decl),
+			.cb = &gt_ggc_mx_tree_node,
+			.pchw = &gt_pch_nx_tree_node
+		},
+		LAST_GGC_ROOT_TAB
+	};
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));
@@ -317,7 +327,9 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	}
 
 	register_callback(plugin_name, PLUGIN_INFO, NULL, &latent_entropy_plugin_info);
-	register_callback(plugin_name, PLUGIN_START_UNIT, &start_unit_callback, NULL);
+	register_callback(plugin_name, PLUGIN_START_UNIT, &latent_entropy_start_unit, NULL);
+	if (!in_lto_p)
+		register_callback(plugin_name, PLUGIN_REGISTER_GGC_ROOTS, NULL, (void *)&gt_ggc_r_gt_latent_entropy);
 	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &latent_entropy_pass_info);
 	register_callback(plugin_name, PLUGIN_ATTRIBUTES, register_attributes, NULL);
 

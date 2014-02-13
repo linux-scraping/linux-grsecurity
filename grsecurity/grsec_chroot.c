@@ -135,7 +135,7 @@ gr_pid_is_chrooted(struct task_struct *p)
 	return 0;
 }
 
-EXPORT_SYMBOL(gr_pid_is_chrooted);
+EXPORT_SYMBOL_GPL(gr_pid_is_chrooted);
 
 #if defined(CONFIG_GRKERNSEC_CHROOT_DOUBLE) || defined(CONFIG_GRKERNSEC_CHROOT_FCHDIR)
 int gr_is_outside_chroot(const struct dentry *u_dentry, const struct vfsmount *u_mnt)

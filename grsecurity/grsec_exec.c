@@ -181,7 +181,7 @@ int gr_task_is_capable_nolog(const struct task_struct *task, const int cap)
 #endif
 }
 
-EXPORT_SYMBOL(gr_is_capable);
-EXPORT_SYMBOL(gr_is_capable_nolog);
-EXPORT_SYMBOL(gr_task_is_capable);
-EXPORT_SYMBOL(gr_task_is_capable_nolog);
+EXPORT_SYMBOL_GPL(gr_is_capable);
+EXPORT_SYMBOL_GPL(gr_is_capable_nolog);
+EXPORT_SYMBOL_GPL(gr_task_is_capable);
+EXPORT_SYMBOL_GPL(gr_task_is_capable_nolog);

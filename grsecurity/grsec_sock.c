@@ -14,14 +14,14 @@
 extern int gr_search_udp_recvmsg(const struct sock *sk, const struct sk_buff *skb);
 extern int gr_search_udp_sendmsg(const struct sock *sk, const struct sockaddr_in *addr);
 
-EXPORT_SYMBOL(gr_search_udp_recvmsg);
-EXPORT_SYMBOL(gr_search_udp_sendmsg);
+EXPORT_SYMBOL_GPL(gr_search_udp_recvmsg);
+EXPORT_SYMBOL_GPL(gr_search_udp_sendmsg);
 
 #ifdef CONFIG_UNIX_MODULE
-EXPORT_SYMBOL(gr_acl_handle_unix);
-EXPORT_SYMBOL(gr_acl_handle_mknod);
-EXPORT_SYMBOL(gr_handle_chroot_unix);
-EXPORT_SYMBOL(gr_handle_create);
+EXPORT_SYMBOL_GPL(gr_acl_handle_unix);
+EXPORT_SYMBOL_GPL(gr_acl_handle_mknod);
+EXPORT_SYMBOL_GPL(gr_handle_chroot_unix);
+EXPORT_SYMBOL_GPL(gr_handle_create);
 #endif
 
 #ifdef CONFIG_GRKERNSEC

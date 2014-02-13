@@ -22,7 +22,7 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20140128",
+	.version	= "20140213",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
@@ -90,7 +90,6 @@ struct interesting_node {
 };
 
 static tree report_size_overflow_decl;
-static const_tree const_char_ptr_type_node;
 
 static tree expand(struct pointer_set_t *visited, struct cgraph_node *caller_node, tree lhs);
 static void set_conditions(struct pointer_set_t *visited, bool *interesting_conditions, const_tree lhs);
@@ -3863,8 +3862,9 @@ static struct opt_pass *make_insert_size_overflow_asm_pass(void)
 }
 
 // Create the noreturn report_size_overflow() function decl.
-static void start_unit_callback(void __unused *gcc_data, void __unused *user_data)
+static void size_overflow_start_unit(void __unused *gcc_data, void __unused *user_data)
 {
+	tree const_char_ptr_type_node;
 	tree fntype;
 
 	const_char_ptr_type_node = build_pointer_type(build_type_variant(char_type_node, 1, 0));
@@ -3992,6 +3992,16 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	struct register_pass_info __unused dump_before_pass_info;
 	struct register_pass_info __unused dump_after_pass_info;
 	struct register_pass_info ipa_pass_info;
+	static const struct ggc_root_tab gt_ggc_r_gt_size_overflow[] = {
+		{
+			.base = &report_size_overflow_decl,
+			.nelt = 1,
+			.stride = sizeof(report_size_overflow_decl),
+			.cb = &gt_ggc_mx_tree_node,
+			.pchw = &gt_pch_nx_tree_node
+		},
+		LAST_GGC_ROOT_TAB
+	};
 
 	insert_size_overflow_asm_pass_info.pass				= make_insert_size_overflow_asm_pass();
 	insert_size_overflow_asm_pass_info.reference_pass_name		= "ssa";
@@ -4028,7 +4038,8 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 
 	register_callback(plugin_name, PLUGIN_INFO, NULL, &size_overflow_plugin_info);
 	if (enable) {
-		register_callback(plugin_name, PLUGIN_START_UNIT, &start_unit_callback, NULL);
+		register_callback(plugin_name, PLUGIN_START_UNIT, &size_overflow_start_unit, NULL);
+		register_callback(plugin_name, PLUGIN_REGISTER_GGC_ROOTS, NULL, (void *)&gt_ggc_r_gt_size_overflow);
 		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &insert_size_overflow_asm_pass_info);
 //		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &dump_before_pass_info);
 		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &ipa_pass_info);

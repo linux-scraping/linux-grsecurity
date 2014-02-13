@@ -58,6 +58,7 @@ int gr_handle_rawio(const struct inode *inode);
 
 void gr_handle_ioperm(void);
 void gr_handle_iopl(void);
+void gr_handle_msr_write(void);
 
 umode_t gr_acl_umask(void);
 
