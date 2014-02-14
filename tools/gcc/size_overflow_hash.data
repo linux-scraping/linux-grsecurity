@@ -43,6 +43,7 @@ snd_aw2_saa7146_get_hw_ptr_playback_558 snd_aw2_saa7146_get_hw_ptr_playback 0 55
 start_isoc_chain_565 start_isoc_chain 2 565 NULL nohasharray
 dev_hard_header_565 dev_hard_header 0 565 &start_isoc_chain_565
 ocfs2_refcounted_xattr_delete_need_584 ocfs2_refcounted_xattr_delete_need 0 584 NULL
+osl_pktget_590 osl_pktget 2 590 NULL
 smk_write_load_self2_591 smk_write_load_self2 3 591 NULL
 btrfs_stack_file_extent_offset_607 btrfs_stack_file_extent_offset 0 607 NULL
 ni_gpct_device_construct_610 ni_gpct_device_construct 5 610 NULL
@@ -1073,6 +1074,7 @@ ocfs2_read_block_12659 ocfs2_read_block 0 12659 NULL
 lustre_pack_request_v2_12665 lustre_pack_request_v2 0 12665 NULL
 sel_read_class_12669 sel_read_class 3 12669 NULL nohasharray
 sparse_mem_maps_populate_node_12669 sparse_mem_maps_populate_node 4 12669 &sel_read_class_12669
+ext4_writepage_trans_blocks_12674 ext4_writepage_trans_blocks 0 12674 NULL
 iwl_dbgfs_calib_disabled_write_12707 iwl_dbgfs_calib_disabled_write 3 12707 NULL
 ieee80211_if_read_num_buffered_multicast_12716 ieee80211_if_read_num_buffered_multicast 3 12716 NULL
 ivtv_write_12721 ivtv_write 3 12721 NULL
@@ -1342,6 +1344,7 @@ dm_read_15674 dm_read 3 15674 NULL nohasharray
 SyS_connect_15674 SyS_connect 3 15674 &dm_read_15674
 tracing_snapshot_write_15719 tracing_snapshot_write 3 15719 NULL
 HiSax_readstatus_15752 HiSax_readstatus 2 15752 NULL
+bio_map_15794 bio_map 3-0 15794 NULL
 smk_read_direct_15803 smk_read_direct 3 15803 NULL
 nameseq_list_15817 nameseq_list 3-0 15817 NULL nohasharray
 gnttab_expand_15817 gnttab_expand 1 15817 &nameseq_list_15817
@@ -4609,6 +4612,7 @@ send_packet_52960 send_packet 4 52960 NULL
 ieee80211_if_fmt_fwded_mcast_52961 ieee80211_if_fmt_fwded_mcast 3 52961 NULL
 tx_tx_exch_read_52986 tx_tx_exch_read 3 52986 NULL
 num_node_state_52989 num_node_state 0 52989 NULL
+efivarfs_file_write_53000 efivarfs_file_write 3 53000 NULL
 uasp_alloc_stream_res_53015 uasp_alloc_stream_res 0 53015 NULL
 btrfs_free_and_pin_reserved_extent_53016 btrfs_free_and_pin_reserved_extent 2 53016 NULL
 tx_tx_exch_pending_read_53018 tx_tx_exch_pending_read 3 53018 NULL
@@ -4847,6 +4851,7 @@ tty_port_register_device_55543 tty_port_register_device 3 55543 NULL
 dgap_do_config_load_55548 dgap_do_config_load 2 55548 NULL
 hash_ipport6_expire_55549 hash_ipport6_expire 4 55549 NULL
 dm_stats_list_55551 dm_stats_list 4 55551 NULL
+__vdev_disk_physio_55568 __vdev_disk_physio 4 55568 NULL
 add_partition_55588 add_partition 2 55588 NULL
 kstrtou8_from_user_55599 kstrtou8_from_user 2 55599 NULL
 SyS_keyctl_55602 SyS_keyctl 4 55602 NULL nohasharray
@@ -5327,6 +5332,7 @@ __probe_kernel_read_61119 __probe_kernel_read 3 61119 NULL
 vmemmap_alloc_block_buf_61126 vmemmap_alloc_block_buf 1 61126 NULL
 afs_proc_cells_write_61139 afs_proc_cells_write 3 61139 NULL
 brcmf_sdio_chip_cr4_exitdl_61143 brcmf_sdio_chip_cr4_exitdl 4 61143 NULL
+osl_malloc_61156 osl_malloc 2 61156 NULL
 pair_device_61175 pair_device 4 61175 NULL nohasharray
 event_oom_late_read_61175 event_oom_late_read 3 61175 &pair_device_61175
 dio_bio_add_page_61178 dio_bio_add_page 0 61178 NULL
