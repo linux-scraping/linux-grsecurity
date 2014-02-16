@@ -1134,6 +1134,9 @@ config GRKERNSEC_FLOODTIME
 	  to allow informative logs to be produced, but large enough to
 	  prevent flooding.
 
+	  Setting both this value and GRKERNSEC_FLOODBURST to 0 will disable
+	  any rate limiting on grsecurity log messages.
+
 config GRKERNSEC_FLOODBURST
 	int "Number of messages in a burst (maximum)"
 	default 6
@@ -1143,5 +1146,8 @@ config GRKERNSEC_FLOODBURST
 	  default should be suitable for most people, however if you find that
 	  many of your logs are being interpreted as flooding, you may want to
 	  raise this value.
+
+	  Setting both this value and GRKERNSEC_FLOODTIME to 0 will disable
+	  any rate limiting on grsecurity log messages.
 
 endmenu
