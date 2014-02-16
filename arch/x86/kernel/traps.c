@@ -616,7 +616,7 @@ void __math_state_restore(struct task_struct *tsk)
 			"fnclex\n\t"
 			"emms\n\t"
 			"fildl %P[addr]"	/* set F?P to defined value */
-			: : [addr] "m" (init_tss[raw_smp_processor_id()].x86_tss.sp0));
+			: : [addr] "m" (safe_address));
 	}
 
 	/*

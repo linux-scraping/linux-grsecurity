@@ -1617,7 +1617,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	unsigned long start_addr;
 	unsigned long offset = gr_rand_threadstack_offset(mm, filp, flags);
 
-	if (len > TASK_SIZE)
+	if (len > TASK_SIZE - mmap_min_addr)
 		return -ENOMEM;
 
 	if (flags & MAP_FIXED)
@@ -1631,7 +1631,7 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 		addr = PAGE_ALIGN(addr);
 		if (TASK_SIZE - len >= addr) {
 			vma = find_vma(mm, addr);
-			if (check_heap_stack_gap(vma, &addr, len, offset))
+			if (addr >= mmap_min_addr && check_heap_stack_gap(vma, &addr, len, offset))
 				return addr;
 		}
 	}
@@ -1703,9 +1703,10 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	struct mm_struct *mm = current->mm;
 	unsigned long base = mm->mmap_base, addr = addr0;
 	unsigned long offset = gr_rand_threadstack_offset(mm, filp, flags);
+	unsigned long low_limit = max(PAGE_SIZE, mmap_min_addr);
 
 	/* requested length too big for entire address space */
-	if (len > TASK_SIZE)
+	if (len > TASK_SIZE - mmap_min_addr)
 		return -ENOMEM;
 
 	if (flags & MAP_FIXED)
@@ -1718,7 +1719,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	/* requesting a specific address */
 	if (addr) {
 		addr = PAGE_ALIGN(addr);
-		if (TASK_SIZE - len >= addr) {
+		if (TASK_SIZE - len >= addr && addr >= mmap_min_addr) {
 			vma = find_vma(mm, addr);
 			if (check_heap_stack_gap(vma, &addr, len, offset))
 				return addr;
@@ -1735,7 +1736,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	addr = mm->free_area_cache;
 
 	/* make sure it can fit in the remaining address space */
-	if (addr > len) {
+	if (addr >= low_limit + len) {
 		addr -= len;
 		vma = find_vma(mm, addr);
 		if (check_heap_stack_gap(vma, &addr, len, offset))
@@ -1743,7 +1744,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 			return (mm->free_area_cache = addr);
 	}
 
-	if (mm->mmap_base < len)
+	if (mm->mmap_base < low_limit + len)
 		goto bottomup;
 
 	addr = mm->mmap_base-len;
@@ -1765,7 +1766,7 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 
 		/* try just below the current vma->vm_start */
 		addr = skip_heap_stack_gap(vma, len, offset);
-	} while (!IS_ERR_VALUE(addr));
+	} while (!IS_ERR_VALUE(addr) && addr >= low_limit);
 
 bottomup:
 	/*

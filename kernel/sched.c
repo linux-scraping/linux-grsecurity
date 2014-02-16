@@ -2189,6 +2189,10 @@ static int irqtime_account_si_update(void)
 
 #endif
 
+#ifdef CONFIG_SMP
+static void unthrottle_offline_cfs_rqs(struct rq *rq);
+#endif
+
 #include "sched_idletask.c"
 #include "sched_fair.c"
 #include "sched_rt.c"
@@ -6570,8 +6574,6 @@ static void unthrottle_offline_cfs_rqs(struct rq *rq)
 			unthrottle_cfs_rq(cfs_rq);
 	}
 }
-#else
-static void unthrottle_offline_cfs_rqs(struct rq *rq) {}
 #endif
 
 /*
@@ -6599,9 +6601,6 @@ static void migrate_tasks(unsigned int dead_cpu)
 	 */
 	rq->stop = NULL;
 
-	/* Ensure any throttled groups are reachable by pick_next_task */
-	unthrottle_offline_cfs_rqs(rq);
-
 	for ( ; ; ) {
 		/*
 		 * There's this thread running, bail when that's the only
@@ -6627,6 +6626,10 @@ static void migrate_tasks(unsigned int dead_cpu)
 }
 
 #endif /* CONFIG_HOTPLUG_CPU */
+
+#if !defined(CONFIG_HOTPLUG_CPU) || !defined(CONFIG_CFS_BANDWIDTH)
+static void unthrottle_offline_cfs_rqs(struct rq *rq) {}
+#endif
 
 #if defined(CONFIG_SCHED_DEBUG) && defined(CONFIG_SYSCTL)
 
