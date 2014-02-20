@@ -526,7 +526,7 @@ config SCHED_OMIT_FRAME_POINTER
 
 menuconfig PARAVIRT_GUEST
 	bool "Paravirtualized guest support"
-	depends on !GRKERNSEC_CONFIG_AUTO || GRKERNSEC_CONFIG_VIRT_GUEST
+	depends on !GRKERNSEC_CONFIG_AUTO || GRKERNSEC_CONFIG_VIRT_GUEST || (GRKERNSEC_CONFIG_VIRT_HOST && GRKERNSEC_CONFIG_VIRT_XEN)
 	---help---
 	  Say Y here to get to see options related to running Linux under
 	  various hypervisors.  This option alone does not add any kernel code.
