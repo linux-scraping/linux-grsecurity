@@ -26,7 +26,7 @@ int plugin_is_GPL_compatible;
 static int performance_mode;
 
 static struct plugin_info randomize_layout_plugin_info = {
-	.version	= "201402061950",
+	.version	= "201402201816",
 	.help		= "disable\t\t\tdo not activate plugin\n"
 			  "performance-mode\tenable cacheline-aware layout randomization\n"
 };
@@ -563,6 +563,10 @@ static void check_bad_casts_in_constructor(tree var, tree init)
 			continue;
 		}
 
+		/* pipacs' plugin creates franken-arrays that differ from those produced by
+		   normal code which all have valid 'field' trees. work around this */
+		if (field == NULL_TREE)
+			continue;
 		field_type = TREE_TYPE(field);
 		val_type = TREE_TYPE(val);
 

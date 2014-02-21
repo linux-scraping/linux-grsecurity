@@ -2803,11 +2803,12 @@ int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
 		/* Terminate the table early */
 		memset(&t->neigh_vars[14], 0, sizeof(t->neigh_vars[14]));
 	} else {
+		struct neigh_table *ntable = container_of(p, struct neigh_table, parms);
 		dev_name_source = neigh_path[NEIGH_CTL_PATH_DEV].procname;
-		t->neigh_vars[14].data = (int *)(p + 1);
-		t->neigh_vars[15].data = (int *)(p + 1) + 1;
-		t->neigh_vars[16].data = (int *)(p + 1) + 2;
-		t->neigh_vars[17].data = (int *)(p + 1) + 3;
+		t->neigh_vars[14].data = &ntable->gc_interval;
+		t->neigh_vars[15].data = &ntable->gc_thresh1;
+		t->neigh_vars[16].data = &ntable->gc_thresh2;
+		t->neigh_vars[17].data = &ntable->gc_thresh3;
 	}
 
 
