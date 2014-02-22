@@ -26,7 +26,7 @@ int plugin_is_GPL_compatible;
 static tree latent_entropy_decl;
 
 static struct plugin_info latent_entropy_plugin_info = {
-	.version	= "201402191800",
+	.version	= "201402210120",
 	.help		= NULL
 };
 
@@ -83,7 +83,7 @@ static tree handle_latent_entropy_attribute(tree *node, tree name, tree args, in
 		case ARRAY_TYPE: {
 			tree elt_type, array_size, elt_size;
 			unsigned long long mask;
-			unsigned int nelt;
+			unsigned int i, nelt;
 #if BUILDING_GCC_VERSION <= 4007
 			VEC(constructor_elt, gc) *vals;
 #else
@@ -110,11 +110,11 @@ static tree handle_latent_entropy_attribute(tree *node, tree name, tree args, in
 			mask = 1ULL << (TREE_INT_CST_LOW(TYPE_SIZE(elt_type)) - 1);
 			mask = 2 * (mask - 1) + 1;
 
-			for (; nelt; nelt--)
+			for (i = 0; i < nelt; i++)
 				if (TYPE_UNSIGNED(elt_type))
-					CONSTRUCTOR_APPEND_ELT(vals, NULL_TREE, build_int_cstu(elt_type, mask & get_random_const()));
+					CONSTRUCTOR_APPEND_ELT(vals, size_int(i), build_int_cstu(elt_type, mask & get_random_const()));
 				else
-					CONSTRUCTOR_APPEND_ELT(vals, NULL_TREE, build_int_cst(elt_type, mask & get_random_const()));
+					CONSTRUCTOR_APPEND_ELT(vals, size_int(i), build_int_cst(elt_type, mask & get_random_const()));
 
 			DECL_INITIAL(*node) = build_constructor(type, vals);
 //debug_tree(DECL_INITIAL(*node));

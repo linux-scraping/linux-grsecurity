@@ -713,6 +713,8 @@ static inline long long atomic64_sub_return(long long i, atomic64_t *v)
 	: "=&r" (result), "=&r" (tmp), "+Qo" (v->counter)
 	: "r" (&v->counter), "r" (i)
 	: "cc");
+
+	return result;
 }
 
 static inline long long atomic64_cmpxchg(atomic64_t *ptr, long long old,
