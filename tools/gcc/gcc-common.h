@@ -235,8 +235,14 @@ static inline bool gimple_store_p(gimple gs)
 #endif
 
 #if BUILDING_GCC_VERSION <= 4008
-#define ENTRY_BLOCK_PTR_FOR_FN(FN) ENTRY_BLOCK_PTR_FOR_FUNCTION(FN)
-#define EXIT_BLOCK_PTR_FOR_FN(FN) EXIT_BLOCK_PTR_FOR_FUNCTION(FN)
+#define ENTRY_BLOCK_PTR_FOR_FN(FN)	ENTRY_BLOCK_PTR_FOR_FUNCTION(FN)
+#define EXIT_BLOCK_PTR_FOR_FN(FN)	EXIT_BLOCK_PTR_FOR_FUNCTION(FN)
+#define basic_block_info_for_fn(FN)	((FN)->cfg->x_basic_block_info)
+#define n_basic_blocks_for_fn(FN)	((FN)->cfg->x_n_basic_blocks)
+#define n_edges_for_fn(FN)		((FN)->cfg->x_n_edges)
+#define last_basic_block_for_fn(FN)	((FN)->cfg->x_last_basic_block)
+#define label_to_block_map_for_fn(FN)	((FN)->cfg->x_label_to_block_map)
+#define profile_status_for_fn(FN)	((FN)->cfg->x_profile_status)
 
 static inline const char *get_tree_code_name(enum tree_code code)
 {

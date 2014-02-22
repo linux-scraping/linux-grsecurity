@@ -8,7 +8,7 @@
  *       any of the gcc libraries
  *
  * gcc plugin to help generate a little bit of entropy from program state,
- * used during boot in the kernel
+ * used throughout the uptime of the kernel
  *
  * TODO:
  * - add ipa pass to identify not explicitly marked candidate functions
@@ -26,19 +26,30 @@ int plugin_is_GPL_compatible;
 static tree latent_entropy_decl;
 
 static struct plugin_info latent_entropy_plugin_info = {
-	.version	= "201402131900",
+	.version	= "201402210120",
 	.help		= NULL
 };
 
 static unsigned HOST_WIDE_INT seed;
 static unsigned HOST_WIDE_INT get_random_const(void)
 {
-	seed = (seed >> 1U) ^ (-(seed & 1ULL) & 0xD800000000000000ULL);
-	return seed;
+	unsigned int i;
+	unsigned HOST_WIDE_INT ret = 0;
+
+	for (i = 0; i < 8 * sizeof ret; i++) {
+		ret = (ret << 1) | (seed & 1);
+		seed >>= 1;
+		if (ret & 1)
+			seed ^= 0xD800000000000000ULL;
+	}
+
+	return ret;
 }
 
 static tree handle_latent_entropy_attribute(tree *node, tree name, tree args, int flags, bool *no_add_attrs)
 {
+	tree type;
+
 	switch (TREE_CODE(*node)) {
 	default:
 		*no_add_attrs = true;
@@ -51,7 +62,65 @@ static tree handle_latent_entropy_attribute(tree *node, tree name, tree args, in
 			error("variable %qD with %qE attribute must not be initialized", *node, name);
 			break;
 		}
-		DECL_INITIAL(*node) = build_int_cstu(long_long_unsigned_type_node, get_random_const());
+
+		if (!TREE_STATIC(*node)) {
+			*no_add_attrs = true;
+			error("variable %qD with %qE attribute must not be local", *node, name);
+			break;
+		}
+
+		type = TREE_TYPE(*node);
+		switch (TREE_CODE(type)) {
+		default:
+			*no_add_attrs = true;
+			error("variable %qD with %qE attribute must be an integer or a fixed length integer array type", *node, name);
+			break;
+
+		case INTEGER_TYPE:
+			DECL_INITIAL(*node) = build_int_cstu(type, get_random_const());
+			break;
+
+		case ARRAY_TYPE: {
+			tree elt_type, array_size, elt_size;
+			unsigned long long mask;
+			unsigned int i, nelt;
+#if BUILDING_GCC_VERSION <= 4007
+			VEC(constructor_elt, gc) *vals;
+#else
+			vec<constructor_elt, va_gc> *vals;
+#endif
+
+			elt_type = TREE_TYPE(type);
+			elt_size = TYPE_SIZE_UNIT(TREE_TYPE(type));
+			array_size = TYPE_SIZE_UNIT(type);
+
+			if (TREE_CODE(elt_type) != INTEGER_TYPE || !array_size || TREE_CODE(array_size) != INTEGER_CST) {
+				*no_add_attrs = true;
+				error("variable %qD with %qE attribute must be a fixed length integer array type", *node, name);
+				break;
+			}
+
+			nelt = TREE_INT_CST_LOW(array_size) / TREE_INT_CST_LOW(elt_size);
+#if BUILDING_GCC_VERSION <= 4007
+			vals = VEC_alloc(constructor_elt, gc, nelt);
+#else
+			vec_alloc(vals, nelt);
+#endif
+
+			mask = 1ULL << (TREE_INT_CST_LOW(TYPE_SIZE(elt_type)) - 1);
+			mask = 2 * (mask - 1) + 1;
+
+			for (i = 0; i < nelt; i++)
+				if (TYPE_UNSIGNED(elt_type))
+					CONSTRUCTOR_APPEND_ELT(vals, size_int(i), build_int_cstu(elt_type, mask & get_random_const()));
+				else
+					CONSTRUCTOR_APPEND_ELT(vals, size_int(i), build_int_cst(elt_type, mask & get_random_const()));
+
+			DECL_INITIAL(*node) = build_constructor(type, vals);
+//debug_tree(DECL_INITIAL(*node));
+			break;
+		}
+		}
 		break;
 
 	case FUNCTION_DECL:
@@ -81,10 +150,7 @@ static void register_attributes(void *event_data, void *data)
 
 static bool gate_latent_entropy(void)
 {
-	tree latent_entropy_attr;
-
-	latent_entropy_attr = lookup_attribute("latent_entropy", DECL_ATTRIBUTES(current_function_decl));
-	return latent_entropy_attr != NULL_TREE;
+	return lookup_attribute("latent_entropy", DECL_ATTRIBUTES(current_function_decl)) != NULL_TREE;
 }
 
 static enum tree_code get_op(tree *rhs)

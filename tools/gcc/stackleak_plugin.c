@@ -151,7 +151,8 @@ static unsigned int execute_stackleak_final(void)
 		body = XEXP(body, 0);
 		if (GET_CODE(body) != SYMBOL_REF)
 			continue;
-		if (strcmp(XSTR(body, 0), track_function))
+//		if (strcmp(XSTR(body, 0), track_function))
+		if (SYMBOL_REF_DECL(body) != track_function_decl)
 			continue;
 //		warning(0, "track_frame_size: %d %ld %d", cfun->calls_alloca, get_frame_size(), track_frame_size);
 		// 2. delete call
@@ -224,7 +225,7 @@ static struct gimple_opt_pass stackleak_tree_instrument_pass = {
 		.properties_provided	= 0,
 		.properties_destroyed	= 0,
 		.todo_flags_start	= 0, //TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts,
-		.todo_flags_finish	= TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_update_ssa
+		.todo_flags_finish	= TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_update_ssa | TODO_rebuild_cgraph_edges
 #if BUILDING_GCC_VERSION < 4009
 	}
 #endif

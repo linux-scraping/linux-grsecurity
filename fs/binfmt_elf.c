@@ -40,7 +40,7 @@
 static int load_elf_binary(struct linux_binprm *bprm, struct pt_regs *regs);
 static int load_elf_library(struct file *);
 static unsigned long elf_map(struct file *, unsigned long, struct elf_phdr *,
-				int, int, unsigned long);
+				int, int, unsigned long) __intentional_overflow(-1);
 
 /*
  * If we don't support core dumping, then supply a NULL so we
