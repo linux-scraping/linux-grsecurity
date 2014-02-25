@@ -17,7 +17,7 @@ gr_ipc_permitted(struct ipc_namespace *ns, struct kern_ipc_perm *ipcp, int reque
 	kgid_t egid;
 
 	if (!grsec_enable_harden_ipc)
-		return 0;
+		return 1;
 
 	euid = current_euid();
 	egid = current_egid();

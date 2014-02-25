@@ -660,7 +660,7 @@ int ll_dir_setdirstripe(struct inode *dir, struct lmv_user_md *lump,
 	int mode;
 	int err;
 
-	mode = (0755 & (S_IRWXUGO|S_ISVTX) & ~current->fs->umask) | S_IFDIR;
+	mode = (0755 & (S_IRWXUGO|S_ISVTX) & ~current_umask()) | S_IFDIR;
 	op_data = ll_prep_md_op_data(NULL, dir, NULL, filename,
 				     strlen(filename), mode, LUSTRE_OPC_MKDIR,
 				     lump);
@@ -1086,7 +1086,7 @@ static int quotactl_ioctl(struct ll_sb_info *sbi, struct if_quotactl *qctl)
 		break;
 	case Q_GETQUOTA:
 		if (((type == USRQUOTA &&
-		      uid_eq(current_euid(), make_kuid(&init_user_ns, id))) ||
+		      !uid_eq(current_euid(), make_kuid(&init_user_ns, id))) ||
 		     (type == GRPQUOTA &&
 		      !in_egroup_p(make_kgid(&init_user_ns, id)))) &&
 		    (!cfs_capable(CFS_CAP_SYS_ADMIN) ||

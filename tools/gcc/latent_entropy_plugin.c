@@ -26,7 +26,7 @@ int plugin_is_GPL_compatible;
 static tree latent_entropy_decl;
 
 static struct plugin_info latent_entropy_plugin_info = {
-	.version	= "201402210120",
+	.version	= "201402240545",
 	.help		= NULL
 };
 
@@ -49,6 +49,12 @@ static unsigned HOST_WIDE_INT get_random_const(void)
 static tree handle_latent_entropy_attribute(tree *node, tree name, tree args, int flags, bool *no_add_attrs)
 {
 	tree type;
+	unsigned long long mask;
+#if BUILDING_GCC_VERSION <= 4007
+	VEC(constructor_elt, gc) *vals;
+#else
+	vec<constructor_elt, va_gc> *vals;
+#endif
 
 	switch (TREE_CODE(*node)) {
 	default:
@@ -73,22 +79,64 @@ static tree handle_latent_entropy_attribute(tree *node, tree name, tree args, in
 		switch (TREE_CODE(type)) {
 		default:
 			*no_add_attrs = true;
-			error("variable %qD with %qE attribute must be an integer or a fixed length integer array type", *node, name);
+			error("variable %qD with %qE attribute must be an integer or a fixed length integer array type or a fixed sized structure with integer fields", *node, name);
 			break;
 
+		case RECORD_TYPE: {
+			tree field;
+			unsigned int nelt = 0;
+
+			for (field = TYPE_FIELDS(type); field; nelt++, field = TREE_CHAIN(field)) {
+				tree fieldtype;
+
+				fieldtype = TREE_TYPE(field);
+				if (TREE_CODE(fieldtype) != INTEGER_TYPE) {
+					*no_add_attrs = true;
+					error("structure variable %qD with %qE attribute has a non-integer field %qE", *node, name, field);
+					break;
+				}
+			}
+
+			if (field)
+				break;
+
+#if BUILDING_GCC_VERSION <= 4007
+			vals = VEC_alloc(constructor_elt, gc, nelt);
+#else
+			vec_alloc(vals, nelt);
+#endif
+
+			for (field = TYPE_FIELDS(type); field; field = TREE_CHAIN(field)) {
+				tree fieldtype;
+
+				fieldtype = TREE_TYPE(field);
+				mask = 1ULL << (TREE_INT_CST_LOW(TYPE_SIZE(fieldtype)) - 1);
+				mask = 2 * (mask - 1) + 1;
+
+				if (TYPE_UNSIGNED(fieldtype))
+					CONSTRUCTOR_APPEND_ELT(vals, field, build_int_cstu(fieldtype, mask & get_random_const()));
+				else
+					CONSTRUCTOR_APPEND_ELT(vals, field, build_int_cst(fieldtype, mask & get_random_const()));
+			}
+
+			DECL_INITIAL(*node) = build_constructor(type, vals);
+//debug_tree(DECL_INITIAL(*node));
+			break;
+		}
+
 		case INTEGER_TYPE:
-			DECL_INITIAL(*node) = build_int_cstu(type, get_random_const());
+			mask = 1ULL << (TREE_INT_CST_LOW(TYPE_SIZE(type)) - 1);
+			mask = 2 * (mask - 1) + 1;
+
+			if (TYPE_UNSIGNED(type))
+				DECL_INITIAL(*node) = build_int_cstu(type, mask & get_random_const());
+			else
+				DECL_INITIAL(*node) = build_int_cst(type, mask & get_random_const());
 			break;
 
 		case ARRAY_TYPE: {
 			tree elt_type, array_size, elt_size;
-			unsigned long long mask;
 			unsigned int i, nelt;
-#if BUILDING_GCC_VERSION <= 4007
-			VEC(constructor_elt, gc) *vals;
-#else
-			vec<constructor_elt, va_gc> *vals;
-#endif
 
 			elt_type = TREE_TYPE(type);
 			elt_size = TYPE_SIZE_UNIT(TREE_TYPE(type));
@@ -96,7 +144,7 @@ static tree handle_latent_entropy_attribute(tree *node, tree name, tree args, in
 
 			if (TREE_CODE(elt_type) != INTEGER_TYPE || !array_size || TREE_CODE(array_size) != INTEGER_CST) {
 				*no_add_attrs = true;
-				error("variable %qD with %qE attribute must be a fixed length integer array type", *node, name);
+				error("array variable %qD with %qE attribute must be a fixed length integer array type", *node, name);
 				break;
 			}
 
