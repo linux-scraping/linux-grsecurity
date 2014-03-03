@@ -104,7 +104,7 @@ pteval_t __supported_pte_mask __read_only;
 pmdval_t __supported_pmd_mask __read_only;
 
 #ifdef MULTI_CPU
-struct processor processor;
+struct processor processor __read_only;
 #endif
 #ifdef MULTI_TLB
 struct cpu_tlb_fns cpu_tlb __read_only;
@@ -579,7 +579,7 @@ static void __init setup_processor(void)
 	__cpu_architecture = __get_cpu_architecture();
 
 #ifdef MULTI_CPU
-	memcpy((void *)&processor, list->proc, sizeof processor);
+	processor = *list->proc;
 #endif
 #ifdef MULTI_TLB
 	cpu_tlb = *list->tlb;

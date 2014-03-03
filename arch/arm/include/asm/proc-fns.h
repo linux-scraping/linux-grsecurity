@@ -75,7 +75,7 @@ extern struct processor {
 	unsigned int suspend_size;
 	void (*do_suspend)(void *);
 	void (*do_resume)(void *);
-} __do_const processor;
+} processor;
 
 #ifndef MULTI_CPU
 extern void cpu_proc_init(void);
