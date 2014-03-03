@@ -232,6 +232,10 @@ config GRKERNSEC_RANDSTRUCT
 	  with the existing seed and will be removed by a make mrproper or
 	  make distclean.
 
+          Note that the implementation requires gcc 4.6.4. or newer.  You may need
+	  to install the supporting headers explicitly in addition to the normal
+	  gcc package.
+
 config GRKERNSEC_RANDSTRUCT_PERFORMANCE
 	bool "Use cacheline-aware structure randomization"
 	depends on GRKERNSEC_RANDSTRUCT

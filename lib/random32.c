@@ -44,7 +44,7 @@
 static void __init prandom_state_selftest(void);
 #endif
 
-static DEFINE_PER_CPU(struct rnd_state, net_rand_state);
+static DEFINE_PER_CPU(struct rnd_state, net_rand_state) __latent_entropy;
 
 /**
  *	prandom_u32_state - seeded pseudo-random number generator.
