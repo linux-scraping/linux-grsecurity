@@ -297,10 +297,6 @@ void bpf_jit_compile(struct sk_filter *fp)
 	if (addrs == NULL)
 		return;
 
-#ifdef CONFIG_GRKERNSEC_JIT_HARDEN
-	randkey = get_random_int();
-#endif
-
 	/* Before first pass, make a rough estimation of addrs[]
 	 * each bpf instruction is translated to less than MAX_INSTR_CODE_SIZE bytes
 	 */
@@ -383,6 +379,10 @@ void bpf_jit_compile(struct sk_filter *fp)
 
 		for (i = 0; i < flen; i++) {
 			unsigned int K = filter[i].k;
+
+#ifdef CONFIG_GRKERNSEC_JIT_HARDEN
+			randkey = prandom_u32();
+#endif
 
 			switch (filter[i].code) {
 			case BPF_S_ALU_ADD_X: /* A += X; */
