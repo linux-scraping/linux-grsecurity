@@ -199,7 +199,7 @@ static void octeon_dma_free_coherent(struct device *dev, size_t size,
 	if (dma_release_from_coherent(dev, order, vaddr))
 		return;
 
-	swiotlb_free_coherent(dev, size, vaddr, dma_handle);
+	swiotlb_free_coherent(dev, size, vaddr, dma_handle, attrs);
 }
 
 static dma_addr_t octeon_unity_phys_to_dma(struct device *dev, phys_addr_t paddr)
