@@ -426,8 +426,9 @@ config PAX_SEGMEXEC
 	  3 GB.
 
 config PAX_EMUTRAMP
-	bool "Emulate trampolines" if (PAX_PAGEEXEC || PAX_SEGMEXEC) && (PARISC || X86)
-	default y if PARISC
+	bool "Emulate trampolines"
+	default y if PARISC || GRKERNSEC_CONFIG_AUTO
+	depends on (PAX_PAGEEXEC || PAX_SEGMEXEC) && (PARISC || X86)
 	help
 	  There are some programs and libraries that for one reason or
 	  another attempt to execute special small code snippets from

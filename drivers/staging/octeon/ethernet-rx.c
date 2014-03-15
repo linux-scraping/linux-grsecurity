@@ -436,7 +436,7 @@ static int cvm_oct_napi_poll(struct napi_struct *napi, int budget)
 					   dev->name);
 				*/
 #ifdef CONFIG_64BIT
-				atomic64_unchecked_add(1, (atomic64_unchecked_t *)&priv->stats.rx_dropped);
+				atomic64_add_unchecked(1, (atomic64_unchecked_t *)&priv->stats.rx_dropped);
 #else
 				atomic_add_unchecked(1, (atomic_unchecked_t *)&priv->stats.rx_dropped);
 #endif
