@@ -23,6 +23,7 @@
 
 #else
 
+#include <linux/compiler.h>
 #include <asm/glue.h>
 
 /*

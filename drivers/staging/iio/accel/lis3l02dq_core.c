@@ -15,6 +15,7 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <linux/mutex.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
@@ -678,6 +679,7 @@ static int __devinit lis3l02dq_probe(struct spi_device *spi)
 	spi_set_drvdata(spi, indio_dev);
 
 	st->us = spi;
+	st->gpio = of_get_gpio(spi->dev.of_node, 0);
 	mutex_init(&st->buf_lock);
 	indio_dev->name = spi->dev.driver->name;
 	indio_dev->dev.parent = &spi->dev;
@@ -699,7 +701,7 @@ static int __devinit lis3l02dq_probe(struct spi_device *spi)
 		goto error_unreg_buffer_funcs;
 	}
 
-	if (spi->irq && gpio_is_valid(irq_to_gpio(spi->irq)) > 0) {
+	if (spi->irq) {
 		ret = request_threaded_irq(st->us->irq,
 					   &lis3l02dq_th,
 					   &lis3l02dq_event_handler,
@@ -729,7 +731,7 @@ error_remove_trigger:
 	if (indio_dev->modes & INDIO_BUFFER_TRIGGERED)
 		lis3l02dq_remove_trigger(indio_dev);
 error_free_interrupt:
-	if (spi->irq && gpio_is_valid(irq_to_gpio(spi->irq)) > 0)
+	if (spi->irq)
 		free_irq(st->us->irq, indio_dev);
 error_uninitialize_buffer:
 	iio_buffer_unregister(indio_dev);
@@ -784,7 +786,7 @@ static int lis3l02dq_remove(struct spi_device *spi)
 	if (ret)
 		goto err_ret;
 
-	if (spi->irq && gpio_is_valid(irq_to_gpio(spi->irq)) > 0)
+	if (spi->irq)
 		free_irq(st->us->irq, indio_dev);
 
 	lis3l02dq_remove_trigger(indio_dev);

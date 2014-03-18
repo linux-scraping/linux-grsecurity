@@ -58,6 +58,8 @@
 
 #if BUILDING_GCC_VERSION <= 4008
 #include "tree-flow.h"
+#else
+#include "tree-cfgcleanup.h"
 #endif
 
 #include "diagnostic.h"
@@ -96,6 +98,10 @@
 
 //#include "expr.h" where are you...
 extern rtx emit_move_insn(rtx x, rtx y);
+
+// missing from basic_block.h...
+extern void debug_dominance_info(enum cdi_direction dir);
+extern void debug_dominance_tree(enum cdi_direction dir, basic_block root);
 
 #define __unused __attribute__((__unused__))
 
@@ -221,6 +227,12 @@ extern void dump_gimple_stmt(pretty_printer *, gimple, int, int);
 
 #if BUILDING_GCC_VERSION <= 4007
 #define FOR_EACH_VARIABLE(node) for (node = varpool_nodes; node; node = node->next)
+#define PROP_loops 0
+
+static inline int bb_loop_depth(const_basic_block bb)
+{
+	return bb->loop_father ? loop_depth(bb->loop_father) : 0;
+}
 
 static inline bool gimple_store_p(gimple gs)
 {
