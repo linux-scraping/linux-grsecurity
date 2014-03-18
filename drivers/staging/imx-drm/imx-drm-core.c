@@ -510,7 +510,7 @@ int imx_drm_add_crtc(struct drm_crtc *crtc,
 		goto err_busy;
 	}
 
-	if (imxdrm->drm->open_count) {
+	if (local_read(&imxdrm->drm->open_count)) {
 		ret = -EBUSY;
 		goto err_busy;
 	}
@@ -590,7 +590,7 @@ int imx_drm_add_encoder(struct drm_encoder *encoder,
 
 	mutex_lock(&imxdrm->mutex);
 
-	if (imxdrm->drm->open_count) {
+	if (local_read(&imxdrm->drm->open_count)) {
 		ret = -EBUSY;
 		goto err_busy;
 	}
@@ -729,7 +729,7 @@ int imx_drm_add_connector(struct drm_connector *connector,
 
 	mutex_lock(&imxdrm->mutex);
 
-	if (imxdrm->drm->open_count) {
+	if (local_read(&imxdrm->drm->open_count)) {
 		ret = -EBUSY;
 		goto err_busy;
 	}

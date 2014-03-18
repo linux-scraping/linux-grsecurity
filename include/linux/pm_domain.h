@@ -44,7 +44,7 @@ struct gpd_dev_ops {
 	int (*thaw_early)(struct device *dev);
 	int (*thaw)(struct device *dev);
 	bool (*active_wakeup)(struct device *dev);
-};
+} __no_const;
 
 struct gpd_cpu_data {
 	unsigned int saved_exit_latency;

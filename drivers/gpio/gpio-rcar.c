@@ -316,7 +316,7 @@ static int gpio_rcar_probe(struct platform_device *pdev)
 	struct gpio_rcar_priv *p;
 	struct resource *io, *irq;
 	struct gpio_chip *gpio_chip;
-	struct irq_chip *irq_chip;
+	irq_chip_no_const *irq_chip;
 	const char *name = dev_name(&pdev->dev);
 	int ret;
 
