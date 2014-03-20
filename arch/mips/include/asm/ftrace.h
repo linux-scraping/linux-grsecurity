@@ -22,12 +22,12 @@ extern void _mcount(void);
 #define safe_load(load, src, dst, error)		\
 do {							\
 	asm volatile (					\
-		"1: " load " %[" STR(dst) "], 0(%[" STR(src) "])\n"\
-		"   li %[" STR(error) "], 0\n"		\
+		"1: " load " %[dest], 0(%[source])\n"	\
+		"   li %[err], 0\n"			\
 		"2:\n"					\
 							\
 		".section .fixup, \"ax\"\n"		\
-		"3: li %[" STR(error) "], 1\n"		\
+		"3: li %[err], 1\n"			\
 		"   j 2b\n"				\
 		".previous\n"				\
 							\
@@ -35,8 +35,8 @@ do {							\
 		STR(PTR) "\t1b, 3b\n\t"			\
 		".previous\n"				\
 							\
-		: [dst] "=&r" (dst), [error] "=r" (error)\
-		: [src] "r" (src)			\
+		: [dest] "=&r" (dst), [err] "=r" (error)\
+		: [source] "r" (src)			\
 		: "memory"				\
 	);						\
 } while (0)
@@ -44,12 +44,12 @@ do {							\
 #define safe_store(store, src, dst, error)	\
 do {						\
 	asm volatile (				\
-		"1: " store " %[" STR(src) "], 0(%[" STR(dst) "])\n"\
-		"   li %[" STR(error) "], 0\n"	\
+		"1: " store " %[source], 0(%[dest])\n"\
+		"   li %[err], 0\n"		\
 		"2:\n"				\
 						\
 		".section .fixup, \"ax\"\n"	\
-		"3: li %[" STR(error) "], 1\n"	\
+		"3: li %[err], 1\n"		\
 		"   j 2b\n"			\
 		".previous\n"			\
 						\
@@ -57,8 +57,8 @@ do {						\
 		STR(PTR) "\t1b, 3b\n\t"		\
 		".previous\n"			\
 						\
-		: [error] "=r" (error)		\
-		: [dst] "r" (dst), [src] "r" (src)\
+		: [err] "=r" (error)		\
+		: [dest] "r" (dst), [source] "r" (src)\
 		: "memory"			\
 	);					\
 } while (0)
