@@ -24,6 +24,7 @@
 #include <linux/fdtable.h>
 #include <linux/percpu.h>
 #include <linux/posix-timers.h>
+#include <linux/prefetch.h>
 #if defined(CONFIG_BTRFS_FS) || defined(CONFIG_BTRFS_FS_MODULE)
 #include <linux/magic.h>
 #include <linux/pagemap.h>

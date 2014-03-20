@@ -18,6 +18,9 @@
 #include <asm/io.h>
 #include <asm/pgtable-bits.h>
 
+#define ktla_ktva(addr)		(addr)
+#define ktva_ktla(addr)		(addr)
+
 struct mm_struct;
 struct vm_area_struct;
 

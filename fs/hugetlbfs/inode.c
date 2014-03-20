@@ -154,7 +154,7 @@ hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 	if (addr) {
 		addr = ALIGN(addr, huge_page_size(h));
 		vma = find_vma(mm, addr);
-		if (TASK_SIZE - len >= addr && check_heap_stack_gap(vma, addr, len, offset))
+		if (TASK_SIZE - len >= addr && check_heap_stack_gap(vma, &addr, len, offset))
 			return addr;
 	}
 
