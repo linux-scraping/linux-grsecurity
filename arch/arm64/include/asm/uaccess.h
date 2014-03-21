@@ -99,6 +99,7 @@ static inline void set_fs(mm_segment_t fs)
 	flag;								\
 })
 
+#define access_ok_noprefault(type, addr, size) access_ok((type), (addr), (size))
 #define access_ok(type, addr, size)	__range_ok(addr, size)
 
 /*

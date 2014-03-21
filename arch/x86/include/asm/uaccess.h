@@ -84,7 +84,7 @@ void set_fs(mm_segment_t x);
  * this function, memory access functions may still return -EFAULT.
  */
 extern int _cond_resched(void);
-#define __access_ok(type, addr, size) (likely(__range_not_ok(addr, size, user_addr_max()) == 0))
+#define access_ok_noprefault(type, addr, size) (likely(__range_not_ok(addr, size, user_addr_max()) == 0))
 #define access_ok(type, addr, size)					\
 ({									\
 	long __size = size;						\
