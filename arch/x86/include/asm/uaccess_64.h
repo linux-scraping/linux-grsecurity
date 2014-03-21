@@ -101,7 +101,7 @@ unsigned long __copy_from_user(void *dst, const void __user *src, unsigned long 
 	check_object_size(dst, size, false);
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	if (!__access_ok(VERIFY_READ, src, size))
+	if (!access_ok_noprefault(VERIFY_READ, src, size))
 		return size;
 #endif
 
@@ -162,7 +162,7 @@ unsigned long __copy_to_user(void __user *dst, const void *src, unsigned long si
 	check_object_size(src, size, true);
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	if (!__access_ok(VERIFY_WRITE, dst, size))
+	if (!access_ok_noprefault(VERIFY_WRITE, dst, size))
 		return size;
 #endif
 
@@ -220,9 +220,9 @@ unsigned long __copy_in_user(void __user *dst, const void __user *src, unsigned 
 		return size;
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	if (!__access_ok(VERIFY_READ, src, size))
+	if (!access_ok_noprefault(VERIFY_READ, src, size))
 		return size;
-	if (!__access_ok(VERIFY_WRITE, dst, size))
+	if (!access_ok_noprefault(VERIFY_WRITE, dst, size))
 		return size;
 #endif
 
@@ -312,7 +312,7 @@ static inline unsigned long __copy_from_user_nocache(void *dst, const void __use
 		return size;
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	if (!__access_ok(VERIFY_READ, src, size))
+	if (!access_ok_noprefault(VERIFY_READ, src, size))
 		return size;
 #endif
 
@@ -326,7 +326,7 @@ static inline unsigned long __copy_from_user_inatomic_nocache(void *dst, const v
 		return size;
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	if (!__access_ok(VERIFY_READ, src, size))
+	if (!access_ok_noprefault(VERIFY_READ, src, size))
 		return size;
 #endif
 

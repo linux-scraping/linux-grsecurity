@@ -82,7 +82,7 @@ void set_fs(mm_segment_t x);
  * checks that the pointer is in the user space range - after calling
  * this function, memory access functions may still return -EFAULT.
  */
-#define __access_ok(type, addr, size) (likely(__range_not_ok(addr, size) == 0))
+#define access_ok_noprefault(type, addr, size) (likely(__range_not_ok(addr, size) == 0))
 #define access_ok(type, addr, size)					\
 ({									\
 	long __size = size;						\

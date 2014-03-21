@@ -56,6 +56,7 @@
 
 #endif
 
+#define access_ok_noprefault(type, addr, size) access_ok((type), (addr), (size))
 #define access_ok(type, addr, size)		\
 	(__chk_user_ptr(addr),			\
 	 __access_ok((__force unsigned long)(addr), (size), get_fs()))

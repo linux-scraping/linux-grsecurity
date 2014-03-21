@@ -9,15 +9,26 @@ typedef struct
 	atomic_long_t a;
 } local_t;
 
+typedef struct
+{
+	atomic_long_unchecked_t a;
+} local_unchecked_t;
+
 #define LOCAL_INIT(i)	{ ATOMIC_LONG_INIT(i) }
 
 #define local_read(l)	atomic_long_read(&(l)->a)
+#define local_read_unchecked(l)	atomic_long_read_unchecked(&(l)->a)
 #define local_set(l,i)	atomic_long_set(&(l)->a, (i))
+#define local_set_unchecked(l,i)	atomic_long_set_unchecked(&(l)->a, (i))
 
 #define local_add(i,l)	atomic_long_add((i),(&(l)->a))
+#define local_add_unchecked(i,l)	atomic_long_add_unchecked((i),(&(l)->a))
 #define local_sub(i,l)	atomic_long_sub((i),(&(l)->a))
+#define local_sub_unchecked(i,l)	atomic_long_sub_unchecked((i),(&(l)->a))
 #define local_inc(l)	atomic_long_inc(&(l)->a)
+#define local_inc_unchecked(l)	atomic_long_inc_unchecked(&(l)->a)
 #define local_dec(l)	atomic_long_dec(&(l)->a)
+#define local_dec_unchecked(l)	atomic_long_dec_unchecked(&(l)->a)
 
 static __inline__ long local_add_return(long a, local_t *l)
 {
@@ -35,6 +46,7 @@ static __inline__ long local_add_return(long a, local_t *l)
 
 	return t;
 }
+#define local_add_return_unchecked(i, l) atomic_long_add_return_unchecked((i), (&(l)->a))
 
 #define local_add_negative(a, l)	(local_add_return((a), (l)) < 0)
 
@@ -54,6 +66,7 @@ static __inline__ long local_sub_return(long a, local_t *l)
 
 	return t;
 }
+#define local_sub_return_unchecked(i, l) atomic_long_sub_return_unchecked((i), (&(l)->a))
 
 static __inline__ long local_inc_return(local_t *l)
 {
@@ -100,6 +113,8 @@ static __inline__ long local_dec_return(local_t *l)
 }
 
 #define local_cmpxchg(l, o, n) \
+	(cmpxchg_local(&((l)->a.counter), (o), (n)))
+#define local_cmpxchg_unchecked(l, o, n) \
 	(cmpxchg_local(&((l)->a.counter), (o), (n)))
 #define local_xchg(l, n) (xchg_local(&((l)->a.counter), (n)))
 

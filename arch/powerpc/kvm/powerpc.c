@@ -730,7 +730,7 @@ out:
 	return r;
 }
 
-int kvm_arch_init(void *opaque)
+int kvm_arch_init(const void *opaque)
 {
 	return 0;
 }

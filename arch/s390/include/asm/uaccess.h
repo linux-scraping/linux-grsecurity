@@ -55,6 +55,7 @@
 	1;			\
 })
 
+#define access_ok_noprefault(type, addr, size) access_ok((type), (addr), (size))
 #define access_ok(type, addr, size) __access_ok(addr, size)
 
 /*
