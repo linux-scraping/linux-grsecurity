@@ -1723,6 +1723,7 @@ rtw_set_wps_probe_resp_19989 rtw_set_wps_probe_resp 3 19989 NULL
 lustre_pack_request_19992 lustre_pack_request 0 19992 NULL
 diva_um_idi_read_20003 diva_um_idi_read 0 20003 NULL
 lov_stripe_md_size_20009 lov_stripe_md_size 0-1 20009 NULL
+tree_mod_log_eb_move_20011 tree_mod_log_eb_move 5 20011 NULL
 SYSC_fgetxattr_20027 SYSC_fgetxattr 4 20027 NULL
 split_scan_timeout_read_20029 split_scan_timeout_read 3 20029 NULL
 alloc_ieee80211_20063 alloc_ieee80211 1 20063 NULL
@@ -1743,6 +1744,7 @@ crystalhd_map_dio_20181 crystalhd_map_dio 3 20181 NULL
 pvr2_ctrl_value_to_sym_20229 pvr2_ctrl_value_to_sym 5 20229 NULL
 rose_sendmsg_20249 rose_sendmsg 4 20249 NULL
 tm6000_i2c_send_regs_20250 tm6000_i2c_send_regs 5 20250 NULL
+btrfs_header_nritems_20296 btrfs_header_nritems 0 20296 NULL
 r10_sync_page_io_20307 r10_sync_page_io 3 20307 NULL
 dm_get_reserved_bio_based_ios_20315 dm_get_reserved_bio_based_ios 0 20315 NULL
 tx_tx_burst_programmed_read_20320 tx_tx_burst_programmed_read 3 20320 NULL
@@ -1852,6 +1854,7 @@ gfs2_ea_get_copy_21353 gfs2_ea_get_copy 0 21353 NULL
 alloc_orinocodev_21371 alloc_orinocodev 1 21371 NULL
 SYSC_rt_sigpending_21379 SYSC_rt_sigpending 2 21379 NULL
 video_ioctl2_21380 video_ioctl2 2 21380 NULL
+insert_ptr_21386 insert_ptr 6 21386 NULL
 diva_get_driver_dbg_mask_21399 diva_get_driver_dbg_mask 0 21399 NULL
 snd_m3_inw_21406 snd_m3_inw 0 21406 NULL
 snapshot_read_next_21426 snapshot_read_next 0 21426 NULL
@@ -2769,6 +2772,7 @@ disk_status_32120 disk_status 4 32120 NULL
 kobject_add_internal_32133 kobject_add_internal 0 32133 NULL
 venus_link_32165 venus_link 5 32165 NULL
 do_writepages_32173 do_writepages 0 32173 NULL
+del_ptr_32197 del_ptr 4 32197 NULL
 wusb_ccm_mac_32199 wusb_ccm_mac 7 32199 NULL
 riva_get_cmap_len_32218 riva_get_cmap_len 0 32218 NULL
 caif_seqpkt_recvmsg_32241 caif_seqpkt_recvmsg 4 32241 NULL
@@ -4134,6 +4138,7 @@ error_error_numll_frame_cts_start_read_47781 error_error_numll_frame_cts_start_r
 posix_acl_fix_xattr_from_user_47793 posix_acl_fix_xattr_from_user 2 47793 NULL
 W6692_empty_Bfifo_47804 W6692_empty_Bfifo 2 47804 NULL
 lov_packmd_47810 lov_packmd 0 47810 NULL
+tree_mod_log_insert_move_47823 tree_mod_log_insert_move 5 47823 NULL
 pinconf_dbg_config_write_47835 pinconf_dbg_config_write 3 47835 NULL
 KEY_SIZE_47855 KEY_SIZE 0 47855 NULL
 vhci_read_47878 vhci_read 3 47878 NULL
@@ -5701,3 +5706,4 @@ clear_user_65470 clear_user 2 65470 NULL
 dpcm_state_read_file_65489 dpcm_state_read_file 3 65489 NULL
 lookup_inline_extent_backref_65493 lookup_inline_extent_backref 9 65493 NULL
 nvme_trans_standard_inquiry_page_65526 nvme_trans_standard_inquiry_page 4 65526 NULL
+tree_mod_log_eb_copy_65535 tree_mod_log_eb_copy 6 65535 NULL
