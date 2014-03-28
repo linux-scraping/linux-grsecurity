@@ -692,7 +692,7 @@ static int __cpuinit do_boot_cpu(int apicid, int cpu)
 	 */
 	if (c_idle.idle) {
 		c_idle.idle->thread.sp = (unsigned long) (((struct pt_regs *)
-			(THREAD_SIZE +  task_stack_page(c_idle.idle))) - 1);
+			(THREAD_SIZE - 16 + task_stack_page(c_idle.idle))) - 1);
 		init_idle(c_idle.idle, cpu);
 		goto do_rest;
 	}

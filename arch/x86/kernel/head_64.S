@@ -268,7 +268,7 @@ ENTRY(secondary_startup_64)
 	.quad	INIT_PER_CPU_VAR(irq_stack_union)
 
 	ENTRY(stack_start)
-	.quad  init_thread_union+THREAD_SIZE-8
+	.quad  init_thread_union+THREAD_SIZE-16
 	.word  0
 	__FINITDATA
 
