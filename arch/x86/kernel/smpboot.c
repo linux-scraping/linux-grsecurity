@@ -753,7 +753,7 @@ static int do_boot_cpu(int apicid, int cpu, struct task_struct *idle)
 	alternatives_enable_smp();
 
 	idle->thread.sp = (unsigned long) (((struct pt_regs *)
-			  (THREAD_SIZE +  task_stack_page(idle))) - 1);
+			  (THREAD_SIZE - 16 + task_stack_page(idle))) - 1);
 	per_cpu(current_task, cpu) = idle;
 	per_cpu(current_tinfo, cpu) = &idle->tinfo;
 

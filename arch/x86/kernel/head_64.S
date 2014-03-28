@@ -344,7 +344,7 @@ ENDPROC(start_cpu0)
 	.quad	INIT_PER_CPU_VAR(irq_stack_union)
 
 	GLOBAL(stack_start)
-	.quad  init_thread_union+THREAD_SIZE-8
+	.quad  init_thread_union+THREAD_SIZE-16
 	.word  0
 	__FINITDATA
 
