@@ -26,7 +26,7 @@ int plugin_is_GPL_compatible;
 static tree latent_entropy_decl;
 
 static struct plugin_info latent_entropy_plugin_info = {
-	.version	= "201403042150",
+	.version	= "201403280150",
 	.help		= NULL
 };
 
