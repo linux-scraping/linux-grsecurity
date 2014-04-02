@@ -1,9 +1,9 @@
 #!/bin/bash
 srctree=$(dirname "$0")
-gccplugins_dir=$("$1" -print-file-name=plugin)
+gccplugins_dir=$("$3" -print-file-name=plugin)
 plugincc=$("$1" -E -shared - -o /dev/null -I${srctree}/../tools/gcc -I${gccplugins_dir}/include 2>&1 <<EOF
 #include "gcc-common.h"
-#if __GNUC__ > 4 || __GNUC_MINOR__ >= 8 || defined(ENABLE_BUILD_WITH_CXX)
+#if BUILDING_GCC_VERSION >= 4008 || defined(ENABLE_BUILD_WITH_CXX)
 #warning $2
 #else
 #warning $1

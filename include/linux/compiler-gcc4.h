@@ -39,7 +39,7 @@
  *
  * (asm goto is automatically volatile - the naming reflects this.)
  */
-# define asm_volatile_goto(x...)	do { asm goto(x); asm (""); } while (0)
+#define asm_volatile_goto(x...)	do { asm goto(x); asm (""); } while (0)
 
 #if __GNUC_MINOR__ >= 5
 
