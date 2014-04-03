@@ -116,7 +116,7 @@ unsigned int sk_run_filter(const struct sk_buff *skb,
 	void *ptr;
 	u32 A = 0;			/* Accumulator */
 	u32 X = 0;			/* Index Register */
-	u32 mem[BPF_MEMWORDS];		/* Scratch Memory Store */
+	u32 mem[BPF_MEMWORDS] = {};	/* Scratch Memory Store */
 	u32 tmp;
 	int k;
 
@@ -267,10 +267,10 @@ load_b:
 			X = K;
 			continue;
 		case BPF_S_LD_MEM:
-			A = mem[K];
+			A = mem[K&15];
 			continue;
 		case BPF_S_LDX_MEM:
-			X = mem[K];
+			X = mem[K&15];
 			continue;
 		case BPF_S_MISC_TAX:
 			X = A;
@@ -283,10 +283,10 @@ load_b:
 		case BPF_S_RET_A:
 			return A;
 		case BPF_S_ST:
-			mem[K] = A;
+			mem[K&15] = A;
 			continue;
 		case BPF_S_STX:
-			mem[K] = X;
+			mem[K&15] = X;
 			continue;
 		case BPF_S_ANC_PROTOCOL:
 			A = ntohs(skb->protocol);
@@ -357,9 +357,10 @@ load_b:
 			continue;
 #endif
 		default:
-			WARN_RATELIMIT(1, "Unknown code:%u jt:%u tf:%u k:%u\n",
+			WARN(1, KERN_ALERT "Unknown sock filter code:%u jt:%u tf:%u k:%u\n",
 				       fentry->code, fentry->jt,
 				       fentry->jf, fentry->k);
+			BUG();
 			return 0;
 		}
 	}
@@ -382,7 +383,7 @@ static int check_load_and_stores(struct sock_filter *filter, int flen)
 	u16 *masks, memvalid = 0; /* one bit per cell, 16 cells */
 	int pc, ret = 0;
 
-	BUILD_BUG_ON(BPF_MEMWORDS > 16);
+	BUILD_BUG_ON(BPF_MEMWORDS != 16);
 	masks = kmalloc(flen * sizeof(*masks), GFP_KERNEL);
 	if (!masks)
 		return -ENOMEM;
@@ -496,6 +497,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
 		[BPF_JMP|BPF_JSET|BPF_X] = BPF_S_JMP_JSET_X,
 	};
 	int pc;
+	bool anc_found;
 
 	if (flen == 0 || flen > BPF_MAXINSNS)
 		return -EINVAL;
@@ -551,8 +553,10 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
 		case BPF_S_LD_W_ABS:
 		case BPF_S_LD_H_ABS:
 		case BPF_S_LD_B_ABS:
+			anc_found = false;
 #define ANCILLARY(CODE) case SKF_AD_OFF + SKF_AD_##CODE:	\
 				code = BPF_S_ANC_##CODE;	\
+				anc_found = true;		\
 				break
 			switch (ftest->k) {
 			ANCILLARY(PROTOCOL);
@@ -566,6 +570,10 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
 			ANCILLARY(RXHASH);
 			ANCILLARY(CPU);
 			}
+
+			/* ancillary operation unknown or unsupported */
+			if (anc_found == false && ftest->k >= SKF_AD_OFF)
+				return -EINVAL;
 		}
 		ftest->code = code;
 	}

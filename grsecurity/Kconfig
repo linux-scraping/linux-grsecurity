@@ -464,6 +464,11 @@ config GRKERNSEC_CHROOT
 	  encounter no software incompatibilities with the following options, it
 	  is recommended that you enable each one.
 
+	  Note that the chroot restrictions are not intended to apply to "chroots"
+	  to directories that are simple bind mounts of the global root filesystem.
+	  For several other reasons, a user shouldn't expect any significant
+	  security by performing such a chroot.
+
 config GRKERNSEC_CHROOT_MOUNT
 	bool "Deny mounts"
 	default y if GRKERNSEC_CONFIG_AUTO
