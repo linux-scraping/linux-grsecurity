@@ -5,6 +5,7 @@
 header1="size_overflow_hash.h"
 database="size_overflow_hash.data"
 n=65536
+hashtable_name="size_overflow_hash"
 
 usage() {
 cat <<EOF
@@ -14,6 +15,7 @@ OPTIONS:
 	-o			header file
 	-d			database file
 	-n			hash array size
+	-s			name of the hash table
 EOF
     return 0
 }
@@ -25,6 +27,7 @@ do
     -n)		n=$2; shift 2;;
     -o)		header1="$2"; shift 2;;
     -d)		database="$2"; shift 2;;
+    -s)		hashtable_name="$2"; shift 2;;
     --)		shift 1; break ;;
      *)		break ;;
     esac
@@ -66,7 +69,7 @@ create_structs() {
 }
 
 create_headers() {
-	echo "const struct size_overflow_hash * const size_overflow_hash[$n] = {" >> "$header1"
+	echo "const struct size_overflow_hash * const $hashtable_name[$n] = {" >> "$header1"
 }
 
 create_array_elements() {

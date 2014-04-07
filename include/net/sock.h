@@ -1022,7 +1022,7 @@ struct proto {
 	void			(*destroy_cgroup)(struct mem_cgroup *memcg);
 	struct cg_proto		*(*proto_cgroup)(struct mem_cgroup *memcg);
 #endif
-};
+} __randomize_layout;
 
 /*
  * Bits in struct cg_proto.flags
@@ -1354,7 +1354,7 @@ struct sock_iocb {
 	struct scm_cookie	*scm;
 	struct msghdr		*msg, async_msg;
 	struct kiocb		*kiocb;
-};
+} __randomize_layout;
 
 static inline struct sock_iocb *kiocb_to_siocb(struct kiocb *iocb)
 {
