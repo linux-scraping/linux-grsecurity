@@ -226,7 +226,7 @@ void __putstr(int error, const char *s)
 
 void *memset(void *s, int c, size_t n)
 {
-	int i;
+	size_t i;
 	char *ss = s;
 
 	for (i = 0; i < n; i++)
@@ -282,7 +282,7 @@ static void parse_elf(void *output)
 	Elf32_Ehdr ehdr;
 	Elf32_Phdr *phdrs, *phdr;
 #endif
-	void *dest;
+	void *dest, *prev;
 	int i;
 
 	memcpy(&ehdr, output, sizeof(ehdr));
@@ -317,6 +317,9 @@ static void parse_elf(void *output)
 			memcpy(dest,
 			       output + phdr->p_offset,
 			       phdr->p_filesz);
+			if (i)
+				memset(prev, 0xff, dest - prev);
+			prev = dest + phdr->p_filesz;
 			break;
 		default: /* Ignore other PT_* */ break;
 		}

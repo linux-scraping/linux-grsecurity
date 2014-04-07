@@ -158,7 +158,7 @@ struct sk_filter
 #endif
 	struct rcu_head		rcu;
 	struct sock_filter     	insns[0];
-};
+} __randomize_layout;
 
 static inline unsigned int sk_filter_len(const struct sk_filter *fp)
 {

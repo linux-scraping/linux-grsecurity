@@ -5366,6 +5366,7 @@ acpi_ds_build_internal_package_obj_58271 acpi_ds_build_internal_package_obj 3 58
 iscsi_decode_text_input_58292 iscsi_decode_text_input 4 58292 NULL
 my_skb_head_push_58297 my_skb_head_push 2 58297 NULL
 ieee80211_if_read_dot11MeshTTL_58307 ieee80211_if_read_dot11MeshTTL 3 58307 NULL
+ext4_ext_truncate_extend_restart_58331 ext4_ext_truncate_extend_restart 0 58331 NULL
 next_pidmap_58347 next_pidmap 2-0 58347 NULL
 vmalloc_to_sg_58354 vmalloc_to_sg 2 58354 NULL
 sctp_make_init_58401 sctp_make_init 4 58401 NULL

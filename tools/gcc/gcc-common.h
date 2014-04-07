@@ -112,6 +112,7 @@ extern void debug_dominance_tree(enum cdi_direction dir, basic_block root);
 #define FOR_EACH_LOCAL_DECL(FUN, I, D) for (tree vars = (FUN)->local_decls; vars && (D = TREE_VALUE(vars)); vars = TREE_CHAIN(vars), I)
 #define DECL_CHAIN(NODE) (TREE_CHAIN(DECL_MINIMAL_CHECK(NODE)))
 #define FOR_EACH_VEC_ELT(T, V, I, P) for (I = 0; VEC_iterate(T, (V), (I), (P)); ++(I))
+#define TODO_rebuild_cgraph_edges 0
 
 static inline bool gimple_call_builtin_p(gimple stmt, enum built_in_function code)
 {

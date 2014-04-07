@@ -146,7 +146,7 @@ static int tomoyo_bprm_check_security(struct linux_binprm *bprm)
  */
 static int tomoyo_inode_getattr(struct vfsmount *mnt, struct dentry *dentry)
 {
-	struct path path = { mnt, dentry };
+	struct path path = { .mnt = mnt, .dentry = dentry };
 	return tomoyo_path_perm(TOMOYO_TYPE_GETATTR, &path, NULL);
 }
 
@@ -172,7 +172,7 @@ static int tomoyo_path_truncate(struct path *path)
  */
 static int tomoyo_path_unlink(struct path *parent, struct dentry *dentry)
 {
-	struct path path = { parent->mnt, dentry };
+	struct path path = { .mnt = parent->mnt, .dentry = dentry };
 	return tomoyo_path_perm(TOMOYO_TYPE_UNLINK, &path, NULL);
 }
 
@@ -188,7 +188,7 @@ static int tomoyo_path_unlink(struct path *parent, struct dentry *dentry)
 static int tomoyo_path_mkdir(struct path *parent, struct dentry *dentry,
 			     int mode)
 {
-	struct path path = { parent->mnt, dentry };
+	struct path path = { .mnt = parent->mnt, .dentry = dentry };
 	return tomoyo_path_number_perm(TOMOYO_TYPE_MKDIR, &path,
 				       mode & S_IALLUGO);
 }
@@ -203,7 +203,7 @@ static int tomoyo_path_mkdir(struct path *parent, struct dentry *dentry,
  */
 static int tomoyo_path_rmdir(struct path *parent, struct dentry *dentry)
 {
-	struct path path = { parent->mnt, dentry };
+	struct path path = { .mnt = parent->mnt, .dentry = dentry };
 	return tomoyo_path_perm(TOMOYO_TYPE_RMDIR, &path, NULL);
 }
 
@@ -219,7 +219,7 @@ static int tomoyo_path_rmdir(struct path *parent, struct dentry *dentry)
 static int tomoyo_path_symlink(struct path *parent, struct dentry *dentry,
 			       const char *old_name)
 {
-	struct path path = { parent->mnt, dentry };
+	struct path path = { .mnt = parent->mnt, .dentry = dentry };
 	return tomoyo_path_perm(TOMOYO_TYPE_SYMLINK, &path, old_name);
 }
 
@@ -236,7 +236,7 @@ static int tomoyo_path_symlink(struct path *parent, struct dentry *dentry,
 static int tomoyo_path_mknod(struct path *parent, struct dentry *dentry,
 			     int mode, unsigned int dev)
 {
-	struct path path = { parent->mnt, dentry };
+	struct path path = { .mnt = parent->mnt, .dentry = dentry };
 	int type = TOMOYO_TYPE_CREATE;
 	const unsigned int perm = mode & S_IALLUGO;
 
@@ -275,8 +275,8 @@ static int tomoyo_path_mknod(struct path *parent, struct dentry *dentry,
 static int tomoyo_path_link(struct dentry *old_dentry, struct path *new_dir,
 			    struct dentry *new_dentry)
 {
-	struct path path1 = { new_dir->mnt, old_dentry };
-	struct path path2 = { new_dir->mnt, new_dentry };
+	struct path path1 = { .mnt = new_dir->mnt, .dentry = old_dentry };
+	struct path path2 = { .mnt = new_dir->mnt, .dentry = new_dentry };
 	return tomoyo_path2_perm(TOMOYO_TYPE_LINK, &path1, &path2);
 }
 
@@ -295,8 +295,8 @@ static int tomoyo_path_rename(struct path *old_parent,
 			      struct path *new_parent,
 			      struct dentry *new_dentry)
 {
-	struct path path1 = { old_parent->mnt, old_dentry };
-	struct path path2 = { new_parent->mnt, new_dentry };
+	struct path path1 = { .mnt = old_parent->mnt, .dentry = old_dentry };
+	struct path path2 = { .mnt = new_parent->mnt, .dentry = new_dentry };
 	return tomoyo_path2_perm(TOMOYO_TYPE_RENAME, &path1, &path2);
 }
 
@@ -362,7 +362,7 @@ static int tomoyo_file_ioctl(struct file *file, unsigned int cmd,
 static int tomoyo_path_chmod(struct dentry *dentry, struct vfsmount *mnt,
 			     mode_t mode)
 {
-	struct path path = { mnt, dentry };
+	struct path path = { .mnt = mnt, .dentry = dentry };
 	return tomoyo_path_number_perm(TOMOYO_TYPE_CHMOD, &path,
 				       mode & S_IALLUGO);
 }
@@ -425,7 +425,7 @@ static int tomoyo_sb_mount(char *dev_name, struct path *path,
  */
 static int tomoyo_sb_umount(struct vfsmount *mnt, int flags)
 {
-	struct path path = { mnt, mnt->mnt_root };
+	struct path path = { .mnt = mnt, .dentry = mnt->mnt_root };
 	return tomoyo_path_perm(TOMOYO_TYPE_UMOUNT, &path, NULL);
 }
 

@@ -26,7 +26,7 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20140317",
+	.version	= "20140402",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
@@ -54,6 +54,7 @@ struct size_overflow_hash {
 };
 
 #include "size_overflow_hash.h"
+#include "size_overflow_hash_aux.h"
 
 enum mark {
 	MARK_NO, MARK_YES, MARK_NOT_INTENTIONAL, MARK_TURN_OFF
@@ -445,6 +446,16 @@ static void set_function_codes(struct function_hash *fn_hash_data)
 		set_node_codes(TREE_VALUE(arg), fn_hash_data);
 }
 
+static const struct size_overflow_hash *get_proper_hash_chain(const struct size_overflow_hash *entry, const char *func_name)
+{
+	while (entry) {
+		if (!strcmp(entry->name, func_name))
+			return entry;
+		entry = entry->next;
+	}
+	return NULL;
+}
+
 static const struct size_overflow_hash *get_function_hash(const_tree fndecl)
 {
 	const struct size_overflow_hash *entry;
@@ -465,13 +476,11 @@ static const struct size_overflow_hash *get_function_hash(const_tree fndecl)
 	set_hash(func_name, &fn_hash_data);
 
 	entry = size_overflow_hash[fn_hash_data.hash];
-
-	while (entry) {
-		if (!strcmp(entry->name, func_name))
-			return entry;
-		entry = entry->next;
-	}
-	return NULL;
+	entry = get_proper_hash_chain(entry, func_name);
+	if (entry)
+		return entry;
+	entry = size_overflow_hash_aux[fn_hash_data.hash];
+	return get_proper_hash_chain(entry, func_name);
 }
 
 static void print_missing_msg(const_tree func, unsigned int argnum)

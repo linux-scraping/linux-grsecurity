@@ -849,7 +849,7 @@ struct proto {
 #ifdef SOCK_REFCNT_DEBUG
 	atomic_t		socks;
 #endif
-};
+} __randomize_layout;
 
 extern int proto_register(struct proto *prot, int alloc_slab);
 extern void proto_unregister(struct proto *prot);
@@ -929,7 +929,7 @@ struct sock_iocb {
 	struct scm_cookie	*scm;
 	struct msghdr		*msg, async_msg;
 	struct kiocb		*kiocb;
-};
+} __randomize_layout;
 
 static inline struct sock_iocb *kiocb_to_siocb(struct kiocb *iocb)
 {

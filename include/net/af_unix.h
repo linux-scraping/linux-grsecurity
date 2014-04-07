@@ -30,7 +30,7 @@ struct unix_skb_parms {
 #ifdef CONFIG_SECURITY_NETWORK
 	u32			secid;		/* Security ID		*/
 #endif
-};
+} __randomize_layout;
 
 #define UNIXCB(skb) 	(*(struct unix_skb_parms *)&((skb)->cb))
 #define UNIXSID(skb)	(&UNIXCB((skb)).secid)
