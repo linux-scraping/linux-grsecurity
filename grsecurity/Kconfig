@@ -53,7 +53,8 @@ config GRKERNSEC_IO
 	  the most notable of which are XFree86 and hwclock.  hwclock can be
 	  remedied by having RTC support in the kernel, so real-time 
 	  clock support is enabled if this option is enabled, to ensure 
-	  that hwclock operates correctly.
+	  that hwclock operates correctly.  If hwclock still does not work,
+	  either update udev or symlink /dev/rtc to /dev/rtc0.
 
 	  If you're using XFree86 or a version of Xorg from 2012 or earlier,
 	  you may not be able to boot into a graphical environment with this
