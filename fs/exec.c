@@ -2103,13 +2103,13 @@ static inline bool check_kernel_text_object(unsigned long low, unsigned long hig
 #ifdef CONFIG_X86_64
 	/* check against linear mapping as well */
 	if (high > (unsigned long)__va(__pa(textlow)) &&
-	    low <= (unsigned long)__va(__pa(texthigh)))
+	    low < (unsigned long)__va(__pa(texthigh)))
 		return true;
 #endif
 
 #endif
 
-	if (high <= textlow || low > texthigh)
+	if (high <= textlow || low >= texthigh)
 		return false;
 	else
 		return true;

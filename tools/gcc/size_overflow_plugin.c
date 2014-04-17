@@ -26,7 +26,7 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20140402",
+	.version	= "20140407",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
@@ -1356,12 +1356,62 @@ static void check_size_overflow(struct cgraph_node *caller_node, gimple stmt, tr
 	insert_check_size_overflow(caller_node, stmt, LT_EXPR, cast_rhs, type_min, before, MIN_CHECK);
 }
 
+static bool is_lt_signed_type_max(const_tree rhs)
+{
+	const_tree new_type, type_max, type = TREE_TYPE(rhs);
+
+	if (!TYPE_UNSIGNED(type))
+		return true;
+
+	switch (TYPE_MODE(type)) {
+	case QImode:
+		new_type = intQI_type_node;
+		break;
+	case HImode:
+		new_type = intHI_type_node;
+		break;
+	case SImode:
+		new_type = intSI_type_node;
+		break;
+	case DImode:
+		new_type = intDI_type_node;
+		break;
+	default:
+		debug_tree((tree)type);
+		gcc_unreachable();
+	}
+
+	type_max = TYPE_MAX_VALUE(new_type);
+	if (!tree_int_cst_lt(type_max, rhs))
+		return true;
+
+	return false;
+}
+
+static bool is_gt_zero(const_tree rhs)
+{
+	const_tree type = TREE_TYPE(rhs);
+
+	if (TYPE_UNSIGNED(type))
+		return true;
+
+	if (!tree_int_cst_lt(rhs, integer_zero_node))
+		return true;
+
+	return false;
+}
+
 static bool is_a_constant_overflow(const_gimple stmt, const_tree rhs)
 {
 	if (gimple_assign_rhs_code(stmt) == MIN_EXPR)
 		return false;
 	if (!is_gimple_constant(rhs))
 		return false;
+
+	// If the const is between 0 and the max value of the signed type of the same bitsize then there is no intentional overflow
+	if (is_lt_signed_type_max(rhs) && is_gt_zero(rhs))
+		return false;
+
 	return true;
 }
 
@@ -1564,6 +1614,12 @@ static tree handle_binary_ops(struct pointer_set_t *visited, struct cgraph_node 
 		return handle_intentional_overflow(visited, caller_node, !is_a_cast_and_const_overflow(rhs1), def_stmt, new_rhs1, NULL_TREE);
 	if (is_a_constant_overflow(def_stmt, rhs1))
 		return handle_intentional_overflow(visited, caller_node, !is_a_cast_and_const_overflow(rhs2), def_stmt, new_rhs2, new_rhs2);
+
+	// the const is between 0 and (signed) MAX
+	if (is_gimple_constant(rhs1))
+		new_rhs1 = create_assign(visited, def_stmt, rhs1, BEFORE_STMT);
+	if (is_gimple_constant(rhs2))
+		new_rhs2 = create_assign(visited, def_stmt, rhs2, BEFORE_STMT);
 
 	return dup_assign(visited, def_stmt, lhs, new_rhs1, new_rhs2, NULL_TREE);
 }
