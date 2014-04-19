@@ -1409,8 +1409,8 @@ static bool is_a_constant_overflow(const_gimple stmt, const_tree rhs)
 		return false;
 
 	// If the const is between 0 and the max value of the signed type of the same bitsize then there is no intentional overflow
-	if (is_lt_signed_type_max(rhs) && is_gt_zero(rhs))
-		return false;
+//	if (is_lt_signed_type_max(rhs) && is_gt_zero(rhs))
+//		return false;
 
 	return true;
 }
