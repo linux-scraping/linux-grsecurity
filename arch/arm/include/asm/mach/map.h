@@ -23,7 +23,7 @@ struct map_desc {
 
 /* types 0-3 are defined in asm/io.h */
 enum {
-	MT_UNCACHED = 4,
+	MT_UNCACHED_RW = 4,
 	MT_CACHECLEAN_RO,
 	MT_MINICLEAN_RO,
 	MT_LOW_VECTORS,
@@ -31,7 +31,7 @@ enum {
 	__MT_MEMORY_RWX,
 	MT_MEMORY_RW,
 	MT_MEMORY_RX,
-	MT_ROM,
+	MT_ROM_RX,
 	MT_MEMORY_RW_NONCACHED,
 	MT_MEMORY_RX_NONCACHED,
 	MT_MEMORY_RW_DTCM,

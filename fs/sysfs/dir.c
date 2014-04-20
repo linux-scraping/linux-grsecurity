@@ -64,6 +64,9 @@ int sysfs_create_dir_ns(struct kobject *kobj, const void *ns)
 	struct kernfs_node *parent, *kn;
 	const char *name;
 	umode_t mode = S_IRWXU | S_IRUGO | S_IXUGO;
+#ifdef CONFIG_GRKERNSEC_SYSFS_RESTRICT
+	const char *parent_name;
+#endif
 
 	BUG_ON(!kobj);
 
@@ -78,8 +81,7 @@ int sysfs_create_dir_ns(struct kobject *kobj, const void *ns)
 		return -ENOENT;
 
 #ifdef CONFIG_GRKERNSEC_SYSFS_RESTRICT
-	const char *parent_name = parent->name;
-
+	parent_name = parent->name;
 	mode = S_IRWXU;
 
 	if ((!strcmp(parent_name, "") && (!strcmp(name, "devices") || !strcmp(name, "fs"))) ||

@@ -28,6 +28,7 @@ static unsigned long hugetlb_get_unmapped_area_bottomup(struct file *filp,
 							unsigned long flags,
 							unsigned long offset)
 {
+	struct mm_struct *mm = current->mm;
 	unsigned long task_size = TASK_SIZE;
 	struct vm_unmapped_area_info info;
 
