@@ -8,7 +8,6 @@
 
 #include <uapi/linux/random.h>
 
-
 extern void add_device_randomness(const void *, unsigned int);
 
 static inline void add_latent_entropy(void)
@@ -51,6 +50,23 @@ void prandom_bytes_state(struct rnd_state *state, void *buf, int nbytes);
 static inline unsigned long __intentional_overflow(-1) pax_get_random_long(void)
 {
 	return prandom_u32() + (sizeof(long) > 4 ? (unsigned long)prandom_u32() << 32 : 0);
+}
+
+/**
+ * prandom_u32_max - returns a pseudo-random number in interval [0, ep_ro)
+ * @ep_ro: right open interval endpoint
+ *
+ * Returns a pseudo-random number that is in interval [0, ep_ro). Note
+ * that the result depends on PRNG being well distributed in [0, ~0U]
+ * u32 space. Here we use maximally equidistributed combined Tausworthe
+ * generator, that is, prandom_u32(). This is useful when requesting a
+ * random index of an array containing ep_ro elements, for example.
+ *
+ * Returns: pseudo-random number in interval [0, ep_ro)
+ */
+static inline u32 prandom_u32_max(u32 ep_ro)
+{
+	return (u32)(((u64) prandom_u32() * ep_ro) >> 32);
 }
 
 /*

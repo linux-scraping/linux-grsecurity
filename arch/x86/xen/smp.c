@@ -73,9 +73,11 @@ static void cpu_bringup(void)
 	touch_softlockup_watchdog();
 	preempt_disable();
 
-	xen_enable_sysenter();
-	xen_enable_syscall();
-
+	/* PVH runs in ring 0 and allows us to do native syscalls. Yay! */
+	if (!xen_feature(XENFEAT_supervisor_mode_kernel)) {
+		xen_enable_sysenter();
+		xen_enable_syscall();
+	}
 	cpu = smp_processor_id();
 	smp_store_cpu_info(cpu);
 	cpu_data(cpu).x86_max_cores = 1;
@@ -97,8 +99,14 @@ static void cpu_bringup(void)
 	wmb();			/* make sure everything is out */
 }
 
-static void cpu_bringup_and_idle(void)
+/* Note: cpu parameter is only relevant for PVH */
+static void cpu_bringup_and_idle(int cpu)
 {
+#ifdef CONFIG_X86_64
+	if (xen_feature(XENFEAT_auto_translated_physmap) &&
+	    xen_feature(XENFEAT_supervisor_mode_kernel))
+		xen_pvh_secondary_vcpu_init(cpu);
+#endif
 	cpu_bringup();
 	cpu_startup_entry(CPUHP_ONLINE);
 }
@@ -274,6 +282,7 @@ static void __init xen_smp_prepare_boot_cpu(void)
 	native_smp_prepare_boot_cpu();
 
 	if (xen_pv_domain()) {
+		if (!xen_feature(XENFEAT_writable_page_tables))
 #ifdef CONFIG_X86_32
 		/*
 		 * Xen starts us with XEN_FLAT_RING1_DS, but linux code
@@ -356,22 +365,21 @@ cpu_initialize_context(unsigned int cpu, struct task_struct *idle)
 
 	gdt = get_cpu_gdt_table(cpu);
 
-	ctxt->flags = VGCF_IN_KERNEL;
-	ctxt->user_regs.ss = __KERNEL_DS;
 #ifdef CONFIG_X86_32
+	/* Note: PVH is not yet supported on x86_32. */
 	ctxt->user_regs.fs = __KERNEL_PERCPU;
 	savesegment(gs, ctxt->user_regs.gs);
-#else
-	ctxt->gs_base_kernel = per_cpu_offset(cpu);
 #endif
 	ctxt->user_regs.eip = (unsigned long)cpu_bringup_and_idle;
 
 	memset(&ctxt->fpu_ctxt, 0, sizeof(ctxt->fpu_ctxt));
 
-	{
+	if (!xen_feature(XENFEAT_auto_translated_physmap)) {
+		ctxt->flags = VGCF_IN_KERNEL;
 		ctxt->user_regs.eflags = 0x1000; /* IOPL_RING1 */
 		ctxt->user_regs.ds = __KERNEL_DS;
 		ctxt->user_regs.es = __KERNEL_DS;
+		ctxt->user_regs.ss = __KERNEL_DS;
 
 		xen_copy_trap_info(ctxt->trap_ctxt);
 
@@ -392,18 +400,27 @@ cpu_initialize_context(unsigned int cpu, struct task_struct *idle)
 #ifdef CONFIG_X86_32
 		ctxt->event_callback_cs     = __KERNEL_CS;
 		ctxt->failsafe_callback_cs  = __KERNEL_CS;
+#else
+		ctxt->gs_base_kernel = per_cpu_offset(cpu);
 #endif
 		ctxt->event_callback_eip    =
 					(unsigned long)xen_hypervisor_callback;
 		ctxt->failsafe_callback_eip =
 					(unsigned long)xen_failsafe_callback;
+		ctxt->user_regs.cs = __KERNEL_CS;
+		per_cpu(xen_cr3, cpu) = __pa(swapper_pg_dir);
+#ifdef CONFIG_X86_32
 	}
-	ctxt->user_regs.cs = __KERNEL_CS;
+#else
+	} else
+		/* N.B. The user_regs.eip (cpu_bringup_and_idle) is called with
+		 * %rdi having the cpu number - which means are passing in
+		 * as the first parameter the cpu. Subtle!
+		 */
+		ctxt->user_regs.rdi = cpu;
+#endif
 	ctxt->user_regs.esp = idle->thread.sp0 - sizeof(struct pt_regs);
-
-	per_cpu(xen_cr3, cpu) = __pa(swapper_pg_dir);
 	ctxt->ctrlreg[3] = xen_pfn_to_cr3(virt_to_mfn(swapper_pg_dir));
-
 	if (HYPERVISOR_vcpu_op(VCPUOP_initialise, cpu, ctxt))
 		BUG();
 

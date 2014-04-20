@@ -455,7 +455,7 @@ static int hostap_set_encryption(PSDevice pDevice,
 	unsigned long dwKeyIndex = 0;
 	unsigned char abyKey[MAX_KEY_LEN];
 	unsigned char abySeq[MAX_KEY_LEN];
-	NDIS_802_11_KEY_RSC   KeyRSC;
+	unsigned long long KeyRSC;
 	unsigned char byKeyDecMode = KEY_CTL_WEP;
 	int     ret = 0;
 	int     iNodeIndex = -1;
@@ -496,11 +496,11 @@ static int hostap_set_encryption(PSDevice pDevice,
 	DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO " hostap_set_encryption: alg %d \n", param->u.crypt.alg);
 
 	if (param->u.crypt.alg == WPA_ALG_NONE) {
-		if (pMgmt->sNodeDBTable[iNodeIndex].bOnFly == true) {
-			if (KeybRemoveKey(&(pDevice->sKey),
+		if (pMgmt->sNodeDBTable[iNodeIndex].bOnFly) {
+			if (!KeybRemoveKey(&(pDevice->sKey),
 					  param->sta_addr,
 					  pMgmt->sNodeDBTable[iNodeIndex].dwKeyIndex,
-					  pDevice->PortOffset) == false) {
+					  pDevice->PortOffset)) {
 				DBG_PRT(MSG_LEVEL_DEBUG, KERN_INFO "KeybRemoveKey fail \n");
 			}
 			pMgmt->sNodeDBTable[iNodeIndex].bOnFly = false;
@@ -558,7 +558,7 @@ static int hostap_set_encryption(PSDevice pDevice,
 				       (unsigned char *)abyKey,
 				       KEY_CTL_WEP,
 				       pDevice->PortOffset,
-				       pDevice->byLocalID) == true) {
+				       pDevice->byLocalID)) {
 				pMgmt->sNodeDBTable[iNodeIndex].bOnFly = true;
 
 			} else {
@@ -625,7 +625,7 @@ static int hostap_set_encryption(PSDevice pDevice,
 			       (unsigned char *)abyKey,
 			       byKeyDecMode,
 			       pDevice->PortOffset,
-			       pDevice->byLocalID) == true) {
+			       pDevice->byLocalID)) {
 			pMgmt->sNodeDBTable[iNodeIndex].bOnFly = true;
 
 		} else {
@@ -637,7 +637,7 @@ static int hostap_set_encryption(PSDevice pDevice,
 
 	}
 
-	if (bKeyTableFull == true) {
+	if (bKeyTableFull) {
 		wKeyCtl &= 0x7F00;              // clear all key control filed
 		wKeyCtl |= (byKeyDecMode << 4);
 		wKeyCtl |= (byKeyDecMode);

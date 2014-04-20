@@ -71,4 +71,4 @@ static int __init proc_devices_init(void)
 #endif
 	return 0;
 }
-module_init(proc_devices_init);
+fs_initcall(proc_devices_init);

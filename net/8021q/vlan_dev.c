@@ -61,7 +61,7 @@ static int vlan_dev_rebuild_header(struct sk_buff *skb)
 		pr_debug("%s: unable to resolve type %X addresses\n",
 			 dev->name, ntohs(veth->h_vlan_encapsulated_proto));
 
-		memcpy(veth->h_source, dev->dev_addr, ETH_ALEN);
+		ether_addr_copy(veth->h_source, dev->dev_addr);
 		break;
 	}
 
@@ -303,7 +303,7 @@ static int vlan_dev_open(struct net_device *dev)
 			goto clear_allmulti;
 	}
 
-	memcpy(vlan->real_dev_addr, real_dev->dev_addr, ETH_ALEN);
+	ether_addr_copy(vlan->real_dev_addr, real_dev->dev_addr);
 
 	if (vlan->flags & VLAN_FLAG_GVRP)
 		vlan_gvrp_request_join(dev);
@@ -367,7 +367,7 @@ static int vlan_dev_set_mac_address(struct net_device *dev, void *p)
 		dev_uc_del(real_dev, dev->dev_addr);
 
 out:
-	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
+	ether_addr_copy(dev->dev_addr, addr->sa_data);
 	return 0;
 }
 
@@ -578,6 +578,9 @@ static int vlan_dev_init(struct net_device *dev)
 
 	dev->features |= real_dev->vlan_features | NETIF_F_LLTX;
 	dev->gso_max_size = real_dev->gso_max_size;
+	if (dev->features & NETIF_F_VLAN_FEATURES)
+		netdev_warn(real_dev, "VLAN features are set incorrectly.  Q-in-Q configurations may not work correctly.\n");
+
 
 	/* ipv6 shared card related stuff */
 	dev->dev_id = real_dev->dev_id;

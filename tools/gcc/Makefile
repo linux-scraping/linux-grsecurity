@@ -51,10 +51,12 @@ quiet_cmd_build_size_overflow_hash_aux = GENHASH  $@
 $(objtree)/$(obj)/size_overflow_hash_aux.h: $(src)/size_overflow_hash_aux.data FORCE
 	$(call if_changed,build_size_overflow_hash_aux)
 
+targets += size_overflow_hash.h size_overflow_hash_aux.h
+
 quiet_cmd_create_randomize_layout_seed = GENSEED  $@
       cmd_create_randomize_layout_seed = \
 	$(CONFIG_SHELL) $(srctree)/$(src)/gen-random-seed.sh $@ $(objtree)/include/generated/randomize_layout_hash.h
 $(objtree)/$(obj)/randomize_layout_seed.h: FORCE
 	$(call if_changed,create_randomize_layout_seed)
 
-targets += size_overflow_hash.h size_overflow_hash_aux.h randomize_layout_seed.h randomize_layout_hash.h
+targets += size_overflow_hash.h randomize_layout_seed.h randomize_layout_hash.h

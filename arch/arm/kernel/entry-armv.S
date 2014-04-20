@@ -552,11 +552,13 @@ __und_usr_thumb:
 	pax_open_userland
 2:	ldrht	r5, [r4]
 	pax_close_userland
+ARM_BE8(rev16	r5, r5)				@ little endian instruction
 	cmp	r5, #0xe800			@ 32bit instruction if xx != 0
 	blo	__und_usr_fault_16		@ 16bit undefined instruction
 	pax_open_userland
 3:	ldrht	r0, [r2]
 	pax_close_userland
+ARM_BE8(rev16	r0, r0)				@ little endian instruction
 	add	r2, r2, #2			@ r2 is PC + 2, make it PC + 4
 	str	r2, [sp, #S_PC]			@ it's a 2x16bit instr, update
 	orr	r0, r0, r5, lsl #16

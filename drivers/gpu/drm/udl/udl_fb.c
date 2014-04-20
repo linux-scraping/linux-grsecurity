@@ -402,15 +402,17 @@ static int udl_user_framebuffer_dirty(struct drm_framebuffer *fb,
 	int i;
 	int ret = 0;
 
+	drm_modeset_lock_all(fb->dev);
+
 	if (!ufb->active_16)
-		return 0;
+		goto unlock;
 
 	if (ufb->obj->base.import_attach) {
 		ret = dma_buf_begin_cpu_access(ufb->obj->base.import_attach->dmabuf,
 					       0, ufb->obj->base.size,
 					       DMA_FROM_DEVICE);
 		if (ret)
-			return ret;
+			goto unlock;
 	}
 
 	for (i = 0; i < num_clips; i++) {
@@ -418,7 +420,7 @@ static int udl_user_framebuffer_dirty(struct drm_framebuffer *fb,
 				  clips[i].x2 - clips[i].x1,
 				  clips[i].y2 - clips[i].y1);
 		if (ret)
-			break;
+			goto unlock;
 	}
 
 	if (ufb->obj->base.import_attach) {
@@ -426,6 +428,10 @@ static int udl_user_framebuffer_dirty(struct drm_framebuffer *fb,
 				       0, ufb->obj->base.size,
 				       DMA_FROM_DEVICE);
 	}
+
+ unlock:
+	drm_modeset_unlock_all(fb->dev);
+
 	return ret;
 }
 

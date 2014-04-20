@@ -414,7 +414,7 @@ unsigned long slice_get_unmapped_area(unsigned long addr, unsigned long len,
 	if (fixed && (addr & ((1ul << pshift) - 1)))
 		return -EINVAL;
 	if (fixed && addr > (mm->task_size - len))
-		return -EINVAL;
+		return -ENOMEM;
 
 #ifdef CONFIG_PAX_RANDMMAP
 	if (!fixed && (mm->pax_flags & MF_PAX_RANDMMAP))

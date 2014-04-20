@@ -47,6 +47,7 @@
 #include <linux/rbtree.h>
 #include <linux/hash.h>
 #include <linux/prefetch.h>
+#include <linux/vmalloc.h>
 #include <net/netlink.h>
 #include <net/pkt_sched.h>
 #include <net/sock.h>
@@ -225,7 +226,7 @@ static struct fq_flow *fq_classify(struct sk_buff *skb, struct fq_sched_data *q)
 		/* By forcing low order bit to 1, we make sure to not
 		 * collide with a local flow (socket pointers are word aligned)
 		 */
-		sk = (struct sock *)(skb_get_rxhash(skb) | 1L);
+		sk = (struct sock *)(skb_get_hash(skb) | 1L);
 	}
 
 	root = &q->fq_root[hash_32((u32)(long)sk, q->fq_trees_log)];
@@ -578,6 +579,24 @@ static void fq_rehash(struct fq_sched_data *q,
 	q->stat_gc_flows += fcnt;
 }
 
+static void *fq_alloc_node(size_t sz, int node)
+{
+	void *ptr;
+
+	ptr = kmalloc_node(sz, GFP_KERNEL | __GFP_REPEAT | __GFP_NOWARN, node);
+	if (!ptr)
+		ptr = vmalloc_node(sz, node);
+	return ptr;
+}
+
+static void fq_free(void *addr)
+{
+	if (addr && is_vmalloc_addr(addr))
+		vfree(addr);
+	else
+		kfree(addr);
+}
+
 static int fq_resize(struct Qdisc *sch, u32 log)
 {
 	struct fq_sched_data *q = qdisc_priv(sch);
@@ -588,7 +607,9 @@ static int fq_resize(struct Qdisc *sch, u32 log)
 	if (q->fq_root && log == q->fq_trees_log)
 		return 0;
 
-	array = kmalloc(sizeof(struct rb_root) << log, GFP_KERNEL);
+	/* If XPS was setup, we can allocate memory on right NUMA node */
+	array = fq_alloc_node(sizeof(struct rb_root) << log,
+			      netdev_queue_numa_node_read(sch->dev_queue));
 	if (!array)
 		return -ENOMEM;
 
@@ -606,7 +627,7 @@ static int fq_resize(struct Qdisc *sch, u32 log)
 
 	sch_tree_unlock(sch);
 
-	kfree(old_fq_root);
+	fq_free(old_fq_root);
 
 	return 0;
 }
@@ -707,7 +728,7 @@ static void fq_destroy(struct Qdisc *sch)
 	struct fq_sched_data *q = qdisc_priv(sch);
 
 	fq_reset(sch);
-	kfree(q->fq_root);
+	fq_free(q->fq_root);
 	qdisc_watchdog_cancel(&q->watchdog);
 }
 

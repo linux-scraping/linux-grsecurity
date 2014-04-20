@@ -176,8 +176,11 @@ static __always_inline struct thread_info *current_thread_info(void)
  */
 #ifndef __ASSEMBLY__
 
-/* how to get the current stack pointer from C */
-register unsigned long current_stack_pointer asm("esp") __used;
+#define current_stack_pointer ({		\
+	unsigned long sp;			\
+	asm("mov %%esp,%0" : "=g" (sp));	\
+	sp;					\
+})
 
 #endif
 
