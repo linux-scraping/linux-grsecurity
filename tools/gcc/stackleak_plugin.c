@@ -279,25 +279,27 @@ public:
 	unsigned int execute() { return execute_stackleak_final(); }
 };
 }
-#endif
 
+static opt_pass *make_stackleak_tree_instrument_pass(void)
+{
+	return new stackleak_tree_instrument_pass();
+}
+
+static opt_pass *make_stackleak_final_rtl_opt_pass(void)
+{
+	return new stackleak_final_rtl_opt_pass();
+}
+#else
 static struct opt_pass *make_stackleak_tree_instrument_pass(void)
 {
-#if BUILDING_GCC_VERSION >= 4009
-	return new stackleak_tree_instrument_pass();
-#else
 	return &stackleak_tree_instrument_pass.pass;
-#endif
 }
 
 static struct opt_pass *make_stackleak_final_rtl_opt_pass(void)
 {
-#if BUILDING_GCC_VERSION >= 4009
-	return new stackleak_final_rtl_opt_pass();
-#else
 	return &stackleak_final_rtl_opt_pass.pass;
-#endif
 }
+#endif
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {

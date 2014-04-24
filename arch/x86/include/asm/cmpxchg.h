@@ -71,6 +71,7 @@ extern void __add_check_overflow_wrong_size(void)
 		__ret;							\
 	})
 
+#ifdef CONFIG_PAX_REFCOUNT
 #define __xchg_op_check_overflow(ptr, arg, op, lock)			\
 	({								\
 	        __typeof__ (*(ptr)) __ret = (arg);			\
@@ -98,6 +99,9 @@ extern void __add_check_overflow_wrong_size(void)
 		}							\
 		__ret;							\
 	})
+#else
+#define __xchg_op_check_overflow(ptr, arg, op, lock) __xchg_op(ptr, arg, op, lock)
+#endif
 
 /*
  * Note: no "lock" prefix even on SMP: xchg always implies lock anyway.

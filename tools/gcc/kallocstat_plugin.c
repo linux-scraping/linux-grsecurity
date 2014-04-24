@@ -149,16 +149,17 @@ public:
 	unsigned int execute() { return execute_kallocstat(); }
 };
 }
-#endif
 
+static opt_pass *make_kallocstat_pass(void)
+{
+	return new kallocstat_pass();
+}
+#else
 static struct opt_pass *make_kallocstat_pass(void)
 {
-#if BUILDING_GCC_VERSION >= 4009
-	return new kallocstat_pass();
-#else
 	return &kallocstat_pass.pass;
-#endif
 }
+#endif
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {

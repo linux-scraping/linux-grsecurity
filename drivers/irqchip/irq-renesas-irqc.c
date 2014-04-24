@@ -151,7 +151,7 @@ static int irqc_probe(struct platform_device *pdev)
 	struct irqc_priv *p;
 	struct resource *io;
 	struct resource *irq;
-	struct irq_chip *irq_chip;
+	irq_chip_no_const *irq_chip;
 	const char *name = dev_name(&pdev->dev);
 	int ret;
 	int k;
