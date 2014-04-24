@@ -359,7 +359,11 @@ static void finish_type(void *event_data, void *data)
 
 static void check_global_variables(void *event_data, void *data)
 {
+#if BUILDING_GCC_VERSION >= 4009
+	varpool_node *node;
+#else
 	struct varpool_node *node;
+#endif
 
 	FOR_EACH_VARIABLE(node) {
 		tree var = NODE_DECL(node);
@@ -456,16 +460,17 @@ public:
 	unsigned int execute() { return check_local_variables(); }
 };
 }
-#endif
 
+static opt_pass *make_check_local_variables_pass(void)
+{
+	return new check_local_variables_pass();
+}
+#else
 static struct opt_pass *make_check_local_variables_pass(void)
 {
-#if BUILDING_GCC_VERSION >= 4009
-	return new check_local_variables_pass();
-#else
 	return &check_local_variables_pass.pass;
-#endif
 }
+#endif
 
 static struct {
 	const char *name;

@@ -424,34 +424,37 @@ public:
 	unsigned int execute() { return execute_kernexec_retaddr(); }
 };
 }
-#endif
 
+static opt_pass *make_kernexec_reload_pass(void)
+{
+	return new kernexec_reload_pass();
+}
+
+static opt_pass *make_kernexec_fptr_pass(void)
+{
+	return new kernexec_fptr_pass();
+}
+
+static opt_pass *make_kernexec_retaddr_pass(void)
+{
+	return new kernexec_retaddr_pass();
+}
+#else
 static struct opt_pass *make_kernexec_reload_pass(void)
 {
-#if BUILDING_GCC_VERSION >= 4009
-	return new kernexec_reload_pass();
-#else
 	return &kernexec_reload_pass.pass;
-#endif
 }
 
 static struct opt_pass *make_kernexec_fptr_pass(void)
 {
-#if BUILDING_GCC_VERSION >= 4009
-	return new kernexec_fptr_pass();
-#else
 	return &kernexec_fptr_pass.pass;
-#endif
 }
 
 static struct opt_pass *make_kernexec_retaddr_pass(void)
 {
-#if BUILDING_GCC_VERSION >= 4009
-	return new kernexec_retaddr_pass();
-#else
 	return &kernexec_retaddr_pass.pass;
-#endif
 }
+#endif
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {

@@ -219,16 +219,17 @@ public:
 	unsigned int execute() { return handle_function(); }
 };
 }
-#endif
 
+static opt_pass *make_structleak_pass(void)
+{
+	return new structleak_pass();
+}
+#else
 static struct opt_pass *make_structleak_pass(void)
 {
-#if BUILDING_GCC_VERSION >= 4009
-	return new structleak_pass();
-#else
 	return &structleak_pass.pass;
-#endif
 }
+#endif
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {

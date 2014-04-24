@@ -247,7 +247,7 @@ HOSTCC       = gcc
 HOSTCXX      = g++
 HOSTCFLAGS   = -Wall -W -Wmissing-prototypes -Wstrict-prototypes -Wno-unused-parameter -Wno-missing-field-initializers -O2 -fomit-frame-pointer -fno-delete-null-pointer-checks
 HOSTCFLAGS  += $(call cc-option, -Wno-empty-body)
-HOSTCXXFLAGS = -O2 -Wall -W -fno-delete-null-pointer-checks
+HOSTCXXFLAGS = -O2 -Wall -W -Wno-array-bounds
 
 # Decide whether to build built-in, modular, or both.
 # Normally, just do built-in.

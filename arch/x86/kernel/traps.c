@@ -161,7 +161,7 @@ kernel_trap:
 		tsk->thread.trap_no = trapnr;
 
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
-		if (trapnr == 12 && ((regs->cs & 0xFFFF) == __KERNEL_CS || (regs->cs & 0xFFFF) == __KERNEXEC_KERNEL_CS))
+		if (trapnr == X86_TRAP_SS && ((regs->cs & 0xFFFF) == __KERNEL_CS || (regs->cs & 0xFFFF) == __KERNEXEC_KERNEL_CS))
 			str = "PAX: suspicious stack segment fault";
 #endif
 
@@ -169,7 +169,7 @@ kernel_trap:
 	}
 
 #ifdef CONFIG_PAX_REFCOUNT
-	if (trapnr == 4)
+	if (trapnr == X86_TRAP_OF)
 		pax_report_refcount_overflow(regs);
 #endif
 

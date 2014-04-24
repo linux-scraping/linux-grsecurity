@@ -16,20 +16,20 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info colorize_plugin_info = {
-	.version	= "201401260140",
-	.help		= NULL,
+	.version	= "201404202350",
+	.help		= "color=[never|always|auto]\tdetermine when to colorize\n",
 };
 
-#define GREEN		"\033[32m\033[2m"
-#define LIGHTGREEN	"\033[32m\033[1m"
-#define YELLOW		"\033[33m\033[2m"
-#define LIGHTYELLOW	"\033[33m\033[1m"
-#define RED		"\033[31m\033[2m"
-#define LIGHTRED	"\033[31m\033[1m"
-#define BLUE		"\033[34m\033[2m"
-#define LIGHTBLUE	"\033[34m\033[1m"
-#define BRIGHT		"\033[m\033[1m"
-#define NORMAL		"\033[m"
+#define GREEN		"\033[32m\033[K"
+#define LIGHTGREEN	"\033[1;32m\033[K"
+#define YELLOW		"\033[33m\033[K"
+#define LIGHTYELLOW	"\033[1;33m\033[K"
+#define RED		"\033[31m\033[K"
+#define LIGHTRED	"\033[1;31m\033[K"
+#define BLUE		"\033[34m\033[K"
+#define LIGHTBLUE	"\033[1;34m\033[K"
+#define BRIGHT		"\033[1;m\033[K"
+#define NORMAL		"\033[m\033[K"
 
 static diagnostic_starter_fn old_starter;
 static diagnostic_finalizer_fn old_finalizer;
@@ -131,26 +131,42 @@ public:
 	unsigned int execute() { return execute_colorize_rearm(); }
 };
 }
-#endif
 
+static opt_pass *make_colorize_rearm_pass(void)
+{
+	return new colorize_rearm_pass();
+}
+#else
 static struct opt_pass *make_colorize_rearm_pass(void)
 {
-#if BUILDING_GCC_VERSION >= 4009
-	return new colorize_rearm_pass();
-#else
 	return &colorize_rearm_pass.pass;
-#endif
 }
+#endif
 
 static void colorize_start_unit(void *gcc_data, void *user_data)
 {
 	colorize_arm();
 }
 
+static bool should_colorize(void)
+{
+#if BUILDING_GCC_VERSION >= 4009
+	return false;
+#else
+	char const *t = getenv("TERM");
+
+	return t && strcmp(t, "dumb") && isatty(STDERR_FILENO);
+#endif
+}
+
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
 	const char * const plugin_name = plugin_info->base_name;
+	const int argc = plugin_info->argc;
+	const struct plugin_argument * const argv = plugin_info->argv;
+	int i;
 	struct register_pass_info colorize_rearm_pass_info;
+	bool colorize;
 
 	colorize_rearm_pass_info.pass				= make_colorize_rearm_pass();
 	colorize_rearm_pass_info.reference_pass_name		= "*free_lang_data";
@@ -163,7 +179,32 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	}
 
 	register_callback(plugin_name, PLUGIN_INFO, NULL, &colorize_plugin_info);
-	register_callback(plugin_name, PLUGIN_START_UNIT, &colorize_start_unit, NULL);
-	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &colorize_rearm_pass_info);
+
+	colorize = getenv("GCC_COLORS") ? should_colorize() : false;
+
+	for (i = 0; i < argc; ++i) {
+		if (!strcmp(argv[i].key, "color")) {
+			if (!argv[i].value) {
+				error(G_("no value supplied for option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
+				continue;
+			}
+			if (!strcmp(argv[i].value, "always"))
+				colorize = true;
+			else if (!strcmp(argv[i].value, "never"))
+				colorize = false;
+			else if (!strcmp(argv[i].value, "auto"))
+				colorize = should_colorize();
+			else
+				error(G_("invalid option argument '-fplugin-arg-%s-%s=%s'"), plugin_name, argv[i].key, argv[i].value);
+			continue;
+		}
+		error(G_("unkown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
+	}
+
+	if (colorize) {
+		// TODO: parse GCC_COLORS as used by gcc 4.9+
+		register_callback(plugin_name, PLUGIN_START_UNIT, &colorize_start_unit, NULL);
+		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &colorize_rearm_pass_info);
+	}
 	return 0;
 }

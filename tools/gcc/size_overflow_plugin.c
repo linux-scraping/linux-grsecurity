@@ -3199,16 +3199,17 @@ public:
 	unsigned int execute() { return search_function(); }
 };
 }
-#endif
 
+static opt_pass *make_ipa_pass(void)
+{
+	return new ipa_pass();
+}
+#else
 static struct opt_pass *make_ipa_pass(void)
 {
-#if BUILDING_GCC_VERSION >= 4009
-	return new ipa_pass();
-#else
 	return &ipa_pass.pass;
-#endif
 }
+#endif
 
 // data for the size_overflow asm stmt
 struct asm_data {
@@ -3965,16 +3966,17 @@ public:
 	unsigned int execute() { return search_interesting_functions(); }
 };
 }
-#endif
 
+static opt_pass *make_insert_size_overflow_asm_pass(void)
+{
+	return new insert_size_overflow_asm_pass();
+}
+#else
 static struct opt_pass *make_insert_size_overflow_asm_pass(void)
 {
-#if BUILDING_GCC_VERSION >= 4009
-	return new insert_size_overflow_asm_pass();
-#else
 	return &insert_size_overflow_asm_pass.pass;
-#endif
 }
+#endif
 
 // Create the noreturn report_size_overflow() function decl.
 static void size_overflow_start_unit(void __unused *gcc_data, void __unused *user_data)
@@ -4085,16 +4087,17 @@ public:
 	unsigned int execute() { return dump_functions(); }
 };
 }
-#endif
 
+static opt_pass *make_dump_pass(void)
+{
+	return new dump_pass();
+}
+#else
 static struct opt_pass *make_dump_pass(void)
 {
-#if BUILDING_GCC_VERSION >= 4009
-	return new dump_pass();
-#else
 	return &dump_pass.pass;
-#endif
 }
+#endif
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {

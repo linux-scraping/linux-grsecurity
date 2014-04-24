@@ -291,7 +291,11 @@ static unsigned int execute_latent_entropy(void)
 	tree local_entropy;
 
 	if (!latent_entropy_decl) {
+#if BUILDING_GCC_VERSION >= 4009
+		varpool_node *node;
+#else
 		struct varpool_node *node;
+#endif
 
 		FOR_EACH_VARIABLE(node) {
 			tree var = NODE_DECL(node);
@@ -410,16 +414,17 @@ public:
 	unsigned int execute() { return execute_latent_entropy(); }
 };
 }
-#endif
 
+static opt_pass *make_latent_entropy_pass(void)
+{
+	return new latent_entropy_pass();
+}
+#else
 static struct opt_pass *make_latent_entropy_pass(void)
 {
-#if BUILDING_GCC_VERSION >= 4009
-	return new latent_entropy_pass();
-#else
 	return &latent_entropy_pass.pass;
-#endif
 }
+#endif
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
