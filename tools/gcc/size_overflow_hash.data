@@ -481,6 +481,7 @@ fb_alloc_cmap_6554 fb_alloc_cmap 2 6554 NULL
 bt_skb_send_alloc_6581 bt_skb_send_alloc 2 6581 NULL
 ecryptfs_filldir_6622 ecryptfs_filldir 3 6622 NULL
 dn_alloc_skb_6631 dn_alloc_skb 2 6631 NULL
+virtscsi_alloc_tgt_6643 virtscsi_alloc_tgt 2 6643 NULL
 process_rcvd_data_6679 process_rcvd_data 3 6679 NULL
 iwl_dbgfs_clear_traffic_statistics_write_6681 iwl_dbgfs_clear_traffic_statistics_write 3 6681 NULL
 ql_process_mac_rx_skb_6689 ql_process_mac_rx_skb 4 6689 NULL

@@ -90,6 +90,10 @@ static inline int virtqueue_add_buf(struct virtqueue *vq,
 
 void virtqueue_kick(struct virtqueue *vq);
 
+bool virtqueue_kick_prepare(struct virtqueue *vq);
+
+void virtqueue_notify(struct virtqueue *vq);
+
 void *virtqueue_get_buf(struct virtqueue *vq, unsigned int *len);
 
 void virtqueue_disable_cb(struct virtqueue *vq);
@@ -148,6 +152,7 @@ struct virtio_driver {
 	const unsigned int *feature_table;
 	unsigned int feature_table_size;
 	int (*probe)(struct virtio_device *dev);
+	void (*scan)(struct virtio_device *dev);
 	void (*remove)(struct virtio_device *dev);
 	void (*config_changed)(struct virtio_device *dev);
 };
