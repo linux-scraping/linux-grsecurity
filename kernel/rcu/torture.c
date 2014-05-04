@@ -1068,7 +1068,7 @@ rcu_torture_printk(char *page)
 	}
 	page += sprintf(page, "%s%s ", torture_type, TORTURE_FLAG);
 	page += sprintf(page,
-		       "rtc: %p ver: %lu tfle: %d rta: %d rtaf: %d rtf: %d ",
+		       "rtc: %pP ver: %lu tfle: %d rta: %d rtaf: %d rtf: %d ",
 		       rcu_torture_current,
 		       rcu_torture_current_version,
 		       list_empty(&rcu_torture_freelist),

@@ -233,7 +233,7 @@ static const struct seq_operations rt_cache_seq_ops = {
 
 static int rt_cache_seq_open(struct inode *inode, struct file *file)
 {
-	return seq_open(file, &rt_cache_seq_ops);
+	return seq_open_restrict(file, &rt_cache_seq_ops);
 }
 
 static const struct file_operations rt_cache_seq_fops = {
@@ -324,7 +324,7 @@ static const struct seq_operations rt_cpu_seq_ops = {
 
 static int rt_cpu_seq_open(struct inode *inode, struct file *file)
 {
-	return seq_open(file, &rt_cpu_seq_ops);
+	return seq_open_restrict(file, &rt_cpu_seq_ops);
 }
 
 static const struct file_operations rt_cpu_seq_fops = {
@@ -362,7 +362,7 @@ static int rt_acct_proc_show(struct seq_file *m, void *v)
 
 static int rt_acct_proc_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, rt_acct_proc_show, NULL);
+	return single_open_restrict(file, rt_acct_proc_show, NULL);
 }
 
 static const struct file_operations rt_acct_proc_fops = {

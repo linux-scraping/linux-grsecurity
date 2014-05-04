@@ -309,7 +309,7 @@ static int __net_init ipv6_proc_init_net(struct net *net)
 	if (!proc_create("snmp6", S_IRUGO, net->proc_net, &snmp6_seq_fops))
 		goto proc_snmp6_fail;
 
-	net->mib.proc_net_devsnmp6 = proc_mkdir("dev_snmp6", net->proc_net);
+	net->mib.proc_net_devsnmp6 = proc_mkdir_restrict("dev_snmp6", net->proc_net);
 	if (!net->mib.proc_net_devsnmp6)
 		goto proc_dev_snmp6_fail;
 	return 0;

@@ -17,7 +17,10 @@ extern void proc_flush_task(struct task_struct *);
 extern struct proc_dir_entry *proc_symlink(const char *,
 		struct proc_dir_entry *, const char *);
 extern struct proc_dir_entry *proc_mkdir(const char *, struct proc_dir_entry *);
+extern struct proc_dir_entry *proc_mkdir_restrict(const char *, struct proc_dir_entry *);
 extern struct proc_dir_entry *proc_mkdir_data(const char *, umode_t,
+					      struct proc_dir_entry *, void *);
+extern struct proc_dir_entry *proc_mkdir_data_restrict(const char *, umode_t,
 					      struct proc_dir_entry *, void *);
 extern struct proc_dir_entry *proc_mkdir_mode(const char *, umode_t,
 					      struct proc_dir_entry *);
@@ -86,7 +89,7 @@ static inline int remove_proc_subtree(const char *name, struct proc_dir_entry *p
 static inline struct proc_dir_entry *proc_net_mkdir(
 	struct net *net, const char *name, struct proc_dir_entry *parent)
 {
-	return proc_mkdir_data(name, 0, parent, net);
+	return proc_mkdir_data_restrict(name, 0, parent, net);
 }
 
 #endif /* _LINUX_PROC_FS_H */

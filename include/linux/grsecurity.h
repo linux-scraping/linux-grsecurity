@@ -27,6 +27,8 @@ void gr_handle_kernel_exploit(void);
 
 char gr_roletype_to_char(void);
 
+int gr_proc_is_restricted(void);
+
 int gr_acl_enable_at_secure(void);
 
 int gr_check_user_change(kuid_t real, kuid_t effective, kuid_t fs);
