@@ -74,6 +74,7 @@ struct proc_dir_entry {
 	struct completion *pde_unload_completion;
 	struct list_head pde_openers;	/* who did ->open, but not ->release */
 	spinlock_t pde_unload_lock; /* proc_fops checks and pde_users bumps */
+	u8 restricted; /* a directory in /proc/net that should be restricted via GRKERNSEC_PROC */
 	u8 namelen;
 	char name[];
 } __randomize_layout;
@@ -146,6 +147,7 @@ extern void proc_device_tree_update_prop(struct proc_dir_entry *pde,
 extern struct proc_dir_entry *proc_symlink(const char *,
 		struct proc_dir_entry *, const char *);
 extern struct proc_dir_entry *proc_mkdir(const char *,struct proc_dir_entry *);
+extern struct proc_dir_entry *proc_mkdir_restrict(const char *,struct proc_dir_entry *);
 extern struct proc_dir_entry *proc_mkdir_mode(const char *name, mode_t mode,
 			struct proc_dir_entry *parent);
 

@@ -10,6 +10,7 @@
 #include <linux/seq_file.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
+#include <linux/grsecurity.h>
 
 #include <asm/uaccess.h>
 #include <asm/page.h>
@@ -65,6 +66,16 @@ int seq_open(struct file *file, const struct seq_operations *op)
 	return 0;
 }
 EXPORT_SYMBOL(seq_open);
+
+
+int seq_open_restrict(struct file *file, const struct seq_operations *op)
+{
+	if (gr_proc_is_restricted())
+		return -EACCES;
+
+	return seq_open(file, op);
+}
+EXPORT_SYMBOL(seq_open_restrict);
 
 static int traverse(struct seq_file *m, loff_t offset)
 {
@@ -586,6 +597,17 @@ int single_open(struct file *file, int (*show)(struct seq_file *, void *),
 	return res;
 }
 EXPORT_SYMBOL(single_open);
+
+int single_open_restrict(struct file *file, int (*show)(struct seq_file *, void *),
+		void *data)
+{
+	if (gr_proc_is_restricted())
+		return -EACCES;
+
+	return single_open(file, show, data);
+}
+EXPORT_SYMBOL(single_open_restrict);
+
 
 int single_release(struct inode *inode, struct file *file)
 {

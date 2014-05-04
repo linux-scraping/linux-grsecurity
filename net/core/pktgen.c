@@ -3726,7 +3726,7 @@ static int __init pg_init(void)
 
 	pr_info("%s", version);
 
-	pg_proc_dir = proc_mkdir(PG_PROC_DIR, init_net.proc_net);
+	pg_proc_dir = proc_mkdir_restrict(PG_PROC_DIR, init_net.proc_net);
 	if (!pg_proc_dir)
 		return -ENODEV;
 

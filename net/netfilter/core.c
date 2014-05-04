@@ -269,7 +269,7 @@ void __init netfilter_init(void)
 	}
 
 #ifdef CONFIG_PROC_FS
-	proc_net_netfilter = proc_mkdir("netfilter", init_net.proc_net);
+	proc_net_netfilter = proc_mkdir_restrict("netfilter", init_net.proc_net);
 	if (!proc_net_netfilter)
 		panic("cannot create netfilter proc entry");
 #endif

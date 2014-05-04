@@ -127,7 +127,9 @@ struct inode *proc_get_inode(struct super_block *, struct proc_dir_entry *);
  * of the /proc/<pid> subdirectories.
  */
 int proc_readdir(struct file *, void *, filldir_t);
+int proc_readdir_restrict(struct file *, void *, filldir_t);
 struct dentry *proc_lookup(struct inode *, struct dentry *, struct nameidata *);
+struct dentry *proc_lookup_restrict(struct inode *, struct dentry *, struct nameidata *);
 
 
 

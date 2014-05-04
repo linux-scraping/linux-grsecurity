@@ -755,11 +755,11 @@ static int __net_init hashlimit_proc_net_init(struct net *net)
 {
 	struct hashlimit_net *hashlimit_net = hashlimit_pernet(net);
 
-	hashlimit_net->ipt_hashlimit = proc_mkdir("ipt_hashlimit", net->proc_net);
+	hashlimit_net->ipt_hashlimit = proc_mkdir_restrict("ipt_hashlimit", net->proc_net);
 	if (!hashlimit_net->ipt_hashlimit)
 		return -ENOMEM;
 #if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
-	hashlimit_net->ip6t_hashlimit = proc_mkdir("ip6t_hashlimit", net->proc_net);
+	hashlimit_net->ip6t_hashlimit = proc_mkdir_restrict("ip6t_hashlimit", net->proc_net);
 	if (!hashlimit_net->ip6t_hashlimit) {
 		proc_net_remove(net, "ipt_hashlimit");
 		return -ENOMEM;

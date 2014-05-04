@@ -217,7 +217,7 @@ int __init x25_proc_init(void)
 	struct proc_dir_entry *p;
 	int rc = -ENOMEM;
 
-	x25_proc_dir = proc_mkdir("x25", init_net.proc_net);
+	x25_proc_dir = proc_mkdir_restrict("x25", init_net.proc_net);
 	if (!x25_proc_dir)
 		goto out;
 

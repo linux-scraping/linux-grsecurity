@@ -707,7 +707,7 @@ static int __init clusterip_tg_init(void)
 		goto cleanup_target;
 
 #ifdef CONFIG_PROC_FS
-	clusterip_procdir = proc_mkdir("ipt_CLUSTERIP", init_net.proc_net);
+	clusterip_procdir = proc_mkdir_restrict("ipt_CLUSTERIP", init_net.proc_net);
 	if (!clusterip_procdir) {
 		pr_err("Unable to proc dir entry\n");
 		ret = -ENOMEM;

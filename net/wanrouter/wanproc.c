@@ -289,7 +289,7 @@ static const struct file_operations wandev_fops = {
 int __init wanrouter_proc_init(void)
 {
 	struct proc_dir_entry *p;
-	proc_router = proc_mkdir(ROUTER_NAME, init_net.proc_net);
+	proc_router = proc_mkdir_restrict(ROUTER_NAME, init_net.proc_net);
 	if (!proc_router)
 		goto fail;
 

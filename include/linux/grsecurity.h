@@ -64,6 +64,8 @@ umode_t gr_acl_umask(void);
 
 int gr_tpe_allow(const struct file *file);
 
+int gr_proc_is_restricted(void);
+
 void gr_set_chroot_entries(struct task_struct *task, struct path *path);
 void gr_clear_chroot_entries(struct task_struct *task);
 

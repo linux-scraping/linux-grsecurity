@@ -109,7 +109,7 @@ static __init int sctp_proc_init(void)
 		goto out_nomem;
 #ifdef CONFIG_PROC_FS
 	if (!proc_net_sctp) {
-		proc_net_sctp = proc_mkdir("sctp", init_net.proc_net);
+		proc_net_sctp = proc_mkdir_restrict("sctp", init_net.proc_net);
 		if (!proc_net_sctp)
 			goto out_free_percpu;
 	}
