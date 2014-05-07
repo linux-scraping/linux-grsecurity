@@ -948,6 +948,7 @@ sctp_getsockopt_maxseg_10737 sctp_getsockopt_maxseg 2 10737 NULL nohasharray
 apu_get_register_10737 apu_get_register 0 10737 &sctp_getsockopt_maxseg_10737
 SyS_io_getevents_10756 SyS_io_getevents 3 10756 NULL
 vhost_add_used_n_10760 vhost_add_used_n 3 10760 NULL
+rd_build_prot_space_10761 rd_build_prot_space 2-3 10761 NULL
 kvm_read_guest_atomic_10765 kvm_read_guest_atomic 4 10765 NULL
 __qp_memcpy_to_queue_10779 __qp_memcpy_to_queue 2-4 10779 NULL
 diva_set_trace_filter_10820 diva_set_trace_filter 0-1 10820 NULL
