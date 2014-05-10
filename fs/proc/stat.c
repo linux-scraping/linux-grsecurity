@@ -107,30 +107,30 @@ static int show_stat(struct seq_file *p, void *v)
 	getboottime(&boottime);
 	jif = boottime.tv_sec;
 
-	if (unrestricted) {
 	for_each_possible_cpu(i) {
 		user += kcpustat_cpu(i).cpustat[CPUTIME_USER];
 		nice += kcpustat_cpu(i).cpustat[CPUTIME_NICE];
 		system += kcpustat_cpu(i).cpustat[CPUTIME_SYSTEM];
 		idle += get_idle_time(i);
-		iowait += get_iowait_time(i);
-		irq += kcpustat_cpu(i).cpustat[CPUTIME_IRQ];
-		softirq += kcpustat_cpu(i).cpustat[CPUTIME_SOFTIRQ];
-		steal += kcpustat_cpu(i).cpustat[CPUTIME_STEAL];
-		guest += kcpustat_cpu(i).cpustat[CPUTIME_GUEST];
-		guest_nice += kcpustat_cpu(i).cpustat[CPUTIME_GUEST_NICE];
-		sum += kstat_cpu_irqs_sum(i);
-		sum += arch_irq_stat_cpu(i);
+		if (unrestricted) {
+			iowait += get_iowait_time(i);
+			irq += kcpustat_cpu(i).cpustat[CPUTIME_IRQ];
+			softirq += kcpustat_cpu(i).cpustat[CPUTIME_SOFTIRQ];
+			steal += kcpustat_cpu(i).cpustat[CPUTIME_STEAL];
+			guest += kcpustat_cpu(i).cpustat[CPUTIME_GUEST];
+			guest_nice += kcpustat_cpu(i).cpustat[CPUTIME_GUEST_NICE];
+			sum += kstat_cpu_irqs_sum(i);
+			sum += arch_irq_stat_cpu(i);
+			for (j = 0; j < NR_SOFTIRQS; j++) {
+				unsigned int softirq_stat = kstat_softirqs_cpu(j, i);
 
-		for (j = 0; j < NR_SOFTIRQS; j++) {
-			unsigned int softirq_stat = kstat_softirqs_cpu(j, i);
-
-			per_softirq_sums[j] += softirq_stat;
-			sum_softirq += softirq_stat;
+				per_softirq_sums[j] += softirq_stat;
+				sum_softirq += softirq_stat;
+			}
 		}
 	}
-	sum += arch_irq_stat();
-	}
+	if (unrestricted)
+		sum += arch_irq_stat();
 
 	seq_puts(p, "cpu ");
 	seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(user));
@@ -146,18 +146,18 @@ static int show_stat(struct seq_file *p, void *v)
 	seq_putc(p, '\n');
 
 	for_each_online_cpu(i) {
-		if (unrestricted) {
 		/* Copy values here to work around gcc-2.95.3, gcc-2.96 */
 		user = kcpustat_cpu(i).cpustat[CPUTIME_USER];
 		nice = kcpustat_cpu(i).cpustat[CPUTIME_NICE];
 		system = kcpustat_cpu(i).cpustat[CPUTIME_SYSTEM];
 		idle = get_idle_time(i);
-		iowait = get_iowait_time(i);
-		irq = kcpustat_cpu(i).cpustat[CPUTIME_IRQ];
-		softirq = kcpustat_cpu(i).cpustat[CPUTIME_SOFTIRQ];
-		steal = kcpustat_cpu(i).cpustat[CPUTIME_STEAL];
-		guest = kcpustat_cpu(i).cpustat[CPUTIME_GUEST];
-		guest_nice = kcpustat_cpu(i).cpustat[CPUTIME_GUEST_NICE];
+		if (unrestricted) {
+			iowait = get_iowait_time(i);
+			irq = kcpustat_cpu(i).cpustat[CPUTIME_IRQ];
+			softirq = kcpustat_cpu(i).cpustat[CPUTIME_SOFTIRQ];
+			steal = kcpustat_cpu(i).cpustat[CPUTIME_STEAL];
+			guest = kcpustat_cpu(i).cpustat[CPUTIME_GUEST];
+			guest_nice = kcpustat_cpu(i).cpustat[CPUTIME_GUEST_NICE];
 		}
 		seq_printf(p, "cpu%d", i);
 		seq_put_decimal_ull(p, ' ', cputime64_to_clock_t(user));

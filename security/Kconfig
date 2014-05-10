@@ -37,6 +37,7 @@ config GRKERNSEC
 	select TTY
 	select DEBUG_KERNEL
 	select DEBUG_LIST
+	select DEBUG_STACKOVERFLOW if HAVE_DEBUG_STACKOVERFLOW
 	help
 	  If you say Y here, you will be able to configure many features
 	  that will enhance the security of your system.  It is highly
