@@ -2222,6 +2222,7 @@ static __noreturn void pax_report_usercopy(const void *ptr, unsigned long len, b
 #endif
 
 #ifdef CONFIG_PAX_USERCOPY
+
 static inline bool check_kernel_text_object(unsigned long low, unsigned long high)
 {
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)

@@ -28,6 +28,9 @@ DEFINE_PER_CPU(struct pt_regs *, irq_regs);
 EXPORT_PER_CPU_SYMBOL(irq_regs);
 
 #ifdef CONFIG_DEBUG_STACKOVERFLOW
+
+extern void gr_handle_kernel_exploit(void);
+
 /* Debugging check for stack overflow: is there less than 1KB free? */
 static int check_stack_overflow(void)
 {
@@ -43,6 +46,7 @@ static void print_stack_overflow(void)
 {
 	printk(KERN_WARNING "low stack detected by irq handler\n");
 	dump_stack();
+	gr_handle_kernel_exploit();
 }
 
 #else

@@ -67,6 +67,18 @@ static int show_stat(struct seq_file *p, void *v)
 	u64 sum_softirq = 0;
 	unsigned int per_softirq_sums[NR_SOFTIRQS] = {0};
 	struct timespec boottime;
+	int unrestricted = 1;
+
+#ifdef CONFIG_GRKERNSEC_PROC_ADD
+#if defined(CONFIG_GRKERNSEC_PROC_USER) || defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
+	if (current_uid()
+#ifdef CONFIG_GRKERNSEC_PROC_USERGROUP
+	    && !in_group_p(grsec_proc_gid)
+#endif
+	)
+		unrestricted = 0;
+#endif
+#endif
 
 	user = nice = system = idle = iowait =
 		irq = softirq = steal = cputime64_zero;
@@ -79,24 +91,27 @@ static int show_stat(struct seq_file *p, void *v)
 		nice = cputime64_add(nice, kstat_cpu(i).cpustat.nice);
 		system = cputime64_add(system, kstat_cpu(i).cpustat.system);
 		idle = cputime64_add(idle, get_idle_time(i));
-		iowait = cputime64_add(iowait, get_iowait_time(i));
-		irq = cputime64_add(irq, kstat_cpu(i).cpustat.irq);
-		softirq = cputime64_add(softirq, kstat_cpu(i).cpustat.softirq);
-		steal = cputime64_add(steal, kstat_cpu(i).cpustat.steal);
-		guest = cputime64_add(guest, kstat_cpu(i).cpustat.guest);
-		guest_nice = cputime64_add(guest_nice,
-			kstat_cpu(i).cpustat.guest_nice);
-		sum += kstat_cpu_irqs_sum(i);
-		sum += arch_irq_stat_cpu(i);
+		if (unrestricted) {
+			iowait = cputime64_add(iowait, get_iowait_time(i));
+			irq = cputime64_add(irq, kstat_cpu(i).cpustat.irq);
+			softirq = cputime64_add(softirq, kstat_cpu(i).cpustat.softirq);
+			steal = cputime64_add(steal, kstat_cpu(i).cpustat.steal);
+			guest = cputime64_add(guest, kstat_cpu(i).cpustat.guest);
+			guest_nice = cputime64_add(guest_nice,
+				kstat_cpu(i).cpustat.guest_nice);
+			sum += kstat_cpu_irqs_sum(i);
+			sum += arch_irq_stat_cpu(i);
 
-		for (j = 0; j < NR_SOFTIRQS; j++) {
-			unsigned int softirq_stat = kstat_softirqs_cpu(j, i);
+			for (j = 0; j < NR_SOFTIRQS; j++) {
+				unsigned int softirq_stat = kstat_softirqs_cpu(j, i);
 
-			per_softirq_sums[j] += softirq_stat;
-			sum_softirq += softirq_stat;
+				per_softirq_sums[j] += softirq_stat;
+				sum_softirq += softirq_stat;
+			}
 		}
 	}
-	sum += arch_irq_stat();
+	if (unrestricted)
+		sum += arch_irq_stat();
 
 	seq_printf(p, "cpu  %llu %llu %llu %llu %llu %llu %llu %llu %llu "
 		"%llu\n",
@@ -116,12 +131,14 @@ static int show_stat(struct seq_file *p, void *v)
 		nice = kstat_cpu(i).cpustat.nice;
 		system = kstat_cpu(i).cpustat.system;
 		idle = get_idle_time(i);
-		iowait = get_iowait_time(i);
-		irq = kstat_cpu(i).cpustat.irq;
-		softirq = kstat_cpu(i).cpustat.softirq;
-		steal = kstat_cpu(i).cpustat.steal;
-		guest = kstat_cpu(i).cpustat.guest;
-		guest_nice = kstat_cpu(i).cpustat.guest_nice;
+		if (unrestricted) {
+			iowait = get_iowait_time(i);
+			irq = kstat_cpu(i).cpustat.irq;
+			softirq = kstat_cpu(i).cpustat.softirq;
+			steal = kstat_cpu(i).cpustat.steal;
+			guest = kstat_cpu(i).cpustat.guest;
+			guest_nice = kstat_cpu(i).cpustat.guest_nice;
+		}
 		seq_printf(p,
 			"cpu%d %llu %llu %llu %llu %llu %llu %llu %llu %llu "
 			"%llu\n",

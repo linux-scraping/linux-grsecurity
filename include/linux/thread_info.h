@@ -124,8 +124,18 @@ static inline void set_restore_sigmask(void)
 #endif	/* TIF_RESTORE_SIGMASK && !HAVE_SET_RESTORE_SIGMASK */
 
 extern void __check_object_size(const void *ptr, unsigned long n, bool to);
+
+#if defined(CONFIG_X86) && defined(CONFIG_PAX_USERCOPY)
+extern void pax_check_alloca(unsigned long size);
+#endif
+
 static inline void check_object_size(const void *ptr, unsigned long n, bool to)
 {
+#if defined(CONFIG_X86) && defined(CONFIG_PAX_USERCOPY)
+	/* always check if we've overflowed the stack in a copy*user */
+	pax_check_alloca(sizeof(unsigned long));
+#endif
+
 	if (!__builtin_constant_p(n))
 		__check_object_size(ptr, n, to);
 }
