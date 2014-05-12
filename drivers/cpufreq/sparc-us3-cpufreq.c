@@ -169,7 +169,6 @@ static struct cpufreq_driver cpufreq_us3_driver = {
 	.target_index	= us3_freq_target,
 	.get		= us3_freq_get,
 	.exit		= us3_freq_cpu_exit,
-	.owner		= THIS_MODULE,
 	.name		= "UltraSPARC-III",
 
 };
@@ -177,7 +176,6 @@ static struct cpufreq_driver cpufreq_us3_driver = {
 static int __init us3_freq_init(void)
 {
 	unsigned long manuf, impl, ver;
-	int ret;
 
 	if (tlb_type != cheetah && tlb_type != cheetah_plus)
 		return -ENODEV;
