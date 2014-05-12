@@ -2441,7 +2441,7 @@ static void reset_alloc_batches(struct zonelist *zonelist,
 			continue;
 		mod_zone_page_state(zone, NR_ALLOC_BATCH,
 			high_wmark_pages(zone) - low_wmark_pages(zone) -
-			atomic_long_read(&zone->vm_stat[NR_ALLOC_BATCH]));
+			atomic_long_read_unchecked(&zone->vm_stat[NR_ALLOC_BATCH]));
 	}
 }
 
@@ -6605,4 +6605,4 @@ void dump_page(struct page *page, char *reason)
 {
 	dump_page_badflags(page, reason, 0);
 }
-EXPORT_SYMBOL_GPL(dump_page);
+EXPORT_SYMBOL(dump_page);
