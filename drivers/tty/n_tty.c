@@ -2357,17 +2357,13 @@ static ssize_t n_tty_write(struct tty_struct *tty, struct file *file,
 				tty->ops->flush_chars(tty);
 		} else {
 			struct n_tty_data *ldata = tty->disc_data;
-			bool lock;
 
-			lock = L_ECHO(tty) || (ldata->icanon & L_ECHONL(tty));
-			if (lock)
-				mutex_lock(&ldata->output_lock);
 			while (nr > 0) {
+				mutex_lock(&ldata->output_lock);
 				c = tty->ops->write(tty, b, nr);
+				mutex_unlock(&ldata->output_lock);
 				if (c < 0) {
 					retval = c;
-					if (lock)
-						mutex_unlock(&ldata->output_lock);
 					goto break_out;
 				}
 				if (!c)
@@ -2375,8 +2371,6 @@ static ssize_t n_tty_write(struct tty_struct *tty, struct file *file,
 				b += c;
 				nr -= c;
 			}
-			if (lock)
-				mutex_unlock(&ldata->output_lock);
 		}
 		if (!nr)
 			break;
