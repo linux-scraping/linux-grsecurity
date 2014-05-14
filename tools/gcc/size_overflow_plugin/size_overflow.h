@@ -15,6 +15,10 @@ enum mark {
 	MARK_NO, MARK_YES, MARK_NOT_INTENTIONAL, MARK_TURN_OFF
 };
 
+enum intentional_overflow_type {
+	NO_INTENTIONAL_OVERFLOW, RHS1_INTENTIONAL_OVERFLOW, RHS2_INTENTIONAL_OVERFLOW
+};
+
 struct visited {
 	struct pointer_set_t *stmts;
 	struct pointer_set_t *my_stmts;
@@ -81,6 +85,7 @@ extern bool is_a_constant_overflow(const_gimple stmt, const_tree rhs);
 extern tree handle_intentional_overflow(struct visited *visited, struct cgraph_node *caller_node, bool check_overflow, gimple stmt, tree change_rhs, tree new_rhs2);
 extern tree handle_integer_truncation(struct visited *visited, struct cgraph_node *caller_node, const_tree lhs);
 extern bool is_a_neg_overflow(const_gimple stmt, const_tree rhs);
+extern enum intentional_overflow_type add_mul_intentional_overflow(const_gimple def_stmt);
 
 
 // insert_size_overflow_check_ipa.c
@@ -113,7 +118,7 @@ extern tree create_assign(struct visited *visited, gimple oldstmt, tree rhs1, bo
 
 // remove_unnecessary_dup.c
 extern struct opt_pass *make_remove_unnecessary_dup_pass(void);
-extern void insert_cast_expr(struct visited *visited, gimple stmt);
+extern void insert_cast_expr(struct visited *visited, gimple stmt, enum intentional_overflow_type type);
 extern bool skip_expr_on_double_type(const_gimple stmt);
 
 #endif

@@ -390,7 +390,7 @@ static void create_asm_input(gimple stmt, unsigned int argnum, struct asm_data *
 		mark_str = convert_mark_to_str(mark);
 		asm_comment = create_asm_comment(argnum, stmt, mark_str);
 
-		create_asm_stmt(asm_comment, build_string(2, "rm"), NULL, asm_data);
+		create_asm_stmt(asm_comment, build_string(3, "rm"), NULL, asm_data);
 		free(asm_comment);
 		asm_data->input = NULL_TREE;
 		break;
@@ -436,7 +436,7 @@ static void create_size_overflow_asm(gimple stmt, tree output_node, unsigned int
 
 	mark_str = convert_mark_to_str(mark);
 	asm_comment = create_asm_comment(argnum, stmt, mark_str);
-	create_asm_stmt(asm_comment, build_string(1, "0"), build_string(3, "=rm"), &asm_data);
+	create_asm_stmt(asm_comment, build_string(2, "0"), build_string(4, "=rm"), &asm_data);
 	free(asm_comment);
 }
 
@@ -466,14 +466,14 @@ static bool create_mark_asm(gimple stmt, enum mark mark)
 		if (is_gimple_constant(asm_data.input))
 			return false;
 		asm_data.output = NULL;
-		create_asm_stmt(asm_str, build_string(2, "rm"), NULL, &asm_data);
+		create_asm_stmt(asm_str, build_string(3, "rm"), NULL, &asm_data);
 		return true;
 	}
 
 	create_asm_input(stmt, 0, &asm_data);
 	gcc_assert(asm_data.input != NULL_TREE);
 
-	create_asm_stmt(asm_str, build_string(1, "0"), build_string(3, "=rm"), &asm_data);
+	create_asm_stmt(asm_str, build_string(2, "0"), build_string(4, "=rm"), &asm_data);
 	return true;
 }
 

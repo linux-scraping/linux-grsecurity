@@ -566,3 +566,70 @@ bool is_a_neg_overflow(const_gimple stmt, const_tree rhs)
 	return true;
 }
 
+/* e.g., drivers/acpi/acpica/utids.c acpi_ut_execute_CID()
+ * ((count - 1) * sizeof(struct acpi_pnp_dee_id_list) -> (count + fffffff) * 16
+ * fffffff * 16 > signed max -> truncate
+ */
+static bool look_for_mult_and_add(const_gimple stmt)
+{
+	const_tree res;
+	tree rhs1, rhs2, def_rhs1, def_rhs2, const_rhs, def_const_rhs;
+	const_gimple def_stmt;
+
+	if (!stmt || gimple_code(stmt) == GIMPLE_NOP)
+		return false;
+	if (!is_gimple_assign(stmt))
+		return false;
+	if (gimple_assign_rhs_code(stmt) != MULT_EXPR)
+		return false;
+
+	rhs1 = gimple_assign_rhs1(stmt);
+	rhs2 = gimple_assign_rhs2(stmt);
+	if (is_gimple_constant(rhs1)) {
+		const_rhs = rhs1;
+		def_stmt = get_def_stmt(rhs2);
+	} else if (is_gimple_constant(rhs2)) {
+		const_rhs = rhs2;
+		def_stmt = get_def_stmt(rhs1);
+	} else
+		return false;
+
+	if (gimple_assign_rhs_code(def_stmt) != PLUS_EXPR && gimple_assign_rhs_code(def_stmt) != MINUS_EXPR)
+		return false;
+
+	def_rhs1 = gimple_assign_rhs1(def_stmt);
+	def_rhs2 = gimple_assign_rhs2(def_stmt);
+	if (is_gimple_constant(def_rhs1))
+		def_const_rhs = def_rhs1;
+	else if (is_gimple_constant(def_rhs2))
+		def_const_rhs = def_rhs2;
+	else
+		return false;
+
+	res = fold_binary_loc(gimple_location(def_stmt), MULT_EXPR, TREE_TYPE(const_rhs), const_rhs, def_const_rhs);
+	if (is_lt_signed_type_max(res) && is_gt_zero(res))
+		return false;
+	return true;
+}
+
+enum intentional_overflow_type add_mul_intentional_overflow(const_gimple stmt)
+{
+	const_gimple def_stmt_1, def_stmt_2;
+	const_tree rhs1, rhs2;
+	bool add_mul_rhs1, add_mul_rhs2;
+
+	rhs1 = gimple_assign_rhs1(stmt);
+	def_stmt_1 = get_def_stmt(rhs1);
+	add_mul_rhs1 = look_for_mult_and_add(def_stmt_1);
+
+	rhs2 = gimple_assign_rhs2(stmt);
+	def_stmt_2 = get_def_stmt(rhs2);
+	add_mul_rhs2 = look_for_mult_and_add(def_stmt_2);
+
+	if (add_mul_rhs1)
+		return RHS1_INTENTIONAL_OVERFLOW;
+	if (add_mul_rhs2)
+		return RHS2_INTENTIONAL_OVERFLOW;
+	return NO_INTENTIONAL_OVERFLOW;
+}
+

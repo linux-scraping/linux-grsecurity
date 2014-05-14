@@ -144,7 +144,7 @@ unsigned paravirt_patch_default(u8 type, u16 clobbers, void *insnbuf,
 
 	if (opfunc == NULL)
 		/* If there's no function, patch it with a ud2a (BUG) */
-		ret = paravirt_patch_insns(insnbuf, len, ud2a, ud2a+sizeof(ud2a));
+		ret = paravirt_patch_insns(insnbuf, len, ktva_ktla(ud2a), ud2a+sizeof(ud2a));
 	else if (opfunc == (void *)_paravirt_nop)
 		/* If the operation is a nop, then nop the callsite */
 		ret = paravirt_patch_nop();
