@@ -2003,7 +2003,9 @@ static ssize_t n_tty_write(struct tty_struct *tty, struct file *file,
 			if (lock)
 				mutex_lock(&tty->output_lock);
 			while (nr > 0) {
+				mutex_lock(&tty->output_lock);
 				c = tty->ops->write(tty, b, nr);
+				mutex_unlock(&tty->output_lock);
 				if (c < 0) {
 					retval = c;
 					if (lock)
