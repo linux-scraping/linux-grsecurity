@@ -685,8 +685,13 @@ static tree handle_unary_ops(struct visited *visited, struct cgraph_node *caller
 		return create_assign(visited, def_stmt, lhs, AFTER_STMT);
 
 	switch (TREE_CODE(rhs1)) {
-	case SSA_NAME:
-		return handle_unary_rhs(visited, caller_node, def_stmt);
+	case SSA_NAME: {
+		tree ret = handle_unary_rhs(visited, caller_node, def_stmt);
+
+		if (gimple_assign_cast_p(stmt))
+			unsigned_signed_cast_intentional_overflow(visited, stmt);
+		return ret;
+	}
 	case ARRAY_REF:
 	case BIT_FIELD_REF:
 	case ADDR_EXPR:

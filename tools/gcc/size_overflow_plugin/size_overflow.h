@@ -86,6 +86,7 @@ extern tree handle_intentional_overflow(struct visited *visited, struct cgraph_n
 extern tree handle_integer_truncation(struct visited *visited, struct cgraph_node *caller_node, const_tree lhs);
 extern bool is_a_neg_overflow(const_gimple stmt, const_tree rhs);
 extern enum intentional_overflow_type add_mul_intentional_overflow(const_gimple def_stmt);
+extern void unsigned_signed_cast_intentional_overflow(struct visited *visited, gimple stmt);
 
 
 // insert_size_overflow_check_ipa.c
@@ -107,6 +108,7 @@ extern tree create_new_var(tree type);
 extern gimple build_cast_stmt(struct visited *visited, tree dst_type, tree rhs, tree lhs, gimple_stmt_iterator *gsi, bool before, bool force);
 extern bool skip_types(const_tree var);
 extern tree cast_a_tree(tree type, tree var);
+extern bool is_size_overflow_type(const_tree var);
 
 
 // insert_size_overflow_check_core.c
@@ -120,5 +122,6 @@ extern tree create_assign(struct visited *visited, gimple oldstmt, tree rhs1, bo
 extern struct opt_pass *make_remove_unnecessary_dup_pass(void);
 extern void insert_cast_expr(struct visited *visited, gimple stmt, enum intentional_overflow_type type);
 extern bool skip_expr_on_double_type(const_gimple stmt);
+extern void create_up_and_down_cast(struct visited *visited, gimple use_stmt, tree orig_type, tree rhs);
 
 #endif

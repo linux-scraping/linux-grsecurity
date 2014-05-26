@@ -1146,7 +1146,9 @@ MRPROPER_FILES += .config .config.old .version .old_version $(version_h) \
 		  Module.symvers tags TAGS cscope* GPATH GTAGS GRTAGS GSYMS \
 		  signing_key.priv signing_key.x509 x509.genkey		\
 		  extra_certificates signing_key.x509.keyid		\
-		  signing_key.x509.signer tools/gcc/size_overflow_hash.h \
+		  signing_key.x509.signer				\
+		  tools/gcc/size_overflow_plugin/size_overflow_hash_aux.h \
+		  tools/gcc/size_overflow_plugin/size_overflow_hash.h \
 		  tools/gcc/randomize_layout_seed.h
 
 # clean - Delete most, but leave enough to build external modules

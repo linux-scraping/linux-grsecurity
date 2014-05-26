@@ -42,30 +42,7 @@ bool skip_expr_on_double_type(const_gimple stmt)
 	}
 }
 
-static bool is_size_overflow_type(const_tree var)
-{
-	const char *name;
-	const_tree type_name, type;
-
-	if (var == NULL_TREE)
-		return false;
-
-	type = TREE_TYPE(var);
-	type_name = TYPE_NAME(type);
-	if (type_name == NULL_TREE)
-		return false;
-
-	if (DECL_P(type_name))
-		name = DECL_NAME_POINTER(type_name);
-	else
-		name = IDENTIFIER_POINTER(type_name);
-
-	if (!strncmp(name, "size_overflow_type", 18))
-		return true;
-	return false;
-}
-
-static void create_up_and_down_cast(struct visited *visited, gimple use_stmt, tree orig_type, tree rhs)
+void create_up_and_down_cast(struct visited *visited, gimple use_stmt, tree orig_type, tree rhs)
 {
 	const_tree orig_rhs1;
 	tree down_lhs, new_lhs, dup_type = TREE_TYPE(rhs);

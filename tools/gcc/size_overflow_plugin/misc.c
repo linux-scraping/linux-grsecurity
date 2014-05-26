@@ -178,3 +178,26 @@ gimple build_cast_stmt(struct visited *visited, tree dst_type, tree rhs, tree lh
 	return assign;
 }
 
+bool is_size_overflow_type(const_tree var)
+{
+	const char *name;
+	const_tree type_name, type;
+
+	if (var == NULL_TREE)
+		return false;
+
+	type = TREE_TYPE(var);
+	type_name = TYPE_NAME(type);
+	if (type_name == NULL_TREE)
+		return false;
+
+	if (DECL_P(type_name))
+		name = DECL_NAME_POINTER(type_name);
+	else
+		name = IDENTIFIER_POINTER(type_name);
+
+	if (!strncmp(name, "size_overflow_type", 18))
+		return true;
+	return false;
+}
+

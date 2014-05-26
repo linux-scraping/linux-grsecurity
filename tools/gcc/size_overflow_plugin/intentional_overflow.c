@@ -257,21 +257,29 @@ bool is_a_cast_and_const_overflow(const_tree no_const_rhs)
 	return true;
 }
 
-static bool no_uses(tree node)
+static unsigned int uses_num(tree node)
 {
 	imm_use_iterator imm_iter;
 	use_operand_p use_p;
+	unsigned int num = 0;
 
 	FOR_EACH_IMM_USE_FAST(use_p, imm_iter, node) {
-		const_gimple use_stmt = USE_STMT(use_p);
+		gimple use_stmt = USE_STMT(use_p);
 
 		if (use_stmt == NULL)
-			return true;
+			return num;
 		if (is_gimple_debug(use_stmt))
 			continue;
-		return false;
+		if (gimple_assign_cast_p(use_stmt) && is_size_overflow_type(gimple_assign_lhs(use_stmt)))
+			continue;
+		num++;
 	}
-	return true;
+	return num;
+}
+
+static bool no_uses(tree node)
+{
+	return !uses_num(node);
 }
 
 // 3.8.5 mm/page-writeback.c __ilog2_u64(): ret, uint + uintmax; uint -> int; int max
@@ -631,5 +639,95 @@ enum intentional_overflow_type add_mul_intentional_overflow(const_gimple stmt)
 	if (add_mul_rhs2)
 		return RHS2_INTENTIONAL_OVERFLOW;
 	return NO_INTENTIONAL_OVERFLOW;
+}
+
+static gimple get_dup_stmt(struct visited *visited, gimple stmt)
+{
+	gimple my_stmt;
+	gimple_stmt_iterator gsi = gsi_for_stmt(stmt);
+
+	gsi_next(&gsi);
+	my_stmt = gsi_stmt(gsi);
+
+	gcc_assert(pointer_set_contains(visited->my_stmts, my_stmt));
+	gcc_assert(gimple_assign_rhs_code(stmt) == gimple_assign_rhs_code(my_stmt));
+
+	return my_stmt;
+}
+
+/* unsigned type -> unary or binary assign (rhs1 or rhs2 is constant)
+ * unsigned type cast to signed type, unsigned type: no more uses
+ * e.g., lib/vsprintf.c:simple_strtol()
+ * _10 = (unsigned long int) _9
+ * _11 = -_10;
+ * _12 = (long int) _11; (_11_ no more uses)
+ */
+static bool is_call_or_cast(gimple stmt)
+{
+	return gimple_assign_cast_p(stmt) || is_gimple_call(stmt);
+}
+
+static bool is_unsigned_cast_or_call_def_stmt(const_tree node)
+{
+	const_tree rhs;
+	gimple def_stmt;
+
+	if (node == NULL_TREE)
+		return true;
+	if (is_gimple_constant(node))
+		return true;
+
+	def_stmt = get_def_stmt(node);
+	if (!def_stmt)
+		return false;
+
+	if (is_call_or_cast(def_stmt))
+		return true;
+
+	if (!is_gimple_assign(def_stmt) || gimple_num_ops(def_stmt) != 2)
+		return false;
+	rhs = gimple_assign_rhs1(def_stmt);
+	def_stmt = get_def_stmt(rhs);
+	if (!def_stmt)
+		return false;
+	return is_call_or_cast(def_stmt);
+}
+
+void unsigned_signed_cast_intentional_overflow(struct visited *visited, gimple stmt)
+{
+	unsigned int use_num;
+	gimple so_stmt;
+	const_gimple def_stmt;
+	const_tree rhs1, rhs2;
+	tree rhs = gimple_assign_rhs1(stmt);
+	tree lhs_type = TREE_TYPE(gimple_assign_lhs(stmt));
+	const_tree rhs_type = TREE_TYPE(rhs);
+
+	if (!(TYPE_UNSIGNED(rhs_type) && !TYPE_UNSIGNED(lhs_type)))
+		return;
+	if (GET_MODE_BITSIZE(TYPE_MODE(rhs_type)) != GET_MODE_BITSIZE(TYPE_MODE(lhs_type)))
+		return;
+	use_num = uses_num(rhs);
+	if (use_num != 1)
+		return;
+
+	def_stmt = get_def_stmt(rhs);
+	if (!def_stmt)
+		return;
+	if (!is_gimple_assign(def_stmt))
+		return;
+
+	rhs1 = gimple_assign_rhs1(def_stmt);
+	if (!is_unsigned_cast_or_call_def_stmt(rhs1))
+		return;
+
+	rhs2 = gimple_assign_rhs2(def_stmt);
+	if (!is_unsigned_cast_or_call_def_stmt(rhs2))
+		return;
+	if (gimple_num_ops(def_stmt) == 3 && !is_gimple_constant(rhs1) && !is_gimple_constant(rhs2))
+		return;
+
+	so_stmt = get_dup_stmt(visited, stmt);
+	create_up_and_down_cast(visited, so_stmt, lhs_type, gimple_assign_rhs1(so_stmt));
 }
 

@@ -4228,7 +4228,11 @@ static int list_locations(struct kmem_cache *s, char *buf,
 		len += sprintf(buf + len, "%7ld ", l->count);
 
 		if (l->addr)
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+			len += sprintf(buf + len, "%pS", NULL);
+#else
 			len += sprintf(buf + len, "%pS", (void *)l->addr);
+#endif
 		else
 			len += sprintf(buf + len, "<not-available>");
 
@@ -4578,7 +4582,11 @@ static ssize_t ctor_show(struct kmem_cache *s, char *buf)
 {
 	if (!s->ctor)
 		return 0;
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+	return sprintf(buf, "%pS\n", NULL);
+#else
 	return sprintf(buf, "%pS\n", s->ctor);
+#endif
 }
 SLAB_ATTR_RO(ctor);
 
