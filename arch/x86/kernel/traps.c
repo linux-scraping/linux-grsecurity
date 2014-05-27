@@ -263,6 +263,11 @@ dotraplinkage void do_double_fault(struct pt_regs *regs, long error_code)
 	tsk->thread.error_code = error_code;
 	tsk->thread.trap_nr = X86_TRAP_DF;
 
+#ifdef CONFIG_GRKERNSEC_KSTACKOVERFLOW
+	if ((unsigned long)tsk->stack - regs->sp <= PAGE_SIZE)
+		die("grsec: kernel stack overflow detected", regs, error_code);	
+#endif
+
 #ifdef CONFIG_DOUBLEFAULT
 	df_debug(regs, error_code);
 #endif

@@ -1759,6 +1759,12 @@ static inline void *__vmalloc_node_flags(unsigned long size,
 					node, __builtin_return_address(0));
 }
 
+void *vmalloc_stack(int node)
+{
+	return __vmalloc_node(THREAD_SIZE, THREAD_SIZE, THREADINFO_GFP, PAGE_KERNEL,
+				node, __builtin_return_address(0));
+}
+
 /**
  *	vmalloc  -  allocate virtually contiguous memory
  *	@size:		allocation size

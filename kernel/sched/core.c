@@ -2251,8 +2251,10 @@ context_switch(struct rq *rq, struct task_struct *prev,
 		next->active_mm = oldmm;
 		atomic_inc(&oldmm->mm_count);
 		enter_lazy_tlb(oldmm, next);
-	} else
+	} else {
 		switch_mm(oldmm, mm, next);
+		populate_stack();
+	}
 
 	if (!prev->mm) {
 		prev->active_mm = NULL;
@@ -4706,8 +4708,10 @@ void idle_task_exit(void)
 
 	BUG_ON(cpu_online(smp_processor_id()));
 
-	if (mm != &init_mm)
+	if (mm != &init_mm) {
 		switch_mm(mm, &init_mm, current);
+		populate_stack();
+	}
 	mmdrop(mm);
 }
 

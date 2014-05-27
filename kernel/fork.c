@@ -137,6 +137,18 @@ void __weak arch_release_thread_info(struct thread_info *ti)
 {
 }
 
+#ifdef CONFIG_GRKERNSEC_KSTACKOVERFLOW
+static struct thread_info *alloc_thread_info_node(struct task_struct *tsk,
+						  int node)
+{
+	return vmalloc_stack(node);
+}
+
+static inline void free_thread_info(struct thread_info *ti)
+{
+	vfree(ti);
+}
+#else
 #ifndef CONFIG_ARCH_THREAD_INFO_ALLOCATOR
 
 /*
@@ -179,6 +191,7 @@ void thread_info_cache_init(void)
 }
 # endif
 #endif
+#endif
 
 /* SLAB cache for signal_struct structures (tsk->signal) */
 static struct kmem_cache *signal_cachep;
@@ -200,9 +213,11 @@ static struct kmem_cache *mm_cachep;
 
 static void account_kernel_stack(struct thread_info *ti, int account)
 {
+#ifndef CONFIG_GRKERNSEC_KSTACKOVERFLOW
 	struct zone *zone = page_zone(virt_to_page(ti));
 
 	mod_zone_page_state(zone, NR_KERNEL_STACK, account);
+#endif
 }
 
 void free_task(struct task_struct *tsk)

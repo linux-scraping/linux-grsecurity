@@ -136,6 +136,19 @@ config GRKERNSEC_PROC_MEMMAP
 	  If you use PaX it is essential that you say Y here as it closes up
 	  several holes that make full ASLR useless locally.
 
+
+config GRKERNSEC_KSTACKOVERFLOW
+	bool "Prevent kernel stack overflows"
+	default y if GRKERNSEC_CONFIG_AUTO
+	depends on !IA64 && 64BIT
+	help
+	  If you say Y here, the kernel's process stacks will be allocated
+	  with vmalloc instead of the kernel's default allocator.  This
+	  introduces guard pages that in combination with the alloca checking
+	  of the STACKLEAK feature prevents all forms of kernel process stack
+	  overflow abuse.  Note that this is different from kernel stack
+	  buffer overflows.
+
 config GRKERNSEC_BRUTE
 	bool "Deter exploit bruteforcing"
 	default y if GRKERNSEC_CONFIG_AUTO
