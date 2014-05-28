@@ -2081,6 +2081,8 @@ void pax_track_stack(void)
 	if (sp < current_thread_info()->lowest_stack &&
 	    sp > (unsigned long)task_stack_page(current))
 		current_thread_info()->lowest_stack = sp;
+	if (unlikely((sp & ~(THREAD_SIZE - 1)) < (THREAD_SIZE/16)))
+		BUG();
 }
 EXPORT_SYMBOL(pax_track_stack);
 #endif
