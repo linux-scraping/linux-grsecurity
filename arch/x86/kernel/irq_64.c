@@ -43,13 +43,14 @@ static inline void stack_overflow_check(struct pt_regs *regs)
 	if (user_mode(regs))
 		return;
 
-	if (regs->sp >= curbase + sizeof(struct thread_info) +
-				sizeof(struct pt_regs) + 128 &&
-	    regs->sp <= curbase + THREAD_SIZE)
-		return;
-	WARN_ONCE(1, "do_IRQ: %s near stack overflow (cur:%Lx,sp:%lx)\n",
-		current->comm, curbase, regs->sp);
-	gr_handle_kernel_exploit();
+	if (regs->sp >= curbase &&
+	    regs->sp <= curbase + THREAD_SIZE &&
+	    regs->sp <  curbase + sizeof(struct thread_info) +
+				sizeof(struct pt_regs) + 128) {
+		WARN_ONCE(1, "do_IRQ: %s near stack overflow (cur:%Lx,sp:%lx)\n",
+			current->comm, curbase, regs->sp);
+		gr_handle_kernel_exploit();
+	}
 #endif
 }
 
