@@ -85,26 +85,28 @@ void set_fs(mm_segment_t x);
 #define access_ok_noprefault(type, addr, size) (likely(__range_not_ok(addr, size) == 0))
 #define access_ok(type, addr, size)					\
 ({									\
-	long __size = size;						\
+	unsigned long __size = size;					\
 	unsigned long __addr = (unsigned long)addr;			\
-	unsigned long __addr_ao = __addr & PAGE_MASK;			\
-	unsigned long __end_ao = __addr + __size - 1;			\
 	bool __ret_ao = __range_not_ok(__addr, __size) == 0;		\
-	if (__ret_ao && unlikely((__end_ao ^ __addr_ao) & PAGE_MASK)) {	\
-		while(__addr_ao <= __end_ao) {				\
-			char __c_ao;					\
-			__addr_ao += PAGE_SIZE;				\
-			if (__size > PAGE_SIZE)				\
-				cond_resched();				\
-			if (__get_user(__c_ao, (char __user *)__addr))	\
-				break;					\
-			if (type != VERIFY_WRITE) {			\
+	if (__ret_ao && __size) {					\
+		unsigned long __addr_ao = __addr & PAGE_MASK;		\
+		unsigned long __end_ao = __addr + __size - 1;		\
+		if (unlikely((__end_ao ^ __addr_ao) & PAGE_MASK)) {	\
+			while (__addr_ao <= __end_ao) {			\
+				char __c_ao;				\
+				__addr_ao += PAGE_SIZE;			\
+				if (__size > PAGE_SIZE)			\
+					cond_resched();			\
+				if (__get_user(__c_ao, (char __user *)__addr))	\
+					break;				\
+				if (type != VERIFY_WRITE) {		\
+					__addr = __addr_ao;		\
+					continue;			\
+				}					\
+				if (__put_user(__c_ao, (char __user *)__addr))	\
+					break;				\
 				__addr = __addr_ao;			\
-				continue;				\
 			}						\
-			if (__put_user(__c_ao, (char __user *)__addr))	\
-				break;					\
-			__addr = __addr_ao;				\
 		}							\
 	}								\
 	__ret_ao;							\

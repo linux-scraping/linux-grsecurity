@@ -138,6 +138,30 @@ static inline void free_thread_info(struct thread_info *ti)
 }
 #endif
 
+#ifdef CONFIG_GRKERNSEC_KSTACKOVERFLOW
+static inline struct thread_info *gr_alloc_thread_info_node(struct task_struct *tsk,
+						  int node)
+{
+	return vmalloc_stack(node);
+}
+
+static inline void gr_free_thread_info(struct thread_info *ti)
+{
+	vfree(ti);
+}
+#else
+static inline struct thread_info *gr_alloc_thread_info_node(struct task_struct *tsk,
+						  int node)
+{
+	return alloc_thread_info_node(tsk, node);
+}
+
+static inline void gr_free_thread_info(struct thread_info *ti)
+{
+	free_thread_info(ti);
+}
+#endif
+
 /* SLAB cache for signal_struct structures (tsk->signal) */
 static struct kmem_cache *signal_cachep;
 
@@ -158,15 +182,17 @@ static struct kmem_cache *mm_cachep;
 
 static void account_kernel_stack(struct thread_info *ti, int account)
 {
+#ifndef CONFIG_GRKERNSEC_KSTACKOVERFLOW
 	struct zone *zone = page_zone(virt_to_page(ti));
 
 	mod_zone_page_state(zone, NR_KERNEL_STACK, account);
+#endif
 }
 
 void free_task(struct task_struct *tsk)
 {
 	account_kernel_stack(tsk->stack, -1);
-	free_thread_info(tsk->stack);
+	gr_free_thread_info(tsk->stack);
 	rt_mutex_debug_task_free(tsk);
 	ftrace_graph_exit_task(tsk);
 	put_seccomp_filter(tsk);
@@ -265,7 +291,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig)
 	if (!tsk)
 		return NULL;
 
-	ti = alloc_thread_info_node(tsk, node);
+	ti = gr_alloc_thread_info_node(tsk, node);
 	if (!ti) {
 		free_task_struct(tsk);
 		return NULL;
@@ -307,7 +333,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig)
 	return tsk;
 
 out:
-	free_thread_info(ti);
+	gr_free_thread_info(ti);
 	free_task_struct(tsk);
 	return NULL;
 }

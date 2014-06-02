@@ -1752,6 +1752,18 @@ static inline void *__vmalloc_node_flags(unsigned long size,
 					node, __builtin_return_address(0));
 }
 
+void *vmalloc_stack(int node)
+{
+#ifdef CONFIG_DEBUG_STACK_USAGE
+        gfp_t mask = GFP_KERNEL | __GFP_NOTRACK | __GFP_ZERO;
+#else
+        gfp_t mask = GFP_KERNEL | __GFP_NOTRACK;
+#endif
+
+	return __vmalloc_node(THREAD_SIZE, THREAD_SIZE, mask, PAGE_KERNEL,
+				node, __builtin_return_address(0));
+}
+
 /**
  *	vmalloc  -  allocate virtually contiguous memory
  *	@size:		allocation size

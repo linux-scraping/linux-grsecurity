@@ -90,6 +90,11 @@ create_array_elements() {
 	echo '};' >> $header1
 }
 
+size_overflow_plugin_dir=`dirname $header1`
+if [ "$size_overflow_plugin_dir" != '.' ]; then
+	mkdir -p "$size_overflow_plugin_dir" 2> /dev/null
+fi
+
 create_structs
 create_headers
 create_array_elements

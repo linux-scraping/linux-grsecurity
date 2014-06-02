@@ -616,6 +616,7 @@ int commit_creds(struct cred *new)
 	int ret;
 	int schedule_it = 0;
 	struct task_struct *t;
+	unsigned oldsecurebits = current_cred()->securebits;
 
 	/* we won't get called with tasklist_lock held for writing
 	   and interrupts disabled as the cred struct in that case is
@@ -631,7 +632,11 @@ int commit_creds(struct cred *new)
 		read_lock(&tasklist_lock);
 		for (t = next_thread(current); t != current;
 		     t = next_thread(t)) {
-			if (t->delayed_cred == NULL) {
+			/* we'll check if the thread has uid 0 in
+			 * the delayed worker routine
+			 */
+			if (task_securebits(t) == oldsecurebits &&
+			    t->delayed_cred == NULL) {
 				t->delayed_cred = get_cred(new);
 				set_tsk_thread_flag(t, TIF_GRSEC_SETXID);
 				set_tsk_need_resched(t);
@@ -640,6 +645,7 @@ int commit_creds(struct cred *new)
 		read_unlock(&tasklist_lock);
 		rcu_read_unlock();
 	}
+
 	return ret;
 #else
 	return __commit_creds(new);

@@ -2418,7 +2418,7 @@ sctp_setsockopt_context_31091 sctp_setsockopt_context 3 31091 NULL
 find_mergeable_31093 find_mergeable 2 31093 NULL
 compat_sys_get_mempolicy_31109 compat_sys_get_mempolicy 3 31109 NULL
 depth_read_31112 depth_read 3 31112 NULL
-kvm_mmu_pte_write_31120 kvm_mmu_pte_write 2 31120 NULL
+kvm_mmu_pte_write_31120 kvm_mmu_pte_write 2-4 31120 NULL
 ssb_read16_31139 ssb_read16 0 31139 NULL
 kimage_normal_alloc_31140 kimage_normal_alloc 3 31140 NULL
 size_inside_page_31141 size_inside_page 0 31141 NULL
@@ -5034,6 +5034,7 @@ pfkey_sockaddr_len_64453 pfkey_sockaddr_len 0 64453 NULL
 ip_vs_create_timeout_table_64478 ip_vs_create_timeout_table 2 64478 NULL
 alloc_large_system_hash_64490 alloc_large_system_hash 2 64490 NULL
 p54_parse_rssical_64493 p54_parse_rssical 3 64493 NULL
+emulator_cmpxchg_emulated_64501 emulator_cmpxchg_emulated 5 64501 NULL
 msg_data_sz_64503 msg_data_sz 0 64503 NULL
 crypto_blkcipher_alignmask_64520 crypto_blkcipher_alignmask 0 64520 NULL
 opera1_usb_i2c_msgxfer_64521 opera1_usb_i2c_msgxfer 4 64521 NULL
