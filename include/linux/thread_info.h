@@ -118,8 +118,6 @@ static inline __deprecated void set_need_resched(void)
 	 */
 }
 
-#define tif_need_resched() test_thread_flag(TIF_NEED_RESCHED)
-
 #if defined TIF_RESTORE_SIGMASK && !defined HAVE_SET_RESTORE_SIGMASK
 /*
  * An arch can define its own version of set_restore_sigmask() to get the
@@ -161,23 +159,11 @@ static inline bool test_and_clear_restore_sigmask(void)
 #error "no set_restore_sigmask() provided and default one won't work"
 #endif
 
-extern void __check_object_size(const void *ptr, unsigned long n, bool to_user);
-
-#if defined(CONFIG_X86) && defined(CONFIG_PAX_USERCOPY)
-extern void pax_check_alloca(unsigned long size);
-#endif
+extern void __check_object_size(const void *ptr, unsigned long n, bool to_user, bool const_size);
 
 static inline void check_object_size(const void *ptr, unsigned long n, bool to_user)
 {
-#if defined(CONFIG_X86) && defined(CONFIG_PAX_USERCOPY)
-	/* always check if we've overflowed the stack in a copy*user */
-	pax_check_alloca(sizeof(unsigned long));
-#endif
-
-#ifndef CONFIG_PAX_USERCOPY_DEBUG
-	if (!__builtin_constant_p(n))
-#endif
-		__check_object_size(ptr, n, to_user);
+	__check_object_size(ptr, n, to_user, __builtin_constant_p(n));
 }
 
 #endif	/* __KERNEL__ */

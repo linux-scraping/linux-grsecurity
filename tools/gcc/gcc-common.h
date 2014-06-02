@@ -68,7 +68,6 @@
 #include "tree-pass.h"
 //#include "df.h"
 #include "predict.h"
-//#include "lto-streamer.h"
 #include "ipa-utils.h"
 
 #if BUILDING_GCC_VERSION >= 4009
@@ -83,6 +82,7 @@
 #include "tree-ssanames.h"
 #include "print-tree.h"
 #include "tree-eh.h"
+#include "stmt.h"
 #endif
 
 #include "gimple.h"
@@ -96,6 +96,10 @@
 #include "ssa-iterators.h"
 #endif
 
+//#include "lto/lto.h"
+//#include "data-streamer.h"
+//#include "lto-compress.h"
+
 //#include "expr.h" where are you...
 extern rtx emit_move_insn(rtx x, rtx y);
 
@@ -107,6 +111,8 @@ extern void debug_dominance_tree(enum cdi_direction dir, basic_block root);
 
 #define DECL_NAME_POINTER(node) IDENTIFIER_POINTER(DECL_NAME(node))
 #define DECL_NAME_LENGTH(node) IDENTIFIER_LENGTH(DECL_NAME(node))
+#define TYPE_NAME_POINTER(node) IDENTIFIER_POINTER(TYPE_NAME(node))
+#define TYPE_NAME_LENGTH(node) IDENTIFIER_LENGTH(TYPE_NAME(node))
 
 #if BUILDING_GCC_VERSION == 4005
 #define FOR_EACH_LOCAL_DECL(FUN, I, D) for (tree vars = (FUN)->local_decls; vars && (D = TREE_VALUE(vars)); vars = TREE_CHAIN(vars), I)
@@ -245,6 +251,8 @@ static inline bool gimple_store_p(gimple gs)
 #if BUILDING_GCC_VERSION >= 4007
 #define cgraph_create_edge(caller, callee, call_stmt, count, freq, nest) \
 	cgraph_create_edge((caller), (callee), (call_stmt), (count), (freq))
+#define cgraph_create_edge_including_clones(caller, callee, old_call_stmt, call_stmt, count, freq, nest, reason) \
+	cgraph_create_edge_including_clones((caller), (callee), (old_call_stmt), (call_stmt), (count), (freq), (reason))
 #endif
 
 #if BUILDING_GCC_VERSION <= 4008

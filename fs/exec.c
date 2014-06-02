@@ -2045,12 +2045,25 @@ static inline bool check_kernel_text_object(unsigned long low, unsigned long hig
 }
 #endif
 
-void __check_object_size(const void *ptr, unsigned long n, bool to_user)
+void __check_object_size(const void *ptr, unsigned long n, bool to_user, bool const_size)
 {
-
 #ifdef CONFIG_PAX_USERCOPY
 	const char *type;
+#endif
 
+#ifndef CONFIG_STACK_GROWSUP
+	const void * stackstart = task_stack_page(current);
+	if (unlikely(current_stack_pointer < stackstart + 512 ||
+		     current_stack_pointer >= stackstart + THREAD_SIZE))
+		BUG();
+#endif
+
+#ifndef CONFIG_PAX_USERCOPY_DEBUG
+	if (const_size)
+		return;
+#endif
+
+#ifdef CONFIG_PAX_USERCOPY
 	if (!n)
 		return;
 

@@ -355,10 +355,8 @@ load_b:
 
 			if (skb_is_nonlinear(skb))
 				return 0;
-
 			if (skb->len < sizeof(struct nlattr))
 				return 0;
-
 			if (A > skb->len - sizeof(struct nlattr))
 				return 0;
 
@@ -375,10 +373,8 @@ load_b:
 
 			if (skb_is_nonlinear(skb))
 				return 0;
-
 			if (skb->len < sizeof(struct nlattr))
 				return 0;
-
 			if (A > skb->len - sizeof(struct nlattr))
 				return 0;
 
