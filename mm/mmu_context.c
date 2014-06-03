@@ -33,6 +33,7 @@ void use_mm(struct mm_struct *mm)
 	}
 	tsk->mm = mm;
 	switch_mm(active_mm, mm, tsk);
+	populate_stack();
 	task_unlock(tsk);
 
 	if (active_mm != mm)
