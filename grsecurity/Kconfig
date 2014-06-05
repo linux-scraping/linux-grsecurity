@@ -140,7 +140,7 @@ config GRKERNSEC_PROC_MEMMAP
 config GRKERNSEC_KSTACKOVERFLOW
 	bool "Prevent kernel stack overflows"
 	default y if GRKERNSEC_CONFIG_AUTO
-	depends on !IA64 && 64BIT && BROKEN
+	depends on !IA64 && 64BIT
 	help
 	  If you say Y here, the kernel's process stacks will be allocated
 	  with vmalloc instead of the kernel's default allocator.  This
