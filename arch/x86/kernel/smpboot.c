@@ -252,11 +252,13 @@ notrace static void __cpuinit start_secondary(void *unused)
 	preempt_disable();
 	smp_callin();
 
-#ifdef CONFIG_X86_32
 	/* switch away from the initial page table */
+#ifdef CONFIG_PAX_PER_CPU_PGD
+	load_cr3(get_cpu_pgd(smp_processor_id()));
+#else
 	load_cr3(swapper_pg_dir);
-	__flush_tlb_all();
 #endif
+	__flush_tlb_all();
 
 	/* otherwise gcc will move up smp_processor_id before the cpu_init */
 	barrier();
