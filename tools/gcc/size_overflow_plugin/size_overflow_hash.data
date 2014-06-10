@@ -95,6 +95,7 @@ i2cdev_read_1206 i2cdev_read 3 1206 NULL
 lov_ost_pool_init_1215 lov_ost_pool_init 2 1215 NULL
 fsync_buffers_list_1219 fsync_buffers_list 0 1219 NULL
 kernfs_file_direct_read_1238 kernfs_file_direct_read 3 1238 NULL
+acpi_battery_write_alarm_1240 acpi_battery_write_alarm 3 1240 NULL
 ocfs2_extend_file_1266 ocfs2_extend_file 3 1266 NULL
 qla4xxx_change_queue_depth_1268 qla4xxx_change_queue_depth 2 1268 NULL
 ioctl_private_iw_point_1273 ioctl_private_iw_point 7 1273 NULL
@@ -2378,6 +2379,7 @@ selinux_inode_post_setxattr_26037 selinux_inode_post_setxattr 4 26037 NULL
 keyctl_update_key_26061 keyctl_update_key 3 26061 NULL
 btrfs_wait_ordered_range_26086 btrfs_wait_ordered_range 0 26086 NULL
 rx_rx_wa_density_dropped_frame_read_26095 rx_rx_wa_density_dropped_frame_read 3 26095 NULL
+i8042_pnp_id_to_string_26108 i8042_pnp_id_to_string 3 26108 NULL
 read_sb_page_26119 read_sb_page 5 26119 NULL
 ath9k_hw_name_26146 ath9k_hw_name 3 26146 NULL
 copy_oldmem_page_26164 copy_oldmem_page 3 26164 NULL

@@ -27,8 +27,6 @@ void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt)
 	}
 #endif
 	id = atomic_inc_return_unchecked(&ipv6_fragmentation_id);
-	if (!id)
-		id = atomic_inc_return_unchecked(&ipv6_fragmentation_id);
 	fhdr->identification = htonl(id);
 }
 EXPORT_SYMBOL(ipv6_select_ident);

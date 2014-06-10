@@ -57,7 +57,7 @@ do {	__asm__ __volatile__("ba,pt	%%xcc, 1f\n\t" \
 do {									\
 	compiletime_assert_atomic_type(*p);				\
 	barrier();							\
-	ACCESS_ONCE(*p) = (v);						\
+	ACCESS_ONCE_RW(*p) = (v);					\
 } while (0)
 
 #define smp_load_acquire(p)						\

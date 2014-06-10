@@ -63,7 +63,7 @@
 do {									\
 	compiletime_assert_atomic_type(*p);				\
 	smp_mb();							\
-	ACCESS_ONCE(*p) = (v);						\
+	ACCESS_ONCE_RW(*p) = (v);					\
 } while (0)
 
 #define smp_load_acquire(p)						\

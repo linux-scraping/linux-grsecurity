@@ -700,10 +700,10 @@ int setup_arg_pages(struct linux_binprm *bprm,
 	unsigned long rlim_stack;
 
 #ifdef CONFIG_STACK_GROWSUP
-	/* Limit stack size to 1GB */
+	/* Limit stack size */
 	stack_base = rlimit_max(RLIMIT_STACK);
-	if (stack_base > (1 << 30))
-		stack_base = 1 << 30;
+	if (stack_base > STACK_SIZE_MAX)
+		stack_base = STACK_SIZE_MAX;
 
 	/* Make sure we didn't let the argument array grow too large. */
 	if (vma->vm_end - vma->vm_start > stack_base)
@@ -2053,8 +2053,9 @@ void __check_object_size(const void *ptr, unsigned long n, bool to_user, bool co
 
 #ifndef CONFIG_STACK_GROWSUP
 	unsigned long stackstart = (unsigned long)task_stack_page(current);
-	if (unlikely(current_stack_pointer < stackstart + 512 ||
-		     current_stack_pointer >= stackstart + THREAD_SIZE))
+	unsigned long currentsp = (unsigned long)&stackstart;
+	if (unlikely(currentsp < stackstart + 512 ||
+		     currentsp >= stackstart + THREAD_SIZE))
 		BUG();
 #endif
 

@@ -235,11 +235,10 @@ static void notrace start_secondary(void *unused)
 	/* switch away from the initial page table */
 #ifdef CONFIG_PAX_PER_CPU_PGD
 	load_cr3(get_cpu_pgd(smp_processor_id(), kernel));
-	__flush_tlb_all();
-#elif defined(CONFIG_X86_32)
+#else
 	load_cr3(swapper_pg_dir);
-	__flush_tlb_all();
 #endif
+	__flush_tlb_all();
 
 	/*
 	 * Check TSC synchronization with the BP:
