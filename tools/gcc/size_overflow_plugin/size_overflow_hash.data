@@ -3060,6 +3060,7 @@ btrfs_mksubvol_39479 btrfs_mksubvol 3 39479 NULL
 ieee80211_if_fmt_dot11MeshHWMPmaxPREQretries_39499 ieee80211_if_fmt_dot11MeshHWMPmaxPREQretries 3 39499 NULL
 int_proc_write_39542 int_proc_write 3 39542 NULL nohasharray
 wm8350_i2c_read_device_39542 wm8350_i2c_read_device 3 39542 &int_proc_write_39542
+rtnl_port_size_39551 rtnl_port_size 0 39551 NULL
 pp_write_39554 pp_write 3 39554 NULL
 ol_dqblk_block_39558 ol_dqblk_block 0-2-3 39558 NULL
 datablob_format_39571 datablob_format 2 39571 NULL nohasharray
@@ -3176,6 +3177,7 @@ vol_cdev_write_40915 vol_cdev_write 3 40915 NULL
 iterate_extent_inodes_40923 iterate_extent_inodes 0 40923 NULL
 btrfs_setsize_40931 btrfs_setsize 2 40931 NULL
 snd_vx_create_40948 snd_vx_create 4 40948 NULL
+skb_end_offset_40949 skb_end_offset 0 40949 NULL
 tcp_skb_mss_40964 tcp_skb_mss 0 40964 NULL
 rds_sendmsg_40976 rds_sendmsg 4 40976 NULL
 mac80211_format_buffer_41010 mac80211_format_buffer 2 41010 NULL

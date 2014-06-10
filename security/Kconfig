@@ -658,8 +658,7 @@ config PAX_ASLR
 	  guess them in most cases.  Any failed guess will most likely crash
 	  the attacked program which allows the kernel to detect such attempts
 	  and react on them.  PaX itself provides no reaction mechanisms,
-	  instead it is strongly encouraged that you make use of Nergal's
-	  segvguard (ftp://ftp.pl.openwall.com/misc/segvguard/) or grsecurity's
+	  instead it is strongly encouraged that you make use of grsecurity's
 	  (http://www.grsecurity.net/) built-in crash detection features or
 	  develop one yourself.
 
@@ -693,30 +692,28 @@ config PAX_RANDKSTACK
 	  configuration, this feature cannot be disabled on a per file basis.
 
 config PAX_RANDUSTACK
-	bool "Randomize user stack base"
+	bool
+
+config PAX_RANDMMAP
+	bool "Randomize user stack and mmap() bases"
 	default y if GRKERNSEC_CONFIG_AUTO
 	depends on PAX_ASLR
+	select PAX_RANDUSTACK
 	help
 	  By saying Y here the kernel will randomize every task's userland
-	  stack.  The randomization is done in two steps where the second
+	  stack and use a randomized base address for mmap() requests that
+	  do not specify one themselves.
+
+	  The stack randomization is done in two steps where the second
 	  one may apply a big amount of shift to the top of the stack and
 	  cause problems for programs that want to use lots of memory (more
 	  than 2.5 GB if SEGMEXEC is not active, or 1.25 GB when it is).
-	  For this reason the second step can be controlled by 'chpax' or
-	  'paxctl' on a per file basis.
 
-config PAX_RANDMMAP
-	bool "Randomize mmap() base"
-	default y if GRKERNSEC_CONFIG_AUTO
-	depends on PAX_ASLR
-	help
-	  By saying Y here the kernel will use a randomized base address for
-	  mmap() requests that do not specify one themselves.  As a result
-	  all dynamically loaded libraries will appear at random addresses
-	  and therefore be harder to exploit by a technique where an attacker
-	  attempts to execute library code for his purposes (e.g. spawn a
-	  shell from an exploited program that is running at an elevated
-	  privilege level).
+	  As a result of mmap randomization all dynamically loaded libraries
+	  will appear at random addresses and therefore be harder to exploit
+	  by a technique where an attacker attempts to execute library code
+	  for his purposes (e.g. spawn a shell from an exploited program that
+	  is running at an elevated privilege level).
 
 	  Furthermore, if a program is relinked as a dynamic ELF file, its
 	  base address will be randomized as well, completing the full

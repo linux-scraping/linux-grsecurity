@@ -1,6 +1,6 @@
 VERSION = 3
 PATCHLEVEL = 2
-SUBLEVEL = 59
+SUBLEVEL = 60
 EXTRAVERSION =
 NAME = Saber-toothed Squirrel
 
@@ -1283,7 +1283,6 @@ distclean: mrproper
 	@find $(srctree) $(RCS_FIND_IGNORE) \
 		\( -name '*.orig' -o -name '*.rej' -o -name '*~' \
 		-o -name '*.bak' -o -name '#*#' -o -name '.*.orig' \
-		-o -name '.*.rej' \
 		-o -name '.*.rej' -o -name '*.so' \
 		-o -name '*%' -o -name '.*.cmd' -o -name 'core' \) \
 		-type f -print | xargs rm -f
