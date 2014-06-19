@@ -1707,6 +1707,10 @@ static int grow_one_stripe(struct r5conf *conf, int hash)
 	return 1;
 }
 
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+static atomic_unchecked_t raid5_cache_id = ATOMIC_INIT(0);
+#endif
+
 static int grow_stripes(struct r5conf *conf, int num)
 {
 	struct kmem_cache *sc;
@@ -1718,7 +1722,11 @@ static int grow_stripes(struct r5conf *conf, int num)
 			"raid%d-%s", conf->level, mdname(conf->mddev));
 	else
 		sprintf(conf->cache_name[0],
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+			"raid%d-%08lx", conf->level, atomic_inc_return_unchecked(&raid5_cache_id));
+#else
 			"raid%d-%p", conf->level, conf->mddev);
+#endif
 	sprintf(conf->cache_name[1], "%s-alt", conf->cache_name[0]);
 
 	conf->active_name = 0;

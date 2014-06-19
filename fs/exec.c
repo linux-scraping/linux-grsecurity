@@ -2054,8 +2054,8 @@ void __check_object_size(const void *ptr, unsigned long n, bool to_user, bool co
 #ifndef CONFIG_STACK_GROWSUP
 	unsigned long stackstart = (unsigned long)task_stack_page(current);
 	unsigned long currentsp = (unsigned long)&stackstart;
-	if (unlikely(currentsp < stackstart + 512 ||
-		     currentsp >= stackstart + THREAD_SIZE))
+	if (unlikely((currentsp < stackstart + 512 ||
+		     currentsp >= stackstart + THREAD_SIZE) && !in_interrupt()))
 		BUG();
 #endif
 

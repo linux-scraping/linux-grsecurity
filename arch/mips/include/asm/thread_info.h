@@ -139,7 +139,8 @@ static inline struct thread_info *current_thread_info(void)
 #define _TIF_GRSEC_SETXID	(1<<TIF_GRSEC_SETXID)
 
 #define _TIF_WORK_SYSCALL_ENTRY	(_TIF_NOHZ | _TIF_SYSCALL_TRACE |	\
-				 _TIF_SYSCALL_AUDIT | _TIF_SYSCALL_TRACEPOINT | _TIF_GRSEC_SETXID)
+				 _TIF_SYSCALL_AUDIT | \
+				 _TIF_SYSCALL_TRACEPOINT | _TIF_SECCOMP | _TIF_GRSEC_SETXID)
 
 /* work to do in syscall_trace_leave() */
 #define _TIF_WORK_SYSCALL_EXIT	(_TIF_NOHZ | _TIF_SYSCALL_TRACE |	\
