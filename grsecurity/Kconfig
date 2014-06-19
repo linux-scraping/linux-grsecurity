@@ -545,14 +545,16 @@ config GRKERNSEC_CHROOT_CHMOD
 	  created.
 
 config GRKERNSEC_CHROOT_FCHDIR
-	bool "Deny fchdir out of chroot"
+	bool "Deny fchdir and fhandle out of chroot"
 	default y if GRKERNSEC_CONFIG_AUTO
 	depends on GRKERNSEC_CHROOT
 	help
 	  If you say Y here, a well-known method of breaking chroots by fchdir'ing
 	  to a file descriptor of the chrooting process that points to a directory
-	  outside the filesystem will be stopped.  If the sysctl option
-	  is enabled, a sysctl option with name "chroot_deny_fchdir" is created.
+	  outside the filesystem will be stopped.  Additionally, this option prevents
+	  use of the recently-created syscall for opening files by a guessable "file
+	  handle" inside a chroot.  If the sysctl option is enabled, a sysctl option
+	  with name "chroot_deny_fchdir" is created.
 
 config GRKERNSEC_CHROOT_MKNOD
 	bool "Deny mknod"

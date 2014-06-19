@@ -172,6 +172,23 @@ gr_chroot_fchdir(struct dentry *u_dentry, struct vfsmount *u_mnt)
 }
 
 int
+gr_chroot_fhandle(void)
+{
+#ifdef CONFIG_GRKERNSEC_CHROOT_FCHDIR
+	if (!grsec_enable_chroot_fchdir)
+		return 1;
+
+	if (!proc_is_chrooted(current))
+		return 1;
+	else {
+		gr_log_noargs(GR_DONT_AUDIT, GR_CHROOT_FHANDLE_MSG);
+		return 0;
+	}
+#endif
+	return 1;
+}
+
+int
 gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 		const time_t shm_createtime)
 {

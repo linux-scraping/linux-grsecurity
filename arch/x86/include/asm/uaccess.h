@@ -58,7 +58,7 @@ void set_fs(mm_segment_t x);
 	__chk_user_ptr(addr);						\
 	asm("add %3,%1 ; sbb %0,%0 ; cmp %1,%4 ; sbb $0,%0"		\
 	    : "=&r" (flag), "=r" (roksum)				\
-	    : "1" (addr), "g" ((long)(size)),				\
+	    : "1" (addr), "rm" ((long)(size)),				\
 	      "rm" (current_thread_info()->addr_limit.seg));		\
 	flag;								\
 })
