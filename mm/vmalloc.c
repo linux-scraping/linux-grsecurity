@@ -38,6 +38,21 @@ struct vfree_deferred {
 };
 static DEFINE_PER_CPU(struct vfree_deferred, vfree_deferred);
 
+#ifdef CONFIG_GRKERNSEC_KSTACKOVERFLOW
+struct stack_deferred_llist {
+	struct llist_head list;
+	void *stack;
+	void *lowmem_stack;
+};
+
+struct stack_deferred {
+	struct stack_deferred_llist list;
+	struct work_struct wq;
+};
+
+static DEFINE_PER_CPU(struct stack_deferred, stack_deferred);
+#endif
+
 static void __vunmap(const void *, int);
 
 static void free_work(struct work_struct *w)
@@ -45,11 +60,33 @@ static void free_work(struct work_struct *w)
 	struct vfree_deferred *p = container_of(w, struct vfree_deferred, wq);
 	struct llist_node *llnode = llist_del_all(&p->list);
 	while (llnode) {
-		void *p = llnode;
+		void *x = llnode;
 		llnode = llist_next(llnode);
-		__vunmap(p, 1);
+		__vunmap(x, 1);
 	}
 }
+
+#ifdef CONFIG_GRKERNSEC_KSTACKOVERFLOW
+static void unmap_work(struct work_struct *w)
+{
+	struct stack_deferred *p = container_of(w, struct stack_deferred, wq);
+	struct llist_node *llnode = llist_del_all(&p->list.list);
+	while (llnode) {
+		struct stack_deferred_llist *x =
+			llist_entry((struct llist_head *)llnode,
+				     struct stack_deferred_llist, list);
+		void *stack = ACCESS_ONCE(x->stack);
+		void *lowmem_stack = ACCESS_ONCE(x->lowmem_stack);
+		llnode = llist_next(llnode);
+		__vunmap(stack, 0);
+#ifndef __HAVE_ARCH_THREAD_INFO_ALLOCATOR
+		free_pages((unsigned long)lowmem_stack, THREAD_SIZE_ORDER);
+#else
+		free_thread_info(lowmem_stack);
+#endif
+	}
+}
+#endif
 
 /*** Page table manipulation functions ***/
 
@@ -1208,13 +1245,23 @@ void __init vmalloc_init(void)
 	for_each_possible_cpu(i) {
 		struct vmap_block_queue *vbq;
 		struct vfree_deferred *p;
+#ifdef CONFIG_GRKERNSEC_KSTACKOVERFLOW
+		struct stack_deferred *p2;
+#endif
 
 		vbq = &per_cpu(vmap_block_queue, i);
 		spin_lock_init(&vbq->lock);
 		INIT_LIST_HEAD(&vbq->free);
+
 		p = &per_cpu(vfree_deferred, i);
 		init_llist_head(&p->list);
 		INIT_WORK(&p->wq, free_work);
+
+#ifdef CONFIG_GRKERNSEC_KSTACKOVERFLOW
+		p2 = &per_cpu(stack_deferred, i);
+		init_llist_head(&p2->list.list);
+		INIT_WORK(&p2->wq, unmap_work);
+#endif
 	}
 
 	/* Import existing vmlist entries. */
@@ -1578,7 +1625,7 @@ EXPORT_SYMBOL(vfree);
  *	Free the virtually contiguous memory area starting at @addr,
  *	which was created from the page array passed to vmap().
  *
- *	Must not be called in interrupt context.
+ *	Must not be called in NMI context.
  */
 void vunmap(const void *addr)
 {
@@ -1588,6 +1635,23 @@ void vunmap(const void *addr)
 		__vunmap(addr, 0);
 }
 EXPORT_SYMBOL(vunmap);
+
+#ifdef CONFIG_GRKERNSEC_KSTACKOVERFLOW
+void unmap_process_stacks(struct task_struct *task)
+{
+	if (unlikely(in_interrupt())) {
+		struct stack_deferred *p = &__get_cpu_var(stack_deferred);
+		struct stack_deferred_llist *list = task->stack;
+		list->stack = task->stack;
+		list->lowmem_stack = task->lowmem_stack;
+		if (llist_add((struct llist_node *)&list->list, &p->list.list))
+			schedule_work(&p->wq);
+	} else {
+		__vunmap(task->stack, 0);
+		free_pages((unsigned long)task->lowmem_stack, THREAD_ORDER);
+	}
+}
+#endif
 
 /**
  *	vmap  -  map an array of pages into virtually contiguous space
@@ -1786,18 +1850,6 @@ static inline void *__vmalloc_node_flags(unsigned long size,
 {
 	return __vmalloc_node(size, 1, flags, PAGE_KERNEL,
 					node, __builtin_return_address(0));
-}
-
-void *vmalloc_stack(int node)
-{
-#ifdef CONFIG_DEBUG_STACK_USAGE
-        gfp_t mask = GFP_KERNEL | __GFP_NOTRACK | __GFP_ZERO;
-#else
-        gfp_t mask = GFP_KERNEL | __GFP_NOTRACK;
-#endif
-
-	return __vmalloc_node(THREAD_SIZE, THREAD_SIZE, mask, PAGE_KERNEL,
-				node, __builtin_return_address(0));
 }
 
 /**

@@ -1264,6 +1264,9 @@ enum perf_event_task_context {
 struct task_struct {
 	volatile long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
 	void *stack;
+#ifdef CONFIG_GRKERNSEC_KSTACKOVERFLOW
+	void *lowmem_stack;
+#endif
 	atomic_t usage;
 	unsigned int flags;	/* per process flags, defined below */
 	unsigned int ptrace;
@@ -2593,7 +2596,7 @@ static inline unsigned long *end_of_stack(struct task_struct *p)
 
 #endif
 
-static inline int object_starts_on_stack(void *obj)
+static inline int object_starts_on_stack(const void *obj)
 {
 	const void *stack = task_stack_page(current);
 

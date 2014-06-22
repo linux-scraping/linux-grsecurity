@@ -3,6 +3,7 @@
 
 #include <asm/types.h>
 #include <asm/scatterlist.h>
+#include <linux/sched.h>
 #include <linux/mm.h>
 #include <linux/string.h>
 #include <asm/io.h>
@@ -109,6 +110,12 @@ static inline struct page *sg_page(struct scatterlist *sg)
 static inline void sg_set_buf(struct scatterlist *sg, const void *buf,
 			      unsigned int buflen)
 {
+#ifdef CONFIG_GRKERNSEC_KSTACKOVERFLOW
+	if (object_starts_on_stack(buf)) {
+		void *adjbuf = buf - current->stack + current->lowmem_stack;
+		sg_set_page(sg, virt_to_page(adjbuf), buflen, offset_in_page(adjbuf));
+	} else
+#endif
 	sg_set_page(sg, virt_to_page(buf), buflen, offset_in_page(buf));
 }
 
