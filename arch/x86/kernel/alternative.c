@@ -292,6 +292,11 @@ void __init_or_module apply_alternatives(struct alt_instr *start,
 		add_nops(insnbuf + a->replacementlen,
 			 a->instrlen - a->replacementlen);
 
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
+		if (instr < (u8 *)_text || (u8 *)_einittext <= instr)
+			instr = ktva_ktla(instr);
+#endif
+
 		text_poke_early(instr, insnbuf, a->instrlen);
 	}
 }

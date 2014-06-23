@@ -771,6 +771,9 @@ const char * const vmstat_text[] = {
 	"numa_local",
 	"numa_other",
 #endif
+	"workingset_refault",
+	"workingset_activate",
+	"workingset_nodereclaim",
 	"nr_anon_transparent_hugepages",
 	"nr_free_cma",
 	"nr_dirty_threshold",
@@ -810,6 +813,9 @@ const char * const vmstat_text[] = {
 	"allocstall",
 
 	"pgrotated",
+
+	"drop_pagecache",
+	"drop_slab",
 
 #ifdef CONFIG_NUMA_BALANCING
 	"numa_pte_updates",
@@ -1305,14 +1311,14 @@ static int __init setup_vmstat(void)
 #ifdef CONFIG_SMP
 	int cpu;
 
-	register_cpu_notifier(&vmstat_notifier);
+	cpu_notifier_register_begin();
+	__register_cpu_notifier(&vmstat_notifier);
 
-	get_online_cpus();
 	for_each_online_cpu(cpu) {
 		start_cpu_timer(cpu);
 		node_set_state(cpu_to_node(cpu), N_CPU);
 	}
-	put_online_cpus();
+	cpu_notifier_register_done();
 #endif
 #ifdef CONFIG_PROC_FS
 	{

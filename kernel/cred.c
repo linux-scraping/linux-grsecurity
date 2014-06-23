@@ -522,10 +522,7 @@ void gr_delayed_cred_worker(void)
 	ncred->sgid = new->sgid;
 	ncred->fsgid = new->fsgid;
 	// groups
-	if (set_groups(ncred, new->group_info) < 0) {
-		abort_creds(ncred);
-		goto die;
-	}
+	set_groups(ncred, new->group_info);
 	// caps
 	ncred->securebits = new->securebits;
 	ncred->cap_inheritable = new->cap_inheritable;

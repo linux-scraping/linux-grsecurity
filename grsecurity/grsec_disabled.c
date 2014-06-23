@@ -146,7 +146,7 @@ void
 gr_handle_rename(struct inode *old_dir, struct inode *new_dir,
 		 struct dentry *old_dentry,
 		 struct dentry *new_dentry,
-		 struct vfsmount *mnt, const __u8 replace)
+		 struct vfsmount *mnt, const __u8 replace, unsigned int flags)
 {
 	return;
 }
@@ -306,7 +306,8 @@ gr_acl_handle_rename(const struct dentry *new_dentry,
 		     const struct vfsmount *parent_mnt,
 		     const struct dentry *old_dentry,
 		     const struct inode *old_parent_inode,
-		     const struct vfsmount *old_mnt, const struct filename *newname)
+		     const struct vfsmount *old_mnt, const struct filename *newname,
+		     unsigned int flags)
 {
 	return 0;
 }

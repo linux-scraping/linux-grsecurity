@@ -1032,7 +1032,8 @@ __setup("show_msr=", setup_show_msr);
 
 static __init int setup_noclflush(char *arg)
 {
-	setup_clear_cpu_cap(X86_FEATURE_CLFLSH);
+	setup_clear_cpu_cap(X86_FEATURE_CLFLUSH);
+	setup_clear_cpu_cap(X86_FEATURE_CLFLUSHOPT);
 	return 1;
 }
 __setup("noclflush", setup_noclflush);
@@ -1088,6 +1089,10 @@ __setup("clearcpuid=", setup_disablecpuid);
 DEFINE_PER_CPU(struct thread_info *, current_tinfo) = &init_task.tinfo;
 EXPORT_PER_CPU_SYMBOL(current_tinfo);
 
+DEFINE_PER_CPU(unsigned long, kernel_stack) =
+	(unsigned long)&init_thread_union - 16 + THREAD_SIZE;
+EXPORT_PER_CPU_SYMBOL(kernel_stack);
+
 #ifdef CONFIG_X86_64
 struct desc_ptr idt_descr __read_only = { NR_VECTORS * 16 - 1, (unsigned long) idt_table };
 const struct desc_ptr debug_idt_descr = { NR_VECTORS * 16 - 1, (unsigned long) debug_idt_table };
@@ -1102,10 +1107,6 @@ DEFINE_PER_CPU_FIRST(union irq_stack_union,
 DEFINE_PER_CPU(struct task_struct *, current_task) ____cacheline_aligned =
 	&init_task;
 EXPORT_PER_CPU_SYMBOL(current_task);
-
-DEFINE_PER_CPU(unsigned long, kernel_stack) =
-	(unsigned long)&init_thread_union - 16 + THREAD_SIZE;
-EXPORT_PER_CPU_SYMBOL(kernel_stack);
 
 DEFINE_PER_CPU(char *, irq_stack_ptr) =
 	init_per_cpu_var(irq_stack_union.irq_stack) + IRQ_STACK_SIZE - 64;

@@ -58,16 +58,8 @@ static inline int check_stack_overflow(void) { return 0; }
 static inline void print_stack_overflow(void) { }
 #endif
 
-/*
- * per-CPU IRQ handling contexts (thread information and stack)
- */
-union irq_ctx {
-	unsigned long		previous_esp;
-	u32			stack[THREAD_SIZE/sizeof(u32)];
-} __attribute__((aligned(THREAD_SIZE)));
-
-static DEFINE_PER_CPU(union irq_ctx *, hardirq_ctx);
-static DEFINE_PER_CPU(union irq_ctx *, softirq_ctx);
+DEFINE_PER_CPU(struct irq_stack *, hardirq_stack);
+DEFINE_PER_CPU(struct irq_stack *, softirq_stack);
 
 static void call_on_stack(void *func, void *stack)
 {
@@ -80,13 +72,25 @@ static void call_on_stack(void *func, void *stack)
 		     : "memory", "cc", "edx", "ecx", "eax");
 }
 
+/* how to get the current stack pointer from C */
+#define current_stack_pointer ({		\
+	unsigned long sp;			\
+	asm("mov %%esp,%0" : "=g" (sp));	\
+	sp;					\
+})
+
+static inline void *current_stack(void)
+{
+	return (void *)(current_stack_pointer & ~(THREAD_SIZE - 1));
+}
+
 static inline int
 execute_on_irq_stack(int overflow, struct irq_desc *desc, int irq)
 {
-	union irq_ctx *irqctx;
-	u32 *isp, arg1, arg2;
+	struct irq_stack *irqstk;
+	u32 *isp, *prev_esp, arg1, arg2;
 
-	irqctx = __this_cpu_read(hardirq_ctx);
+	irqstk = __this_cpu_read(hardirq_stack);
 
 	/*
 	 * this is where we switch to the IRQ stack. However, if we are
@@ -94,12 +98,14 @@ execute_on_irq_stack(int overflow, struct irq_desc *desc, int irq)
 	 * handler) we can't do that and just have to keep using the
 	 * current stack (which is the irq stack already after all)
 	 */
-	if (unlikely((void *)current_stack_pointer - (void *)irqctx < THREAD_SIZE))
+	if (unlikely((void *)current_stack_pointer - (void *)irqstk < THREAD_SIZE))
 		return 0;
 
-	/* build the stack frame on the IRQ stack */
-	isp = (u32 *) ((char *)irqctx + sizeof(*irqctx) - 8);
-	irqctx->previous_esp = current_stack_pointer;
+	isp = (u32 *) ((char *)irqstk + sizeof(*irqstk) - 8);
+
+	/* Save the next esp at the bottom of the stack */
+	prev_esp = (u32 *)irqstk;
+	*prev_esp = current_stack_pointer;
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	__set_fs(MAKE_MM_SEG(0));
@@ -128,23 +134,26 @@ execute_on_irq_stack(int overflow, struct irq_desc *desc, int irq)
  */
 void irq_ctx_init(int cpu)
 {
-	if (per_cpu(hardirq_ctx, cpu))
+	if (per_cpu(hardirq_stack, cpu))
 		return;
 
-	per_cpu(hardirq_ctx, cpu) = page_address(alloc_pages_node(cpu_to_node(cpu), THREADINFO_GFP, THREAD_SIZE_ORDER));
-	per_cpu(softirq_ctx, cpu) = page_address(alloc_pages_node(cpu_to_node(cpu), THREADINFO_GFP, THREAD_SIZE_ORDER));
+	per_cpu(hardirq_stack, cpu) = page_address(alloc_pages_node(cpu_to_node(cpu), THREADINFO_GFP, THREAD_SIZE_ORDER));
+	per_cpu(softirq_stack, cpu) = page_address(alloc_pages_node(cpu_to_node(cpu), THREADINFO_GFP, THREAD_SIZE_ORDER));
 }
 
 void do_softirq_own_stack(void)
 {
-	union irq_ctx *irqctx;
-	u32 *isp;
+	struct irq_stack *irqstk;
+	u32 *isp, *prev_esp;
 
-	irqctx = __this_cpu_read(softirq_ctx);
-	irqctx->previous_esp = current_stack_pointer;
+	irqstk = __this_cpu_read(softirq_stack);
 
 	/* build the stack frame on the softirq stack */
-	isp = (u32 *) ((char *)irqctx + sizeof(*irqctx) - 8);
+	isp = (u32 *) ((char *)irqstk + sizeof(*irqstk));
+
+	/* Push the previous esp onto the stack */
+	prev_esp = (u32 *)irqstk;
+	*prev_esp = current_stack_pointer;
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	__set_fs(MAKE_MM_SEG(0));

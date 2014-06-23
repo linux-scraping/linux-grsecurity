@@ -178,11 +178,11 @@ int gr_acl_handle_rename(struct dentry *new_dentry,
 				const struct vfsmount *parent_mnt,
 				struct dentry *old_dentry,
 				struct inode *old_parent_inode,
-				struct vfsmount *old_mnt, const struct filename *newname);
+				struct vfsmount *old_mnt, const struct filename *newname, unsigned int flags);
 void gr_handle_rename(struct inode *old_dir, struct inode *new_dir,
 				struct dentry *old_dentry,
 				struct dentry *new_dentry,
-				struct vfsmount *mnt, const __u8 replace);
+				struct vfsmount *mnt, const __u8 replace, unsigned int flags);
 __u32 gr_check_link(const struct dentry *new_dentry,
 			   const struct dentry *parent_dentry,
 			   const struct vfsmount *parent_mnt,

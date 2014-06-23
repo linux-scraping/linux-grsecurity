@@ -321,6 +321,7 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 
 	this_cpu_write(current_task, next_p);
 	this_cpu_write(current_tinfo, &next_p->tinfo);
+	this_cpu_write(kernel_stack, next->sp0);
 
 	/*
 	 * Restore %gs if needed (which is common)

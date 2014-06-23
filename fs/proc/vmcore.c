@@ -488,7 +488,6 @@ static int __init update_note_header_size_elf64(const Elf64_Ehdr *ehdr_ptr)
 		phdr_ptr->p_memsz = real_sz;
 		if (real_sz == 0) {
 			pr_warn("Warning: Zero PT_NOTE entries found\n");
-			return -EINVAL;
 		}
 	}
 
@@ -675,7 +674,6 @@ static int __init update_note_header_size_elf32(const Elf32_Ehdr *ehdr_ptr)
 		phdr_ptr->p_memsz = real_sz;
 		if (real_sz == 0) {
 			pr_warn("Warning: Zero PT_NOTE entries found\n");
-			return -EINVAL;
 		}
 	}
 
@@ -1122,4 +1120,3 @@ void vmcore_cleanup(void)
 	}
 	free_elfcorebuf();
 }
-EXPORT_SYMBOL_GPL(vmcore_cleanup);

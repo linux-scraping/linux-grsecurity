@@ -289,7 +289,7 @@ static inline void pci_iounmap(struct pci_dev *dev, void __iomem *p)
  * These are pretty trivial
  */
 #ifndef virt_to_phys
-static inline unsigned long virt_to_phys(volatile void *address)
+static inline unsigned long __intentional_overflow(-1) virt_to_phys(volatile void *address)
 {
 	return __pa((unsigned long)address);
 }
@@ -327,7 +327,7 @@ static inline void iounmap(void __iomem *addr)
 }
 #endif /* CONFIG_MMU */
 
-#ifdef CONFIG_HAS_IOPORT
+#ifdef CONFIG_HAS_IOPORT_MAP
 #ifndef CONFIG_GENERIC_IOMAP
 static inline void __iomem *ioport_map(unsigned long port, unsigned int nr)
 {
@@ -341,7 +341,7 @@ static inline void ioport_unmap(void __iomem *p)
 extern void __iomem *ioport_map(unsigned long port, unsigned int nr);
 extern void ioport_unmap(void __iomem *p);
 #endif /* CONFIG_GENERIC_IOMAP */
-#endif /* CONFIG_HAS_IOPORT */
+#endif /* CONFIG_HAS_IOPORT_MAP */
 
 #ifndef xlate_dev_kmem_ptr
 #define xlate_dev_kmem_ptr(p)	p

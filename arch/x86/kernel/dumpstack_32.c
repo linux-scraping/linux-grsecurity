@@ -16,12 +16,35 @@
 
 #include <asm/stacktrace.h>
 
+static void *is_irq_stack(void *p, void *irq)
+{
+	if (p < irq || p >= (irq + THREAD_SIZE))
+		return NULL;
+	return irq + THREAD_SIZE;
+}
+
+
+static void *is_hardirq_stack(unsigned long *stack, int cpu)
+{
+	void *irq = per_cpu(hardirq_stack, cpu);
+
+	return is_irq_stack(stack, irq);
+}
+
+static void *is_softirq_stack(unsigned long *stack, int cpu)
+{
+	void *irq = per_cpu(softirq_stack, cpu);
+
+	return is_irq_stack(stack, irq);
+}
 
 void dump_trace(struct task_struct *task, struct pt_regs *regs,
 		unsigned long *stack, unsigned long bp,
 		const struct stacktrace_ops *ops, void *data)
 {
+	const unsigned cpu = get_cpu();
 	int graph = 0;
+	u32 *prev_esp;
 
 	if (!task)
 		task = current;
@@ -30,7 +53,7 @@ void dump_trace(struct task_struct *task, struct pt_regs *regs,
 		unsigned long dummy;
 
 		stack = &dummy;
-		if (task && task != current)
+		if (task != current)
 			stack = (unsigned long *)task->thread.sp;
 	}
 
@@ -39,16 +62,30 @@ void dump_trace(struct task_struct *task, struct pt_regs *regs,
 
 	for (;;) {
 		void *stack_start = (void *)((unsigned long)stack & ~(THREAD_SIZE-1));
+		void *end_stack;
 
-		bp = ops->walk_stack(task, stack_start, stack, bp, ops, data, NULL, &graph);
+		end_stack = is_hardirq_stack(stack, cpu);
+		if (!end_stack)
+			end_stack = is_softirq_stack(stack, cpu);
 
-		if (stack_start == task_stack_page(task))
+		bp = ops->walk_stack(task, stack_start, stack, bp, ops, data,
+				     end_stack, &graph);
+
+		/* Stop if not on irq stack */
+		if (!end_stack)
 			break;
-		stack = *(unsigned long **)stack_start;
+
+		/* The previous esp is saved on the bottom of the stack */
+		prev_esp = (u32 *)(end_stack - THREAD_SIZE);
+		stack = (unsigned long *)*prev_esp;
+		if (!stack)
+			break;
+
 		if (ops->stack(data, "IRQ") < 0)
 			break;
 		touch_nmi_watchdog();
 	}
+	put_cpu();
 }
 EXPORT_SYMBOL(dump_trace);
 

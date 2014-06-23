@@ -92,6 +92,8 @@ static int proc_parse_options(char *options, struct pid_namespace *pid)
 int proc_remount(struct super_block *sb, int *flags, char *data)
 {
 	struct pid_namespace *pid = sb->s_fs_info;
+
+	sync_filesystem(sb);
 	return !proc_parse_options(data, pid);
 }
 
@@ -183,9 +185,6 @@ void __init proc_root_init(void)
 	proc_mkdir("openprom", NULL);
 #endif
 	proc_tty_init();
-#ifdef CONFIG_PROC_DEVICETREE
-	proc_device_tree_init();
-#endif
 #ifdef CONFIG_GRKERNSEC_PROC_ADD
 #ifdef CONFIG_GRKERNSEC_PROC_USER
 	proc_mkdir_mode("bus", S_IRUSR | S_IXUSR, NULL);

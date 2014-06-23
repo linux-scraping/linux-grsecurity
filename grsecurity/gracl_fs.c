@@ -364,7 +364,7 @@ gr_acl_handle_rename(struct dentry *new_dentry,
 		     const struct vfsmount *parent_mnt,
 		     struct dentry *old_dentry,
 		     struct inode *old_parent_inode,
-		     struct vfsmount *old_mnt, const struct filename *newname)
+		     struct vfsmount *old_mnt, const struct filename *newname, unsigned int flags)
 {
 	__u32 comp1, comp2;
 	int error = 0;
@@ -372,7 +372,15 @@ gr_acl_handle_rename(struct dentry *new_dentry,
 	if (unlikely(!gr_acl_is_enabled()))
 		return 0;
 
-	if (d_is_negative(new_dentry)) {
+	if (flags & RENAME_EXCHANGE) {
+		comp1 = gr_search_file(new_dentry, GR_READ | GR_WRITE |
+				       GR_AUDIT_READ | GR_AUDIT_WRITE |
+				       GR_SUPPRESS, parent_mnt);
+		comp2 =
+		    gr_search_file(old_dentry,
+				   GR_READ | GR_WRITE | GR_AUDIT_READ |
+				   GR_AUDIT_WRITE | GR_SUPPRESS, old_mnt);
+	} else if (d_is_negative(new_dentry)) {
 		comp1 = gr_check_create(new_dentry, parent_dentry, parent_mnt,
 					GR_READ | GR_WRITE | GR_CREATE | GR_AUDIT_READ |
 					GR_AUDIT_WRITE | GR_AUDIT_CREATE | GR_SUPPRESS);

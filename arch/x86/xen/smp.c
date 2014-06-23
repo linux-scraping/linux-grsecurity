@@ -438,8 +438,9 @@ static int xen_cpu_up(unsigned int cpu, struct task_struct *idle)
 	irq_ctx_init(cpu);
 #else
 	clear_tsk_thread_flag(idle, TIF_FORK);
-	per_cpu(kernel_stack, cpu) = (unsigned long)task_stack_page(idle) - 16 + THREAD_SIZE;
 #endif
+	per_cpu(kernel_stack, cpu) = (unsigned long)task_stack_page(idle) - 16 + THREAD_SIZE;
+
 	xen_setup_runstate_info(cpu);
 	xen_setup_timer(cpu);
 	xen_init_lock_cpu(cpu);

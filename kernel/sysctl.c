@@ -111,9 +111,6 @@ extern int sysctl_nr_open_min, sysctl_nr_open_max;
 #ifndef CONFIG_MMU
 extern int sysctl_nr_trim_pages;
 #endif
-#ifdef CONFIG_BLOCK
-extern int blk_iopoll_enabled;
-#endif
 
 /* Constants used for minimum and  maximum */
 #ifdef CONFIG_LOCKUP_DETECTOR
@@ -121,10 +118,12 @@ static int sixty __read_only = 60;
 #endif
 
 static int __maybe_unused neg_one __read_only = -1;
+
 static int zero __read_only = 0;
 static int __maybe_unused one __read_only = 1;
 static int __maybe_unused two __read_only = 2;
 static int __maybe_unused three __read_only = 3;
+static int __maybe_unused four __read_only = 4;
 static unsigned long one_ul __read_only = 1;
 static int one_hundred __read_only = 100;
 #ifdef CONFIG_PRINTK
@@ -417,13 +416,6 @@ static struct ctl_table kern_table[] = {
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
-	},
-	{
-		.procname       = "numa_balancing_migrate_deferred",
-		.data           = &sysctl_numa_balancing_migrate_deferred,
-		.maxlen         = sizeof(unsigned int),
-		.mode           = 0644,
-		.proc_handler   = proc_dointvec,
 	},
 	{
 		.procname	= "numa_balancing",
@@ -1139,15 +1131,6 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= proc_dointvec,
 	},
 #endif
-#ifdef CONFIG_BLOCK
-	{
-		.procname	= "blk_iopoll",
-		.data		= &blk_iopoll_enabled,
-		.maxlen		= sizeof(int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
-	},
-#endif
 	{ }
 };
 
@@ -1328,7 +1311,7 @@ static struct ctl_table vm_table[] = {
 		.mode		= 0644,
 		.proc_handler	= drop_caches_sysctl_handler,
 		.extra1		= &one,
-		.extra2		= &three,
+		.extra2		= &four,
 	},
 #ifdef CONFIG_COMPACTION
 	{

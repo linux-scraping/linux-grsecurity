@@ -9,8 +9,8 @@
 
 #include <linux/compiler.h>
 #include <asm/page.h>
-#include <asm/types.h>
 #include <asm/percpu.h>
+#include <asm/types.h>
 
 /*
  * low level task data that entry.S needs immediate access to
@@ -149,26 +149,8 @@ struct thread_info {
 #define _TIF_WORK_CTXSW_PREV (_TIF_WORK_CTXSW|_TIF_USER_RETURN_NOTIFY)
 #define _TIF_WORK_CTXSW_NEXT (_TIF_WORK_CTXSW)
 
-#ifdef __ASSEMBLY__
-/* how to get the thread information struct from ASM */
-#define GET_THREAD_INFO(reg)	 \
-	mov PER_CPU_VAR(current_tinfo), reg
+#define STACK_WARN		(THREAD_SIZE/8)
 
-/* use this one if reg already contains %esp */
-#define GET_THREAD_INFO_WITH_ESP(reg) GET_THREAD_INFO(reg)
-#else
-/* how to get the thread information struct from C */
-DECLARE_PER_CPU(struct thread_info *, current_tinfo);
-
-static __always_inline struct thread_info *current_thread_info(void)
-{
-	return this_cpu_read_stable(current_tinfo);
-}
-#endif
-
-#ifdef CONFIG_X86_32
-
-#define STACK_WARN	(THREAD_SIZE/8)
 /*
  * macros/functions for gaining access to the thread information structure
  *
@@ -176,28 +158,22 @@ static __always_inline struct thread_info *current_thread_info(void)
  */
 #ifndef __ASSEMBLY__
 
-#define current_stack_pointer ({		\
-	unsigned long sp;			\
-	asm("mov %%esp,%0" : "=g" (sp));	\
-	sp;					\
-})
-
-#endif
-
-#else /* X86_32 */
-
-/*
- * macros/functions for gaining access to the thread information structure
- * preempt_count needs to be 1 initially, until the scheduler is functional.
- */
-#ifndef __ASSEMBLY__
 DECLARE_PER_CPU(unsigned long, kernel_stack);
 
-/* how to get the current stack pointer from C */
-register unsigned long current_stack_pointer asm("rsp") __used;
-#endif
+DECLARE_PER_CPU(struct thread_info *, current_tinfo);
 
-#endif /* !X86_32 */
+static inline struct thread_info *current_thread_info(void)
+{
+	return this_cpu_read_stable(current_tinfo);
+}
+
+#else /* !__ASSEMBLY__ */
+
+/* how to get the thread information struct from ASM */
+#define GET_THREAD_INFO(reg) \
+	_ASM_MOV PER_CPU_VAR(current_tinfo),reg ;
+
+#endif
 
 /*
  * Thread-synchronous status.

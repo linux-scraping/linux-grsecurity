@@ -23,6 +23,7 @@
 #include <linux/tick.h>
 #include <linux/stop_machine.h>
 #include <linux/pvclock_gtod.h>
+#include <linux/compiler.h>
 
 #include "tick-internal.h"
 #include "ntp_internal.h"
@@ -763,7 +764,7 @@ u64 timekeeping_max_deferment(void)
  *
  *  XXX - Do be sure to remove it once all arches implement it.
  */
-void __attribute__((weak)) read_persistent_clock(struct timespec *ts)
+void __weak read_persistent_clock(struct timespec *ts)
 {
 	ts->tv_sec = 0;
 	ts->tv_nsec = 0;
@@ -778,7 +779,7 @@ void __attribute__((weak)) read_persistent_clock(struct timespec *ts)
  *
  *  XXX - Do be sure to remove it once all arches implement it.
  */
-void __attribute__((weak)) read_boot_clock(struct timespec *ts)
+void __weak read_boot_clock(struct timespec *ts)
 {
 	ts->tv_sec = 0;
 	ts->tv_nsec = 0;

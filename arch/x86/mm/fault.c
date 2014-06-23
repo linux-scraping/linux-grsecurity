@@ -668,8 +668,13 @@ show_fault_oops(struct pt_regs *regs, unsigned long error_code,
 
 	if ((__supported_pte_mask & _PAGE_NX) && (error_code & PF_INSTR)) {
 		unsigned int level;
+		pgd_t *pgd;
+		pte_t *pte;
 
-		pte_t *pte = lookup_address(address, &level);
+		pgd = __va(read_cr3() & PHYSICAL_PAGE_MASK);
+		pgd += pgd_index(address);
+
+		pte = lookup_address_in_pgd(pgd, address, &level);
 
 		if (pte && pte_present(*pte) && !pte_exec(*pte))
 			printk(nx_warning, from_kuid_munged(&init_user_ns, current_uid()), current->comm, task_pid_nr(current));

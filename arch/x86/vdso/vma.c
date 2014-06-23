@@ -16,18 +16,20 @@
 #include <asm/vdso.h>
 #include <asm/page.h>
 
-extern char vdso_start[], vdso_end[];
+#if defined(CONFIG_X86_64)
+DECLARE_VDSO_IMAGE(vdso);
 extern unsigned short vdso_sync_cpuid;
-
-extern struct page *vdso_pages[];
 static unsigned vdso_size;
 
 #ifdef CONFIG_X86_X32_ABI
-extern char vdsox32_start[], vdsox32_end[];
-extern struct page *vdsox32_pages[];
+DECLARE_VDSO_IMAGE(vdsox32);
 static unsigned vdsox32_size;
+#endif
+#endif
 
-static void __init patch_vdsox32(void *vdso, size_t len)
+#if defined(CONFIG_X86_32) || defined(CONFIG_X86_X32_ABI) || \
+	defined(CONFIG_COMPAT)
+void __init patch_vdso32(void *vdso, size_t len)
 {
 	Elf32_Ehdr *hdr = vdso;
 	Elf32_Shdr *sechdrs, *alt_sec = 0;
@@ -50,7 +52,7 @@ static void __init patch_vdsox32(void *vdso, size_t len)
 	}
 
 	/* If we get here, it's probably a bug. */
-	pr_warning("patch_vdsox32: .altinstructions not found\n");
+	pr_warning("patch_vdso32: .altinstructions not found\n");
 	return;  /* nothing to patch */
 
 found:
@@ -59,6 +61,7 @@ found:
 }
 #endif
 
+#if defined(CONFIG_X86_64)
 static void __init patch_vdso64(void *vdso, size_t len)
 {
 	Elf64_Ehdr *hdr = vdso;
@@ -102,7 +105,7 @@ static int __init init_vdso(void)
 		vdso_pages[i] = virt_to_page(vdso_start + i*PAGE_SIZE);
 
 #ifdef CONFIG_X86_X32_ABI
-	patch_vdsox32(vdsox32_start, vdsox32_end - vdsox32_start);
+	patch_vdso32(vdsox32_start, vdsox32_end - vdsox32_start);
 	npages = (vdsox32_end - vdsox32_start + PAGE_SIZE - 1) / PAGE_SIZE;
 	vdsox32_size = npages << PAGE_SHIFT;
 	for (i = 0; i < npages; i++)
@@ -194,4 +197,5 @@ int x32_setup_additional_pages(struct linux_binprm *bprm, int uses_interp)
 	return setup_additional_pages(bprm, uses_interp, vdsox32_pages,
 				      vdsox32_size);
 }
+#endif
 #endif

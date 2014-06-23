@@ -2093,13 +2093,15 @@ void
 gr_handle_rename(struct inode *old_dir, struct inode *new_dir,
 		 struct dentry *old_dentry,
 		 struct dentry *new_dentry,
-		 struct vfsmount *mnt, const __u8 replace)
+		 struct vfsmount *mnt, const __u8 replace, unsigned int flags)
 {
 	struct name_entry *matchn;
+	struct name_entry *matchn2 = NULL;
 	struct inodev_entry *inodev;
 	struct inode *inode = new_dentry->d_inode;
 	ino_t old_ino = old_dentry->d_inode->i_ino;
 	dev_t old_dev = __get_dev(old_dentry);
+	unsigned int exchange = flags & RENAME_EXCHANGE;
 
 	/* vfs_rename swaps the name and parent link for old_dentry and
 	   new_dentry
@@ -2115,12 +2117,30 @@ gr_handle_rename(struct inode *old_dir, struct inode *new_dir,
 	preempt_disable();
 	matchn = lookup_name_entry(gr_to_filename_rbac(old_dentry, mnt));
 
+	/* exchange cases:
+	   a filename exists for the source, but not dest
+		do a recreate on source
+	   a filename exists for the dest, but not source
+		do a recreate on dest
+	   a filename exists for both source and dest
+		delete source and dest, then create source and dest
+	   a filename exists for neither source nor dest
+		no updates needed
+
+	   the name entry lookups get us the old inode/dev associated with
+	   each name, so do the deletes first (if possible) so that when
+	   we do the create, we pick up on the right entries
+	*/
+
+	if (exchange)
+		matchn2 = lookup_name_entry(gr_to_filename_rbac(new_dentry, mnt));
+
 	/* we wouldn't have to check d_inode if it weren't for
 	   NFS silly-renaming
 	 */
 
 	write_lock(&gr_inode_lock);
-	if (unlikely(replace && inode)) {
+	if (unlikely((replace || exchange) && inode)) {
 		ino_t new_ino = inode->i_ino;
 		dev_t new_dev = __get_dev(new_dentry);
 
@@ -2133,8 +2153,11 @@ gr_handle_rename(struct inode *old_dir, struct inode *new_dir,
 	if (inodev != NULL && ((old_dentry->d_inode->i_nlink <= 1) || S_ISDIR(old_dentry->d_inode->i_mode)))
 		do_handle_delete(inodev, old_ino, old_dev);
 
-	if (unlikely((unsigned long)matchn))
+	if (unlikely(matchn != NULL))
 		do_handle_create(matchn, old_dentry, mnt);
+
+	if (unlikely(matchn2 != NULL))
+		do_handle_create(matchn2, new_dentry, mnt);
 
 	write_unlock(&gr_inode_lock);
 	preempt_enable();

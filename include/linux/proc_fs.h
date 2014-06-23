@@ -68,7 +68,11 @@ static inline struct proc_dir_entry *proc_symlink(const char *name,
 		struct proc_dir_entry *parent,const char *dest) { return NULL;}
 static inline struct proc_dir_entry *proc_mkdir(const char *name,
 	struct proc_dir_entry *parent) {return NULL;}
+static inline struct proc_dir_entry *proc_mkdir_restrict(const char *name,
+	struct proc_dir_entry *parent) { return NULL; }
 static inline struct proc_dir_entry *proc_mkdir_data(const char *name,
+	umode_t mode, struct proc_dir_entry *parent, void *data) { return NULL; }
+static inline  struct proc_dir_entry *proc_mkdir_data_restrict(const char *name,
 	umode_t mode, struct proc_dir_entry *parent, void *data) { return NULL; }
 static inline struct proc_dir_entry *proc_mkdir_mode(const char *name,
 	umode_t mode, struct proc_dir_entry *parent) { return NULL; }
