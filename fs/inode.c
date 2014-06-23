@@ -785,6 +785,8 @@ unsigned int get_next_ino(void)
 	unsigned int *p = &get_cpu_var(last_ino);
 	unsigned int res = *p;
 
+start:
+
 #ifdef CONFIG_SMP
 	if (unlikely((res & (LAST_INO_BATCH-1)) == 0)) {
 		static atomic_unchecked_t shared_last_ino;
@@ -794,7 +796,9 @@ unsigned int get_next_ino(void)
 	}
 #endif
 
-	*p = ++res;
+	if (unlikely(!++res))
+		goto start;	/* never zero */
+	*p = res;
 	put_cpu_var(last_ino);
 	return res;
 }
