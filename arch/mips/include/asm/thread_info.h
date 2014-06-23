@@ -105,6 +105,8 @@ static inline struct thread_info *current_thread_info(void)
 #define TIF_SECCOMP		4	/* secure computing */
 #define TIF_NOTIFY_RESUME	5	/* callback before returning to user */
 #define TIF_RESTORE_SIGMASK	9	/* restore signal mask in do_signal() */
+/* li takes a 32bit immediate */
+#define TIF_GRSEC_SETXID	10	/* update credentials on syscall entry/exit */
 #define TIF_USEDFPU		16	/* FPU was used by this task this quantum (SMP) */
 #define TIF_MEMDIE		18	/* is terminating due to OOM killer */
 #define TIF_NOHZ		19	/* in adaptive nohz mode */
@@ -116,8 +118,6 @@ static inline struct thread_info *current_thread_info(void)
 #define TIF_LOAD_WATCH		25	/* If set, load watch registers */
 #define TIF_SYSCALL_TRACEPOINT	26	/* syscall tracepoint instrumentation */
 #define TIF_32BIT_FPREGS	27	/* 32-bit floating point registers */
-/* li takes a 32bit immediate */
-#define TIF_GRSEC_SETXID	29	/* update credentials on syscall entry/exit */
 #define TIF_SYSCALL_TRACE	31	/* syscall trace active */
 
 #define _TIF_SYSCALL_TRACE	(1<<TIF_SYSCALL_TRACE)
