@@ -1600,7 +1600,7 @@ EXPORT_SYMBOL(vfree);
  *	Free the virtually contiguous memory area starting at @addr,
  *	which was created from the page array passed to vmap().
  *
- *	Must not be called in NMI context.
+ *	Must not be called in interrupt context.
  */
 void vunmap(const void *addr)
 {
