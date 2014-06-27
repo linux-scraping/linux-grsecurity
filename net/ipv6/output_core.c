@@ -10,7 +10,7 @@
 void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt)
 {
 	static atomic_unchecked_t ipv6_fragmentation_id;
-	int id;
+	int ident;
 
 #if IS_ENABLED(CONFIG_IPV6)
 	if (rt && !(rt->dst.flags & DST_NOPEER)) {
@@ -26,8 +26,8 @@ void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt)
 		}
 	}
 #endif
-	id = atomic_inc_return_unchecked(&ipv6_fragmentation_id);
-	fhdr->identification = htonl(id);
+	ident = atomic_inc_return_unchecked(&ipv6_fragmentation_id);
+	fhdr->identification = htonl(ident);
 }
 EXPORT_SYMBOL(ipv6_select_ident);
 
