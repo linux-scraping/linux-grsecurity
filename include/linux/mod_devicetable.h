@@ -13,7 +13,7 @@
 typedef unsigned long kernel_ulong_t;
 #endif
 
-#define PCI_ANY_ID ((__u16)~0)
+#define PCI_ANY_ID (~0)
 
 struct pci_device_id {
 	__u32 vendor, device;		/* Vendor and device ID or PCI_ANY_ID*/
