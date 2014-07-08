@@ -1808,8 +1808,8 @@ get_jack_mode_name_19976 get_jack_mode_name 4 19976 NULL
 attach_hdlc_protocol_19986 attach_hdlc_protocol 3 19986 NULL
 rtw_set_wps_probe_resp_19989 rtw_set_wps_probe_resp 3 19989 NULL
 diva_um_idi_read_20003 diva_um_idi_read 0 20003 NULL
-lov_stripe_md_size_20009 lov_stripe_md_size 0-1 20009 NULL nohasharray
-event_trigger_write_20009 event_trigger_write 3 20009 &lov_stripe_md_size_20009
+event_trigger_write_20009 event_trigger_write 3 20009 NULL nohasharray
+lov_stripe_md_size_20009 lov_stripe_md_size 0-1 20009 &event_trigger_write_20009
 tree_mod_log_eb_move_20011 tree_mod_log_eb_move 5 20011 NULL
 SYSC_fgetxattr_20027 SYSC_fgetxattr 4 20027 NULL
 split_scan_timeout_read_20029 split_scan_timeout_read 3 20029 NULL
@@ -2176,8 +2176,8 @@ p54_init_common_23850 p54_init_common 1 23850 NULL
 bin_to_hex_dup_23853 bin_to_hex_dup 2 23853 NULL
 ocfs2_xattr_get_clusters_23857 ocfs2_xattr_get_clusters 0 23857 NULL
 ieee80211_if_read_dot11MeshMaxPeerLinks_23878 ieee80211_if_read_dot11MeshMaxPeerLinks 3 23878 NULL
-nouveau_clock_create__23881 nouveau_clock_create_ 5 23881 NULL nohasharray
-writeback_single_inode_23881 writeback_single_inode 0 23881 &nouveau_clock_create__23881
+writeback_single_inode_23881 writeback_single_inode 0 23881 NULL nohasharray
+nouveau_clock_create__23881 nouveau_clock_create_ 5 23881 &writeback_single_inode_23881
 tipc_snprintf_23893 tipc_snprintf 2-0 23893 NULL
 add_new_gdb_meta_bg_23911 add_new_gdb_meta_bg 3 23911 NULL nohasharray
 ieee80211_if_read_hw_queues_23911 ieee80211_if_read_hw_queues 3 23911 &add_new_gdb_meta_bg_23911
