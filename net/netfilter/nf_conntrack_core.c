@@ -1819,7 +1819,7 @@ int nf_conntrack_init_net(struct net *net)
 		goto err_pcpu_lists;
 
 #ifdef CONFIG_GRKERNSEC_HIDESYM
-	net->ct.slabname = kasprintf(GFP_KERNEL, "nf_conntrack_%08lx", atomic_inc_return_unchecked(&conntrack_cache_id));
+	net->ct.slabname = kasprintf(GFP_KERNEL, "nf_conntrack_%08x", atomic_inc_return_unchecked(&conntrack_cache_id));
 #else
 	net->ct.slabname = kasprintf(GFP_KERNEL, "nf_conntrack_%p", net);
 #endif

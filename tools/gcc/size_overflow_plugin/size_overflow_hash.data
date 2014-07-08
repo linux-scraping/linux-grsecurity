@@ -5264,6 +5264,7 @@ drbd_bm_write_page_59290 drbd_bm_write_page 2 59290 NULL
 btrfs_insert_dir_item_59304 btrfs_insert_dir_item 4 59304 NULL
 fd_copyout_59323 fd_copyout 3 59323 NULL
 read_9287_modal_eeprom_59327 read_9287_modal_eeprom 3 59327 NULL
+set_state_private_59336 set_state_private 0 59336 NULL
 rx_defrag_in_process_called_read_59338 rx_defrag_in_process_called_read 3 59338 NULL
 xfs_attrmulti_attr_set_59346 xfs_attrmulti_attr_set 4 59346 NULL
 f2fs_fallocate_59377 f2fs_fallocate 4-3 59377 NULL

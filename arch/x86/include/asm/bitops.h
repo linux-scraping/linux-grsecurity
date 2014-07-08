@@ -478,7 +478,7 @@ static inline int __intentional_overflow(-1) fls(int x)
  * at position 64.
  */
 #ifdef CONFIG_X86_64
-static __always_inline long fls64(__u64 x)
+static __always_inline __intentional_overflow(-1) int fls64(__u64 x)
 {
 	int bitpos = -1;
 	/*
