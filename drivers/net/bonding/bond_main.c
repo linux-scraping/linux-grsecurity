@@ -4504,7 +4504,6 @@ static void __exit bonding_exit(void)
 
 	bond_netlink_fini();
 	unregister_pernet_subsys(&bond_net_ops);
-	rtnl_link_unregister(&bond_link_ops);
 
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	/*
