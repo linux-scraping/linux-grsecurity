@@ -4929,8 +4929,8 @@ static void __exit bonding_exit(void)
 
 	bond_destroy_debugfs();
 
-	unregister_pernet_subsys(&bond_net_ops);
 	rtnl_link_unregister(&bond_link_ops);
+	unregister_pernet_subsys(&bond_net_ops);
 
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	/*
