@@ -3227,16 +3227,23 @@ static const struct file_operations if6_fops = {
 	.release	= seq_release_net,
 };
 
+extern void register_ipv6_seq_ops_addr(struct seq_operations *addr);
+extern void unregister_ipv6_seq_ops_addr(void);
+
 static int __net_init if6_proc_net_init(struct net *net)
 {
-	if (!proc_net_fops_create(net, "if_inet6", S_IRUGO, &if6_fops))
+	register_ipv6_seq_ops_addr(&if6_seq_ops);
+	if (!proc_net_fops_create(net, "if_inet6", S_IRUGO, &if6_fops)) {
+		unregister_ipv6_seq_ops_addr();
 		return -ENOMEM;
+	}
 	return 0;
 }
 
 static void __net_exit if6_proc_net_exit(struct net *net)
 {
-       proc_net_remove(net, "if_inet6");
+	proc_net_remove(net, "if_inet6");
+	unregister_ipv6_seq_ops_addr();
 }
 
 static struct pernet_operations if6_proc_net_ops = {
