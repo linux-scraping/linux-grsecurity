@@ -27,6 +27,23 @@
 
 #include "internal.h"
 
+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+static struct seq_operations *ipv6_seq_ops_addr;
+
+void register_ipv6_seq_ops_addr(struct seq_operations *addr)
+{
+	ipv6_seq_ops_addr = addr;
+}
+
+void unregister_ipv6_seq_ops_addr(void)
+{
+	ipv6_seq_ops_addr = NULL;
+}
+
+EXPORT_SYMBOL_GPL(register_ipv6_seq_ops_addr);
+EXPORT_SYMBOL_GPL(unregister_ipv6_seq_ops_addr);
+#endif
+
 static inline struct net *PDE_NET(struct proc_dir_entry *pde)
 {
 	return pde->parent->data;
@@ -48,7 +65,11 @@ int seq_open_net(struct inode *ino, struct file *f,
 	BUG_ON(size < sizeof(*p));
 
 	/* only permit access to /proc/net/dev */
-	if (ops != &dev_seq_ops && gr_proc_is_restricted())
+	if (
+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+	    ops != ipv6_seq_ops_addr && 
+#endif
+	    ops != &dev_seq_ops && gr_proc_is_restricted())
 		return -EACCES;
 
 	net = get_proc_net(ino);
