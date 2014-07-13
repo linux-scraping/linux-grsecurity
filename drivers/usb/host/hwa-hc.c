@@ -291,7 +291,10 @@ static int __hwahc_op_bwa_set(struct wusbhc *wusbhc, s8 stream_index,
 	struct hwahc *hwahc = container_of(wusbhc, struct hwahc, wusbhc);
 	struct wahc *wa = &hwahc->wa;
 	struct device *dev = &wa->usb_iface->dev;
-	u8 mas_le[UWB_NUM_MAS/8];
+	u8 *mas_le = kmalloc(UWB_NUM_MAS/8, GFP_KERNEL);
+
+	if (mas_le == NULL)
+		return -ENOMEM;
 
 	/* Set the stream index */
 	result = usb_control_msg(wa->usb_dev, usb_sndctrlpipe(wa->usb_dev, 0),
@@ -310,10 +313,12 @@ static int __hwahc_op_bwa_set(struct wusbhc *wusbhc, s8 stream_index,
 			WUSB_REQ_SET_WUSB_MAS,
 			USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE,
 			0, wa->usb_iface->cur_altsetting->desc.bInterfaceNumber,
-			mas_le, 32, 1000 /* FIXME: arbitrary */);
+			mas_le, UWB_NUM_MAS/8, 1000 /* FIXME: arbitrary */);
 	if (result < 0)
 		dev_err(dev, "Cannot set WUSB MAS allocation: %d\n", result);
 out:
+	kfree(mas_le);
+
 	return result;
 }
 
