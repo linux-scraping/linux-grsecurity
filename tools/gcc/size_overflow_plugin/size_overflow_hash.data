@@ -944,6 +944,7 @@ tw_change_queue_depth_11116 tw_change_queue_depth 2 11116 NULL
 page_offset_11120 page_offset 0 11120 NULL
 cea_db_payload_len_11124 cea_db_payload_len 0 11124 NULL nohasharray
 tracing_buffers_read_11124 tracing_buffers_read 3 11124 &cea_db_payload_len_11124
+alloc_alien_cache_11127 alloc_alien_cache 2 11127 NULL
 snd_gf1_pcm_playback_silence_11172 snd_gf1_pcm_playback_silence 3-4 11172 NULL
 il_dbgfs_rx_queue_read_11221 il_dbgfs_rx_queue_read 3 11221 NULL
 comedi_alloc_spriv_11234 comedi_alloc_spriv 2 11234 NULL
@@ -1286,6 +1287,7 @@ ext4_kvmalloc_14796 ext4_kvmalloc 1 14796 NULL
 __kfifo_in_14797 __kfifo_in 3-0 14797 NULL
 hpet_readl_14801 hpet_readl 0 14801 NULL nohasharray
 snd_als300_gcr_read_14801 snd_als300_gcr_read 0 14801 &hpet_readl_14801
+do_tune_cpucache_14828 do_tune_cpucache 2 14828 NULL
 mrp_attr_create_14853 mrp_attr_create 3 14853 NULL
 lcd_write_14857 lcd_write 3 14857 NULL
 get_user_cpu_mask_14861 get_user_cpu_mask 2 14861 NULL
@@ -1596,6 +1598,7 @@ qib_user_sdma_num_pages_18371 qib_user_sdma_num_pages 0 18371 NULL
 __ceph_getxattr_18386 __ceph_getxattr 0 18386 NULL
 ci_role_write_18388 ci_role_write 3 18388 NULL
 adis16136_show_serial_18402 adis16136_show_serial 3 18402 NULL
+rtl8169_rx_fill_18416 rtl8169_rx_fill 0 18416 NULL
 memblock_virt_alloc_node_nopanic_18431 memblock_virt_alloc_node_nopanic 1 18431 NULL
 iscsi_create_flashnode_sess_18433 iscsi_create_flashnode_sess 4 18433 NULL
 snd_hda_get_connections_18437 snd_hda_get_connections 0 18437 NULL
@@ -1614,7 +1617,8 @@ seq_copy_in_user_18543 seq_copy_in_user 3 18543 NULL
 sas_change_queue_depth_18555 sas_change_queue_depth 2 18555 NULL
 smk_write_rules_list_18565 smk_write_rules_list 3 18565 NULL
 debug_output_18575 debug_output 3 18575 NULL
-filemap_fdatawait_range_18600 filemap_fdatawait_range 0 18600 NULL
+filemap_fdatawait_range_18600 filemap_fdatawait_range 0 18600 NULL nohasharray
+slabinfo_write_18600 slabinfo_write 3 18600 &filemap_fdatawait_range_18600
 iowarrior_write_18604 iowarrior_write 3 18604 NULL
 from_buffer_18625 from_buffer 3 18625 NULL
 snd_pcm_oss_write3_18657 snd_pcm_oss_write3 0-3 18657 NULL
@@ -4175,6 +4179,7 @@ newpart_47485 newpart 6-4 47485 NULL
 mcp23s17_read_regs_47491 mcp23s17_read_regs 4 47491 NULL
 core_sys_select_47494 core_sys_select 1 47494 NULL
 as3722_block_write_47503 as3722_block_write 2-3 47503 NULL
+alloc_arraycache_47505 alloc_arraycache 2 47505 NULL
 unlink_simple_47506 unlink_simple 3 47506 NULL
 pstore_decompress_47510 pstore_decompress 0 47510 NULL
 __proc_lnet_portal_rotor_47529 __proc_lnet_portal_rotor 5 47529 NULL
@@ -4969,6 +4974,7 @@ tx_tx_imm_resp_read_55964 tx_tx_imm_resp_read 3 55964 NULL
 btrfs_clone_55977 btrfs_clone 5-3 55977 NULL
 wa_xfer_create_subset_sg_55992 wa_xfer_create_subset_sg 3-2 55992 NULL
 nvme_alloc_iod_56027 nvme_alloc_iod 1-2 56027 NULL
+rtl8169_init_ring_56028 rtl8169_init_ring 0 56028 NULL
 usb_ocp_write_56047 usb_ocp_write 4 56047 NULL
 dccp_sendmsg_56058 dccp_sendmsg 4 56058 NULL
 pscsi_get_bio_56103 pscsi_get_bio 1 56103 NULL
@@ -5477,6 +5483,7 @@ insert_one_name_61668 insert_one_name 7 61668 NULL
 snd_pcm_playback_avail_61671 snd_pcm_playback_avail 0 61671 NULL
 qib_format_hwmsg_61679 qib_format_hwmsg 2 61679 NULL
 lock_loop_61681 lock_loop 1 61681 NULL
+__do_tune_cpucache_61684 __do_tune_cpucache 2 61684 NULL
 filter_read_61692 filter_read 3 61692 NULL
 iov_length_61716 iov_length 0 61716 NULL
 fragmentation_threshold_read_61718 fragmentation_threshold_read 3 61718 NULL
