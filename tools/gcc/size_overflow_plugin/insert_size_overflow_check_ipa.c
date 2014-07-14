@@ -212,7 +212,7 @@ static void walk_phi_set_conditions(struct pointer_set_t *visited, bool *interes
 }
 
 enum conditions {
-	FROM_CONST, NOT_UNARY, CAST
+	FROM_CONST, NOT_UNARY, CAST, RET, PHI
 };
 
 // Search for constants, cast assignments and binary/ternary assignments
@@ -232,11 +232,15 @@ static void set_conditions(struct pointer_set_t *visited, bool *interesting_cond
 		return;
 
 	switch (gimple_code(def_stmt)) {
-	case GIMPLE_NOP:
 	case GIMPLE_CALL:
+		if (lhs == gimple_return_retval(def_stmt))
+			interesting_conditions[RET] = true;
+		return;
+	case GIMPLE_NOP:
 	case GIMPLE_ASM:
 		return;
 	case GIMPLE_PHI:
+		interesting_conditions[PHI] = true;
 		return walk_phi_set_conditions(visited, interesting_conditions, lhs);
 	case GIMPLE_ASSIGN:
 		if (gimple_num_ops(def_stmt) == 2) {
@@ -454,11 +458,11 @@ enum precond {
 /* If there is a mark_turn_off intentional attribute on the caller or the callee then there is no duplication and missing size_overflow attribute check anywhere.
  * There is only missing size_overflow attribute checking if the intentional_overflow attribute is the mark_no type.
  * Stmt duplication is unnecessary if there are no binary/ternary assignements or if the unary assignment isn't a cast.
- * It skips the possible error codes too. If the def_stmts trace back to a constant and there are no binary/ternary assigments then we assume that it is some kind of error code.
+ * It skips the possible error codes too.
  */
 static enum precond check_preconditions(struct interesting_node *cur_node)
 {
-	bool interesting_conditions[3] = {false, false, false};
+	bool interesting_conditions[5] = {false, false, false, false, false};
 
 	set_last_nodes(cur_node);
 
@@ -468,7 +472,11 @@ static enum precond check_preconditions(struct interesting_node *cur_node)
 
 	search_interesting_conditions(cur_node, interesting_conditions);
 
-	// error code
+	// error code: a phi, unary assign (not cast) and returns only
+	if (!interesting_conditions[NOT_UNARY] && interesting_conditions[PHI] && interesting_conditions[RET] && !interesting_conditions[CAST])
+		return NO_ATTRIBUTE_SEARCH;
+
+	// error code: def_stmts trace back to a constant and there are no binary/ternary assigments
 	if (interesting_conditions[CAST] && interesting_conditions[FROM_CONST] && !interesting_conditions[NOT_UNARY])
 		return NO_ATTRIBUTE_SEARCH;
 
