@@ -411,6 +411,7 @@ struct sctp_ulpevent *sctp_ulpevent_make_remote_error(
 	 * sre_type:
 	 *   It should be SCTP_REMOTE_ERROR.
 	 */
+	memset(sre, 0, sizeof(*sre));
 	sre->sre_type = SCTP_REMOTE_ERROR;
 
 	/*
@@ -916,6 +917,7 @@ void sctp_ulpevent_read_sndrcvinfo(const struct sctp_ulpevent *event,
 	 * For recvmsg() the SCTP stack places the message's stream number in
 	 * this value.
 	*/
+	memset(&sinfo, 0, sizeof(sinfo));
 	sinfo.sinfo_stream = event->stream;
 	/* sinfo_ssn: 16 bits (unsigned integer)
 	 *

@@ -59,7 +59,7 @@
 	bic	r2, r2, #(0x1fc0)
 	bic	r2, r2, #(0x3f)
 	ldr	r1, [r2, #TI_CPU_DOMAIN]
-	@ store old DACR on stack 
+	@ store old DACR on stack
 	str	r1, [sp, #8]
 #ifdef CONFIG_PAX_KERNEXEC
 	@ set type of DOMAIN_KERNEL to DOMAIN_KERNELCLIENT

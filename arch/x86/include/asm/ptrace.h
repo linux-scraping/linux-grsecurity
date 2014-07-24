@@ -184,7 +184,7 @@ static inline unsigned long regs_get_register(struct pt_regs *regs,
 	 */
 	if (offset == offsetof(struct pt_regs, sp)) {
 		unsigned long cs = regs->cs & 0xffff;
-	 	if (cs == __KERNEL_CS || cs == __KERNEXEC_KERNEL_CS)
+		if (cs == __KERNEL_CS || cs == __KERNEXEC_KERNEL_CS)
 			return kernel_stack_pointer(regs);
 	}
 #endif
