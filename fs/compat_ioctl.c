@@ -704,7 +704,7 @@ static int do_i2c_rdwr_ioctl(unsigned int fd, unsigned int cmd,
 	for (i = 0; i < nmsgs; i++) {
 		if (copy_in_user(&tmsgs[i].addr, &umsgs[i].addr, 3*sizeof(u16)))
 			return -EFAULT;
-		if (get_user(datap, (u8 __user * __user *)&umsgs[i].buf) ||
+		if (get_user(datap, (compat_caddr_t __user *)&umsgs[i].buf) ||
 		    put_user(compat_ptr(datap), (u8 __user * __user *)&tmsgs[i].buf))
 			return -EFAULT;
 	}
