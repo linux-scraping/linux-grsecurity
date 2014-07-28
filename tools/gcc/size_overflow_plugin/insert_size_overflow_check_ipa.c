@@ -233,7 +233,7 @@ static void set_conditions(struct pointer_set_t *visited, bool *interesting_cond
 
 	switch (gimple_code(def_stmt)) {
 	case GIMPLE_CALL:
-		if (lhs == gimple_return_retval(def_stmt))
+		if (lhs == gimple_call_lhs(def_stmt))
 			interesting_conditions[RET] = true;
 		return;
 	case GIMPLE_NOP:

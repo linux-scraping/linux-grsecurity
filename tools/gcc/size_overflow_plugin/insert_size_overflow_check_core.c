@@ -721,6 +721,44 @@ static void __unused print_the_code_insertions(const_gimple stmt)
 	inform(loc, "Integer size_overflow check applied here.");
 }
 
+static bool is_from_cast(const_tree node)
+{
+	gimple def_stmt = get_def_stmt(node);
+
+	if (!def_stmt)
+		return false;
+
+	if (gimple_assign_cast_p(def_stmt))
+		return true;
+
+	return false;
+}
+
+// Skip duplication when there is a minus expr and the type of rhs1 or rhs2 is a pointer_type.
+static bool is_a_ptr_minus(gimple stmt)
+{
+	const_tree rhs1, rhs2, ptr1_rhs, ptr2_rhs;
+
+	if (gimple_assign_rhs_code(stmt) != MINUS_EXPR)
+		return false;
+
+	rhs1 = gimple_assign_rhs1(stmt);
+	if (!is_from_cast(rhs1))
+		return false;
+
+	rhs2 = gimple_assign_rhs2(stmt);
+	if (!is_from_cast(rhs2))
+		return false;
+
+	ptr1_rhs = gimple_assign_rhs1(get_def_stmt(rhs1));
+	ptr2_rhs = gimple_assign_rhs1(get_def_stmt(rhs2));
+
+	if (TREE_CODE(TREE_TYPE(ptr1_rhs)) != POINTER_TYPE && TREE_CODE(TREE_TYPE(ptr2_rhs)) != POINTER_TYPE)
+		return false;
+
+	return true;
+}
+
 static tree handle_binary_ops(struct visited *visited, struct cgraph_node *caller_node, tree lhs)
 {
 	enum intentional_overflow_type res;
@@ -728,6 +766,9 @@ static tree handle_binary_ops(struct visited *visited, struct cgraph_node *calle
 	gimple def_stmt = get_def_stmt(lhs);
 	tree new_rhs1 = NULL_TREE;
 	tree new_rhs2 = NULL_TREE;
+
+	if (is_a_ptr_minus(def_stmt))
+		return create_assign(visited, def_stmt, lhs, AFTER_STMT);
 
 	rhs1 = gimple_assign_rhs1(def_stmt);
 	rhs2 = gimple_assign_rhs2(def_stmt);
