@@ -602,6 +602,9 @@ static bool look_for_mult_and_add(const_gimple stmt)
 	} else
 		return false;
 
+	if (!is_gimple_assign(def_stmt))
+		return false;
+
 	if (gimple_assign_rhs_code(def_stmt) != PLUS_EXPR && gimple_assign_rhs_code(def_stmt) != MINUS_EXPR)
 		return false;
 

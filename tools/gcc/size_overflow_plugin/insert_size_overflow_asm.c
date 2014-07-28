@@ -477,45 +477,6 @@ static bool create_mark_asm(gimple stmt, enum mark mark)
 	return true;
 }
 
-static bool is_from_cast(const_tree node)
-{
-	gimple def_stmt = get_def_stmt(node);
-
-	if (!def_stmt)
-		return false;
-
-	if (gimple_assign_cast_p(def_stmt))
-		return true;
-
-	return false;
-}
-
-// Skip duplication when there is a minus expr and the type of rhs1 or rhs2 is a pointer_type.
-static bool skip_ptr_minus(gimple stmt)
-{
-	const_tree rhs1, rhs2, ptr1_rhs, ptr2_rhs;
-
-	if (gimple_assign_rhs_code(stmt) != MINUS_EXPR)
-		return false;
-
-	rhs1 = gimple_assign_rhs1(stmt);
-	if (!is_from_cast(rhs1))
-		return false;
-
-	rhs2 = gimple_assign_rhs2(stmt);
-	if (!is_from_cast(rhs2))
-		return false;
-
-	ptr1_rhs = gimple_assign_rhs1(get_def_stmt(rhs1));
-	ptr2_rhs = gimple_assign_rhs1(get_def_stmt(rhs2));
-
-	if (TREE_CODE(TREE_TYPE(ptr1_rhs)) != POINTER_TYPE && TREE_CODE(TREE_TYPE(ptr2_rhs)) != POINTER_TYPE)
-		return false;
-
-	create_mark_asm(stmt, MARK_YES);
-	return true;
-}
-
 static void walk_use_def_ptr(struct pointer_set_t *visited, const_tree lhs)
 {
 	gimple def_stmt;
@@ -549,9 +510,6 @@ static void walk_use_def_ptr(struct pointer_set_t *visited, const_tree lhs)
 			walk_use_def_ptr(visited, gimple_assign_rhs1(def_stmt));
 			return;
 		case 3:
-			if (skip_ptr_minus(def_stmt))
-				return;
-
 			walk_use_def_ptr(visited, gimple_assign_rhs1(def_stmt));
 			walk_use_def_ptr(visited, gimple_assign_rhs2(def_stmt));
 			return;
