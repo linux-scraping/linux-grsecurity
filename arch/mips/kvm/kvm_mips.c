@@ -832,7 +832,7 @@ long kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 	return r;
 }
 
-int kvm_arch_init(void *opaque)
+int kvm_arch_init(const void *opaque)
 {
 	int ret;
 

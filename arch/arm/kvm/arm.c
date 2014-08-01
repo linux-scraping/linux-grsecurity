@@ -1033,7 +1033,7 @@ static void check_kvm_target_cpu(void *ret)
 /**
  * Initialize Hyp-mode and memory mappings on all CPUs.
  */
-int kvm_arch_init(void *opaque)
+int kvm_arch_init(const void *opaque)
 {
 	int err;
 	int ret, cpu;
