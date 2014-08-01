@@ -316,6 +316,11 @@ static int relayout_struct(tree type)
 	    lookup_attribute("no_randomize_layout", TYPE_ATTRIBUTES(TYPE_MAIN_VARIANT(type))))
 		return 0;
 
+	/* Workaround for 3rd-party VirtualBox source that we can't modify ourselves */
+	if (!strcmp((const char *)ORIG_TYPE_NAME(type), "INTNETTRUNKFACTORY") ||
+	    !strcmp((const char *)ORIG_TYPE_NAME(type), "RAWPCIFACTORY"))
+		return 0;
+
 	/* throw out any structs in uapi */
 	xloc = expand_location(DECL_SOURCE_LOCATION(TYPE_FIELDS(type)));
 
