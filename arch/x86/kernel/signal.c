@@ -298,7 +298,7 @@ __setup_frame(int sig, struct ksignal *ksig, sigset_t *set,
 	}
 
 	if (current->mm->context.vdso)
-		restorer = (__force void __user *)VDSO32_SYMBOL(current->mm->context.vdso, sigreturn);
+		restorer = (void __force_user *)VDSO32_SYMBOL(current->mm->context.vdso, sigreturn);
 	else
 		restorer = (void __user *)&frame->retcode;
 	if (ksig->ka.sa.sa_flags & SA_RESTORER)
@@ -362,9 +362,9 @@ static int __setup_rt_frame(int sig, struct ksignal *ksig,
 
 		/* Set up to return from userspace.  */
 		if (current->mm->context.vdso)
-			restorer = (__force void __user *)VDSO32_SYMBOL(current->mm->context.vdso, rt_sigreturn);
+			restorer = (void __force_user *)VDSO32_SYMBOL(current->mm->context.vdso, rt_sigreturn);
 		else
-		restorer = (void __user *)&frame->retcode;
+			restorer = (void __user *)&frame->retcode;
 		if (ksig->ka.sa.sa_flags & SA_RESTORER)
 			restorer = ksig->ka.sa.sa_restorer;
 		put_user_ex(restorer, &frame->pretcode);
