@@ -786,7 +786,7 @@ copy_from_user(void *to, const void __user *from, unsigned long n)
 			copy_from_user_overflow();
 		else
 			__copy_from_user_overflow(sz, n);
-	} if (access_ok(VERIFY_READ, from, n))
+	} else if (access_ok(VERIFY_READ, from, n))
 		n = __copy_from_user(to, from, n);
 	else if ((long)n > 0)
 		memset(to, 0, n);

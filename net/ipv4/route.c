@@ -459,7 +459,7 @@ static struct neighbour *ipv4_neigh_lookup(const struct dst_entry *dst,
 
 #define IP_IDENTS_SZ 2048u
 struct ip_ident_bucket {
-	atomic_t	id;
+	atomic_unchecked_t	id;
 	u32		stamp32;
 };
 
@@ -479,7 +479,7 @@ u32 ip_idents_reserve(u32 hash, int segs)
 	if (old != now && cmpxchg(&bucket->stamp32, old, now) == old)
 		delta = prandom_u32_max(now - old);
 
-	return atomic_add_return(segs + delta, &bucket->id) - segs;
+	return atomic_add_return_unchecked(segs + delta, &bucket->id) - segs;
 }
 EXPORT_SYMBOL(ip_idents_reserve);
 
