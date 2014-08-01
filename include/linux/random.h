@@ -64,7 +64,7 @@ static inline unsigned long __intentional_overflow(-1) pax_get_random_long(void)
  *
  * Returns: pseudo-random number in interval [0, ep_ro)
  */
-static inline u32 prandom_u32_max(u32 ep_ro)
+static inline u32 __intentional_overflow(-1) prandom_u32_max(u32 ep_ro)
 {
 	return (u32)(((u64) prandom_u32() * ep_ro) >> 32);
 }
