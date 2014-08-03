@@ -53,9 +53,9 @@ static DEFINE_MUTEX(gr_dev_mutex);
 extern int chkpw(struct gr_arg *entry, unsigned char *salt, unsigned char *sum);
 extern void gr_clear_learn_entries(void);
 
-static struct gr_arg gr_usermode;
-static unsigned char gr_system_salt[GR_SALT_LEN];
-static unsigned char gr_system_sum[GR_SHA_LEN];
+struct gr_arg *gr_usermode __read_only;
+unsigned char *gr_system_salt __read_only;
+unsigned char *gr_system_sum __read_only;
 
 static unsigned int gr_auth_attempts = 0;
 static unsigned long gr_auth_expires = 0UL;
@@ -1297,8 +1297,8 @@ gracl_init(struct gr_arg *args)
 {
 	int error = 0;
 
-	memcpy(&gr_system_salt, args->salt, sizeof(gr_system_salt));
-	memcpy(&gr_system_sum, args->sum, sizeof(gr_system_sum));
+	memcpy(gr_system_salt, args->salt, GR_SALT_LEN);
+	memcpy(gr_system_sum, args->sum, GR_SHA_LEN);
 
 	if (init_variables(args, false)) {
 		gr_log_str(GR_DONT_AUDIT_GOOD, GR_INITF_ACL_MSG, GR_VERSION);
@@ -1525,11 +1525,11 @@ write_grsec_handler(struct file *file, const char __user * buf, size_t count, lo
 	if (error)
 		goto out;
 
-	error = copy_gr_arg(uwrap.arg, &gr_usermode);
+	error = copy_gr_arg(uwrap.arg, gr_usermode);
 	if (error)
 		goto out;
 
-	if (gr_usermode.mode != GR_SPROLE && gr_usermode.mode != GR_SPROLEPAM &&
+	if (gr_usermode->mode != GR_SPROLE && gr_usermode->mode != GR_SPROLEPAM &&
 	    gr_auth_attempts >= CONFIG_GRKERNSEC_ACL_MAXTRIES &&
 	    time_after(gr_auth_expires, get_seconds())) {
 		error = -EBUSY;
@@ -1541,8 +1541,8 @@ write_grsec_handler(struct file *file, const char __user * buf, size_t count, lo
 	   locking
 	 */
 
-	if (gr_usermode.mode != GR_SPROLE && gr_usermode.mode != GR_STATUS &&
-	    gr_usermode.mode != GR_UNSPROLE && gr_usermode.mode != GR_SPROLEPAM &&
+	if (gr_usermode->mode != GR_SPROLE && gr_usermode->mode != GR_STATUS &&
+	    gr_usermode->mode != GR_UNSPROLE && gr_usermode->mode != GR_SPROLEPAM &&
 	    gr_is_global_nonroot(current_uid())) {
 		error = -EPERM;
 		goto out;
@@ -1550,15 +1550,15 @@ write_grsec_handler(struct file *file, const char __user * buf, size_t count, lo
 
 	/* ensure pw and special role name are null terminated */
 
-	gr_usermode.pw[GR_PW_LEN - 1] = '\0';
-	gr_usermode.sp_role[GR_SPROLE_LEN - 1] = '\0';
+	gr_usermode->pw[GR_PW_LEN - 1] = '\0';
+	gr_usermode->sp_role[GR_SPROLE_LEN - 1] = '\0';
 
 	/* Okay. 
 	 * We have our enough of the argument structure..(we have yet
 	 * to copy_from_user the tables themselves) . Copy the tables
 	 * only if we need them, i.e. for loading operations. */
 
-	switch (gr_usermode.mode) {
+	switch (gr_usermode->mode) {
 	case GR_STATUS:
 			if (gr_acl_is_enabled()) {
 				error = 1;
@@ -1568,12 +1568,12 @@ write_grsec_handler(struct file *file, const char __user * buf, size_t count, lo
 				error = 2;
 			goto out;
 	case GR_SHUTDOWN:
-		if (gr_acl_is_enabled() && !(chkpw(&gr_usermode, (unsigned char *)&gr_system_salt, (unsigned char *)&gr_system_sum))) {
+		if (gr_acl_is_enabled() && !(chkpw(gr_usermode, gr_system_salt, gr_system_sum))) {
 			stop_machine(gr_rbac_disable, NULL, NULL);
 			free_variables(false);
-			memset(&gr_usermode, 0, sizeof(gr_usermode));
-			memset(&gr_system_salt, 0, sizeof(gr_system_salt));
-			memset(&gr_system_sum, 0, sizeof(gr_system_sum));
+			memset(gr_usermode, 0, sizeof(struct gr_arg));
+			memset(gr_system_salt, 0, GR_SALT_LEN);
+			memset(gr_system_sum, 0, GR_SHA_LEN);
 			gr_log_noargs(GR_DONT_AUDIT_GOOD, GR_SHUTS_ACL_MSG);
 		} else if (gr_acl_is_enabled()) {
 			gr_log_noargs(GR_DONT_AUDIT, GR_SHUTF_ACL_MSG);
@@ -1584,7 +1584,7 @@ write_grsec_handler(struct file *file, const char __user * buf, size_t count, lo
 		}
 		break;
 	case GR_ENABLE:
-		if (!gr_acl_is_enabled() && !(error2 = gracl_init(&gr_usermode)))
+		if (!gr_acl_is_enabled() && !(error2 = gracl_init(gr_usermode)))
 			gr_log_str(GR_DONT_AUDIT_GOOD, GR_ENABLE_ACL_MSG, GR_VERSION);
 		else {
 			if (gr_acl_is_enabled())
@@ -1600,8 +1600,8 @@ write_grsec_handler(struct file *file, const char __user * buf, size_t count, lo
 		if (!gr_acl_is_enabled()) {
 			gr_log_str(GR_DONT_AUDIT_GOOD, GR_RELOADI_ACL_MSG, GR_VERSION);
 			error = -EAGAIN;
-		} else if (!(chkpw(&gr_usermode, (unsigned char *)&gr_system_salt, (unsigned char *)&gr_system_sum))) {
-			error2 = gracl_reload(&gr_usermode, oldmode);
+		} else if (!(chkpw(gr_usermode, gr_system_salt, gr_system_sum))) {
+			error2 = gracl_reload(gr_usermode, oldmode);
 			if (!error2)
 				gr_log_str(GR_DONT_AUDIT_GOOD, GR_RELOAD_ACL_MSG, GR_VERSION);
 			else {
@@ -1620,20 +1620,20 @@ write_grsec_handler(struct file *file, const char __user * buf, size_t count, lo
 			break;
 		}
 
-		if (!(chkpw(&gr_usermode, (unsigned char *)&gr_system_salt, (unsigned char *)&gr_system_sum))) {
+		if (!(chkpw(gr_usermode, gr_system_salt, gr_system_sum))) {
 			gr_log_noargs(GR_DONT_AUDIT_GOOD, GR_SEGVMODS_ACL_MSG);
-			if (gr_usermode.segv_device && gr_usermode.segv_inode) {
+			if (gr_usermode->segv_device && gr_usermode->segv_inode) {
 				struct acl_subject_label *segvacl;
 				segvacl =
-				    lookup_acl_subj_label(gr_usermode.segv_inode,
-							  gr_usermode.segv_device,
+				    lookup_acl_subj_label(gr_usermode->segv_inode,
+							  gr_usermode->segv_device,
 							  current->role);
 				if (segvacl) {
 					segvacl->crashes = 0;
 					segvacl->expires = 0;
 				}
-			} else if (gr_find_uid(gr_usermode.segv_uid) >= 0) {
-				gr_remove_uid(gr_usermode.segv_uid);
+			} else if (gr_find_uid(gr_usermode->segv_uid) >= 0) {
+				gr_remove_uid(gr_usermode->segv_uid);
 			}
 		} else {
 			gr_log_noargs(GR_DONT_AUDIT, GR_SEGVMODF_ACL_MSG);
@@ -1660,11 +1660,11 @@ write_grsec_handler(struct file *file, const char __user * buf, size_t count, lo
 		}
 
 		if (lookup_special_role_auth
-		    (gr_usermode.mode, gr_usermode.sp_role, &sprole_salt, &sprole_sum)
+		    (gr_usermode->mode, gr_usermode->sp_role, &sprole_salt, &sprole_sum)
 		    && ((!sprole_salt && !sprole_sum)
-			|| !(chkpw(&gr_usermode, sprole_salt, sprole_sum)))) {
+			|| !(chkpw(gr_usermode, sprole_salt, sprole_sum)))) {
 			char *p = "";
-			assign_special_role(gr_usermode.sp_role);
+			assign_special_role(gr_usermode->sp_role);
 			read_lock(&tasklist_lock);
 			if (current->real_parent)
 				p = current->real_parent->role->rolename;
@@ -1672,7 +1672,7 @@ write_grsec_handler(struct file *file, const char __user * buf, size_t count, lo
 			gr_log_str_int(GR_DONT_AUDIT_GOOD, GR_SPROLES_ACL_MSG,
 					p, acl_sp_role_value);
 		} else {
-			gr_log_str(GR_DONT_AUDIT, GR_SPROLEF_ACL_MSG, gr_usermode.sp_role);
+			gr_log_str(GR_DONT_AUDIT, GR_SPROLEF_ACL_MSG, gr_usermode->sp_role);
 			error = -EPERM;
 			if(!(current->role->auth_attempts++))
 				current->role->expires = get_seconds() + CONFIG_GRKERNSEC_ACL_TIMEOUT;
@@ -1706,7 +1706,7 @@ write_grsec_handler(struct file *file, const char __user * buf, size_t count, lo
 		}
 		break;
 	default:
-		gr_log_int(GR_DONT_AUDIT, GR_INVMODE_ACL_MSG, gr_usermode.mode);
+		gr_log_int(GR_DONT_AUDIT, GR_INVMODE_ACL_MSG, gr_usermode->mode);
 		error = -EINVAL;
 		break;
 	}
