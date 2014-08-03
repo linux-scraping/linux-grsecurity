@@ -106,12 +106,14 @@ struct thread_info {
 #define FAULT_CODE_BLKCOMMIT	0x10	/* Use blk-commit ASI in copy_page */
 
 #if PAGE_SHIFT == 13
-#define THREAD_SIZE (2*PAGE_SIZE)
+#define THREAD_ORDER 1
 #define THREAD_SHIFT (PAGE_SHIFT + 1)
 #else /* PAGE_SHIFT == 13 */
-#define THREAD_SIZE PAGE_SIZE
+#define THREAD_ORDER 0
 #define THREAD_SHIFT PAGE_SHIFT
 #endif /* PAGE_SHIFT == 13 */
+
+#define THREAD_SIZE (PAGE_SIZE << THREAD_ORDER)
 
 #define PREEMPT_ACTIVE		0x10000000
 
