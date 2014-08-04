@@ -885,7 +885,7 @@ ENTRY(cpu_gdt_table)
 	.quad 0x00009b000000ffff	/* 0xc0 APM CS 16 code (16 bit) */
 	.quad 0x004093000000ffff	/* 0xc8 APM DS    data */
 
-	.quad 0x00c0930000000000	/* 0xd0 - ESPFIX SS */
+	.quad 0x00c093000000ffff	/* 0xd0 - ESPFIX SS */
 	.quad 0x0040930000000000	/* 0xd8 - PERCPU */
 	.quad 0x0040910000000017	/* 0xe0 - STACK_CANARY */
 	.quad 0x0000000000000000	/* 0xe8 - PCIBIOS_CS */
