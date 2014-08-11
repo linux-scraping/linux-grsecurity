@@ -1,6 +1,6 @@
 VERSION = 3
 PATCHLEVEL = 2
-SUBLEVEL = 61
+SUBLEVEL = 62
 EXTRAVERSION =
 NAME = Saber-toothed Squirrel
 
@@ -570,6 +570,9 @@ KBUILD_CFLAGS	+= -Os
 else
 KBUILD_CFLAGS	+= -O2
 endif
+
+# Tell gcc to never replace conditional load with a non-conditional one
+KBUILD_CFLAGS	+= $(call cc-option,--param=allow-store-data-races=0)
 
 ifndef DISABLE_PAX_PLUGINS
 ifeq ($(call cc-ifversion, -ge, 0408, y), y)
