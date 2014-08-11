@@ -1,6 +1,6 @@
 VERSION = 3
 PATCHLEVEL = 15
-SUBLEVEL = 8
+SUBLEVEL = 9
 EXTRAVERSION =
 NAME = Double Funky Skunk
 
@@ -600,6 +600,9 @@ KBUILD_CFLAGS	+= -Os $(call cc-disable-warning,maybe-uninitialized,)
 else
 KBUILD_CFLAGS	+= -O2
 endif
+
+# Tell gcc to never replace conditional load with a non-conditional one
+KBUILD_CFLAGS	+= $(call cc-option,--param=allow-store-data-races=0)
 
 ifndef DISABLE_PAX_PLUGINS
 ifeq ($(call cc-ifversion, -ge, 0408, y), y)
