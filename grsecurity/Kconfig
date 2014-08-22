@@ -930,16 +930,6 @@ endmenu
 menu "Network Protections"
 depends on GRKERNSEC
 
-config GRKERNSEC_RANDNET
-	bool "Larger entropy pools"
-	default y if GRKERNSEC_CONFIG_AUTO
-	help
-	  If you say Y here, the entropy pools used for many features of Linux
-	  and grsecurity will be doubled in size.  Since several grsecurity
-	  features use additional randomness, it is recommended that you say Y
-	  here.  Saying Y here has a similar effect as modifying
-	  /proc/sys/kernel/random/poolsize.
-
 config GRKERNSEC_BLACKHOLE
 	bool "TCP/UDP blackhole and LAST_ACK DoS prevention"
 	default y if GRKERNSEC_CONFIG_AUTO
