@@ -270,17 +270,10 @@
 /*
  * Configuration information
  */
-#ifdef CONFIG_GRKERNSEC_RANDNET
-#define INPUT_POOL_SHIFT	14
-#define INPUT_POOL_WORDS	(1 << (INPUT_POOL_SHIFT-5))
-#define OUTPUT_POOL_SHIFT	12
-#define OUTPUT_POOL_WORDS	(1 << (OUTPUT_POOL_SHIFT-5))
-#else
 #define INPUT_POOL_SHIFT	12
 #define INPUT_POOL_WORDS	(1 << (INPUT_POOL_SHIFT-5))
 #define OUTPUT_POOL_SHIFT	10
 #define OUTPUT_POOL_WORDS	(1 << (OUTPUT_POOL_SHIFT-5))
-#endif
 #define SEC_XFER_SIZE		512
 #define EXTRACT_SIZE		10
 
@@ -365,19 +358,12 @@ static struct poolinfo {
 #define S(x) ilog2(x)+5, (x), (x)*4, (x)*32, (x) << (ENTROPY_SHIFT+5)
 	int tap1, tap2, tap3, tap4, tap5;
 } poolinfo_table[] = {
-#ifdef CONFIG_GRKERNSEC_RANDNET
-	/* x^512 + x^411 + x^308 + x^208 +x^104 + x + 1 -- 225 */
-	{ S(512),	411,	308,	208,	104,	1 },
-	/* x^128 + x^104 + x^76 + x^51 + x^25 + x + 1 -- 105 */
-	{ S(128),	104,	76,	51,	25,	1 },
-#else
 	/* was: x^128 + x^103 + x^76 + x^51 +x^25 + x + 1 */
 	/* x^128 + x^104 + x^76 + x^51 +x^25 + x + 1 */
 	{ S(128),	104,	76,	51,	25,	1 },
 	/* was: x^32 + x^26 + x^20 + x^14 + x^7 + x + 1 */
 	/* x^32 + x^26 + x^19 + x^14 + x^7 + x + 1 */
 	{ S(32),	26,	19,	14,	7,	1 },
-#endif
 #if 0
 	/* x^2048 + x^1638 + x^1231 + x^819 + x^411 + x + 1  -- 115 */
 	{ S(2048),	1638,	1231,	819,	411,	1 },
