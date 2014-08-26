@@ -606,6 +606,17 @@ SYSCALL_DEFINE2(setregid, gid_t, rgid, gid_t, egid)
 	if (gr_check_group_change(new->gid, new->egid, -1))
 		goto error;
 
+	if (new->gid != old->gid) {
+		/* make sure we generate a learn log for what will
+		   end up being a role transition after a full-learning
+		   policy is generated
+		   CAP_SETGID is required to perform a transition
+		   we may not log a CAP_SETGID check above, e.g.
+		   in the case where new rgid = old egid
+		*/
+		gr_learn_cap(current, new, CAP_SETGID);
+	}
+
 	if (rgid != (gid_t) -1 ||
 	    (egid != (gid_t) -1 && egid != old->gid))
 		new->sgid = new->egid;
@@ -730,6 +741,14 @@ SYSCALL_DEFINE2(setreuid, uid_t, ruid, uid_t, euid)
 		goto error;
 
 	if (new->uid != old->uid) {
+		/* make sure we generate a learn log for what will
+		   end up being a role transition after a full-learning
+		   policy is generated
+		   CAP_SETUID is required to perform a transition
+		   we may not log a CAP_SETUID check above, e.g.
+		   in the case where new ruid = old euid
+		*/
+		gr_learn_cap(current, new, CAP_SETUID);
 		retval = set_user(new);
 		if (retval < 0)
 			goto error;

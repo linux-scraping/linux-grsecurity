@@ -11,6 +11,7 @@ gr_tpe_allow(const struct file *file)
 {
 #ifdef CONFIG_GRKERNSEC
 	struct inode *inode = file->f_path.dentry->d_parent->d_inode;
+	struct inode *file_inode = file->f_path.dentry->d_inode;
 	const struct cred *cred = current_cred();
 	char *msg = NULL;
 	char *msg2 = NULL;
@@ -43,6 +44,8 @@ gr_tpe_allow(const struct file *file)
 		msg2 = "file in world-writable directory";
 	else if (inode->i_mode & S_IWGRP)
 		msg2 = "file in group-writable directory";
+	else if (file_inode->i_mode & S_IWOTH)
+		msg2 = "file is world-writable";
 
 	if (msg && msg2) {
 		char fullmsg[70] = {0};
@@ -62,6 +65,8 @@ next_check:
 		msg = "file in world-writable directory";
 	else if (inode->i_mode & S_IWGRP)
 		msg = "file in group-writable directory";
+	else if (file_inode->i_mode & S_IWOTH)
+		msg = "file is world-writable";
 
 	if (msg) {
 		gr_log_str_fs(GR_DONT_AUDIT, GR_EXEC_TPE_MSG, msg, file->f_path.dentry, file->f_path.mnt);

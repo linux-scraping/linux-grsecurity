@@ -35,6 +35,8 @@ int gr_acl_enable_at_secure(void);
 int gr_check_user_change(int real, int effective, int fs);
 int gr_check_group_change(int real, int effective, int fs);
 
+int gr_learn_cap(const struct task_struct *task, const struct cred *cred, const int cap);
+
 void gr_del_task_from_ip_table(struct task_struct *p);
 
 int gr_pid_is_chrooted(struct task_struct *p);

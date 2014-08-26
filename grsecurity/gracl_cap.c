@@ -8,6 +8,29 @@
 extern const char *captab_log[];
 extern int captab_log_entries;
 
+int gr_learn_cap(const struct task_struct *task, const struct cred *cred, const int cap)
+{
+	struct acl_subject_label *curracl;
+
+	if (!gr_acl_is_enabled())
+		return 1;
+
+	curracl = task->acl;
+
+	if (curracl->mode & (GR_LEARN | GR_INHERITLEARN)) {
+		security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename,
+			       task->role->roletype, cred->uid,
+			       cred->gid, task->exec_file ?
+			       gr_to_filename(task->exec_file->f_path.dentry,
+			       task->exec_file->f_path.mnt) : curracl->filename,
+			       curracl->filename, 0UL,
+			       0UL, "", (unsigned long) cap, &task->signal->saved_ip);
+		return 1;
+	}
+
+	return 0;
+}
+
 int
 gr_acl_is_capable(const int cap)
 {
@@ -47,19 +70,13 @@ gr_acl_is_capable(const int cap)
 		return 1;
 	}
 
-	curracl = task->acl;
-
-	if ((curracl->mode & (GR_LEARN | GR_INHERITLEARN))
-	    && cap_raised(cred->cap_effective, cap)) {
-		security_learn(GR_LEARN_AUDIT_MSG, task->role->rolename,
-			       task->role->roletype, cred->uid,
-			       cred->gid, task->exec_file ?
-			       gr_to_filename(task->exec_file->f_path.dentry,
-			       task->exec_file->f_path.mnt) : curracl->filename,
-			       curracl->filename, 0UL,
-			       0UL, "", (unsigned long) cap, &task->signal->saved_ip);
+	/* only learn the capability use if the process has the capability in the
+	   general case, the two uses in sys.c of gr_learn_cap are an exception
+	   to this rule to ensure any role transition involves what the full-learned
+	   policy believes in a privileged process
+	*/
+	if (cap_raised(cred->cap_effective, cap) && gr_learn_cap(task, cred, cap))
 		return 1;
-	}
 
 	if ((cap >= 0) && (cap < captab_log_entries) && cap_raised(cred->cap_effective, cap) && !cap_raised(cap_audit, cap))
 		gr_log_cap(GR_DONT_AUDIT, GR_CAP_ACL_MSG, task, captab_log[cap]);

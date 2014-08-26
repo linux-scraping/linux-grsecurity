@@ -294,6 +294,11 @@ SYSCALL_DEFINE1(brk, unsigned long, brk)
 	 * not page aligned -Ram Gupta
 	 */
 	rlim = rlimit(RLIMIT_DATA);
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	/* force a minimum 16MB brk heap on setuid/setgid binaries */
+	if (rlim < PAGE_SIZE && (get_dumpable(mm) != SUID_DUMPABLE_ENABLED) && current_uid())
+		rlim = 4096 * PAGE_SIZE;
+#endif
 	gr_learn_resource(current, RLIMIT_DATA, (brk - mm->start_brk) + (mm->end_data - mm->start_data), 1);
 	if (rlim < RLIM_INFINITY && (brk - mm->start_brk) +
 			(mm->end_data - mm->start_data) > rlim)
