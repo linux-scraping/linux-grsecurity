@@ -620,7 +620,7 @@ EXPORT_SYMBOL(single_open);
 int single_open_size(struct file *file, int (*show)(struct seq_file *, void *),
 		void *data, size_t size)
 {
-	char *buf = kmalloc(size, GFP_KERNEL);
+	char *buf = kmalloc(size, GFP_KERNEL | GFP_USERCOPY);
 	int ret;
 	if (!buf)
 		return -ENOMEM;

@@ -5190,6 +5190,14 @@ static void cgroup_release_agent(struct work_struct *work)
 						    release_list);
 		list_del_init(&cgrp->release_list);
 		raw_spin_unlock(&release_list_lock);
+
+		/*
+		 * don't bother calling call_usermodehelper if we haven't
+		 * configured a binary to execute
+		 */
+		if (cgrp->root->release_agent_path[0] == '\0')
+			goto continue_free;
+
 		pathbuf = kmalloc(PAGE_SIZE, GFP_KERNEL);
 		if (!pathbuf)
 			goto continue_free;
