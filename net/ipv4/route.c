@@ -469,7 +469,7 @@ struct ip_ident_bucket {
 	u32		stamp32;
 };
 
-static struct ip_ident_bucket *ip_idents __read_mostly;
+static struct ip_ident_bucket ip_idents[IP_IDENTS_SZ] __read_mostly;
 
 /* In order to protect privacy, we add a perturbation to identifiers
  * if one generator is seldom used. This makes hard for an attacker
@@ -2725,11 +2725,7 @@ int __init ip_rt_init(void)
 {
 	int rc = 0;
 
-	ip_idents = kmalloc(IP_IDENTS_SZ * sizeof(*ip_idents), GFP_KERNEL);
-	if (!ip_idents)
-		panic("IP: failed to allocate ip_idents\n");
-
-	prandom_bytes(ip_idents, IP_IDENTS_SZ * sizeof(*ip_idents));
+	prandom_bytes(ip_idents, sizeof(ip_idents));
 
 #ifdef CONFIG_IP_ROUTE_CLASSID
 	ip_rt_acct = __alloc_percpu(256 * sizeof(struct ip_rt_acct), __alignof__(struct ip_rt_acct));

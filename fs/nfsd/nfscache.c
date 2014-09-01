@@ -540,7 +540,7 @@ nfsd_cache_update(struct svc_rqst *rqstp, int cachetype, __be32 *statp)
 	switch (cachetype) {
 	case RC_REPLSTAT:
 		if (len != 1)
-			printk("nfsd: RC_REPLSTAT/reply len %d!\n",len);
+			printk("nfsd: RC_REPLSTAT/reply len %ld!\n",len);
 		rp->c_replstat = *statp;
 		break;
 	case RC_REPLBUFF:
