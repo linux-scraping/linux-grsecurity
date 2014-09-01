@@ -627,7 +627,7 @@ char *symbol_string(char *buf, char *end, void *ptr,
 #ifdef CONFIG_KALLSYMS
 	if (*fmt == 'B')
 		sprint_backtrace(sym, value);
-	else if (*fmt != 'f' && *fmt != 's')
+	else if (*fmt != 'f' && *fmt != 's' && *fmt != 'X')
 		sprint_symbol(sym, value);
 	else
 		sprint_symbol_no_offset(sym, value);
@@ -1201,6 +1201,7 @@ int kptr_restrict __read_mostly;
  *
  * - 'F' For symbolic function descriptor pointers with offset
  * - 'f' For simple symbolic function names without offset
+ * - 'X' For simple symbolic function names without offset approved for use with GRKERNSEC_HIDESYM
  * - 'S' For symbolic direct pointers with offset
  * - 's' For symbolic direct pointers without offset
  * - 'A' For symbolic direct pointers with offset approved for use with GRKERNSEC_HIDESYM
@@ -1291,6 +1292,8 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 #else
 		return symbol_string(buf, end, ptr, spec, fmt);
 #endif
+	case 'X':
+		ptr = dereference_function_descriptor(ptr);
 	case 'A':
 	case 'B':
 		return symbol_string(buf, end, ptr, spec, fmt);
@@ -1411,10 +1414,11 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 	/* 'P' = approved pointers to copy to userland,
 	   as in the /proc/kallsyms case, as we make it display nothing
 	   for non-root users, and the real contents for root users
+	   'X' = approved simple symbols
 	   Also ignore 'K' pointers, since we force their NULLing for non-root users
 	   above
 	*/
-	if ((unsigned long)ptr > TASK_SIZE && *fmt != 'P' && *fmt != 'K' && is_usercopy_object(buf)) {
+	if ((unsigned long)ptr > TASK_SIZE && *fmt != 'P' && *fmt != 'X' && *fmt != 'K' && is_usercopy_object(buf)) {
 		printk(KERN_ALERT "grsec: kernel infoleak detected!  Please report this log to spender@grsecurity.net.\n");
 		dump_stack();
 		ptr = NULL;
