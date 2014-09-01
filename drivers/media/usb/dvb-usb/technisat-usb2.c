@@ -223,10 +223,10 @@ static void technisat_usb2_frontend_reset(struct usb_device *udev)
 
 /* LED control */
 enum technisat_usb2_led_state {
-	LED_OFF,
-	LED_BLINK,
-	LED_ON,
-	LED_UNDEFINED
+	TECH_LED_OFF,
+	TECH_LED_BLINK,
+	TECH_LED_ON,
+	TECH_LED_UNDEFINED
 };
 
 static int technisat_usb2_set_led(struct dvb_usb_device *d, int red, enum technisat_usb2_led_state state)
@@ -238,16 +238,16 @@ static int technisat_usb2_set_led(struct dvb_usb_device *d, int red, enum techni
 	if (led == NULL)
 		return -ENOMEM;
 
-	if (disable_led_control && state != LED_OFF)
+	if (disable_led_control && state != TECH_LED_OFF)
 		return 0;
 
 	led[0] = red ? SET_RED_LED_VENDOR_REQUEST : SET_GREEN_LED_VENDOR_REQUEST;
 
 	switch (state) {
-	case LED_ON:
+	case TECH_LED_ON:
 		led[1] = 0x82;
 		break;
-	case LED_BLINK:
+	case TECH_LED_BLINK:
 		led[1] = 0x82;
 		if (red) {
 			led[2] = 0x02;
@@ -262,7 +262,7 @@ static int technisat_usb2_set_led(struct dvb_usb_device *d, int red, enum techni
 		break;
 
 	default:
-	case LED_OFF:
+	case TECH_LED_OFF:
 		led[1] = 0x80;
 		break;
 	}
@@ -329,11 +329,11 @@ static void technisat_usb2_green_led_control(struct work_struct *work)
 				goto schedule;
 
 			if (ber > 1000)
-				technisat_usb2_set_led(state->dev, 0, LED_BLINK);
+				technisat_usb2_set_led(state->dev, 0, TECH_LED_BLINK);
 			else
-				technisat_usb2_set_led(state->dev, 0, LED_ON);
+				technisat_usb2_set_led(state->dev, 0, TECH_LED_ON);
 		} else
-			technisat_usb2_set_led(state->dev, 0, LED_OFF);
+			technisat_usb2_set_led(state->dev, 0, TECH_LED_OFF);
 	}
 
 schedule:
@@ -389,9 +389,9 @@ static int technisat_usb2_power_ctrl(struct dvb_usb_device *d, int level)
 		return 0;
 
 	/* green led is turned off in any case - will be turned on when tuning */
-	technisat_usb2_set_led(d, 0, LED_OFF);
+	technisat_usb2_set_led(d, 0, TECH_LED_OFF);
 	/* red led is turned on all the time */
-	technisat_usb2_set_led(d, 1, LED_ON);
+	technisat_usb2_set_led(d, 1, TECH_LED_ON);
 	return 0;
 }
 
@@ -702,7 +702,7 @@ static int technisat_usb2_rc_query(struct dvb_usb_device *d)
 		return 0;
 
 	if (!disable_led_control)
-		technisat_usb2_set_led(d, 1, LED_BLINK);
+		technisat_usb2_set_led(d, 1, TECH_LED_BLINK);
 
 	return 0;
 }

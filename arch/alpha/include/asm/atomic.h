@@ -302,9 +302,4 @@ static inline long atomic64_dec_if_positive(atomic64_t *v)
 #define atomic64_dec_unchecked(v)		atomic64_dec(v)
 #define atomic64_cmpxchg_unchecked(v, o, n)	atomic64_cmpxchg((v), (o), (n))
 
-#define smp_mb__before_atomic_dec()	smp_mb()
-#define smp_mb__after_atomic_dec()	smp_mb()
-#define smp_mb__before_atomic_inc()	smp_mb()
-#define smp_mb__after_atomic_inc()	smp_mb()
-
 #endif /* _ALPHA_ATOMIC_H */

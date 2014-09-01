@@ -39,6 +39,4 @@ subdir-$(CONFIG_SECURITY_SELINUX) += selinux
 subdir-$(CONFIG_DTC)         += dtc
 
 # Let clean descend into subdirs
-subdir-	+= basic kconfig package selinux
-
-clean-files := randstruct.seed
+subdir-	+= basic kconfig package

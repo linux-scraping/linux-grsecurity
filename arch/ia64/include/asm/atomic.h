@@ -15,6 +15,7 @@
 #include <linux/types.h>
 
 #include <asm/intrinsics.h>
+#include <asm/barrier.h>
 
 
 #define ATOMIC_INIT(i)		{ (i) }
@@ -217,11 +218,5 @@ atomic64_add_negative (__s64 i, atomic64_t *v)
 #define atomic64_inc_return_unchecked(v)	atomic64_inc_return(v)
 #define atomic64_dec_unchecked(v)		atomic64_dec(v)
 #define atomic64_cmpxchg_unchecked(v, o, n)	atomic64_cmpxchg((v), (o), (n))
-
-/* Atomic operations are already serializing */
-#define smp_mb__before_atomic_dec()	barrier()
-#define smp_mb__after_atomic_dec()	barrier()
-#define smp_mb__before_atomic_inc()	barrier()
-#define smp_mb__after_atomic_inc()	barrier()
 
 #endif /* _ASM_IA64_ATOMIC_H */

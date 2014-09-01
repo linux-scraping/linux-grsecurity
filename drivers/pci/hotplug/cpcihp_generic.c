@@ -77,8 +77,8 @@ static struct cpci_hp_controller generic_hpc;
 
 static int __init validate_parameters(void)
 {
-	char* str;
-	char* p;
+	char *str;
+	char *p;
 	unsigned long tmp;
 
 	if(!bridge) {
@@ -145,8 +145,8 @@ static struct cpci_hp_controller_ops generic_hpc_ops = {
 static int __init cpcihp_generic_init(void)
 {
 	int status;
-	struct resource* r;
-	struct pci_dev* dev;
+	struct resource *r;
+	struct pci_dev *dev;
 
 	info(DRIVER_DESC " version: " DRIVER_VERSION);
 	status = validate_parameters();

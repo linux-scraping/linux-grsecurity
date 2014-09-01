@@ -39,6 +39,12 @@ gr_acl_is_enabled(void)
 	return 0;
 }
 
+int
+gr_learn_cap(const struct task_struct *task, const struct cred *cred, const int cap)
+{
+	return 0;
+}
+
 void
 gr_handle_proc_create(const struct dentry *dentry, const struct inode *inode) 
 {

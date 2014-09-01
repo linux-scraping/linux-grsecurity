@@ -441,7 +441,7 @@ ENDPROC(__pabt_svc)
 	@
 	@ Enable the alignment trap while in kernel mode
 	@
-	alignment_trap r0
+	alignment_trap r0, .LCcralign
 
 	@
 	@ Clear FP to mark the first stack frame
@@ -509,6 +509,11 @@ __und_usr:
 	@ this as a real undefined instruction
 	@
 	adr	r9, BSYM(ret_from_exception)
+
+	@ IRQs must be enabled before attempting to read the instruction from
+	@ user space since that could cause a page/translation fault if the
+	@ page table was modified by another CPU.
+	enable_irq
 
 	tst	r3, #PSR_T_BIT			@ Thumb mode?
 	bne	__und_usr_thumb
@@ -588,6 +593,7 @@ ENDPROC(__und_usr)
 	.pushsection .fixup, "ax"
 	.align	2
 4:	pax_close_userland
+	str     r4, [sp, #S_PC]			@ retry current instruction
 	mov	pc, r9
 	.popsection
 	.pushsection __ex_table,"a"
@@ -621,7 +627,7 @@ ENDPROC(__und_usr)
  *  r9  = normal "successful" return address
  *  r10 = this threads thread_info structure
  *  lr  = unrecognised instruction return address
- * IRQs disabled, FIQs enabled.
+ * IRQs enabled, FIQs enabled.
  */
 	@
 	@ Fall-through from Thumb-2 __und_usr
@@ -728,7 +734,6 @@ call_fpe:
 #endif
 
 do_fpe:
-	enable_irq
 	ldr	r4, .LCfp
 	add	r10, r10, #TI_FPSTATE		@ r10 = workspace
 	ldr	pc, [r4]			@ Call FP module USR entry point
@@ -756,8 +761,7 @@ __und_usr_fault_32:
 	b	1f
 __und_usr_fault_16:
 	mov	r1, #2
-1:	enable_irq
-	mov	r0, sp
+1:	mov	r0, sp
 	adr	lr, BSYM(ret_from_exception)
 	b	__und_fault
 ENDPROC(__und_usr_fault_32)
@@ -1247,10 +1251,7 @@ __vectors_start:
 	.data
 
 	.globl	cr_alignment
-	.globl	cr_no_alignment
 cr_alignment:
-	.space	4
-cr_no_alignment:
 	.space	4
 
 #ifdef CONFIG_MULTI_IRQ_HANDLER

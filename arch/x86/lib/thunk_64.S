@@ -8,6 +8,7 @@
 #include <linux/linkage.h>
 #include <asm/dwarf2.h>
 #include <asm/calling.h>
+#include <asm/asm.h>
 #include <asm/alternative-asm.h>
 
 	/* rdi:	arg1 ... normal C conventions. rax is saved/restored. */
@@ -26,6 +27,7 @@
 	call \func
 	jmp  restore
 	CFI_ENDPROC
+	_ASM_NOKPROBE(\name)
 	.endm
 
 #ifdef CONFIG_TRACE_IRQFLAGS
@@ -45,3 +47,4 @@ restore:
 	pax_force_retaddr
 	ret
 	CFI_ENDPROC
+	_ASM_NOKPROBE(restore)

@@ -197,6 +197,7 @@ int kvm_dev_ioctl_check_extension(long ext)
 	case KVM_CAP_DESTROY_MEMORY_REGION_WORKS:
 	case KVM_CAP_ONE_REG:
 	case KVM_CAP_ARM_PSCI:
+	case KVM_CAP_ARM_PSCI_0_2:
 		r = 1;
 		break;
 	case KVM_CAP_COALESCED_MMIO:
@@ -1033,7 +1034,7 @@ static void check_kvm_target_cpu(void *ret)
 /**
  * Initialize Hyp-mode and memory mappings on all CPUs.
  */
-int kvm_arch_init(const void *opaque)
+int kvm_arch_init(void *opaque)
 {
 	int err;
 	int ret, cpu;

@@ -518,9 +518,6 @@ static int l2tp_ip_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *m
 	if (flags & MSG_OOB)
 		goto out;
 
-	if (addr_len)
-		*addr_len = sizeof(*sin);
-
 	skb = skb_recv_datagram(sk, flags, noblock, &err);
 	if (!skb)
 		goto out;
@@ -543,6 +540,7 @@ static int l2tp_ip_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *m
 		sin->sin_addr.s_addr = ip_hdr(skb)->saddr;
 		sin->sin_port = 0;
 		memset(&sin->sin_zero, 0, sizeof(sin->sin_zero));
+		*addr_len = sizeof(*sin);
 	}
 	if (inet->cmsg_flags)
 		ip_cmsg_recv(msg, skb);
@@ -608,7 +606,6 @@ static struct inet_protosw l2tp_ip_protosw = {
 	.protocol	= IPPROTO_L2TP,
 	.prot		= &l2tp_ip_prot,
 	.ops		= &l2tp_ip_ops,
-	.no_check	= 0,
 };
 
 static struct net_protocol l2tp_ip_protocol __read_mostly = {

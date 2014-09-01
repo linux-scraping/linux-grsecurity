@@ -540,7 +540,7 @@ static void psy_unregister_cooler(struct power_supply *psy)
 }
 #endif
 
-int power_supply_register(struct device *parent, struct power_supply *psy)
+int __power_supply_register(struct device *parent, struct power_supply *psy, bool ws)
 {
 	struct device *dev;
 	int rc;
@@ -571,7 +571,7 @@ int power_supply_register(struct device *parent, struct power_supply *psy)
 	}
 
 	spin_lock_init(&psy->changed_lock);
-	rc = device_init_wakeup(dev, true);
+	rc = device_init_wakeup(dev, ws);
 	if (rc)
 		goto wakeup_init_failed;
 
@@ -609,7 +609,18 @@ dev_set_name_failed:
 success:
 	return rc;
 }
+
+int power_supply_register(struct device *parent, struct power_supply *psy)
+{
+	return __power_supply_register(parent, psy, true);
+}
 EXPORT_SYMBOL_GPL(power_supply_register);
+
+int power_supply_register_no_ws(struct device *parent, struct power_supply *psy)
+{
+	return __power_supply_register(parent, psy, false);
+}
+EXPORT_SYMBOL_GPL(power_supply_register_no_ws);
 
 void power_supply_unregister(struct power_supply *psy)
 {

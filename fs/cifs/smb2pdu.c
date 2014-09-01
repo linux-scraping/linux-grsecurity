@@ -375,7 +375,12 @@ SMB2_negotiate(const unsigned int xid, struct cifs_ses *ses)
 
 	req->Capabilities = cpu_to_le32(ses->server->vals->req_capabilities);
 
-	memcpy(req->ClientGUID, cifs_client_guid, SMB2_CLIENT_GUID_SIZE);
+	/* ClientGUID must be zero for SMB2.02 dialect */
+	if (ses->server->vals->protocol_id == SMB20_PROT_ID)
+		memset(req->ClientGUID, 0, SMB2_CLIENT_GUID_SIZE);
+	else
+		memcpy(req->ClientGUID, server->client_guid,
+			SMB2_CLIENT_GUID_SIZE);
 
 	iov[0].iov_base = (char *)req;
 	/* 4 for rfc1002 length field */
@@ -478,7 +483,8 @@ int smb3_validate_negotiate(const unsigned int xid, struct cifs_tcon *tcon)
 
 	vneg_inbuf.Capabilities =
 			cpu_to_le32(tcon->ses->server->vals->req_capabilities);
-	memcpy(vneg_inbuf.Guid, cifs_client_guid, SMB2_CLIENT_GUID_SIZE);
+	memcpy(vneg_inbuf.Guid, tcon->ses->server->client_guid,
+					SMB2_CLIENT_GUID_SIZE);
 
 	if (tcon->ses->sign)
 		vneg_inbuf.SecurityMode =
@@ -966,6 +972,7 @@ create_durable_buf(void)
 	buf->ccontext.NameOffset = cpu_to_le16(offsetof
 				(struct create_durable, Name));
 	buf->ccontext.NameLength = cpu_to_le16(4);
+	/* SMB2_CREATE_DURABLE_HANDLE_REQUEST is "DHnQ" */
 	buf->Name[0] = 'D';
 	buf->Name[1] = 'H';
 	buf->Name[2] = 'n';
@@ -990,6 +997,7 @@ create_reconnect_durable_buf(struct cifs_fid *fid)
 	buf->ccontext.NameLength = cpu_to_le16(4);
 	buf->Data.Fid.PersistentFileId = fid->persistent_fid;
 	buf->Data.Fid.VolatileFileId = fid->volatile_fid;
+	/* SMB2_CREATE_DURABLE_HANDLE_RECONNECT is "DHnC" */
 	buf->Name[0] = 'D';
 	buf->Name[1] = 'H';
 	buf->Name[2] = 'n';

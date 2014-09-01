@@ -30,6 +30,17 @@ static inline const char *printk_skip_level(const char *buffer)
 	return buffer;
 }
 
+/* printk's without a loglevel use this.. */
+#define DEFAULT_MESSAGE_LOGLEVEL CONFIG_DEFAULT_MESSAGE_LOGLEVEL
+
+/* We show everything that is MORE important than this.. */
+#define CONSOLE_LOGLEVEL_SILENT  0 /* Mum's the word */
+#define CONSOLE_LOGLEVEL_MIN	 1 /* Minimum loglevel we let people use */
+#define CONSOLE_LOGLEVEL_QUIET	 4 /* Shhh ..., when booted with "quiet" */
+#define CONSOLE_LOGLEVEL_DEFAULT 7 /* anything MORE serious than KERN_DEBUG */
+#define CONSOLE_LOGLEVEL_DEBUG	10 /* issue debug messages */
+#define CONSOLE_LOGLEVEL_MOTORMOUTH 15	/* You can't shut this one up */
+
 extern int console_printk[];
 
 #define console_loglevel (console_printk[0])
@@ -39,13 +50,13 @@ extern int console_printk[];
 
 static inline void console_silent(void)
 {
-	console_loglevel = 0;
+	console_loglevel = CONSOLE_LOGLEVEL_SILENT;
 }
 
 static inline void console_verbose(void)
 {
 	if (console_loglevel)
-		console_loglevel = 15;
+		console_loglevel = CONSOLE_LOGLEVEL_MOTORMOUTH;
 }
 
 struct va_format {
@@ -211,6 +222,12 @@ extern asmlinkage void dump_stack(void) __cold;
 #define pr_fmt(fmt) fmt
 #endif
 
+/*
+ * These can be used to print at the various log levels.
+ * All of these will print unconditionally, although note that pr_debug()
+ * and other debug macros are compiled out unless either DEBUG is defined
+ * or CONFIG_DYNAMIC_DEBUG is set.
+ */
 #define pr_emerg(fmt, ...) \
 	printk(KERN_EMERG pr_fmt(fmt), ##__VA_ARGS__)
 #define pr_alert(fmt, ...) \
@@ -267,8 +284,19 @@ extern asmlinkage void dump_stack(void) __cold;
 		printk(fmt, ##__VA_ARGS__);			\
 	}							\
 })
+#define printk_deferred_once(fmt, ...)				\
+({								\
+	static bool __print_once __read_mostly;			\
+								\
+	if (!__print_once) {					\
+		__print_once = true;				\
+		printk_deferred(fmt, ##__VA_ARGS__);		\
+	}							\
+})
 #else
 #define printk_once(fmt, ...)					\
+	no_printk(fmt, ##__VA_ARGS__)
+#define printk_deferred_once(fmt, ...)				\
 	no_printk(fmt, ##__VA_ARGS__)
 #endif
 

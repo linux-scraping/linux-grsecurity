@@ -47,7 +47,7 @@ struct inet_peer {
 	 */
 	union {
 		struct {
-			atomic_unchecked_t			rid;		/* Frag reception counter */
+			atomic_unchecked_t		rid;		/* Frag reception counter */
 		};
 		struct rcu_head         rcu;
 		struct inet_peer	*gc_next;
@@ -171,5 +171,4 @@ static inline void inet_peer_refcheck(const struct inet_peer *p)
 {
 	WARN_ON_ONCE(atomic_read(&p->refcnt) <= 0);
 }
-
 #endif /* _NET_INETPEER_H */

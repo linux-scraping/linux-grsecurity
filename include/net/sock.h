@@ -243,7 +243,8 @@ struct cg_proto;
   *	@sk_sndbuf: size of send buffer in bytes
   *	@sk_flags: %SO_LINGER (l_onoff), %SO_BROADCAST, %SO_KEEPALIVE,
   *		   %SO_OOBINLINE settings, %SO_TIMESTAMPING settings
-  *	@sk_no_check: %SO_NO_CHECK setting, whether or not checkup packets
+  *	@sk_no_check_tx: %SO_NO_CHECK setting, set checksum in TX packets
+  *	@sk_no_check_rx: allow zero checksum in RX packets
   *	@sk_route_caps: route capabilities (e.g. %NETIF_F_TSO)
   *	@sk_route_nocaps: forbidden route capabilities (e.g NETIF_F_GSO_MASK)
   *	@sk_gso_type: GSO type (e.g. %SKB_GSO_TCPV4)
@@ -371,7 +372,8 @@ struct sock {
 	struct sk_buff_head	sk_write_queue;
 	kmemcheck_bitfield_begin(flags);
 	unsigned int		sk_shutdown  : 2,
-				sk_no_check  : 2,
+				sk_no_check_tx : 1,
+				sk_no_check_rx : 1,
 				sk_userlocks : 4,
 				sk_protocol  : 8,
 				sk_type      : 16;
@@ -1620,6 +1622,33 @@ void sk_common_release(struct sock *sk);
 
 /* Initialise core socket variables */
 void sock_init_data(struct socket *sock, struct sock *sk);
+
+void sk_filter_release_rcu(struct rcu_head *rcu);
+
+/**
+ *	sk_filter_release - release a socket filter
+ *	@fp: filter to remove
+ *
+ *	Remove a filter from a socket and release its resources.
+ */
+
+static inline void sk_filter_release(struct sk_filter *fp)
+{
+	if (atomic_dec_and_test(&fp->refcnt))
+		call_rcu(&fp->rcu, sk_filter_release_rcu);
+}
+
+static inline void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
+{
+	atomic_sub(sk_filter_size(fp->len), &sk->sk_omem_alloc);
+	sk_filter_release(fp);
+}
+
+static inline void sk_filter_charge(struct sock *sk, struct sk_filter *fp)
+{
+	atomic_inc(&fp->refcnt);
+	atomic_add(sk_filter_size(fp->len), &sk->sk_omem_alloc);
+}
 
 /*
  * Socket reference counting postulates.

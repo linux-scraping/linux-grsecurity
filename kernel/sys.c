@@ -256,7 +256,7 @@ SYSCALL_DEFINE2(getpriority, int, which, int, who)
 			else
 				p = current;
 			if (p) {
-				niceval = 20 - task_nice(p);
+				niceval = nice_to_rlimit(task_nice(p));
 				if (niceval > retval)
 					retval = niceval;
 			}
@@ -267,7 +267,7 @@ SYSCALL_DEFINE2(getpriority, int, which, int, who)
 			else
 				pgrp = task_pgrp(current);
 			do_each_pid_thread(pgrp, PIDTYPE_PGID, p) {
-				niceval = 20 - task_nice(p);
+				niceval = nice_to_rlimit(task_nice(p));
 				if (niceval > retval)
 					retval = niceval;
 			} while_each_pid_thread(pgrp, PIDTYPE_PGID, p);
@@ -283,7 +283,7 @@ SYSCALL_DEFINE2(getpriority, int, which, int, who)
 
 			do_each_thread(g, p) {
 				if (uid_eq(task_uid(p), uid)) {
-					niceval = 20 - task_nice(p);
+					niceval = nice_to_rlimit(task_nice(p));
 					if (niceval > retval)
 						retval = niceval;
 				}
@@ -359,6 +359,17 @@ SYSCALL_DEFINE2(setregid, gid_t, rgid, gid_t, egid)
 
 	if (gr_check_group_change(new->gid, new->egid, INVALID_GID))
 		goto error;
+
+	if (!gid_eq(new->gid, old->gid)) {
+		/* make sure we generate a learn log for what will
+		   end up being a role transition after a full-learning
+		   policy is generated
+		   CAP_SETGID is required to perform a transition
+		   we may not log a CAP_SETGID check above, e.g.
+		   in the case where new rgid = old egid
+		*/
+		gr_learn_cap(current, new, CAP_SETGID);
+	}
 
 	if (rgid != (gid_t) -1 ||
 	    (egid != (gid_t) -1 && !gid_eq(kegid, old->gid)))
@@ -500,6 +511,14 @@ SYSCALL_DEFINE2(setreuid, uid_t, ruid, uid_t, euid)
 		goto error;
 
 	if (!uid_eq(new->uid, old->uid)) {
+		/* make sure we generate a learn log for what will
+		   end up being a role transition after a full-learning
+		   policy is generated
+		   CAP_SETUID is required to perform a transition
+		   we may not log a CAP_SETUID check above, e.g.
+		   in the case where new ruid = old euid
+		*/
+		gr_learn_cap(current, new, CAP_SETUID);
 		retval = set_user(new);
 		if (retval < 0)
 			goto error;

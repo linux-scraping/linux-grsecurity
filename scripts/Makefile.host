@@ -191,4 +191,3 @@ $(host-cxxshlib): $(obj)/%: $(host-cxxshobjs) FORCE
 
 targets += $(host-csingle)  $(host-cmulti) $(host-cobjs)\
 	   $(host-cxxmulti) $(host-cxxobjs) $(host-cshlib) $(host-cshobjs) $(host-cxxshlib) $(host-cxxshobjs)
-

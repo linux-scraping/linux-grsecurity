@@ -7,6 +7,7 @@
 #include <asm/alternative.h>
 #include <asm/cmpxchg.h>
 #include <asm/rmwcc.h>
+#include <asm/barrier.h>
 
 /*
  * Atomic operations that C can't guarantee us.  Useful for
@@ -467,12 +468,6 @@ static inline void atomic_set_mask_unchecked(unsigned int mask, atomic_unchecked
 		     : "r" (mask)
 		     : "memory");
 }
-
-/* Atomic operations are already serializing on x86 */
-#define smp_mb__before_atomic_dec()	barrier()
-#define smp_mb__after_atomic_dec()	barrier()
-#define smp_mb__before_atomic_inc()	barrier()
-#define smp_mb__after_atomic_inc()	barrier()
 
 #ifdef CONFIG_X86_32
 # include <asm/atomic64_32.h>

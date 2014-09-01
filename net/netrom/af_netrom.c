@@ -850,6 +850,7 @@ static int nr_getname(struct socket *sock, struct sockaddr *uaddr,
 		*uaddr_len = sizeof(struct full_sockaddr_ax25);
 	} else {
 		sax->fsa_ax25.sax25_family = AF_NETROM;
+		sax->fsa_ax25.sax25_ndigis = 0;
 		sax->fsa_ax25.sax25_call   = nr->source_addr;
 		*uaddr_len = sizeof(struct sockaddr_ax25);
 	}

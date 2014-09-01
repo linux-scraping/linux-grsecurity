@@ -46,7 +46,7 @@ static void instruction_dump(unsigned long *pc)
 
 extern void gr_handle_kernel_exploit(void);
 
-void die_if_kernel(char *str, struct pt_regs *regs)
+void __noreturn die_if_kernel(char *str, struct pt_regs *regs)
 {
 	static int die_counter;
 	int count = 0;
@@ -222,8 +222,6 @@ static unsigned long fake_regs[32] __attribute__ ((aligned (8)));
 static unsigned long fake_fsr;
 static unsigned long fake_queue[32] __attribute__ ((aligned (8)));
 static unsigned long fake_depth;
-
-extern int do_mathemu(struct pt_regs *, struct task_struct *);
 
 void do_fpe_trap(struct pt_regs *regs, unsigned long pc, unsigned long npc,
 		 unsigned long psr)

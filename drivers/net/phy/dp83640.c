@@ -27,7 +27,6 @@
 #include <linux/module.h>
 #include <linux/net_tstamp.h>
 #include <linux/netdevice.h>
-#include <linux/if_vlan.h>
 #include <linux/phy.h>
 #include <linux/ptp_classify.h>
 #include <linux/ptp_clock_kernel.h>
@@ -1323,14 +1322,14 @@ static bool dp83640_rxtstamp(struct phy_device *phydev,
 {
 	struct dp83640_private *dp83640 = phydev->priv;
 
-	if (!dp83640->hwts_rx_en)
-		return false;
-
 	if (is_status_frame(skb, type)) {
 		decode_status_frame(dp83640, skb);
 		kfree_skb(skb);
 		return true;
 	}
+
+	if (!dp83640->hwts_rx_en)
+		return false;
 
 	SKB_PTP_TYPE(skb) = type;
 	skb_queue_tail(&dp83640->rx_queue, skb);
