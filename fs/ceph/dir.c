@@ -129,6 +129,8 @@ static int __dcache_readdir(struct file *file,  struct dir_context *ctx,
 	struct dentry *dentry, *last;
 	struct ceph_dentry_info *di;
 	int err = 0;
+	char d_name[DNAME_INLINE_LEN];
+	const unsigned char *name;
 
 	/* claim ref on last dentry we returned */
 	last = fi->dentry;
@@ -192,7 +194,12 @@ more:
 
 	dout(" %llu (%llu) dentry %p %.*s %p\n", di->offset, ctx->pos,
 	     dentry, dentry->d_name.len, dentry->d_name.name, dentry->d_inode);
-	if (!dir_emit(ctx, dentry->d_name.name,
+	name = dentry->d_name.name;
+	if (name == dentry->d_iname) {
+		memcpy(d_name, name, dentry->d_name.len);
+		name = d_name;
+	}
+	if (!dir_emit(ctx, name,
 		      dentry->d_name.len,
 		      ceph_translate_ino(dentry->d_sb, dentry->d_inode->i_ino),
 		      dentry->d_inode->i_mode >> 12)) {
