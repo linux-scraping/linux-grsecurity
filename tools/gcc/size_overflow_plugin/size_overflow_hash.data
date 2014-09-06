@@ -4699,6 +4699,7 @@ lpfc_idiag_queinfo_read_55662 lpfc_idiag_queinfo_read 3 55662 NULL
 il_dbgfs_tx_queue_read_55668 il_dbgfs_tx_queue_read 3 55668 NULL
 get_info_55681 get_info 3 55681 NULL
 iwl_dbgfs_plcp_delta_write_55682 iwl_dbgfs_plcp_delta_write 3 55682 NULL
+ext4_alloc_file_blocks_55689 ext4_alloc_file_blocks 3 55689 NULL
 genl_allocate_reserve_groups_55705 genl_allocate_reserve_groups 1 55705 NULL
 pm8001_store_update_fw_55716 pm8001_store_update_fw 4 55716 NULL
 tap_pwup_write_55723 tap_pwup_write 3 55723 NULL

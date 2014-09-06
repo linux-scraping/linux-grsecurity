@@ -316,7 +316,7 @@ static void __init armada_370_coherency_init(struct device_node *np)
 
 /*
  * This ioremap hook is used on Armada 375/38x to ensure that PCIe
- * memory areas are mapped as MT_UNCACHED instead of MT_DEVICE. This
+ * memory areas are mapped as MT_UNCACHED_RW instead of MT_DEVICE. This
  * is needed as a workaround for a deadlock issue between the PCIe
  * interface and the cache controller.
  */
@@ -329,7 +329,7 @@ armada_pcie_wa_ioremap_caller(phys_addr_t phys_addr, size_t size,
 	mvebu_mbus_get_pcie_mem_aperture(&pcie_mem);
 
 	if (pcie_mem.start <= phys_addr && (phys_addr + size) <= pcie_mem.end)
-		mtype = MT_UNCACHED;
+		mtype = MT_UNCACHED_RW;
 
 	return __arm_ioremap_caller(phys_addr, size, mtype, caller);
 }
