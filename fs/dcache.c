@@ -2402,7 +2402,7 @@ void dentry_update_name_case(struct dentry *dentry, struct qstr *name)
 }
 EXPORT_SYMBOL(dentry_update_name_case);
 
-static void switch_names(struct dentry *dentry, struct dentry *target)
+static void switch_names(struct dentry *dentry, struct dentry *target, bool exchange)
 {
 	if (dname_external(target)) {
 		if (dname_external(dentry)) {
@@ -2430,7 +2430,7 @@ static void switch_names(struct dentry *dentry, struct dentry *target)
 					target->d_name.len + 1);
 			target->d_name.name = dentry->d_name.name;
 			dentry->d_name.name = dentry->d_iname;
-		} else {
+		} else if (exchange) {
 			/*
 			 * Both are internal.
 			 */
@@ -2440,6 +2440,14 @@ static void switch_names(struct dentry *dentry, struct dentry *target)
 				swap(((long *) &dentry->d_iname)[i],
 				     ((long *) &target->d_iname)[i]);
 			}
+		} else {
+			/*
+			 * Both are internal.  Just copy target to dentry
+			 */
+			memcpy(dentry->d_iname, target->d_name.name,
+				target->d_name.len + 1);
+			dentry->d_name.len = target->d_name.len;
+			return;
 		}
 	}
 	swap(dentry->d_name.len, target->d_name.len);
@@ -2540,7 +2548,7 @@ static void __d_move(struct dentry *dentry, struct dentry *target,
 	list_del(&target->d_u.d_child);
 
 	/* Switch the names.. */
-	switch_names(dentry, target);
+	switch_names(dentry, target, exchange);
 	swap(dentry->d_name.hash, target->d_name.hash);
 
 	/* ... and switch the parents */
@@ -2679,7 +2687,7 @@ static void __d_materialise_dentry(struct dentry *dentry, struct dentry *anon)
 
 	dparent = dentry->d_parent;
 
-	switch_names(dentry, anon);
+	switch_names(dentry, anon, false);
 	swap(dentry->d_name.hash, anon->d_name.hash);
 
 	dentry->d_parent = dentry;
