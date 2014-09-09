@@ -1509,7 +1509,26 @@ retint_swapgs_pax:
 retint_restore_args:	/* return to kernel space */
 	DISABLE_INTERRUPTS(CLBR_ANY)
 	pax_exit_kernel
+
+#if defined(CONFIG_EFI) && defined(CONFIG_PAX_KERNEXEC)
+	/* This is a quirk to allow IRQs/NMIs/MCEs during early EFI setup,
+	 * namely calling EFI runtime services with a phys mapping. We're
+	 * starting off with NOPs and patch in the real instrumentation
+	 * (BTS/OR) before starting any userland process; even before starting
+	 * up the APs.
+	 */
+	.pushsection .altinstr_replacement, "a"
+	601: pax_force_retaddr (RIP-ARGOFFSET)
+	602:
+	.popsection
+	603: .fill 602b-601b, 1, 0x90
+	.pushsection .altinstructions, "a"
+	altinstruction_entry 603b, 601b, X86_FEATURE_ALWAYS, 602b-601b, 602b-601b
+	.popsection
+#else
 	pax_force_retaddr (RIP-ARGOFFSET)
+#endif
+
 	/*
 	 * The iretq could re-enable interrupts:
 	 */
