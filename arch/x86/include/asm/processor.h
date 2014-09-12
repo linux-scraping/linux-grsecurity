@@ -205,7 +205,7 @@ static inline void native_cpuid(unsigned int *eax, unsigned int *ebx,
 #define INVPCID_SINGLE_ADDRESS	0UL
 #define INVPCID_SINGLE_CONTEXT	1UL
 #define INVPCID_ALL_GLOBAL	2UL
-#define INVPCID_ALL_MONGLOBAL	3UL
+#define INVPCID_ALL_NONGLOBAL	3UL
 
 #define PCID_KERNEL		0UL
 #define PCID_USER		1UL
