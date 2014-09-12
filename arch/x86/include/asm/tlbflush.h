@@ -21,7 +21,7 @@ static inline void __native_flush_tlb(void)
 		u64 descriptor[2];
 
 		descriptor[0] = PCID_KERNEL;
-		asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_ALL_MONGLOBAL) : "memory");
+		asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_ALL_NONGLOBAL) : "memory");
 		return;
 	}
 
