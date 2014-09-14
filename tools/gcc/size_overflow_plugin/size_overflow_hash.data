@@ -377,6 +377,7 @@ compat_rawv6_setsockopt_4967 compat_rawv6_setsockopt 5 4967 NULL
 skb_network_header_len_4971 skb_network_header_len 0 4971 NULL
 do_mincore_5018 do_mincore 0-2-1 5018 NULL
 mtd_device_parse_register_5024 mtd_device_parse_register 5 5024 NULL
+__ip_select_ident_5046 __ip_select_ident 2 5046 NULL
 ocfs2_check_range_for_holes_5066 ocfs2_check_range_for_holes 2-3 5066 NULL
 __kmalloc_track_caller_5071 __kmalloc_track_caller 1 5071 NULL
 snd_mixart_BA1_read_5082 snd_mixart_BA1_read 5 5082 NULL
@@ -502,6 +503,7 @@ lbs_rdrf_write_6826 lbs_rdrf_write 3 6826 NULL
 calc_pages_for_6838 calc_pages_for 0-1-2 6838 NULL
 mon_bin_read_6841 mon_bin_read 3 6841 NULL
 snd_cs4281_BA0_read_6847 snd_cs4281_BA0_read 5 6847 NULL
+ip_select_ident_segs_6862 ip_select_ident_segs 3 6862 NULL
 ieee80211_if_fmt_path_refresh_time_6888 ieee80211_if_fmt_path_refresh_time 3 6888 NULL nohasharray
 raw_seticmpfilter_6888 raw_seticmpfilter 3 6888 &ieee80211_if_fmt_path_refresh_time_6888
 dlmfs_file_write_6892 dlmfs_file_write 3 6892 NULL
@@ -1597,6 +1599,7 @@ tm6000_i2c_send_regs_20250 tm6000_i2c_send_regs 5 20250 NULL
 _rtl92s_get_h2c_cmdlen_20312 _rtl92s_get_h2c_cmdlen 0 20312 NULL
 vx_send_msg_nolock_20322 vx_send_msg_nolock 0 20322 NULL
 snd_cs4281_BA1_read_20323 snd_cs4281_BA1_read 5 20323 NULL
+ip_idents_reserve_20328 ip_idents_reserve 2 20328 NULL
 gfs2_glock_nq_m_20347 gfs2_glock_nq_m 1 20347 NULL
 snd_nm256_readl_20394 snd_nm256_readl 0 20394 NULL
 __kfifo_from_user_20399 __kfifo_from_user 3 20399 NULL
@@ -2328,6 +2331,7 @@ cifs_ucs2_bytes_29790 cifs_ucs2_bytes 0 29790 NULL
 dbAlloc_29794 dbAlloc 0 29794 NULL
 tcp_sendpage_29829 tcp_sendpage 4-3 29829 NULL
 __probe_kernel_write_29842 __probe_kernel_write 3 29842 NULL
+count_partial_29850 count_partial 0 29850 NULL
 ipv6_setsockopt_29871 ipv6_setsockopt 5 29871 NULL
 scsi_end_request_29876 scsi_end_request 3 29876 NULL
 crypto_aead_alignmask_29885 crypto_aead_alignmask 0 29885 NULL
@@ -3343,6 +3347,7 @@ drm_ioctl_42813 drm_ioctl 2 42813 NULL
 iwl_dbgfs_ucode_bt_stats_read_42820 iwl_dbgfs_ucode_bt_stats_read 3 42820 NULL
 set_arg_42824 set_arg 3 42824 NULL
 ocfs2_desc_bitmap_to_cluster_off_42831 ocfs2_desc_bitmap_to_cluster_off 2 42831 NULL
+prandom_u32_42853 prandom_u32 0 42853 NULL
 ocfs2_clusters_for_bytes_42872 ocfs2_clusters_for_bytes 0-2 42872 NULL
 pskb_expand_head_42881 pskb_expand_head 2-3 42881 NULL
 tipc_port_recv_sections_42890 tipc_port_recv_sections 4 42890 NULL
