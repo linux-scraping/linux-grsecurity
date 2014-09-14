@@ -47,4 +47,36 @@ static inline int __lockref_is_dead(const struct lockref *l)
 	return ((int)l->count < 0);
 }
 
+static inline unsigned int __lockref_read(struct lockref *lockref)
+{
+	return lockref->count;
+}
+
+static inline void __lockref_set(struct lockref *lockref, unsigned int count)
+{
+	lockref->count = count;
+}
+
+static inline void __lockref_inc(struct lockref *lockref)
+{
+
+#ifdef CONFIG_PAX_REFCOUNT
+	atomic_inc((atomic_t *)&lockref->count);
+#else
+	lockref->count++;
+#endif
+
+}
+
+static inline void __lockref_dec(struct lockref *lockref)
+{
+
+#ifdef CONFIG_PAX_REFCOUNT
+	atomic_dec((atomic_t *)&lockref->count);
+#else
+	lockref->count--;
+#endif
+
+}
+
 #endif /* __LINUX_LOCKREF_H */

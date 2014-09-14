@@ -714,6 +714,8 @@ static inline long long atomic64_sub_return(long long i, atomic64_t *v)
 	: "r" (&v->counter), "r" (i)
 	: "cc");
 
+	smp_mb();
+
 	return result;
 }
 
