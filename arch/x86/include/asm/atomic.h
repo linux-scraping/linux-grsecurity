@@ -360,7 +360,7 @@ no_xadd: /* Legacy 386 processor */
  *
  * Atomically adds @i to @v and returns @i + @v
  */
-static inline int atomic_add_return_unchecked(int i, atomic_unchecked_t *v)
+static inline int __intentional_overflow(-1) atomic_add_return_unchecked(int i, atomic_unchecked_t *v)
 {
 #ifdef CONFIG_M386
 	int __i;
@@ -394,7 +394,7 @@ static inline int atomic_sub_return(int i, atomic_t *v)
 }
 
 #define atomic_inc_return(v)  (atomic_add_return(1, v))
-static inline int atomic_inc_return_unchecked(atomic_unchecked_t *v)
+static inline int __intentional_overflow(-1) atomic_inc_return_unchecked(atomic_unchecked_t *v)
 {
 	return atomic_add_return_unchecked(1, v);
 }
