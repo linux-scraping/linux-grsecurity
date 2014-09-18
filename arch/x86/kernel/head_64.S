@@ -182,15 +182,16 @@ ENTRY(secondary_startup_64)
 	btl	$(X86_FEATURE_NX & 31),%edi	/* No Execute supported? */
 	jnc     1f
 	btsl	$_EFER_NX, %eax
-#ifndef CONFIG_EFI
+	cmpb	$0, init_level4_pgt_initialized(%rip)
+	jne	1f
 	btsq	$_PAGE_BIT_NX, init_level4_pgt + 8*L4_PAGE_OFFSET(%rip)
-#endif
 	btsq	$_PAGE_BIT_NX, init_level4_pgt + 8*L4_VMALLOC_START(%rip)
 	btsq	$_PAGE_BIT_NX, init_level4_pgt + 8*L4_VMALLOC_END(%rip)
 	btsq	$_PAGE_BIT_NX, init_level4_pgt + 8*L4_VMEMMAP_START(%rip)
 	btsq	$_PAGE_BIT_NX, level2_fixmap_pgt + 8*506(%rip)
 	btsq	$_PAGE_BIT_NX, level2_fixmap_pgt + 8*507(%rip)
 	btsq	$_PAGE_BIT_NX, __supported_pte_mask(%rip)
+	movb	$1, init_level4_pgt_initialized(%rip)
 1:	wrmsr				/* Make changes effective */
 
 	/* Setup cr0 */
@@ -476,6 +477,9 @@ early_gdt_descr_base:
 ENTRY(phys_base)
 	/* This must match the first entry in level2_kernel_pgt */
 	.quad   0x0000000000000000
+
+init_level4_pgt_initialized:
+	.byte 0x00
 
 #include "../../x86/xen/xen-head.S"
 

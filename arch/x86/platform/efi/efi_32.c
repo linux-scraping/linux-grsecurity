@@ -91,3 +91,7 @@ void efi_call_phys_epilog(void)
 
 	local_irq_restore(efi_rt_eflags);
 }
+
+void __init efi_setup_pgd(void)
+{
+}

@@ -119,3 +119,19 @@ void __iomem *__init efi_ioremap(unsigned long phys_addr, unsigned long size,
 
 	return (void __iomem *)__va(phys_addr);
 }
+
+void __init efi_setup_pgd(void)
+{
+	/* PaX: We need to disable the NX bit in the PGD, otherwise we won't be
+	 * able to execute the EFI services.
+	 */
+	if (__supported_pte_mask & _PAGE_NX) {
+		unsigned long addr = (unsigned long) __va(0);
+		pgd_t pe = __pgd(pgd_val(*pgd_offset_k(addr)) & ~_PAGE_NX);
+		pr_info("PAX: Disabling NX protection for low memory map.\n");
+#ifdef CONFIG_PAX_PER_CPU_PGD
+		set_pgd(pgd_offset_cpu(0, addr), pe);
+#endif
+		set_pgd(pgd_offset_k(addr), pe);
+	}
+}

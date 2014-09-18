@@ -747,6 +747,8 @@ void __init efi_enter_virtual_mode(void)
 
 	BUG_ON(!efi.systab);
 
+	efi_setup_pgd();
+
 	status = phys_efi_set_virtual_address_map(
 		memmap.desc_size * count,
 		memmap.desc_size,

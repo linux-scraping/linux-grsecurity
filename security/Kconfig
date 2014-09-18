@@ -588,6 +588,17 @@ config PAX_KERNEXEC
 	  that is, enabling this option will make it harder to inject
 	  and execute 'foreign' code in kernel memory itself.
 
+	  Note that on amd64 with CONFIG_EFI enabled, the physical map
+	  is required to be RWX if EFI runtime services are active.
+	  Newer kernels do not have this limitation.
+
+	  Likewise, if EFI runtime services are active, the memory for
+	  the services is mapped RWX.
+
+	  If your system is EFI-enabled, it is thus strongly recommended
+	  that you boot with "noefi" on the kernel command-line if
+	  possible.
+
 choice
 	prompt "Return Address Instrumentation Method"
 	default PAX_KERNEXEC_PLUGIN_METHOD_BTS
