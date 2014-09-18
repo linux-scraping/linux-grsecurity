@@ -4753,6 +4753,7 @@ mxuport_process_read_urb_data_52072 mxuport_process_read_urb_data 3 52072 NULL
 nsm_get_handle_52089 nsm_get_handle 4 52089 NULL
 ulist_add_merge_52096 ulist_add_merge 0 52096 NULL
 o2net_debug_read_52105 o2net_debug_read 3 52105 NULL
+smsdvb_stats_read_52114 smsdvb_stats_read 3 52114 NULL
 split_scan_timeout_write_52128 split_scan_timeout_write 3 52128 NULL
 retry_count_read_52129 retry_count_read 3 52129 NULL
 xfs_btree_change_owner_52137 xfs_btree_change_owner 0 52137 NULL

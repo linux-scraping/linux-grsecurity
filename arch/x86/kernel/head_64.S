@@ -195,6 +195,7 @@ ENTRY(secondary_startup_64)
 	 * after the boot processor executes this code.
 	 */
 
+	orq	$-1, %rbp
 	movq	$(init_level4_pgt - __START_KERNEL_map), %rax
 1:
 
@@ -223,10 +224,10 @@ ENTRY(secondary_startup_64)
 	btl	$(X86_FEATURE_NX & 31),%edi	/* No Execute supported? */
 	jnc     1f
 	btsl	$_EFER_NX, %eax
+	cmpq	$-1, %rbp
+	je	1f
 	btsq	$_PAGE_BIT_NX,early_pmd_flags(%rip)
-#ifndef CONFIG_EFI
 	btsq	$_PAGE_BIT_NX, init_level4_pgt + 8*L4_PAGE_OFFSET(%rip)
-#endif
 	btsq	$_PAGE_BIT_NX, init_level4_pgt + 8*L4_VMALLOC_START(%rip)
 	btsq	$_PAGE_BIT_NX, init_level4_pgt + 8*L4_VMALLOC_END(%rip)
 	btsq	$_PAGE_BIT_NX, init_level4_pgt + 8*L4_VMEMMAP_START(%rip)

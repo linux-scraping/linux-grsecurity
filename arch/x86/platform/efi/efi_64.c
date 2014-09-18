@@ -151,8 +151,23 @@ int efi_setup_page_tables(unsigned long pa_memmap, unsigned num_pages)
 {
 	pgd_t *pgd;
 
-	if (efi_enabled(EFI_OLD_MEMMAP))
+	if (efi_enabled(EFI_OLD_MEMMAP)) {
+		/* PaX: We need to disable the NX bit in the PGD, otherwise we won't be
+		 * able to execute the EFI services.
+		 */
+		if (__supported_pte_mask & _PAGE_NX) {
+			unsigned long addr = (unsigned long) __va(0);
+			pgd_t pe = __pgd(pgd_val(*pgd_offset_k(addr)) &  ~_PAGE_NX);
+
+			pr_alert("PAX: Disabling NX protection for low memory map. Try booting without \"efi=old_map\"\n");
+#ifdef CONFIG_PAX_PER_CPU_PGD
+			set_pgd(pgd_offset_cpu(0, kernel, addr), pe);
+#endif
+			set_pgd(pgd_offset_k(addr), pe);
+		}
+
 		return 0;
+	}
 
 	efi_scratch.efi_pgt = (pgd_t *)(unsigned long)real_mode_header->trampoline_pgd;
 	pgd = __va(efi_scratch.efi_pgt);
