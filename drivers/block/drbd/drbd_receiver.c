@@ -1739,7 +1739,7 @@ static int recv_resync_read(struct drbd_peer_device *peer_device, sector_t secto
 	list_add(&peer_req->w.list, &device->sync_ee);
 	spin_unlock_irq(&device->resource->req_lock);
 
-	atomic_add(pi->size >> 9, &device->rs_sect_ev);
+	atomic_add_unchecked(pi->size >> 9, &device->rs_sect_ev);
 	if (drbd_submit_peer_request(device, peer_req, WRITE, DRBD_FAULT_RS_WR) == 0)
 		return 0;
 
@@ -1837,7 +1837,7 @@ static int receive_RSDataReply(struct drbd_connection *connection, struct packet
 		drbd_send_ack_dp(peer_device, P_NEG_ACK, p, pi->size);
 	}
 
-	atomic_add(pi->size >> 9, &device->rs_sect_in);
+	atomic_add_unchecked(pi->size >> 9, &device->rs_sect_in);
 
 	return err;
 }
@@ -2406,7 +2406,7 @@ bool drbd_rs_c_min_rate_throttle(struct drbd_device *device)
 
 	curr_events = (int)part_stat_read(&disk->part0, sectors[0]) +
 		      (int)part_stat_read(&disk->part0, sectors[1]) -
-			atomic_read(&device->rs_sect_ev);
+			atomic_read_unchecked(&device->rs_sect_ev);
 	if (!device->rs_last_events || curr_events - device->rs_last_events > 64) {
 		unsigned long rs_left;
 		int i;
@@ -2540,7 +2540,7 @@ static int receive_DataRequest(struct drbd_connection *connection, struct packet
 			device->bm_resync_fo = BM_SECT_TO_BIT(sector);
 		} else if (pi->cmd == P_OV_REPLY) {
 			/* track progress, we may need to throttle */
-			atomic_add(size >> 9, &device->rs_sect_in);
+			atomic_add_unchecked(size >> 9, &device->rs_sect_in);
 			peer_req->w.cb = w_e_end_ov_reply;
 			dec_rs_pending(device);
 			/* drbd_rs_begin_io done when we sent this request,
@@ -2601,7 +2601,7 @@ static int receive_DataRequest(struct drbd_connection *connection, struct packet
 		goto out_free_e;
 
 submit_for_resync:
-	atomic_add(size >> 9, &device->rs_sect_ev);
+	atomic_add_unchecked(size >> 9, &device->rs_sect_ev);
 
 submit:
 	inc_unacked(device);
@@ -5076,7 +5076,7 @@ static int got_IsInSync(struct drbd_connection *connection, struct packet_info *
 		put_ldev(device);
 	}
 	dec_rs_pending(device);
-	atomic_add(blksize >> 9, &device->rs_sect_in);
+	atomic_add_unchecked(blksize >> 9, &device->rs_sect_in);
 
 	return 0;
 }

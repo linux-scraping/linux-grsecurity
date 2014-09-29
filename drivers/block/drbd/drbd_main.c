@@ -1905,8 +1905,8 @@ void drbd_init_set_defaults(struct drbd_device *device)
 	atomic_set(&device->unacked_cnt, 0);
 	atomic_set(&device->local_cnt, 0);
 	atomic_set(&device->pp_in_use_by_net, 0);
-	atomic_set(&device->rs_sect_in, 0);
-	atomic_set(&device->rs_sect_ev, 0);
+	atomic_set_unchecked(&device->rs_sect_in, 0);
+	atomic_set_unchecked(&device->rs_sect_ev, 0);
 	atomic_set(&device->ap_in_flight, 0);
 	atomic_set(&device->md_io_in_use, 0);
 

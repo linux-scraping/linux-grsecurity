@@ -807,8 +807,8 @@ struct drbd_device {
 	struct mutex own_state_mutex;
 	struct mutex *state_mutex; /* either own_state_mutex or first_peer_device(device)->connection->cstate_mutex */
 	char congestion_reason;  /* Why we where congested... */
-	atomic_t rs_sect_in; /* for incoming resync data rate, SyncTarget */
-	atomic_t rs_sect_ev; /* for submitted resync data rate, both */
+	atomic_unchecked_t rs_sect_in; /* for incoming resync data rate, SyncTarget */
+	atomic_unchecked_t rs_sect_ev; /* for submitted resync data rate, both */
 	int rs_last_sect_ev; /* counter to compare with */
 	int rs_last_events;  /* counter of read or write "events" (unit sectors)
 			      * on the lower level device when we last looked. */

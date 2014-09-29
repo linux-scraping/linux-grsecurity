@@ -413,7 +413,7 @@ static int read_for_csum(struct drbd_peer_device *peer_device, sector_t sector, 
 	list_add(&peer_req->w.list, &device->read_ee);
 	spin_unlock_irq(&device->resource->req_lock);
 
-	atomic_add(size >> 9, &device->rs_sect_ev);
+	atomic_add_unchecked(size >> 9, &device->rs_sect_ev);
 	if (drbd_submit_peer_request(device, peer_req, READ, DRBD_FAULT_RS_RD) == 0)
 		return 0;
 
@@ -558,7 +558,7 @@ static int drbd_rs_number_requests(struct drbd_device *device)
 	unsigned int sect_in;  /* Number of sectors that came in since the last turn */
 	int number, mxb;
 
-	sect_in = atomic_xchg(&device->rs_sect_in, 0);
+	sect_in = atomic_xchg_unchecked(&device->rs_sect_in, 0);
 	device->rs_in_flight -= sect_in;
 
 	rcu_read_lock();
@@ -1583,8 +1583,8 @@ void drbd_rs_controller_reset(struct drbd_device *device)
 {
 	struct fifo_buffer *plan;
 
-	atomic_set(&device->rs_sect_in, 0);
-	atomic_set(&device->rs_sect_ev, 0);
+	atomic_set_unchecked(&device->rs_sect_in, 0);
+	atomic_set_unchecked(&device->rs_sect_ev, 0);
 	device->rs_in_flight = 0;
 
 	/* Updating the RCU protected object in place is necessary since
