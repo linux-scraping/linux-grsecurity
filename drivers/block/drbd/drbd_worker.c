@@ -400,7 +400,7 @@ static int read_for_csum(struct drbd_conf *mdev, sector_t sector, int size)
 	list_add(&peer_req->w.list, &mdev->read_ee);
 	spin_unlock_irq(&mdev->tconn->req_lock);
 
-	atomic_add(size >> 9, &mdev->rs_sect_ev);
+	atomic_add_unchecked(size >> 9, &mdev->rs_sect_ev);
 	if (drbd_submit_peer_request(mdev, peer_req, READ, DRBD_FAULT_RS_RD) == 0)
 		return 0;
 
@@ -498,7 +498,7 @@ static int drbd_rs_controller(struct drbd_conf *mdev)
 	int max_sect;
 	struct fifo_buffer *plan;
 
-	sect_in = atomic_xchg(&mdev->rs_sect_in, 0); /* Number of sectors that came in */
+	sect_in = atomic_xchg_unchecked(&mdev->rs_sect_in, 0); /* Number of sectors that came in */
 	mdev->rs_in_flight -= sect_in;
 
 	dc = rcu_dereference(mdev->ldev->disk_conf);
@@ -1561,8 +1561,8 @@ void drbd_rs_controller_reset(struct drbd_conf *mdev)
 {
 	struct fifo_buffer *plan;
 
-	atomic_set(&mdev->rs_sect_in, 0);
-	atomic_set(&mdev->rs_sect_ev, 0);
+	atomic_set_unchecked(&mdev->rs_sect_in, 0);
+	atomic_set_unchecked(&mdev->rs_sect_ev, 0);
 	mdev->rs_in_flight = 0;
 
 	/* Updating the RCU protected object in place is necessary since
