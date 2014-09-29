@@ -1449,7 +1449,7 @@ static int recv_resync_read(struct drbd_conf *mdev, sector_t sector, int data_si
 	list_add(&e->w.list, &mdev->sync_ee);
 	spin_unlock_irq(&mdev->req_lock);
 
-	atomic_add(data_size >> 9, &mdev->rs_sect_ev);
+	atomic_add_unchecked(data_size >> 9, &mdev->rs_sect_ev);
 	if (drbd_submit_ee(mdev, e, WRITE, DRBD_FAULT_RS_WR) == 0)
 		return true;
 
@@ -1519,7 +1519,7 @@ static int receive_RSDataReply(struct drbd_conf *mdev, enum drbd_packets cmd, un
 		drbd_send_ack_dp(mdev, P_NEG_ACK, p, data_size);
 	}
 
-	atomic_add(data_size >> 9, &mdev->rs_sect_in);
+	atomic_add_unchecked(data_size >> 9, &mdev->rs_sect_in);
 
 	return ok;
 }
@@ -1906,7 +1906,7 @@ int drbd_rs_should_slow_down(struct drbd_conf *mdev, sector_t sector)
 
 	curr_events = (int)part_stat_read(&disk->part0, sectors[0]) +
 		      (int)part_stat_read(&disk->part0, sectors[1]) -
-			atomic_read(&mdev->rs_sect_ev);
+			atomic_read_unchecked(&mdev->rs_sect_ev);
 
 	if (!mdev->rs_last_events || curr_events - mdev->rs_last_events > 64) {
 		unsigned long rs_left;
@@ -2034,7 +2034,7 @@ static int receive_DataRequest(struct drbd_conf *mdev, enum drbd_packets cmd, un
 			mdev->bm_resync_fo = BM_SECT_TO_BIT(sector);
 		} else if (cmd == P_OV_REPLY) {
 			/* track progress, we may need to throttle */
-			atomic_add(size >> 9, &mdev->rs_sect_in);
+			atomic_add_unchecked(size >> 9, &mdev->rs_sect_in);
 			e->w.cb = w_e_end_ov_reply;
 			dec_rs_pending(mdev);
 			/* drbd_rs_begin_io done when we sent this request,
@@ -2098,7 +2098,7 @@ static int receive_DataRequest(struct drbd_conf *mdev, enum drbd_packets cmd, un
 		goto out_free_e;
 
 submit_for_resync:
-	atomic_add(size >> 9, &mdev->rs_sect_ev);
+	atomic_add_unchecked(size >> 9, &mdev->rs_sect_ev);
 
 submit:
 	inc_unacked(mdev);
@@ -4240,7 +4240,7 @@ static int got_IsInSync(struct drbd_conf *mdev, struct p_header80 *h)
 		put_ldev(mdev);
 	}
 	dec_rs_pending(mdev);
-	atomic_add(blksize >> 9, &mdev->rs_sect_in);
+	atomic_add_unchecked(blksize >> 9, &mdev->rs_sect_in);
 
 	return true;
 }

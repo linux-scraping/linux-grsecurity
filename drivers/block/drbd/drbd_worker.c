@@ -368,7 +368,7 @@ static int read_for_csum(struct drbd_conf *mdev, sector_t sector, int size)
 	list_add(&e->w.list, &mdev->read_ee);
 	spin_unlock_irq(&mdev->req_lock);
 
-	atomic_add(size >> 9, &mdev->rs_sect_ev);
+	atomic_add_unchecked(size >> 9, &mdev->rs_sect_ev);
 	if (drbd_submit_ee(mdev, e, READ, DRBD_FAULT_RS_RD) == 0)
 		return 0;
 
@@ -448,7 +448,7 @@ static int drbd_rs_controller(struct drbd_conf *mdev)
 	int curr_corr;
 	int max_sect;
 
-	sect_in = atomic_xchg(&mdev->rs_sect_in, 0); /* Number of sectors that came in */
+	sect_in = atomic_xchg_unchecked(&mdev->rs_sect_in, 0); /* Number of sectors that came in */
 	mdev->rs_in_flight -= sect_in;
 
 	spin_lock(&mdev->peer_seq_lock); /* get an atomic view on mdev->rs_plan_s */
@@ -1455,8 +1455,8 @@ int drbd_alter_sa(struct drbd_conf *mdev, int na)
 
 void drbd_rs_controller_reset(struct drbd_conf *mdev)
 {
-	atomic_set(&mdev->rs_sect_in, 0);
-	atomic_set(&mdev->rs_sect_ev, 0);
+	atomic_set_unchecked(&mdev->rs_sect_in, 0);
+	atomic_set_unchecked(&mdev->rs_sect_ev, 0);
 	mdev->rs_in_flight = 0;
 	mdev->rs_planed = 0;
 	spin_lock(&mdev->peer_seq_lock);
