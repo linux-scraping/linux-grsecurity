@@ -3,6 +3,7 @@
 
 #include <linux/compiler.h>
 #include <asm/thread_info.h>
+#include <asm/pgtable.h>
 
 #ifdef __ASSEMBLY__
 #include <asm/asm-offsets.h>
@@ -53,7 +54,6 @@
 #endif
 
 #ifndef __ASSEMBLY__
-#include <asm/pgtable.h>
 
 static inline void set_tls(unsigned long val)
 {
@@ -82,6 +82,7 @@ static inline void set_tls(unsigned long val)
 			asm("mcr p15, 0, %0, c13, c0, 3"
 			    : : "r" (val));
 		} else {
+#ifdef CONFIG_KUSER_HELPERS
 			/*
 			 * User space must never try to access this
 			 * directly.  Expect your app to break
@@ -92,6 +93,7 @@ static inline void set_tls(unsigned long val)
 			pax_open_kernel();
 			*((unsigned int *)0xffff0ff0) = val;
 			pax_close_kernel();
+#endif
 		}
 
 	}

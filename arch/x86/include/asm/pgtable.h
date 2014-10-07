@@ -100,6 +100,7 @@ static inline unsigned long native_pax_open_kernel(void)
 	cr0 = read_cr0() ^ X86_CR0_WP;
 	BUG_ON(cr0 & X86_CR0_WP);
 	write_cr0(cr0);
+	barrier();
 	return cr0 ^ X86_CR0_WP;
 }
 
@@ -107,6 +108,7 @@ static inline unsigned long native_pax_close_kernel(void)
 {
 	unsigned long cr0;
 
+	barrier();
 	cr0 = read_cr0() ^ X86_CR0_WP;
 	BUG_ON(!(cr0 & X86_CR0_WP));
 	write_cr0(cr0);
