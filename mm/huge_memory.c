@@ -1347,6 +1347,11 @@ static int __split_huge_page_map(struct page *page,
 		     i++, haddr += PAGE_SIZE) {
 			pte_t *pte, entry;
 			BUG_ON(PageCompound(page+i));
+			/*
+			 * Note that pmd_numa is not transferred deliberately
+			 * to avoid any possibility that pte_numa leaks to
+			 * a PROT_NONE VMA by accident.
+			 */
 			entry = mk_pte(page + i, vma->vm_page_prot);
 			entry = maybe_mkwrite(pte_mkdirty(entry), vma);
 			if (!pmd_write(*pmd))
