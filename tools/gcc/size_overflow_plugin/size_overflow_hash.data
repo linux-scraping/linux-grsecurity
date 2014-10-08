@@ -1286,7 +1286,7 @@ sta_dev_read_14782 sta_dev_read 3 14782 NULL
 keys_proc_write_14792 keys_proc_write 3 14792 NULL
 ext4_kvmalloc_14796 ext4_kvmalloc 1 14796 NULL
 __kfifo_in_14797 __kfifo_in 3-0 14797 NULL nohasharray
-ttm_page_pool_free_14797 ttm_page_pool_free 2 14797 &__kfifo_in_14797
+ttm_page_pool_free_14797 ttm_page_pool_free 2-0 14797 &__kfifo_in_14797
 hpet_readl_14801 hpet_readl 0 14801 NULL nohasharray
 snd_als300_gcr_read_14801 snd_als300_gcr_read 0 14801 &hpet_readl_14801
 mrp_attr_create_14853 mrp_attr_create 3 14853 NULL
@@ -1687,7 +1687,7 @@ __read_status_pciv2_19492 __read_status_pciv2 0 19492 NULL
 kstrtoll_from_user_19500 kstrtoll_from_user 2 19500 NULL
 ext4_add_new_descs_19509 ext4_add_new_descs 3 19509 NULL
 batadv_tvlv_container_register_19520 batadv_tvlv_container_register 5 19520 NULL
-ttm_dma_page_pool_free_19527 ttm_dma_page_pool_free 2 19527 NULL
+ttm_dma_page_pool_free_19527 ttm_dma_page_pool_free 2-0 19527 NULL
 nfc_llcp_build_tlv_19536 nfc_llcp_build_tlv 3 19536 NULL
 gfn_to_index_19558 gfn_to_index 0-1-3-2 19558 NULL
 ocfs2_control_message_19564 ocfs2_control_message 3 19564 NULL
