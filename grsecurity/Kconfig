@@ -938,6 +938,8 @@ config GRKERNSEC_BLACKHOLE
 	  If you say Y here, neither TCP resets nor ICMP
 	  destination-unreachable packets will be sent in response to packets
 	  sent to ports for which no associated listening process exists.
+	  It will also prevent the sending of ICMP protocol unreachable packets
+	  in response to packets with unknown protocols.
 	  This feature supports both IPV4 and IPV6 and exempts the 
 	  loopback interface from blackholing.  Enabling this feature 
 	  makes a host more resilient to DoS attacks and reduces network
