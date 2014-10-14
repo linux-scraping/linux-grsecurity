@@ -378,8 +378,8 @@ ipxotp_read_region(struct otpinfo *oi, int region, u16 *data, uint *wlen)
 }
 
 static const struct otp_fn_s ipxotp_fn = {
-	(int (*)(struct si_pub *, struct otpinfo *)) ipxotp_init,
-	(int (*)(struct otpinfo *, int, u16 *, uint *)) ipxotp_read_region,
+	.init = ipxotp_init,
+	.read_region = ipxotp_read_region,
 };
 
 static int otp_init(struct si_pub *sih, struct otpinfo *oi)
