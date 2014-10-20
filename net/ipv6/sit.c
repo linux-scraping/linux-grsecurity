@@ -101,19 +101,19 @@ static struct ip_tunnel *ipip6_tunnel_lookup(struct net *net,
 	for_each_ip_tunnel_rcu(t, sitn->tunnels_r_l[h0 ^ h1]) {
 		if (local == t->parms.iph.saddr &&
 		    remote == t->parms.iph.daddr &&
-		    (!dev || !t->parms.link || dev->iflink == t->parms.link) &&
+		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
 		    (t->dev->flags & IFF_UP))
 			return t;
 	}
 	for_each_ip_tunnel_rcu(t, sitn->tunnels_r[h0]) {
 		if (remote == t->parms.iph.daddr &&
-		    (!dev || !t->parms.link || dev->iflink == t->parms.link) &&
+		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
 		    (t->dev->flags & IFF_UP))
 			return t;
 	}
 	for_each_ip_tunnel_rcu(t, sitn->tunnels_l[h1]) {
 		if (local == t->parms.iph.saddr &&
-		    (!dev || !t->parms.link || dev->iflink == t->parms.link) &&
+		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
 		    (t->dev->flags & IFF_UP))
 			return t;
 	}
@@ -484,11 +484,11 @@ static void ipip6_tunnel_uninit(struct net_device *dev)
  */
 static int ipip6_err_gen_icmpv6_unreach(struct sk_buff *skb)
 {
-	const struct iphdr *iph = (const struct iphdr *) skb->data;
+	int ihl = ((const struct iphdr *)skb->data)->ihl*4;
 	struct rt6_info *rt;
 	struct sk_buff *skb2;
 
-	if (!pskb_may_pull(skb, iph->ihl * 4 + sizeof(struct ipv6hdr) + 8))
+	if (!pskb_may_pull(skb, ihl + sizeof(struct ipv6hdr) + 8))
 		return 1;
 
 	skb2 = skb_clone(skb, GFP_ATOMIC);
@@ -497,7 +497,7 @@ static int ipip6_err_gen_icmpv6_unreach(struct sk_buff *skb)
 		return 1;
 
 	skb_dst_drop(skb2);
-	skb_pull(skb2, iph->ihl * 4);
+	skb_pull(skb2, ihl);
 	skb_reset_network_header(skb2);
 
 	rt = rt6_lookup(dev_net(skb->dev), &ipv6_hdr(skb2)->saddr, NULL, 0, 0);
