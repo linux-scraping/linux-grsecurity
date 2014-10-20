@@ -3,6 +3,10 @@
 
 #include <asm/desc.h>
 #include <linux/atomic.h>
+#include <linux/mm_types.h>
+
+#include <trace/events/tlb.h>
+
 #include <asm/pgalloc.h>
 #include <asm/tlbflush.h>
 #include <asm/paravirt.h>
@@ -101,6 +105,7 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 #else
 		load_cr3(next->pgd);
 #endif
+		trace_tlb_flush(TLB_FLUSH_ON_TASK_SWITCH, TLB_FLUSH_ALL);
 
 		/* Stop flush ipis for the previous mm */
 		cpumask_clear_cpu(cpu, mm_cpumask(prev));
@@ -188,6 +193,7 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 
 #ifndef CONFIG_PAX_PER_CPU_PGD
 			load_cr3(next->pgd);
+			trace_tlb_flush(TLB_FLUSH_ON_TASK_SWITCH, TLB_FLUSH_ALL);
 #endif
 
 			load_LDT_nolock(&next->context);

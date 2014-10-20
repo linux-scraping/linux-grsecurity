@@ -53,7 +53,6 @@ struct proc_dir_entry {
 
 union proc_op {
 	int (*proc_get_link)(struct dentry *, struct path *);
-	int (*proc_read)(struct task_struct *task, char *page);
 	int (*proc_show)(struct seq_file *m,
 		struct pid_namespace *ns, struct pid *pid,
 		struct task_struct *task);
@@ -113,10 +112,10 @@ static inline int task_dumpable(struct task_struct *task)
 	return 0;
 }
 
-static inline unsigned name_to_int(struct dentry *dentry)
+static inline unsigned name_to_int(const struct qstr *qstr)
 {
-	const char *name = dentry->d_name.name;
-	int len = dentry->d_name.len;
+	const char *name = qstr->name;
+	int len = qstr->len;
 	unsigned n = 0;
 
 	if (len > 1 && *name == '0')
@@ -157,7 +156,8 @@ extern int proc_pid_status(struct seq_file *, struct pid_namespace *,
 extern int proc_pid_statm(struct seq_file *, struct pid_namespace *,
 			  struct pid *, struct task_struct *);
 #ifdef CONFIG_GRKERNSEC_PROC_IPADDR
-extern int proc_pid_ipaddr(struct task_struct *task, char *buffer);
+extern int proc_pid_ipaddr(struct seq_file *, struct pid_namespace *,
+			  struct pid *, struct task_struct *);
 #endif
 
 /*
@@ -182,8 +182,6 @@ extern bool proc_fill_cache(struct file *, struct dir_context *, const char *, i
 /*
  * generic.c
  */
-extern spinlock_t proc_subdir_lock;
-
 extern struct dentry *proc_lookup(struct inode *, struct dentry *, unsigned int);
 extern struct dentry *proc_lookup_restrict(struct inode *, struct dentry *, unsigned int);
 extern struct dentry *proc_lookup_de(struct proc_dir_entry *, struct inode *,
@@ -238,6 +236,12 @@ static inline int proc_net_init(void) { return 0; }
  * proc_self.c
  */
 extern int proc_setup_self(struct super_block *);
+
+/*
+ * proc_thread_self.c
+ */
+extern int proc_setup_thread_self(struct super_block *);
+extern void proc_thread_self_init(void);
 
 /*
  * proc_sysctl.c

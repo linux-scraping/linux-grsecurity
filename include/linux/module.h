@@ -432,14 +432,21 @@ static inline int within_module_init_rw(unsigned long addr, const struct module 
 	return within_module_range(addr, mod->module_init_rw, mod->init_size_rw);
 }
 
-static inline int within_module_core(unsigned long addr, const struct module *mod)
+static inline bool within_module_core(unsigned long addr,
+				      const struct module *mod)
 {
 	return within_module_core_rx(addr, mod) || within_module_core_rw(addr, mod);
 }
 
-static inline int within_module_init(unsigned long addr, const struct module *mod)
+static inline bool within_module_init(unsigned long addr,
+				      const struct module *mod)
 {
 	return within_module_init_rx(addr, mod) || within_module_init_rw(addr, mod);
+}
+
+static inline bool within_module(unsigned long addr, const struct module *mod)
+{
+	return within_module_init(addr, mod) || within_module_core(addr, mod);
 }
 
 /* Search for module by name: must hold module_mutex. */

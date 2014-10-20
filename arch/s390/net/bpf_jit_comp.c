@@ -812,7 +812,7 @@ static struct bpf_binary_header *bpf_alloc_binary(unsigned int bpfsize,
 	return header;
 }
 
-void bpf_jit_compile(struct sk_filter *fp)
+void bpf_jit_compile(struct bpf_prog *fp)
 {
 	struct bpf_binary_header *header = NULL;
 	unsigned long size, prg_len, lit_len;
@@ -875,7 +875,7 @@ out:
 	kfree(addrs);
 }
 
-void bpf_jit_free(struct sk_filter *fp)
+void bpf_jit_free(struct bpf_prog *fp)
 {
 	unsigned long addr = (unsigned long)fp->bpf_func & PAGE_MASK;
 	struct bpf_binary_header *header = (void *)addr;
@@ -887,5 +887,5 @@ void bpf_jit_free(struct sk_filter *fp)
 	module_free(NULL, header);
 
 free_filter:
-	kfree(fp);
+	bpf_prog_unlock_free(fp);
 }

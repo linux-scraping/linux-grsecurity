@@ -745,7 +745,7 @@ static struct dvb_usb_device_properties technisat_usb2_devices = {
 					.isoc = {
 						.framesperurb = 32,
 						.framesize = 2048,
-						.interval = 3,
+						.interval = 1,
 					}
 				}
 			},

@@ -347,14 +347,16 @@ static int usb_stor_control_thread(void * __us)
 		 */
 		else if (us->srb->device->id &&
 				!(us->fflags & US_FL_SCM_MULT_TARG)) {
-			usb_stor_dbg(us, "Bad target number (%d:%d)\n",
-				     us->srb->device->id, us->srb->device->lun);
+			usb_stor_dbg(us, "Bad target number (%d:%llu)\n",
+				     us->srb->device->id,
+				     us->srb->device->lun);
 			us->srb->result = DID_BAD_TARGET << 16;
 		}
 
 		else if (us->srb->device->lun > us->max_lun) {
-			usb_stor_dbg(us, "Bad LUN (%d:%d)\n",
-				     us->srb->device->id, us->srb->device->lun);
+			usb_stor_dbg(us, "Bad LUN (%d:%llu)\n",
+				     us->srb->device->id,
+				     us->srb->device->lun);
 			us->srb->result = DID_BAD_TARGET << 16;
 		}
 
@@ -476,7 +478,8 @@ void usb_stor_adjust_quirks(struct usb_device *udev, unsigned long *fflags)
 			US_FL_CAPACITY_OK | US_FL_IGNORE_RESIDUE |
 			US_FL_SINGLE_LUN | US_FL_NO_WP_DETECT |
 			US_FL_NO_READ_DISC_INFO | US_FL_NO_READ_CAPACITY_16 |
-			US_FL_INITIAL_READ10 | US_FL_WRITE_CACHE);
+			US_FL_INITIAL_READ10 | US_FL_WRITE_CACHE |
+			US_FL_NO_ATA_1X | US_FL_NO_REPORT_OPCODES);
 
 	p = quirks;
 	while (*p) {
@@ -514,6 +517,9 @@ void usb_stor_adjust_quirks(struct usb_device *udev, unsigned long *fflags)
 		case 'e':
 			f |= US_FL_NO_READ_CAPACITY_16;
 			break;
+		case 'f':
+			f |= US_FL_NO_REPORT_OPCODES;
+			break;
 		case 'h':
 			f |= US_FL_CAPACITY_HEURISTICS;
 			break;
@@ -540,6 +546,9 @@ void usb_stor_adjust_quirks(struct usb_device *udev, unsigned long *fflags)
 			break;
 		case 's':
 			f |= US_FL_SINGLE_LUN;
+			break;
+		case 't':
+			f |= US_FL_NO_ATA_1X;
 			break;
 		case 'u':
 			f |= US_FL_IGNORE_UAS;

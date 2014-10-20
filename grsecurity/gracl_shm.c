@@ -9,7 +9,7 @@
 
 int
 gr_handle_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
-		const time_t shm_createtime, const kuid_t cuid, const int shmid)
+		const u64 shm_createtime, const kuid_t cuid, const int shmid)
 {
 	struct task_struct *task;
 
@@ -24,7 +24,7 @@ gr_handle_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 	if (unlikely(!task))
 		task = find_task_by_vpid(shm_lapid);
 
-	if (unlikely(task && (time_before_eq((unsigned long)task->start_time.tv_sec, (unsigned long)shm_createtime) ||
+	if (unlikely(task && (time_before_eq64(task->start_time, shm_createtime) ||
 			      (task_pid_nr(task) == shm_lapid)) &&
 		     (task->acl->mode & GR_PROTSHM) &&
 		     (task->acl != current->acl))) {

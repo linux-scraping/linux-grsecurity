@@ -1903,10 +1903,10 @@ void __init xen_setup_kernel_pagetable(pgd_t *pgd, unsigned long max_pfn)
 		/* L3_k[510] -> level2_kernel_pgt
 		 * L3_k[511] -> level2_fixmap_pgt */
 		convert_pfn_mfn(level3_kernel_pgt);
+
 		convert_pfn_mfn(level3_vmalloc_start_pgt);
 		convert_pfn_mfn(level3_vmalloc_end_pgt);
 		convert_pfn_mfn(level3_vmemmap_pgt);
-
 		/* L3_k[511][506] -> level1_fixmap_pgt */
 		/* L3_k[511][507] -> level1_vsyscall_pgt */
 		convert_pfn_mfn(level2_fixmap_pgt);

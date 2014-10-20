@@ -117,7 +117,6 @@ struct ctl_table
 	void *extra2;
 } __do_const __randomize_layout;
 typedef struct ctl_table __no_const ctl_table_no_const;
-typedef struct ctl_table ctl_table;
 
 struct ctl_node {
 	struct rb_node node;

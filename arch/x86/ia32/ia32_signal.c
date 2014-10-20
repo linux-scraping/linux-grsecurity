@@ -463,8 +463,8 @@ int ia32_setup_rt_frame(int sig, struct ksignal *ksig,
 			restorer = ksig->ka.sa.sa_restorer;
 		else if (current->mm->context.vdso)
 			/* Return stub is in 32bit vsyscall page */
-			restorer = (void __force_user *)(current->mm->context.vdso +
-				selected_vdso32->sym___kernel_rt_sigreturn);
+			restorer = current->mm->context.vdso +
+				selected_vdso32->sym___kernel_rt_sigreturn;
 		else
 			restorer = frame->retcode;
 		put_user_ex(ptr_to_compat(restorer), &frame->pretcode);

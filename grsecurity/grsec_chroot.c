@@ -190,11 +190,10 @@ gr_chroot_fhandle(void)
 
 int
 gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
-		const time_t shm_createtime)
+		const u64 shm_createtime)
 {
 #ifdef CONFIG_GRKERNSEC_CHROOT_SHMAT
 	struct task_struct *p;
-	time_t starttime;
 
 	if (unlikely(!grsec_enable_chroot_shmat))
 		return 1;
@@ -206,8 +205,7 @@ gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 	read_lock(&tasklist_lock);
 
 	if ((p = find_task_by_vpid_unrestricted(shm_cprid))) {
-		starttime = p->start_time.tv_sec;
-		if (time_before_eq((unsigned long)starttime, (unsigned long)shm_createtime)) {
+		if (time_before_eq64(p->start_time, shm_createtime)) {
 			if (have_same_root(current, p)) {
 				goto allow;
 			} else {

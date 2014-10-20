@@ -21,6 +21,13 @@
 #include <asm/desc.h>
 #include <asm/bios_ebda.h>
 
+/*
+ * We need to define the tracepoints somewhere, and tlb.c
+ * is only compied when SMP=y.
+ */
+#define CREATE_TRACE_POINTS
+#include <trace/events/tlb.h>
+
 #include "mm_internal.h"
 
 static unsigned long __initdata pgt_buf_start;

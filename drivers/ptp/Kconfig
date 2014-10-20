@@ -8,6 +8,7 @@ config PTP_1588_CLOCK
 	tristate "PTP clock support"
 	depends on NET
 	select PPS
+	select NET_PTP_CLASSIFY
 	help
 	  The IEEE 1588 standard defines a method to precisely
 	  synchronize distributed clocks over Ethernet networks. The

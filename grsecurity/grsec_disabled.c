@@ -327,7 +327,7 @@ gr_acl_handle_filldir(const struct file *file, const char *name,
 
 int
 gr_handle_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
-		const time_t shm_createtime, const kuid_t cuid, const int shmid)
+		const u64 shm_createtime, const kuid_t cuid, const int shmid)
 {
 	return 1;
 }

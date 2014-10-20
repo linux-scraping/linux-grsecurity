@@ -263,7 +263,7 @@ static struct ctl_table net_core_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec
 	},
-#ifdef CONFIG_BPF_JIT
+#if defined(CONFIG_BPF_JIT) && !defined(CONFIG_GRKERNSEC_BPF_HARDEN)
 	{
 		.procname	= "bpf_jit_enable",
 		.data		= &bpf_jit_enable,

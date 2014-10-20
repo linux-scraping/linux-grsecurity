@@ -1984,8 +1984,10 @@ void usb_set_device_state(struct usb_device *udev,
 					|| new_state == USB_STATE_SUSPENDED)
 				;	/* No change to wakeup settings */
 			else if (new_state == USB_STATE_CONFIGURED)
-				wakeup = udev->actconfig->desc.bmAttributes
-					 & USB_CONFIG_ATT_WAKEUP;
+				wakeup = (udev->quirks &
+					USB_QUIRK_IGNORE_REMOTE_WAKEUP) ? 0 :
+					udev->actconfig->desc.bmAttributes &
+					USB_CONFIG_ATT_WAKEUP;
 			else
 				wakeup = 0;
 		}
@@ -2114,8 +2116,8 @@ void usb_disconnect(struct usb_device **pdev)
 {
 	struct usb_port *port_dev = NULL;
 	struct usb_device *udev = *pdev;
-	struct usb_hub *hub;
-	int port1;
+	struct usb_hub *hub = NULL;
+	int port1 = 1;
 
 	/* mark the device as inactive, so any further urb submissions for
 	 * this device (and any of its children) will fail immediately.
@@ -2613,13 +2615,20 @@ static int hub_port_reset(struct usb_hub *hub, int port1,
 /* Is a USB 3.0 port in the Inactive or Compliance Mode state?
  * Port worm reset is required to recover
  */
-static bool hub_port_warm_reset_required(struct usb_hub *hub, u16 portstatus)
+static bool hub_port_warm_reset_required(struct usb_hub *hub, int port1,
+		u16 portstatus)
 {
-	return hub_is_superspeed(hub->hdev) &&
-		(((portstatus & USB_PORT_STAT_LINK_STATE) ==
-		  USB_SS_PORT_LS_SS_INACTIVE) ||
-		 ((portstatus & USB_PORT_STAT_LINK_STATE) ==
-		  USB_SS_PORT_LS_COMP_MOD)) ;
+	u16 link_state;
+
+	if (!hub_is_superspeed(hub->hdev))
+		return false;
+
+	if (test_bit(port1, hub->warm_reset_bits))
+		return true;
+
+	link_state = portstatus & USB_PORT_STAT_LINK_STATE;
+	return link_state == USB_SS_PORT_LS_SS_INACTIVE
+		|| link_state == USB_SS_PORT_LS_COMP_MOD;
 }
 
 static int hub_port_wait_reset(struct usb_hub *hub, int port1,
@@ -2656,7 +2665,7 @@ static int hub_port_wait_reset(struct usb_hub *hub, int port1,
 	if ((portstatus & USB_PORT_STAT_RESET))
 		return -EBUSY;
 
-	if (hub_port_warm_reset_required(hub, portstatus))
+	if (hub_port_warm_reset_required(hub, port1, portstatus))
 		return -ENOTCONN;
 
 	/* Device went away? */
@@ -2756,9 +2765,10 @@ static int hub_port_reset(struct usb_hub *hub, int port1,
 		if (status < 0)
 			goto done;
 
-		if (hub_port_warm_reset_required(hub, portstatus))
+		if (hub_port_warm_reset_required(hub, port1, portstatus))
 			warm = true;
 	}
+	clear_bit(port1, hub->warm_reset_bits);
 
 	/* Reset the port */
 	for (i = 0; i < PORT_RESET_TRIES; i++) {
@@ -2795,7 +2805,8 @@ static int hub_port_reset(struct usb_hub *hub, int port1,
 					&portstatus, &portchange) < 0)
 				goto done;
 
-			if (!hub_port_warm_reset_required(hub, portstatus))
+			if (!hub_port_warm_reset_required(hub, port1,
+					portstatus))
 				goto done;
 
 			/*
@@ -2882,8 +2893,13 @@ static int check_port_resume_type(struct usb_device *udev,
 {
 	struct usb_port *port_dev = hub->ports[port1 - 1];
 
+	/* Is a warm reset needed to recover the connection? */
+	if (status == 0 && udev->reset_resume
+		&& hub_port_warm_reset_required(hub, port1, portstatus)) {
+		/* pass */;
+	}
 	/* Is the device still present? */
-	if (status || port_is_suspended(hub, portstatus) ||
+	else if (status || port_is_suspended(hub, portstatus) ||
 			!port_is_power_on(hub, portstatus) ||
 			!(portstatus & USB_PORT_STAT_CONNECTION)) {
 		if (status >= 0)
@@ -3927,7 +3943,8 @@ int usb_disable_lpm(struct usb_device *udev)
 
 	if (!udev || !udev->parent ||
 			udev->speed != USB_SPEED_SUPER ||
-			!udev->lpm_capable)
+			!udev->lpm_capable ||
+			udev->state < USB_STATE_DEFAULT)
 		return 0;
 
 	hcd = bus_to_hcd(udev->bus);
@@ -3983,7 +4000,8 @@ void usb_enable_lpm(struct usb_device *udev)
 
 	if (!udev || !udev->parent ||
 			udev->speed != USB_SPEED_SUPER ||
-			!udev->lpm_capable)
+			!udev->lpm_capable ||
+			udev->state < USB_STATE_DEFAULT)
 		return;
 
 	udev->lpm_disable_count--;
@@ -4944,7 +4962,7 @@ static void port_event(struct usb_hub *hub, int port1)
 	 * Warm reset a USB3 protocol port if it's in
 	 * SS.Inactive state.
 	 */
-	if (hub_port_warm_reset_required(hub, portstatus)) {
+	if (hub_port_warm_reset_required(hub, port1, portstatus)) {
 		dev_dbg(&port_dev->dev, "do warm reset\n");
 		if (!udev || !(portstatus & USB_PORT_STAT_CONNECTION)
 				|| udev->state == USB_STATE_NOTATTACHED) {
