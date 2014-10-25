@@ -647,7 +647,14 @@ int proc_pid_statm(struct seq_file *m, struct pid_namespace *ns,
 #ifdef CONFIG_GRKERNSEC_PROC_IPADDR
 int proc_pid_ipaddr(struct seq_file *m, struct pid_namespace *ns, struct pid *pid, struct task_struct *task)
 {
-	return seq_printf(m, "%pI4\n", &task->signal->curr_ip);
+	unsigned long flags;
+	u32 curr_ip = 0;
+
+	if (lock_task_sighand(task, &flags)) {
+		curr_ip = task->signal->curr_ip;
+		unlock_task_sighand(task, &flags);
+	}
+	return seq_printf(m, "%pI4\n", &curr_ip);
 }
 #endif
 

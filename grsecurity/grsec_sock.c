@@ -121,10 +121,10 @@ static struct signal_struct * gr_lookup_task_ip_table(__u32 saddr, __u32 daddr,
 
 #endif
 
-void gr_update_task_in_ip_table(struct task_struct *task, const struct inet_sock *inet)
+void gr_update_task_in_ip_table(const struct inet_sock *inet)
 {
 #ifdef CONFIG_GRKERNSEC
-	struct signal_struct *sig = task->signal;
+	struct signal_struct *sig = current->signal;
 	struct conn_table_entry *newent;
 
 	newent = kmalloc(sizeof(struct conn_table_entry), GFP_ATOMIC);
