@@ -685,10 +685,10 @@ static void print_bad_pte(struct vm_area_struct *vma, unsigned long addr,
 	 * Choose text because data symbols depend on CONFIG_KALLSYMS_ALL=y
 	 */
 	if (vma->vm_ops)
-		printk(KERN_ALERT "vma->vm_ops->fault: %pSR\n",
+		printk(KERN_ALERT "vma->vm_ops->fault: %pAR\n",
 		       vma->vm_ops->fault);
 	if (vma->vm_file)
-		printk(KERN_ALERT "vma->vm_file->f_op->mmap: %pSR\n",
+		printk(KERN_ALERT "vma->vm_file->f_op->mmap: %pAR\n",
 		       vma->vm_file->f_op->mmap);
 	dump_stack();
 	add_taint(TAINT_BAD_PAGE, LOCKDEP_NOW_UNRELIABLE);
