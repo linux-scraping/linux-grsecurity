@@ -25,7 +25,7 @@
 #include <net/secure_seq.h>
 #include <net/ip.h>
 
-extern void gr_update_task_in_ip_table(struct task_struct *task, const struct inet_sock *inet);
+extern void gr_update_task_in_ip_table(const struct inet_sock *inet);
 
 /*
  * Allocate and initialize a new local port bind bucket.
@@ -533,7 +533,7 @@ ok:
 			twrefcnt += inet_twsk_bind_unhash(tw, hinfo);
 		spin_unlock(&head->lock);
 
-		gr_update_task_in_ip_table(current, inet_sk(sk));
+		gr_update_task_in_ip_table(inet_sk(sk));
 
 		if (tw) {
 			inet_twsk_deschedule(tw, death_row);
