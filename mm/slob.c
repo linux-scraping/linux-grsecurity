@@ -341,7 +341,7 @@ static void *slob_alloc(size_t size, gfp_t gfp, int align, int node)
 /*
  * slob_free: entry point into the slob allocator.
  */
-static void slob_free(void *block, int size)
+static void slob_free(struct kmem_cache *c, void *block, int size)
 {
 	struct page *sp;
 	slob_t *prev, *next, *b = (slob_t *)block;
@@ -368,7 +368,7 @@ static void slob_free(void *block, int size)
 	}
 
 #ifdef CONFIG_PAX_MEMORY_SANITIZE
-	if (pax_sanitize_slab)
+	if (pax_sanitize_slab && !(c && (c->flags & SLAB_NO_SANITIZE)))
 		memset(block, PAX_MEMORY_SANITIZE_VALUE, size);
 #endif
 
@@ -523,7 +523,7 @@ void kfree(const void *block)
 	if (!sp->private) {
 		int align = max_t(size_t, ARCH_KMALLOC_MINALIGN, ARCH_SLAB_MINALIGN);
 		slob_t *m = (slob_t *)(block - align);
-		slob_free(m, m[0].units + align);
+		slob_free(NULL, m, m[0].units + align);
 	} else {
 		__ClearPageSlab(sp);
 		page_mapcount_reset(sp);
@@ -694,14 +694,14 @@ void *kmem_cache_alloc_node(struct kmem_cache *cachep, gfp_t gfp, int node)
 EXPORT_SYMBOL(kmem_cache_alloc_node);
 #endif
 
-static void __kmem_cache_free(void *b, int size)
+static void __kmem_cache_free(struct kmem_cache *c, void *b, int size)
 {
 	struct page *sp;
 
 	sp = virt_to_page(b);
 	BUG_ON(!PageSlab(sp));
 	if (!sp->private)
-		slob_free(b, size);
+		slob_free(c, b, size);
 	else
 		slob_free_pages(sp, get_order(size));
 }
@@ -711,7 +711,7 @@ static void kmem_rcu_free(struct rcu_head *head)
 	struct slob_rcu *slob_rcu = (struct slob_rcu *)head;
 	void *b = (void *)slob_rcu - (slob_rcu->size - sizeof(struct slob_rcu));
 
-	__kmem_cache_free(b, slob_rcu->size);
+	__kmem_cache_free(NULL, b, slob_rcu->size);
 }
 
 void kmem_cache_free(struct kmem_cache *c, void *b)
@@ -732,7 +732,7 @@ void kmem_cache_free(struct kmem_cache *c, void *b)
 		slob_rcu->size = size;
 		call_rcu(&slob_rcu->head, kmem_rcu_free);
 	} else {
-		__kmem_cache_free(b, size);
+		__kmem_cache_free(c, b, size);
 	}
 
 #ifdef CONFIG_PAX_USERCOPY_SLABS

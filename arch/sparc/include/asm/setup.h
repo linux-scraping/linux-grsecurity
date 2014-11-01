@@ -25,7 +25,7 @@ static inline int con_is_present(void)
 #endif
 
 #ifdef CONFIG_SPARC64
-void __init start_early_boot(void);
+extern void __init start_early_boot(void);
 #endif
 
 extern void sun_do_break(void);

@@ -3483,16 +3483,15 @@ static inline void __cache_free(struct kmem_cache *cachep, void *objp,
 	check_irq_off();
 
 #ifdef CONFIG_PAX_MEMORY_SANITIZE
-	if (pax_sanitize_slab) {
-		if (!(cachep->flags & (SLAB_POISON | SLAB_NO_SANITIZE))) {
-			memset(objp, PAX_MEMORY_SANITIZE_VALUE, cachep->object_size);
+	if (cachep->flags & (SLAB_POISON | SLAB_NO_SANITIZE))
+		STATS_INC_NOT_SANITIZED(cachep);
+	else {
+		memset(objp, PAX_MEMORY_SANITIZE_VALUE, cachep->object_size);
 
-			if (cachep->ctor)
-				cachep->ctor(objp);
+		if (cachep->ctor)
+			cachep->ctor(objp);
 
-			STATS_INC_SANITIZED(cachep);
-		} else
-			STATS_INC_NOT_SANITIZED(cachep);
+		STATS_INC_SANITIZED(cachep);
 	}
 #endif
 

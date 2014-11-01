@@ -26,6 +26,12 @@
 
 #ifdef __KERNEL__
 
+#ifdef CONFIG_THUMB2_KERNEL
+#define REFCOUNT_TRAP_INSN "bkpt	0xf1"
+#else
+#define REFCOUNT_TRAP_INSN "bkpt	0xf103"
+#endif
+
 #define _ASM_EXTABLE(from, to)		\
 "	.pushsection __ex_table,\"a\"\n"\
 "	.align	3\n"			\
@@ -67,7 +73,7 @@ static inline void atomic_add(int i, atomic_t *v)
 
 #ifdef CONFIG_PAX_REFCOUNT
 "	bvc	3f\n"
-"2:	bkpt	0xf103\n"
+"2:	" REFCOUNT_TRAP_INSN "\n"
 "3:\n"
 #endif
 
@@ -116,7 +122,7 @@ static inline int atomic_add_return(int i, atomic_t *v)
 #ifdef CONFIG_PAX_REFCOUNT
 "	bvc	3f\n"
 "	mov	%0, %1\n"
-"2:	bkpt	0xf103\n"
+"2:	" REFCOUNT_TRAP_INSN "\n"
 "3:\n"
 #endif
 
@@ -172,7 +178,7 @@ static inline void atomic_sub(int i, atomic_t *v)
 
 #ifdef CONFIG_PAX_REFCOUNT
 "	bvc	3f\n"
-"2:	bkpt	0xf103\n"
+"2:	" REFCOUNT_TRAP_INSN "\n"
 "3:\n"
 #endif
 
@@ -221,7 +227,7 @@ static inline int atomic_sub_return(int i, atomic_t *v)
 #ifdef CONFIG_PAX_REFCOUNT
 "	bvc	3f\n"
 "	mov	%0, %1\n"
-"2:	bkpt	0xf103\n"
+"2:	" REFCOUNT_TRAP_INSN "\n"
 "3:\n"
 #endif
 
@@ -535,7 +541,7 @@ static inline void atomic64_add(long long i, atomic64_t *v)
 
 #ifdef CONFIG_PAX_REFCOUNT
 "	bvc	3f\n"
-"2:	bkpt	0xf103\n"
+"2:	" REFCOUNT_TRAP_INSN "\n"
 "3:\n"
 #endif
 
@@ -587,7 +593,7 @@ static inline long long atomic64_add_return(long long i, atomic64_t *v)
 "	bvc	3f\n"
 "	mov	%0, %1\n"
 "	mov	%H0, %H1\n"
-"2:	bkpt	0xf103\n"
+"2:	" REFCOUNT_TRAP_INSN "\n"
 "3:\n"
 #endif
 
@@ -645,7 +651,7 @@ static inline void atomic64_sub(long long i, atomic64_t *v)
 
 #ifdef CONFIG_PAX_REFCOUNT
 "	bvc	3f\n"
-"2:	bkpt	0xf103\n"
+"2:	" REFCOUNT_TRAP_INSN "\n"
 "3:\n"
 #endif
 
@@ -697,7 +703,7 @@ static inline long long atomic64_sub_return(long long i, atomic64_t *v)
 "	bvc	3f\n"
 "	mov	%0, %1\n"
 "	mov	%H0, %H1\n"
-"2:	bkpt	0xf103\n"
+"2:	" REFCOUNT_TRAP_INSN "\n"
 "3:\n"
 #endif
 
@@ -806,7 +812,7 @@ static inline long long atomic64_dec_if_positive(atomic64_t *v)
 "	bvc	3f\n"
 "	mov	%Q0, %Q1\n"
 "	mov	%R0, %R1\n"
-"2:	bkpt	0xf103\n"
+"2:	" REFCOUNT_TRAP_INSN "\n"
 "3:\n"
 #endif
 
@@ -849,7 +855,7 @@ static inline int atomic64_add_unless(atomic64_t *v, long long a, long long u)
 
 #ifdef CONFIG_PAX_REFCOUNT
 "	bvc	3f\n"
-"2:	bkpt	0xf103\n"
+"2:	" REFCOUNT_TRAP_INSN "\n"
 "3:\n"
 #endif
 
