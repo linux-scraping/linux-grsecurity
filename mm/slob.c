@@ -92,6 +92,13 @@ struct slob_block {
 };
 typedef struct slob_block slob_t;
 
+struct kmem_cache {
+	unsigned int size, align;
+	unsigned long flags;
+	const char *name;
+	void (*ctor)(void *);
+};
+
 /*
  * We use struct page fields to manage some slob allocation aspects,
  * however to avoid the horrible mess in include/linux/mm_types.h, we'll
@@ -391,7 +398,7 @@ static void *slob_alloc(size_t size, gfp_t gfp, int align, int node)
 /*
  * slob_free: entry point into the slob allocator.
  */
-static void slob_free(void *block, int size)
+static void slob_free(struct kmem_cache *c, void *block, int size)
 {
 	struct slob_page *sp;
 	slob_t *prev, *next, *b = (slob_t *)block;
@@ -420,7 +427,7 @@ static void slob_free(void *block, int size)
 	}
 
 #ifdef CONFIG_PAX_MEMORY_SANITIZE
-	if (pax_sanitize_slab)
+	if (pax_sanitize_slab && !(c && (c->flags & SLAB_NO_SANITIZE)))
 		memset(block, PAX_MEMORY_SANITIZE_VALUE, size);
 #endif
 
@@ -552,7 +559,7 @@ void kfree(const void *block)
 	if (is_slob_page(sp)) {
 		int align = max(ARCH_KMALLOC_MINALIGN, ARCH_SLAB_MINALIGN);
 		slob_t *m = (slob_t *)(block - align);
-		slob_free(m, m[0].units + align);
+		slob_free(NULL, m, m[0].units + align);
 	} else {
 		clear_slob_page(sp);
 		free_slob_page(sp);
@@ -652,13 +659,6 @@ size_t ksize(const void *block)
 }
 EXPORT_SYMBOL(ksize);
 
-struct kmem_cache {
-	unsigned int size, align;
-	unsigned long flags;
-	const char *name;
-	void (*ctor)(void *);
-};
-
 struct kmem_cache *kmem_cache_create(const char *name, size_t size,
 	size_t align, unsigned long flags, void (*ctor)(void *))
 {
@@ -670,6 +670,13 @@ struct kmem_cache *kmem_cache_create(const char *name, size_t size,
 #else
 	c = slob_alloc(sizeof(struct kmem_cache),
 		GFP_KERNEL, ARCH_KMALLOC_MINALIGN, -1);
+#endif
+
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+	if (pax_sanitize_slab == PAX_SANITIZE_SLAB_OFF || (flags & SLAB_DESTROY_BY_RCU))
+		flags |= SLAB_NO_SANITIZE;
+	else if (pax_sanitize_slab == PAX_SANITIZE_SLAB_FULL)
+		flags &= ~SLAB_NO_SANITIZE;
 #endif
 
 	if (c) {
@@ -700,7 +707,7 @@ void kmem_cache_destroy(struct kmem_cache *c)
 	kmemleak_free(c);
 	if (c->flags & SLAB_DESTROY_BY_RCU)
 		rcu_barrier();
-	slob_free(c, sizeof(struct kmem_cache));
+	slob_free(NULL, c, sizeof(struct kmem_cache));
 }
 EXPORT_SYMBOL(kmem_cache_destroy);
 
@@ -740,12 +747,12 @@ void *kmem_cache_alloc_node(struct kmem_cache *c, gfp_t flags, int node)
 }
 EXPORT_SYMBOL(kmem_cache_alloc_node);
 
-static void __kmem_cache_free(void *b, int size)
+static void __kmem_cache_free(struct kmem_cache *c, void *b, int size)
 {
 	struct slob_page *sp = slob_page(b);
 
 	if (is_slob_page(sp))
-		slob_free(b, size);
+		slob_free(c, b, size);
 	else {
 		clear_slob_page(sp);
 		free_slob_page(sp);
@@ -759,7 +766,7 @@ static void kmem_rcu_free(struct rcu_head *head)
 	struct slob_rcu *slob_rcu = (struct slob_rcu *)head;
 	void *b = (void *)slob_rcu - (slob_rcu->size - sizeof(struct slob_rcu));
 
-	__kmem_cache_free(b, slob_rcu->size);
+	__kmem_cache_free(NULL, b, slob_rcu->size);
 }
 
 void kmem_cache_free(struct kmem_cache *c, void *b)
@@ -780,7 +787,7 @@ void kmem_cache_free(struct kmem_cache *c, void *b)
 		slob_rcu->size = size;
 		call_rcu(&slob_rcu->head, kmem_rcu_free);
 	} else {
-		__kmem_cache_free(b, size);
+		__kmem_cache_free(c, b, size);
 	}
 
 #ifdef CONFIG_PAX_USERCOPY_SLABS

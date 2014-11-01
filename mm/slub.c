@@ -2538,7 +2538,7 @@ static __always_inline void slab_free(struct kmem_cache *s,
 	slab_free_hook(s, x);
 
 #ifdef CONFIG_PAX_MEMORY_SANITIZE
-	if (pax_sanitize_slab && !(s->flags & SLAB_NO_SANITIZE)) {
+	if (!(s->flags & SLAB_NO_SANITIZE)) {
 		memset(x, PAX_MEMORY_SANITIZE_VALUE, s->objsize);
 		if (s->ctor)
 			s->ctor(x);
@@ -2919,6 +2919,9 @@ static int calculate_sizes(struct kmem_cache *s, int forced_order)
 	s->inuse = size;
 
 	if (((flags & (SLAB_DESTROY_BY_RCU | SLAB_POISON)) ||
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+		(!(flags & SLAB_NO_SANITIZE)) ||
+#endif
 		s->ctor)) {
 		/*
 		 * Relocate free pointer after the object if it is not
@@ -3987,6 +3990,14 @@ struct kmem_cache *kmem_cache_create(const char *name, size_t size,
 		return NULL;
 
 	down_write(&slub_lock);
+
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+	if (pax_sanitize_slab == PAX_SANITIZE_SLAB_OFF || (flags & SLAB_DESTROY_BY_RCU))
+		flags |= SLAB_NO_SANITIZE;
+	else if (pax_sanitize_slab == PAX_SANITIZE_SLAB_FULL)
+		flags &= ~SLAB_NO_SANITIZE;
+#endif
+
 	s = find_mergeable(size, align, flags, name, ctor);
 	if (s) {
 		atomic_inc(&s->refcount);

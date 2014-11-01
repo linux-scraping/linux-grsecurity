@@ -765,10 +765,14 @@ config PAX_MEMORY_SANITIZE
 	  and you are advised to test this feature on your expected workload
 	  before deploying it.
 
+	  The slab sanitization feature excludes a few slab caches per default
+	  for performance reasons.  To extend the feature to cover those as
+	  well, pass "pax_sanitize_slab=full" as kernel command line parameter.
+
 	  To reduce the performance penalty by sanitizing pages only, albeit
 	  limiting the effectiveness of this feature at the same time, slab
-	  sanitization can be disabled with the kernel commandline parameter
-	  "pax_sanitize_slab=0".
+	  sanitization can be disabled with the kernel command line parameter
+	  "pax_sanitize_slab=off".
 
 	  Note that this feature does not protect data stored in live pages,
 	  e.g., process memory swapped to disk may stay there for a long time.

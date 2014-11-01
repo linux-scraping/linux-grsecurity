@@ -1971,8 +1971,13 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 			page table updates on X86-64.
 
 	pax_sanitize_slab=
-			0/1 to disable/enable slab object sanitization (enabled by
-			default).
+			Format: { 0 | 1 | off | fast | full }
+			Options '0' and '1' are only provided for backward
+			compatibility, 'off' or 'fast' should be used instead.
+			0|off : disable slab object sanitization
+			1|fast: enable slab object sanitization excluding
+				whitelisted slabs (default)
+			full  : sanitize all slabs, even the whitelisted ones
 
 	pax_softmode=	0/1 to disable/enable PaX softmode on boot already.
 

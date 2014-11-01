@@ -2305,6 +2305,13 @@ kmem_cache_create (const char *name, size_t size, size_t align,
 	 */
 	BUG_ON(flags & ~CREATE_MASK);
 
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+	if (pax_sanitize_slab == PAX_SANITIZE_SLAB_OFF || (flags & SLAB_DESTROY_BY_RCU))
+		flags |= SLAB_NO_SANITIZE;
+	else if (pax_sanitize_slab == PAX_SANITIZE_SLAB_FULL)
+		flags &= ~SLAB_NO_SANITIZE;
+#endif
+
 	/*
 	 * Check that size is in terms of words.  This is needed to avoid
 	 * unaligned accesses for some archs when redzoning is used, and makes
@@ -3685,16 +3692,15 @@ static inline void __cache_free(struct kmem_cache *cachep, void *objp,
 	check_irq_off();
 
 #ifdef CONFIG_PAX_MEMORY_SANITIZE
-	if (pax_sanitize_slab) {
-		if (!(cachep->flags & (SLAB_POISON | SLAB_NO_SANITIZE))) {
-			memset(objp, PAX_MEMORY_SANITIZE_VALUE, obj_size(cachep));
+	if (cachep->flags & (SLAB_POISON | SLAB_NO_SANITIZE))
+		STATS_INC_NOT_SANITIZED(cachep);
+	else {
+		memset(objp, PAX_MEMORY_SANITIZE_VALUE, obj_size(cachep));
 
-			if (cachep->ctor)
-				cachep->ctor(objp);
+		if (cachep->ctor)
+			cachep->ctor(objp);
 
-			STATS_INC_SANITIZED(cachep);
-		} else
-			STATS_INC_NOT_SANITIZED(cachep);
+		STATS_INC_SANITIZED(cachep);
 	}
 #endif
 

@@ -869,6 +869,7 @@ kvm_write_guest_cached_11106 kvm_write_guest_cached 4 11106 NULL
 tw_change_queue_depth_11116 tw_change_queue_depth 2 11116 NULL
 page_offset_11120 page_offset 0 11120 NULL
 tracing_buffers_read_11124 tracing_buffers_read 3 11124 NULL
+alloc_alien_cache_11127 alloc_alien_cache 2 11127 NULL
 ioat2_alloc_ring_11172 ioat2_alloc_ring 2 11172 NULL nohasharray
 snd_gf1_pcm_playback_silence_11172 snd_gf1_pcm_playback_silence 3-4 11172 &ioat2_alloc_ring_11172
 __swab16p_11220 __swab16p 0 11220 NULL
@@ -1471,7 +1472,8 @@ sas_change_queue_depth_18555 sas_change_queue_depth 2 18555 NULL
 vb2_streamon_18562 vb2_streamon 0 18562 NULL
 debug_output_18575 debug_output 3 18575 NULL
 __netdev_alloc_skb_18595 __netdev_alloc_skb 2 18595 NULL
-filemap_fdatawait_range_18600 filemap_fdatawait_range 0 18600 NULL
+filemap_fdatawait_range_18600 filemap_fdatawait_range 0 18600 NULL nohasharray
+slabinfo_write_18600 slabinfo_write 3 18600 &filemap_fdatawait_range_18600
 iowarrior_write_18604 iowarrior_write 3 18604 NULL
 from_buffer_18625 from_buffer 3 18625 NULL
 f1x_map_sysaddr_to_csrow_18628 f1x_map_sysaddr_to_csrow 2 18628 NULL
@@ -3696,6 +3698,7 @@ lbs_wrrf_write_47418 lbs_wrrf_write 3 47418 NULL
 posix_acl_from_disk_47445 posix_acl_from_disk 2 47445 NULL
 newpart_47485 newpart 6-4 47485 NULL
 core_sys_select_47494 core_sys_select 1 47494 NULL
+alloc_arraycache_47505 alloc_arraycache 2 47505 NULL
 unlink_simple_47506 unlink_simple 3 47506 NULL
 process_vm_rw_47533 process_vm_rw 3-5 47533 NULL nohasharray
 vscnprintf_47533 vscnprintf 0-2 47533 &process_vm_rw_47533
