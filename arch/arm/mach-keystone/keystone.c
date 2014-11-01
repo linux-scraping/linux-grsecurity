@@ -27,7 +27,7 @@
 
 #include "keystone.h"
 
-static struct notifier_block platform_nb;
+static notifier_block_no_const platform_nb;
 static unsigned long keystone_dma_pfn_offset __read_mostly;
 
 static int keystone_platform_notifier(struct notifier_block *nb,

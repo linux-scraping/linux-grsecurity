@@ -38,7 +38,12 @@ extern struct kmem_cache *kmem_cache;
 #else
 #define PAX_MEMORY_SANITIZE_VALUE	'\xff'
 #endif
-extern bool pax_sanitize_slab;
+enum pax_sanitize_mode {
+	PAX_SANITIZE_SLAB_OFF = 0,
+	PAX_SANITIZE_SLAB_FAST,
+	PAX_SANITIZE_SLAB_FULL,
+};
+extern enum pax_sanitize_mode pax_sanitize_slab;
 #endif
 
 unsigned long calculate_alignment(unsigned long flags,

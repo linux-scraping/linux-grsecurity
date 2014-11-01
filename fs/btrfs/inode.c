@@ -3662,7 +3662,8 @@ noinline int btrfs_update_inode(struct btrfs_trans_handle *trans,
 	 * without delay
 	 */
 	if (!btrfs_is_free_space_inode(inode)
-	    && root->root_key.objectid != BTRFS_DATA_RELOC_TREE_OBJECTID) {
+	    && root->root_key.objectid != BTRFS_DATA_RELOC_TREE_OBJECTID
+	    && !root->fs_info->log_root_recovering) {
 		btrfs_update_root_times(trans, root);
 
 		ret = btrfs_delayed_update_inode(trans, root, inode);
@@ -5202,42 +5203,6 @@ struct inode *btrfs_lookup_dentry(struct inode *dir, struct dentry *dentry)
 			iput(inode);
 			inode = ERR_PTR(ret);
 		}
-		/*
-		 * If orphan cleanup did remove any orphans, it means the tree
-		 * was modified and therefore the commit root is not the same as
-		 * the current root anymore. This is a problem, because send
-		 * uses the commit root and therefore can see inode items that
-		 * don't exist in the current root anymore, and for example make
-		 * calls to btrfs_iget, which will do tree lookups based on the
-		 * current root and not on the commit root. Those lookups will
-		 * fail, returning a -ESTALE error, and making send fail with
-		 * that error. So make sure a send does not see any orphans we
-		 * have just removed, and that it will see the same inodes
-		 * regardless of whether a transaction commit happened before
-		 * it started (meaning that the commit root will be the same as
-		 * the current root) or not.
-		 */
-		if (sub_root->node != sub_root->commit_root) {
-			u64 sub_flags = btrfs_root_flags(&sub_root->root_item);
-
-			if (sub_flags & BTRFS_ROOT_SUBVOL_RDONLY) {
-				struct extent_buffer *eb;
-
-				/*
-				 * Assert we can't have races between dentry
-				 * lookup called through the snapshot creation
-				 * ioctl and the VFS.
-				 */
-				ASSERT(mutex_is_locked(&dir->i_mutex));
-
-				down_write(&root->fs_info->commit_root_sem);
-				eb = sub_root->commit_root;
-				sub_root->commit_root =
-					btrfs_root_node(sub_root);
-				up_write(&root->fs_info->commit_root_sem);
-				free_extent_buffer(eb);
-			}
-		}
 	}
 
 	return inode;
@@ -6191,21 +6156,60 @@ out_fail_inode:
 	goto out_fail;
 }
 
+/* Find next extent map of a given extent map, caller needs to ensure locks */
+static struct extent_map *next_extent_map(struct extent_map *em)
+{
+	struct rb_node *next;
+
+	next = rb_next(&em->rb_node);
+	if (!next)
+		return NULL;
+	return container_of(next, struct extent_map, rb_node);
+}
+
+static struct extent_map *prev_extent_map(struct extent_map *em)
+{
+	struct rb_node *prev;
+
+	prev = rb_prev(&em->rb_node);
+	if (!prev)
+		return NULL;
+	return container_of(prev, struct extent_map, rb_node);
+}
+
 /* helper for btfs_get_extent.  Given an existing extent in the tree,
+ * the existing extent is the nearest extent to map_start,
  * and an extent that you want to insert, deal with overlap and insert
- * the new extent into the tree.
+ * the best fitted new extent into the tree.
  */
 static int merge_extent_mapping(struct extent_map_tree *em_tree,
 				struct extent_map *existing,
 				struct extent_map *em,
 				u64 map_start)
 {
+	struct extent_map *prev;
+	struct extent_map *next;
+	u64 start;
+	u64 end;
 	u64 start_diff;
 
 	BUG_ON(map_start < em->start || map_start >= extent_map_end(em));
-	start_diff = map_start - em->start;
-	em->start = map_start;
-	em->len = existing->start - em->start;
+
+	if (existing->start > map_start) {
+		next = existing;
+		prev = prev_extent_map(next);
+	} else {
+		prev = existing;
+		next = next_extent_map(prev);
+	}
+
+	start = prev ? extent_map_end(prev) : em->start;
+	start = max_t(u64, start, em->start);
+	end = next ? next->start : extent_map_end(em);
+	end = min_t(u64, end, extent_map_end(em));
+	start_diff = start - em->start;
+	em->start = start;
+	em->len = end - start;
 	if (em->block_start < EXTENT_MAP_LAST_BYTE &&
 	    !test_bit(EXTENT_FLAG_COMPRESSED, &em->flags)) {
 		em->block_start += start_diff;
@@ -6482,25 +6486,21 @@ insert:
 
 		ret = 0;
 
-		existing = lookup_extent_mapping(em_tree, start, len);
-		if (existing && (existing->start > start ||
-		    existing->start + existing->len <= start)) {
+		existing = search_extent_mapping(em_tree, start, len);
+		/*
+		 * existing will always be non-NULL, since there must be
+		 * extent causing the -EEXIST.
+		 */
+		if (start >= extent_map_end(existing) ||
+		    start <= existing->start) {
+			/*
+			 * The existing extent map is the one nearest to
+			 * the [start, start + len) range which overlaps
+			 */
+			err = merge_extent_mapping(em_tree, existing,
+						   em, start);
 			free_extent_map(existing);
-			existing = NULL;
-		}
-		if (!existing) {
-			existing = lookup_extent_mapping(em_tree, em->start,
-							 em->len);
-			if (existing) {
-				err = merge_extent_mapping(em_tree, existing,
-							   em, start);
-				free_extent_map(existing);
-				if (err) {
-					free_extent_map(em);
-					em = NULL;
-				}
-			} else {
-				err = -EIO;
+			if (err) {
 				free_extent_map(em);
 				em = NULL;
 			}

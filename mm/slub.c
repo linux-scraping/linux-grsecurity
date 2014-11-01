@@ -2644,7 +2644,7 @@ static __always_inline void slab_free(struct kmem_cache *s,
 	slab_free_hook(s, x);
 
 #ifdef CONFIG_PAX_MEMORY_SANITIZE
-	if (pax_sanitize_slab && !(s->flags & SLAB_NO_SANITIZE)) {
+	if (!(s->flags & SLAB_NO_SANITIZE)) {
 		memset(x, PAX_MEMORY_SANITIZE_VALUE, s->object_size);
 		if (s->ctor)
 			s->ctor(x);
@@ -2995,7 +2995,7 @@ static int calculate_sizes(struct kmem_cache *s, int forced_order)
 
 	if (((flags & (SLAB_DESTROY_BY_RCU | SLAB_POISON)) ||
 #ifdef CONFIG_PAX_MEMORY_SANITIZE
-		(pax_sanitize_slab && !(flags & SLAB_NO_SANITIZE)) ||
+		(!(flags & SLAB_NO_SANITIZE)) ||
 #endif
 		s->ctor)) {
 		/*
@@ -4635,6 +4635,14 @@ static ssize_t usercopy_show(struct kmem_cache *s, char *buf)
 SLAB_ATTR_RO(usercopy);
 #endif
 
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+static ssize_t sanitize_show(struct kmem_cache *s, char *buf)
+{
+	return sprintf(buf, "%d\n", !(s->flags & SLAB_NO_SANITIZE));
+}
+SLAB_ATTR_RO(sanitize);
+#endif
+
 static ssize_t destroy_by_rcu_show(struct kmem_cache *s, char *buf)
 {
 	return sprintf(buf, "%d\n", !!(s->flags & SLAB_DESTROY_BY_RCU));
@@ -4971,6 +4979,9 @@ static struct attribute *slab_attrs[] = {
 #endif
 #ifdef CONFIG_PAX_USERCOPY_SLABS
 	&usercopy_attr.attr,
+#endif
+#ifdef CONFIG_PAX_MEMORY_SANITIZE
+	&sanitize_attr.attr,
 #endif
 #ifdef CONFIG_NUMA
 	&remote_node_defrag_ratio_attr.attr,

@@ -2115,6 +2115,11 @@ void sun4v_nonresum_overflow(struct pt_regs *regs)
 	atomic_inc_unchecked(&sun4v_nonresum_oflow_cnt);
 }
 
+static void sun4v_tlb_error(struct pt_regs *regs)
+{
+	die_if_kernel("TLB/TSB error", regs);
+}
+
 unsigned long sun4v_err_itlb_vaddr;
 unsigned long sun4v_err_itlb_ctx;
 unsigned long sun4v_err_itlb_pte;
@@ -2122,8 +2127,7 @@ unsigned long sun4v_err_itlb_error;
 
 void sun4v_itlb_error_report(struct pt_regs *regs, int tl)
 {
-	if (tl > 1)
-		dump_tl1_traplog((struct tl1_traplog *)(regs + 1));
+	dump_tl1_traplog((struct tl1_traplog *)(regs + 1));
 
 	printk(KERN_EMERG "SUN4V-ITLB: Error at TPC[%lx], tl %d\n",
 	       regs->tpc, tl);
@@ -2136,7 +2140,7 @@ void sun4v_itlb_error_report(struct pt_regs *regs, int tl)
 	       sun4v_err_itlb_vaddr, sun4v_err_itlb_ctx,
 	       sun4v_err_itlb_pte, sun4v_err_itlb_error);
 
-	prom_halt();
+	sun4v_tlb_error(regs);
 }
 
 unsigned long sun4v_err_dtlb_vaddr;
@@ -2146,8 +2150,7 @@ unsigned long sun4v_err_dtlb_error;
 
 void sun4v_dtlb_error_report(struct pt_regs *regs, int tl)
 {
-	if (tl > 1)
-		dump_tl1_traplog((struct tl1_traplog *)(regs + 1));
+	dump_tl1_traplog((struct tl1_traplog *)(regs + 1));
 
 	printk(KERN_EMERG "SUN4V-DTLB: Error at TPC[%lx], tl %d\n",
 	       regs->tpc, tl);
@@ -2160,7 +2163,7 @@ void sun4v_dtlb_error_report(struct pt_regs *regs, int tl)
 	       sun4v_err_dtlb_vaddr, sun4v_err_dtlb_ctx,
 	       sun4v_err_dtlb_pte, sun4v_err_dtlb_error);
 
-	prom_halt();
+	sun4v_tlb_error(regs);
 }
 
 void hypervisor_tlbop_error(unsigned long err, unsigned long op)

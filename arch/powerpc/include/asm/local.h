@@ -35,6 +35,39 @@ static __inline__ long local_add_return(long a, local_t *l)
 	long t;
 
 	__asm__ __volatile__(
+"1:"	PPC_LLARX(%0,0,%2,0) "			# local_add_return\n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+"	mcrxr   cr0\n"
+"	addo.	%0,%1,%0\n"
+"	bf 4*cr0+so, 3f\n"
+"2:.long " "0x00c00b00""\n"
+#else
+"	add	%0,%1,%0\n"
+#endif
+
+"3:\n"
+	PPC405_ERR77(0,%2)
+	PPC_STLCX	"%0,0,%2 \n\
+	bne-	1b"
+
+#ifdef CONFIG_PAX_REFCOUNT
+"\n4:\n"
+	_ASM_EXTABLE(2b, 4b)
+#endif
+
+	: "=&r" (t)
+	: "r" (a), "r" (&(l->a.counter))
+	: "cc", "memory");
+
+	return t;
+}
+
+static __inline__ long local_add_return_unchecked(long a, local_unchecked_t *l)
+{
+	long t;
+
+	__asm__ __volatile__(
 "1:"	PPC_LLARX(%0,0,%2,0) "			# local_add_return\n\
 	add	%0,%1,%0\n"
 	PPC405_ERR77(0,%2)
@@ -46,7 +79,6 @@ static __inline__ long local_add_return(long a, local_t *l)
 
 	return t;
 }
-#define local_add_return_unchecked(i, l) atomic_long_add_return_unchecked((i), (&(l)->a))
 
 #define local_add_negative(a, l)	(local_add_return((a), (l)) < 0)
 
@@ -66,7 +98,6 @@ static __inline__ long local_sub_return(long a, local_t *l)
 
 	return t;
 }
-#define local_sub_return_unchecked(i, l) atomic_long_sub_return_unchecked((i), (&(l)->a))
 
 static __inline__ long local_inc_return(local_t *l)
 {

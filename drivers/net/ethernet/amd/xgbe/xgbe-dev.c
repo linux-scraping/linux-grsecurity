@@ -2616,5 +2616,5 @@ const struct xgbe_hw_if default_xgbe_hw_if = {
 
 	/* For Data Center Bridging config */
 	.config_dcb_tc = xgbe_config_dcb_tc,
-	.config_dcb_pfc = xgbe_config_dcb_pfc
+	.config_dcb_pfc = xgbe_config_dcb_pfc,
 };

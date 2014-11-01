@@ -93,6 +93,7 @@
 #define L_PMD_SECT_SPLITTING	(_AT(pmdval_t, 1) << 56)
 #define L_PMD_SECT_NONE		(_AT(pmdval_t, 1) << 57)
 #define L_PMD_SECT_RDONLY	(_AT(pteval_t, 1) << 58)
+#define PMD_SECT_RDONLY		PMD_SECT_AP2
 
 /*
  * To be used in assembly code with the upper page attributes.

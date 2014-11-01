@@ -1149,6 +1149,7 @@ out_unlock:
 	return;
 
 rename_retry:
+	done_seqretry(&rename_lock, seq);
 	if (!retry)
 		return;
 	seq = 1;

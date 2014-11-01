@@ -938,7 +938,6 @@ void bpf_jit_free(struct bpf_prog *fp)
 	if (!fp->jited)
 		goto free_filter;
 
-	set_memory_rw(addr, 1);
 	module_free_exec(NULL, (void *)addr);
 
 free_filter:

@@ -723,9 +723,15 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 
 #ifdef CONFIG_PAX_REFCOUNT
 	if (fsr_fs(ifsr) == FAULT_CODE_DEBUG) {
+#ifdef CONFIG_THUMB2_KERNEL
+		unsigned short bkpt;
+
+		if (!probe_kernel_address(pc, bkpt) && cpu_to_le16(bkpt) == 0xbef1) {
+#else
 		unsigned int bkpt;
 
 		if (!probe_kernel_address(pc, bkpt) && cpu_to_le32(bkpt) == 0xe12f1073) {
+#endif
 			current->thread.error_code = ifsr;
 			current->thread.trap_no = 0;
 			pax_report_refcount_overflow(regs);

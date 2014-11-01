@@ -228,7 +228,7 @@ typedef struct {
 	void (*device_resume)(ulong busNo, ulong devNo);
 	int (*get_channel_info)(uuid_le typeGuid, ulong *minSize,
 				 ulong *maxSize);
-} VISORCHIPSET_BUSDEV_NOTIFIERS;
+} __no_const VISORCHIPSET_BUSDEV_NOTIFIERS;
 
 /*  These functions live inside visorchipset, and will be called to indicate
  *  responses to specific events (by code outside of visorchipset).
@@ -243,7 +243,7 @@ typedef struct {
 	void (*device_destroy)(ulong busNo, ulong devNo, int response);
 	void (*device_pause)(ulong busNo, ulong devNo, int response);
 	void (*device_resume)(ulong busNo, ulong devNo, int response);
-} VISORCHIPSET_BUSDEV_RESPONDERS;
+} __no_const VISORCHIPSET_BUSDEV_RESPONDERS;
 
 /** Register functions (in the bus driver) to get called by visorchipset
  *  whenever a bus or device appears for which this service partition is
