@@ -226,6 +226,12 @@ static enum hrtimer_restart alarmtimer_fired(struct hrtimer *timer)
 
 }
 
+ktime_t alarm_expires_remaining(const struct alarm *alarm)
+{
+	struct alarm_base *base = &alarm_bases[alarm->type];
+	return ktime_sub(alarm->node.expires, base->gettime());
+}
+
 #ifdef CONFIG_RTC_CLASS
 /**
  * alarmtimer_suspend - Suspend time callback
@@ -520,12 +526,6 @@ static int alarm_timer_create(struct k_itimer *new_timer)
 	base = &alarm_bases[type];
 	alarm_init(&new_timer->it.alarm.alarmtimer, type, alarm_handle_timer);
 	return 0;
-}
-
-static ktime_t alarm_expires_remaining(const struct alarm *alarm)
-{
-	struct alarm_base *base = &alarm_bases[alarm->type];
-	return ktime_sub(alarm->node.expires, base->gettime());
 }
 
 /**
