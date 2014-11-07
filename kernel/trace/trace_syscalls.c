@@ -309,7 +309,7 @@ void ftrace_syscall_enter(void *ignore, struct pt_regs *regs, long id)
 	int syscall_nr;
 
 	syscall_nr = syscall_get_nr(current, regs);
-	if (syscall_nr < 0)
+	if (syscall_nr < 0 || syscall_nr >= NR_syscalls)
 		return;
 	if (!test_bit(syscall_nr, enabled_enter_syscalls))
 		return;
@@ -349,7 +349,7 @@ void ftrace_syscall_exit(void *ignore, struct pt_regs *regs, long ret)
 	int syscall_nr;
 
 	syscall_nr = syscall_get_nr(current, regs);
-	if (syscall_nr < 0)
+	if (syscall_nr < 0 || syscall_nr >= NR_syscalls)
 		return;
 	if (!test_bit(syscall_nr, enabled_exit_syscalls))
 		return;
@@ -519,6 +519,8 @@ static void perf_syscall_enter(void *ignore, struct pt_regs *regs, long id)
 	int size;
 
 	syscall_nr = syscall_get_nr(current, regs);
+	if (syscall_nr < 0 || syscall_nr >= NR_syscalls)
+		return;
 	if (!test_bit(syscall_nr, enabled_perf_enter_syscalls))
 		return;
 
@@ -554,6 +556,8 @@ int perf_sysenter_enable(struct ftrace_event_call *call)
 	int num;
 
 	num = ((struct syscall_metadata *)call->data)->syscall_nr;
+	if (WARN_ON_ONCE(num < 0 || num >= NR_syscalls))
+		return -EINVAL;
 
 	mutex_lock(&syscall_trace_lock);
 	if (!sys_perf_refcount_enter)
@@ -574,6 +578,8 @@ void perf_sysenter_disable(struct ftrace_event_call *call)
 	int num;
 
 	num = ((struct syscall_metadata *)call->data)->syscall_nr;
+	if (WARN_ON_ONCE(num < 0 || num >= NR_syscalls))
+		return;
 
 	mutex_lock(&syscall_trace_lock);
 	sys_perf_refcount_enter--;
@@ -593,6 +599,8 @@ static void perf_syscall_exit(void *ignore, struct pt_regs *regs, long ret)
 	int size;
 
 	syscall_nr = syscall_get_nr(current, regs);
+	if (syscall_nr < 0 || syscall_nr >= NR_syscalls)
+		return;
 	if (!test_bit(syscall_nr, enabled_perf_exit_syscalls))
 		return;
 
@@ -630,6 +638,8 @@ int perf_sysexit_enable(struct ftrace_event_call *call)
 	int num;
 
 	num = ((struct syscall_metadata *)call->data)->syscall_nr;
+	if (WARN_ON_ONCE(num < 0 || num >= NR_syscalls))
+		return -EINVAL;
 
 	mutex_lock(&syscall_trace_lock);
 	if (!sys_perf_refcount_exit)
@@ -650,6 +660,8 @@ void perf_sysexit_disable(struct ftrace_event_call *call)
 	int num;
 
 	num = ((struct syscall_metadata *)call->data)->syscall_nr;
+	if (WARN_ON_ONCE(num < 0 || num >= NR_syscalls))
+		return;
 
 	mutex_lock(&syscall_trace_lock);
 	sys_perf_refcount_exit--;
