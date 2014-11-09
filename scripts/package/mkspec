@@ -139,7 +139,7 @@ echo "rm -f /boot/vmlinuz-$KERNELRELEASE-rpm /boot/System.map-$KERNELRELEASE-rpm
 echo "fi"
 echo ""
 echo "%files"
-echo '%defattr (-, root, root)'
+echo '%defattr (400, root, root, 500)'
 echo "%dir /lib/modules"
 echo "/lib/modules/$KERNELRELEASE"
 echo "%exclude /lib/modules/$KERNELRELEASE/build"
@@ -152,7 +152,7 @@ echo '%defattr (-, root, root)'
 echo "/usr/include"
 echo ""
 echo "%files devel"
-echo '%defattr (-, root, root)'
+echo '%defattr (400, root, root, 500)'
 echo "/usr/src/kernels/$KERNELRELEASE"
 echo "/lib/modules/$KERNELRELEASE/build"
 echo "/lib/modules/$KERNELRELEASE/source"
