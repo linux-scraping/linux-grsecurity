@@ -608,8 +608,6 @@ static int sdhci_s3c_probe(struct platform_device *pdev)
 	ret = sdhci_add_host(host);
 	if (ret) {
 		dev_err(dev, "sdhci_add_host() failed\n");
-		pm_runtime_forbid(&pdev->dev);
-		pm_runtime_get_noresume(&pdev->dev);
 		goto err_req_regs;
 	}
 
@@ -620,6 +618,8 @@ static int sdhci_s3c_probe(struct platform_device *pdev)
 	return 0;
 
  err_req_regs:
+	pm_runtime_disable(&pdev->dev);
+
  err_no_busclks:
 	clk_disable_unprepare(sc->clk_io);
 

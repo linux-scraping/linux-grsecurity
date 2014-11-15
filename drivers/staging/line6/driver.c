@@ -463,7 +463,7 @@ int line6_read_data(struct usb_line6 *line6, int address, void *data,
 {
 	struct usb_device *usbdev = line6->usbdev;
 	int ret;
-	unsigned char len;
+	unsigned char *plen;
 
 	/* query the serial number: */
 	ret = usb_control_msg(usbdev, usb_sndctrlpipe(usbdev, 0), 0x67,
@@ -476,27 +476,34 @@ int line6_read_data(struct usb_line6 *line6, int address, void *data,
 		return ret;
 	}
 
+	plen = kmalloc(1, GFP_KERNEL);
+	if (plen == NULL)
+		return -ENOMEM;
+
 	/* Wait for data length. We'll get 0xff until length arrives. */
 	do {
 		ret = usb_control_msg(usbdev, usb_rcvctrlpipe(usbdev, 0), 0x67,
 				      USB_TYPE_VENDOR | USB_RECIP_DEVICE |
 				      USB_DIR_IN,
-				      0x0012, 0x0000, &len, 1,
+				      0x0012, 0x0000, plen, 1,
 				      LINE6_TIMEOUT * HZ);
 		if (ret < 0) {
 			dev_err(line6->ifcdev,
 				"receive length failed (error %d)\n", ret);
+			kfree(plen);
 			return ret;
 		}
-	} while (len == 0xff);
+	} while (*plen == 0xff);
 
-	if (len != datalen) {
+	if (*plen != datalen) {
 		/* should be equal or something went wrong */
 		dev_err(line6->ifcdev,
 			"length mismatch (expected %d, got %d)\n",
-			(int)datalen, (int)len);
+			(int)datalen, (int)*plen);
+		kfree(plen);
 		return -EINVAL;
 	}
+	kfree(plen);
 
 	/* receive the result: */
 	ret = usb_control_msg(usbdev, usb_rcvctrlpipe(usbdev, 0), 0x67,

@@ -197,6 +197,15 @@ ENTRY(ia32_sysenter_target)
 	ASM_PAX_CLOSE_USERLAND
 #endif
 
+	/*
+	 * Sysenter doesn't filter flags, so we need to clear NT
+	 * ourselves.  To save a few cycles, we can check whether
+	 * NT was set instead of doing an unconditional popfq.
+	 */
+	testl $X86_EFLAGS_NT,EFLAGS-ARGOFFSET(%rsp)
+	jnz sysenter_fix_flags
+sysenter_flags_fixed:
+
 	GET_THREAD_INFO(%r11)
 	orl    $TS_COMPAT,TI_status(%r11)
 	testl  $_TIF_WORK_SYSCALL_ENTRY,TI_flags(%r11)
@@ -233,6 +242,8 @@ sysexit_from_sys_call:
 	CFI_REGISTER rsp,rcx
 	TRACE_IRQS_ON
 	ENABLE_INTERRUPTS_SYSEXIT32
+
+	CFI_RESTORE_STATE
 
 #ifdef CONFIG_AUDITSYSCALL
 	.macro auditsys_entry_common
@@ -280,7 +291,6 @@ sysexit_from_sys_call:
 	.endm
 
 sysenter_auditsys:
-	CFI_RESTORE_STATE
 	auditsys_entry_common
 	movl %ebp,%r9d			/* reload 6th syscall arg */
 	jmp sysenter_dispatch
@@ -288,6 +298,11 @@ sysenter_auditsys:
 sysexit_audit:
 	auditsys_exit sysexit_from_sys_call
 #endif
+
+sysenter_fix_flags:
+	pushq_cfi $(X86_EFLAGS_IF|X86_EFLAGS_FIXED)
+	popfq_cfi
+	jmp sysenter_flags_fixed
 
 sysenter_tracesys:
 #ifdef CONFIG_AUDITSYSCALL
