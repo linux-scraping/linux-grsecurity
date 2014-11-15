@@ -82,6 +82,16 @@ echo ""
 fi
 
 echo "%install"
+echo 'chmod -f 0500 /boot'
+echo 'if [ -d /lib/modules ]; then'
+echo 'chmod -f 0500 /lib/modules'
+echo 'fi'
+echo 'if [ -d /lib32/modules ]; then'
+echo 'chmod -f 0500 /lib32/modules'
+echo 'fi'
+echo 'if [ -d /lib64/modules ]; then'
+echo 'chmod -f 0500 /lib64/modules'
+echo 'fi'
 echo 'KBUILD_IMAGE=$(make image_name)'
 echo "%ifarch ia64"
 echo 'mkdir -p $RPM_BUILD_ROOT/boot/efi $RPM_BUILD_ROOT/lib/modules'
