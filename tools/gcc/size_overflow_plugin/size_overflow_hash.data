@@ -1727,6 +1727,7 @@ sctp_setsockopt_events_18862 sctp_setsockopt_events 3 18862 NULL
 ieee80211_if_read_element_ttl_18869 ieee80211_if_read_element_ttl 3 18869 NULL
 xlog_find_verify_log_record_18870 xlog_find_verify_log_record 2 18870 NULL
 ceph_setxattr_18913 ceph_setxattr 4 18913 NULL
+page_cache_tree_insert_18916 page_cache_tree_insert 0 18916 NULL
 ieee80211_rx_mgmt_disassoc_18927 ieee80211_rx_mgmt_disassoc 3 18927 NULL
 snapshot_write_next_18937 snapshot_write_next 0 18937 NULL
 clean_journal_18955 clean_journal 0 18955 NULL
