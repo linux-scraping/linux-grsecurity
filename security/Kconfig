@@ -631,7 +631,7 @@ config PAX_KERNEXEC_PLUGIN_METHOD
 
 config PAX_KERNEXEC_MODULE_TEXT
 	int "Minimum amount of memory reserved for module code"
-	default "4" if (!GRKERNSEC_CONFIG_AUTO || GRKERNSEC_CONFIG_SERVER)
+	default "8" if (!GRKERNSEC_CONFIG_AUTO || GRKERNSEC_CONFIG_SERVER)
 	default "12" if (GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_DESKTOP)
 	depends on PAX_KERNEXEC && X86_32
 	help

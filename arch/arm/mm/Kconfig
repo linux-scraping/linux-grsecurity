@@ -800,8 +800,8 @@ config NEED_KUSER_HELPERS
 
 config KUSER_HELPERS
 	bool "Enable kuser helpers in vector page" if !NEED_KUSER_HELPERS
+	depends on MMU && (!(CPU_V6 || CPU_V6K || CPU_V7) || GRKERNSEC_OLD_ARM_USERLAND)
 	default y
-	depends on !(CPU_V6 || CPU_V6K || CPU_V7) || GRKERNSEC_OLD_ARM_USERLAND
 	help
 	  Warning: disabling this option may break user programs.
 
