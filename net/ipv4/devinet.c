@@ -68,7 +68,8 @@
 
 static struct ipv4_devconf ipv4_devconf = {
 	.data = {
-		[IPV4_DEVCONF_ACCEPT_REDIRECTS - 1] = 1,
+		[IPV4_DEVCONF_ACCEPT_REDIRECTS - 1] = 0,
+		[IPV4_DEVCONF_RP_FILTER - 1] = 1,
 		[IPV4_DEVCONF_SEND_REDIRECTS - 1] = 1,
 		[IPV4_DEVCONF_SECURE_REDIRECTS - 1] = 1,
 		[IPV4_DEVCONF_SHARED_MEDIA - 1] = 1,
@@ -77,7 +78,8 @@ static struct ipv4_devconf ipv4_devconf = {
 
 static struct ipv4_devconf ipv4_devconf_dflt = {
 	.data = {
-		[IPV4_DEVCONF_ACCEPT_REDIRECTS - 1] = 1,
+		[IPV4_DEVCONF_ACCEPT_REDIRECTS - 1] = 0,
+		[IPV4_DEVCONF_RP_FILTER - 1] = 1,
 		[IPV4_DEVCONF_SEND_REDIRECTS - 1] = 1,
 		[IPV4_DEVCONF_SECURE_REDIRECTS - 1] = 1,
 		[IPV4_DEVCONF_SHARED_MEDIA - 1] = 1,
