@@ -154,6 +154,8 @@ echo ""
 echo "%files"
 echo '%defattr (400, root, root, 500)'
 echo "%dir /lib/modules"
+echo "%exclude /lib/modules/$KERNELRELEASE/build"
+echo "%exclude /lib/modules/$KERNELRELEASE/source"
 echo "/lib/modules/$KERNELRELEASE"
 echo "/lib/firmware/$KERNELRELEASE"
 echo "/boot/*"
