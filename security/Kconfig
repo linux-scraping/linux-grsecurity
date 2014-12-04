@@ -164,6 +164,11 @@ config GRKERNSEC_CONFIG_VIRT_VIRTUALBOX
 	help
 	  Choose this option if this kernel is running as a VirtualBox guest or host.
 
+config GRKERNSEC_CONFIG_VIRT_HYPERV
+	bool "Hyper-V"
+	help
+	  Choose this option if this kernel is running as a Hyper-V guest.
+
 endchoice
 
 choice
