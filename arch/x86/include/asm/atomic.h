@@ -272,7 +272,7 @@ static inline int atomic_add_negative(int i, atomic_t *v)
  *
  * Atomically adds @i to @v and returns @i + @v
  */
-static inline int atomic_add_return(int i, atomic_t *v)
+static inline int __intentional_overflow(-1) atomic_add_return(int i, atomic_t *v)
 {
 	return i + xadd_check_overflow(&v->counter, i);
 }
@@ -296,7 +296,7 @@ static inline int atomic_add_return_unchecked(int i, atomic_unchecked_t *v)
  *
  * Atomically subtracts @i from @v and returns @v - @i
  */
-static inline int atomic_sub_return(int i, atomic_t *v)
+static inline int __intentional_overflow(-1) atomic_sub_return(int i, atomic_t *v)
 {
 	return atomic_add_return(-i, v);
 }
