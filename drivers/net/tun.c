@@ -1414,7 +1414,7 @@ static int tun_validate(struct nlattr *tb[], struct nlattr *data[])
 	return -EINVAL;
 }
 
-static struct rtnl_link_ops tun_link_ops __read_mostly = {
+static struct rtnl_link_ops tun_link_ops = {
 	.kind		= DRV_NAME,
 	.priv_size	= sizeof(struct tun_struct),
 	.setup		= tun_setup,

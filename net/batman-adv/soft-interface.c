@@ -983,7 +983,7 @@ int batadv_softif_is_valid(const struct net_device *net_dev)
 	return 0;
 }
 
-struct rtnl_link_ops batadv_link_ops __read_mostly = {
+struct rtnl_link_ops batadv_link_ops = {
 	.kind		= "batadv",
 	.priv_size	= sizeof(struct batadv_priv),
 	.setup		= batadv_softif_init_early,

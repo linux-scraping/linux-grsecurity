@@ -5261,7 +5261,7 @@ static int alloc_retstack_tasklist(struct ftrace_ret_stack **ret_stack_list)
 
 		if (t->ret_stack == NULL) {
 			atomic_set(&t->tracing_graph_pause, 0);
-			atomic_set(&t->trace_overrun, 0);
+			atomic_set_unchecked(&t->trace_overrun, 0);
 			t->curr_ret_stack = -1;
 			/* Make sure the tasks see the -1 first: */
 			smp_wmb();
@@ -5474,7 +5474,7 @@ static void
 graph_init_task(struct task_struct *t, struct ftrace_ret_stack *ret_stack)
 {
 	atomic_set(&t->tracing_graph_pause, 0);
-	atomic_set(&t->trace_overrun, 0);
+	atomic_set_unchecked(&t->trace_overrun, 0);
 	t->ftrace_timestamp = 0;
 	/* make curr_ret_stack visible before we add the ret_stack */
 	smp_wmb();

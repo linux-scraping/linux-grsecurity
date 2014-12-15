@@ -46,7 +46,7 @@
 #define atomic_read(v)	(*(volatile int *)&(v)->counter)
 static inline int atomic_read_unchecked(const atomic_unchecked_t *v)
 {
-	return v->counter;
+	return *(const volatile int *)&v->counter;
 }
 #define atomic_set(v,i)	(((v)->counter) = (i))
 static inline void atomic_set_unchecked(atomic_unchecked_t *v, int i)

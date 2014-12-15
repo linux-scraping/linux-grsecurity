@@ -122,7 +122,7 @@ static const struct net_device_ops internal_dev_netdev_ops = {
 	.ndo_get_stats64 = internal_dev_get_stats,
 };
 
-static struct rtnl_link_ops internal_dev_link_ops __read_mostly = {
+static struct rtnl_link_ops internal_dev_link_ops = {
 	.kind = "openvswitch",
 };
 

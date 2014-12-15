@@ -2072,7 +2072,7 @@ static unsigned int team_get_num_rx_queues(void)
 	return TEAM_DEFAULT_NUM_RX_QUEUES;
 }
 
-static struct rtnl_link_ops team_link_ops __read_mostly = {
+static struct rtnl_link_ops team_link_ops = {
 	.kind			= DRV_NAME,
 	.priv_size		= sizeof(struct team),
 	.setup			= team_setup,

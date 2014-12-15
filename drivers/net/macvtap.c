@@ -422,7 +422,7 @@ static void macvtap_setup(struct net_device *dev)
 	dev->tx_queue_len = TUN_READQ_SIZE;
 }
 
-static struct rtnl_link_ops macvtap_link_ops __read_mostly = {
+static struct rtnl_link_ops macvtap_link_ops = {
 	.kind		= "macvtap",
 	.setup		= macvtap_setup,
 	.newlink	= macvtap_newlink,

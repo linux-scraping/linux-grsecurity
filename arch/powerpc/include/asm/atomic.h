@@ -329,11 +329,27 @@ static __inline__ int __atomic_add_unless(atomic_t *v, int a, int u)
 	PPC_ATOMIC_ENTRY_BARRIER
 "1:	lwarx	%0,0,%1		# __atomic_add_unless\n\
 	cmpw	0,%0,%3 \n\
-	beq-	2f \n\
-	add	%0,%2,%0 \n"
+	beq-	2f \n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+"	mcrxr	cr0\n"
+"	addo.	%0,%2,%0\n"
+"	bf 4*cr0+so, 4f\n"
+"3:.long " "0x00c00b00""\n"
+"4:\n"
+#else
+	"add	%0,%2,%0 \n"
+#endif
+
 	PPC405_ERR77(0,%2)
 "	stwcx.	%0,0,%1 \n\
 	bne-	1b \n"
+"5:"
+
+#ifdef CONFIG_PAX_REFCOUNT
+	_ASM_EXTABLE(3b, 5b)
+#endif
+
 	PPC_ATOMIC_EXIT_BARRIER
 "	subf	%0,%2,%0 \n\
 2:"
@@ -651,7 +667,7 @@ static __inline__ void atomic64_inc_unchecked(atomic64_unchecked_t *v)
 	atomic64_add_unchecked(1, v);
 }
 
-static __inline__ int atomic64_inc_return_unchecked(atomic64_unchecked_t *v)
+static __inline__ long atomic64_inc_return_unchecked(atomic64_unchecked_t *v)
 {
 	return atomic64_add_return_unchecked(1, v);
 }
@@ -735,13 +751,29 @@ static __inline__ int atomic64_add_unless(atomic64_t *v, long a, long u)
 
 	__asm__ __volatile__ (
 	PPC_ATOMIC_ENTRY_BARRIER
-"1:	ldarx	%0,0,%1		# __atomic_add_unless\n\
+"1:	ldarx	%0,0,%1		# atomic64_add_unless\n\
 	cmpd	0,%0,%3 \n\
-	beq-	2f \n\
-	add	%0,%2,%0 \n"
+	beq-	2f \n"
+
+#ifdef CONFIG_PAX_REFCOUNT
+"	mcrxr	cr0\n"
+"	addo.	%0,%2,%0\n"
+"	bf 4*cr0+so, 4f\n"
+"3:.long " "0x00c00b00""\n"
+"4:\n"
+#else
+	"add	%0,%2,%0 \n"
+#endif
+
 "	stdcx.	%0,0,%1 \n\
 	bne-	1b \n"
 	PPC_ATOMIC_EXIT_BARRIER
+"5:"
+
+#ifdef CONFIG_PAX_REFCOUNT
+	_ASM_EXTABLE(3b, 5b)
+#endif
+
 "	subf	%0,%2,%0 \n\
 2:"
 	: "=&r" (t)
