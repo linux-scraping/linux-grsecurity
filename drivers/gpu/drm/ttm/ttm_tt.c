@@ -281,7 +281,7 @@ EXPORT_SYMBOL(ttm_tt_set_placement_caching);
 static void ttm_tt_free_alloced_pages(struct ttm_tt *ttm)
 {
 	int i;
-	unsigned count = 0;
+	unsigned long count = 0;
 	struct list_head h;
 	struct page *cur_page;
 	struct ttm_backend *be = ttm->be;

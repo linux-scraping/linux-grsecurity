@@ -3387,6 +3387,7 @@ store_ledd_43312 store_ledd 4 43312 NULL
 __ext4_get_inode_loc_43332 __ext4_get_inode_loc 0 43332 NULL
 svc_pool_map_get_43386 svc_pool_map_get 0 43386 NULL
 xenfb_write_43412 xenfb_write 3 43412 NULL
+ext4_xattr_check_names_43422 ext4_xattr_check_names 0 43422 NULL
 __alloc_bootmem_low_43423 __alloc_bootmem_low 1 43423 NULL
 usb_alloc_urb_43436 usb_alloc_urb 1 43436 NULL
 usb_string_43443 usb_string 0 43443 NULL nohasharray

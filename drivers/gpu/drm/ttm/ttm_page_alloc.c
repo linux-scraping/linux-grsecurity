@@ -51,7 +51,7 @@
 
 #define NUM_PAGES_TO_ALLOC		(PAGE_SIZE/sizeof(struct page *))
 #define SMALL_ALLOCATION		16
-#define FREE_ALL_PAGES			(~0U)
+#define FREE_ALL_PAGES			(~0UL)
 /* times are in msecs */
 #define PAGE_FREE_INTERVAL		1000
 
@@ -301,13 +301,12 @@ static void ttm_pool_update_free_locked(struct ttm_page_pool *pool,
  * @pool: to free the pages from
  * @free_all: If set to true will free all pages in pool
  **/
-static int ttm_page_pool_free(struct ttm_page_pool *pool, unsigned nr_free)
+static unsigned long ttm_page_pool_free(struct ttm_page_pool *pool, unsigned long nr_free)
 {
 	unsigned long irq_flags;
 	struct page *p;
 	struct page **pages_to_free;
-	unsigned freed_pages = 0,
-		 npages_to_free = nr_free;
+	unsigned long freed_pages = 0, npages_to_free = nr_free;
 
 	if (NUM_PAGES_TO_ALLOC < nr_free)
 		npages_to_free = NUM_PAGES_TO_ALLOC;
@@ -369,7 +368,8 @@ restart:
 		__list_del(&p->lru, &pool->list);
 
 		ttm_pool_update_free_locked(pool, freed_pages);
-		nr_free -= freed_pages;
+		if (likely(nr_free != FREE_ALL_PAGES))
+			nr_free -= freed_pages;
 	}
 
 	spin_unlock_irqrestore(&pool->lock, irq_flags);
@@ -403,7 +403,7 @@ static int ttm_pool_mm_shrink(struct shrinker *shrink,
 	unsigned i;
 	unsigned pool_offset;
 	struct ttm_page_pool *pool;
-	int shrink_pages = sc->nr_to_scan;
+	unsigned long shrink_pages = sc->nr_to_scan;
 
 	if (shrink_pages == 0)
 		goto out;
@@ -412,7 +412,7 @@ static int ttm_pool_mm_shrink(struct shrinker *shrink,
 	pool_offset = ++start_pool % NUM_POOLS;
 	/* select start pool in round robin fashion */
 	for (i = 0; i < NUM_POOLS; ++i) {
-		unsigned nr_free = shrink_pages;
+		unsigned long nr_free = shrink_pages;
 		if (shrink_pages == 0)
 			break;
 		pool = &_manager->pools[(i + pool_offset)%NUM_POOLS];
@@ -744,7 +744,7 @@ int ttm_get_pages(struct list_head *pages, int flags,
 }
 
 /* Put all pages in pages list to correct pool to wait for reuse */
-void ttm_put_pages(struct list_head *pages, unsigned page_count, int flags,
+void ttm_put_pages(struct list_head *pages, unsigned long page_count, int flags,
 		   enum ttm_caching_state cstate, dma_addr_t *dma_address)
 {
 	unsigned long irq_flags;

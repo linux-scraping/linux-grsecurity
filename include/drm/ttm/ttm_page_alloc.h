@@ -54,7 +54,7 @@ int ttm_get_pages(struct list_head *pages,
  * @dma_address: The DMA (bus) address of pages (if TTM_PAGE_FLAG_DMA32 set).
  */
 void ttm_put_pages(struct list_head *pages,
-		   unsigned page_count,
+		   unsigned long page_count,
 		   int flags,
 		   enum ttm_caching_state cstate,
 		   dma_addr_t *dma_address);

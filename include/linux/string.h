@@ -146,6 +146,5 @@ static inline bool strstarts(const char *str, const char *prefix)
 }
 
 void memzero_explicit(void *s, size_t count);
-
 #endif
 #endif /* _LINUX_STRING_H_ */
