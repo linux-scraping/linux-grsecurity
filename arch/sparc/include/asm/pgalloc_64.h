@@ -21,6 +21,7 @@ static inline void __pgd_populate(pgd_t *pgd, pud_t *pud)
 }
 
 #define pgd_populate(MM, PGD, PUD)	__pgd_populate(PGD, PUD)
+#define pgd_populate_kernel(MM, PGD, PMD)	pgd_populate((MM), (PGD), (PMD))
 
 static inline pgd_t *pgd_alloc(struct mm_struct *mm)
 {

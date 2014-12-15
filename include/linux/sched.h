@@ -1599,7 +1599,7 @@ struct task_struct {
 	 * Number of functions that haven't been traced
 	 * because of depth overrun.
 	 */
-	atomic_t trace_overrun;
+	atomic_unchecked_t trace_overrun;
 	/* Pause for the tracing */
 	atomic_t tracing_graph_pause;
 #endif

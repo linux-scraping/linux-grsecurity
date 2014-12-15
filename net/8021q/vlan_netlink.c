@@ -238,7 +238,7 @@ nla_put_failure:
 	return -EMSGSIZE;
 }
 
-struct rtnl_link_ops vlan_link_ops __read_mostly = {
+struct rtnl_link_ops vlan_link_ops = {
 	.kind		= "vlan",
 	.maxtype	= IFLA_VLAN_MAX,
 	.policy		= vlan_policy,
