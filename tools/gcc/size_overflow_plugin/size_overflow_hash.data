@@ -566,6 +566,7 @@ ibmpex_query_sensor_count_6709 ibmpex_query_sensor_count 0 6709 NULL
 check_clk_sync_6717 check_clk_sync 2 6717 NULL
 video_proc_write_6724 video_proc_write 3 6724 NULL
 posix_acl_xattr_count_6725 posix_acl_xattr_count 0-1 6725 NULL
+inet_recv_error_6744 inet_recv_error 3 6744 NULL
 kobject_add_varg_6781 kobject_add_varg 0 6781 NULL
 iwl_dbgfs_channels_read_6784 iwl_dbgfs_channels_read 3 6784 NULL
 ieee80211_if_read_6785 ieee80211_if_read 3 6785 NULL

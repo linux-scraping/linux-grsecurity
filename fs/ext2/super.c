@@ -264,10 +264,8 @@ static int ext2_show_options(struct seq_file *seq, struct dentry *root)
 #ifdef CONFIG_EXT2_FS_XATTR
 	if (test_opt(sb, XATTR_USER))
 		seq_puts(seq, ",user_xattr");
-	if (!test_opt(sb, XATTR_USER) &&
-	    (def_mount_opts & EXT2_DEFM_XATTR_USER)) {
+	if (!test_opt(sb, XATTR_USER))
 		seq_puts(seq, ",nouser_xattr");
-	}
 #endif
 
 #ifdef CONFIG_EXT2_FS_POSIX_ACL
@@ -841,8 +839,8 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
 	if (def_mount_opts & EXT2_DEFM_UID16)
 		set_opt(sbi->s_mount_opt, NO_UID32);
 #ifdef CONFIG_EXT2_FS_XATTR
-	if (def_mount_opts & EXT2_DEFM_XATTR_USER)
-		set_opt(sbi->s_mount_opt, XATTR_USER);
+	/* always enable user xattrs */
+	set_opt(sbi->s_mount_opt, XATTR_USER);
 #endif
 #ifdef CONFIG_EXT2_FS_POSIX_ACL
 	if (def_mount_opts & EXT2_DEFM_ACL)
