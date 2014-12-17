@@ -1664,6 +1664,10 @@ static int reiserfs_fill_super(struct super_block *s, void *data, int silent)
 	REISERFS_SB(s)->s_mount_opt |= (1 << REISERFS_SMALLTAIL);
 	REISERFS_SB(s)->s_mount_opt |= (1 << REISERFS_ERROR_RO);
 	REISERFS_SB(s)->s_mount_opt |= (1 << REISERFS_BARRIER_FLUSH);
+#ifdef CONFIG_REISERFS_FS_XATTR
+	/* turn on user xattrs by default */
+	REISERFS_SB(s)->s_mount_opt |= (1 << REISERFS_XATTRS_USER);
+#endif
 	/* no preallocation minimum, be smart in
 	   reiserfs_file_write instead */
 	REISERFS_SB(s)->s_alloc_options.preallocmin = 0;
