@@ -70,8 +70,7 @@ static DEFINE_MUTEX(espfix_init_mutex);
 #define ESPFIX_MAX_PAGES  DIV_ROUND_UP(CONFIG_NR_CPUS, ESPFIX_STACKS_PER_PAGE)
 static void *espfix_pages[ESPFIX_MAX_PAGES];
 
-static __page_aligned_bss pud_t espfix_pud_page[PTRS_PER_PUD]
-	__aligned(PAGE_SIZE);
+static pud_t espfix_pud_page[PTRS_PER_PUD] __page_aligned_rodata;
 
 static unsigned int page_random, slot_random;
 
@@ -122,13 +121,16 @@ static void init_espfix_random(void)
 void __init init_espfix_bsp(void)
 {
 	pgd_t *pgd_p;
-	pteval_t ptemask;
-
-	ptemask = __supported_pte_mask;
+	unsigned long index = pgd_index(ESPFIX_BASE_ADDR);
 
 	/* Install the espfix pud into the kernel page directory */
-	pgd_p = &init_level4_pgt[pgd_index(ESPFIX_BASE_ADDR)];
+	pgd_p = &init_level4_pgt[index];
 	pgd_populate(&init_mm, pgd_p, (pud_t *)espfix_pud_page);
+
+#ifdef CONFIG_PAX_PER_CPU_PGD
+	clone_pgd_range(get_cpu_pgd(0, kernel) + index, swapper_pg_dir + index, 1);
+	clone_pgd_range(get_cpu_pgd(0, user) + index, swapper_pg_dir + index, 1);
+#endif
 
 	/* Randomize the locations */
 	init_espfix_random();
