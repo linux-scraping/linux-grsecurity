@@ -929,6 +929,7 @@ config VM86
 
 config X86_16BIT
 	bool "Enable support for 16-bit segments" if EXPERT
+	depends on !GRKERNSEC
 	default y
 	---help---
 	  This option is required by programs like Wine to run 16-bit
