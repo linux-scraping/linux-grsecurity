@@ -14,229 +14,113 @@
 	 * memory barriers, and a second which returns
 	 * a value and does the barriers.
 	 */
-ENTRY(atomic_add) /* %o0 = increment, %o1 = atomic_ptr */
-	BACKOFF_SETUP(%o2)
-1:	lduw	[%o1], %g1
-	addcc	%g1, %o0, %g7
 
 #ifdef CONFIG_PAX_REFCOUNT
-	tvs	%icc, 6
+#define __REFCOUNT_OP(op) op##cc
+#define __OVERFLOW_IOP tvs	%icc, 6;
+#define __OVERFLOW_XOP tvs	%xcc, 6;
+#else
+#define __REFCOUNT_OP(op) op
+#define __OVERFLOW_IOP
+#define __OVERFLOW_XOP
 #endif
 
-	cas	[%o1], %g1, %g7
-	cmp	%g1, %g7
-	bne,pn	%icc, BACKOFF_LABEL(2f, 1b)
-	 nop
-	retl
-	 nop
-2:	BACKOFF_SPIN(%o2, %o3, 1b)
-ENDPROC(atomic_add)
+#define __ATOMIC_OP(op, suffix, asm_op, post_op)			\
+ENTRY(atomic_##op##suffix) /* %o0 = increment, %o1 = atomic_ptr */	\
+	BACKOFF_SETUP(%o2);						\
+1:	lduw	[%o1], %g1;						\
+	asm_op	%g1, %o0, %g7;						\
+	post_op								\
+	cas	[%o1], %g1, %g7;					\
+	cmp	%g1, %g7;						\
+	bne,pn	%icc, BACKOFF_LABEL(2f, 1b);				\
+	 nop;								\
+	retl;								\
+	 nop;								\
+2:	BACKOFF_SPIN(%o2, %o3, 1b);					\
+ENDPROC(atomic_##op);							\
 
-ENTRY(atomic_add_unchecked) /* %o0 = increment, %o1 = atomic_ptr */
-	BACKOFF_SETUP(%o2)
-1:	lduw	[%o1], %g1
-	add	%g1, %o0, %g7
-	cas	[%o1], %g1, %g7
-	cmp	%g1, %g7
-	bne,pn	%icc, 2f
-	 nop
-	retl
-	 nop
-2:	BACKOFF_SPIN(%o2, %o3, 1b)
-ENDPROC(atomic_add_unchecked)
+#define ATOMIC_OP(op) __ATOMIC_OP(op, , op, ) \
+		      __ATOMIC_OP(op, _unchecked, __REFCOUNT_OP(op), __OVERFLOW_IOP)
 
-ENTRY(atomic_sub) /* %o0 = decrement, %o1 = atomic_ptr */
-	BACKOFF_SETUP(%o2)
-1:	lduw	[%o1], %g1
-	subcc	%g1, %o0, %g7
+#define __ATOMIC_OP_RETURN(op, suffix, asm_op, post_op)			\
+ENTRY(atomic_##op##_return##suffix) /* %o0 = increment, %o1 = atomic_ptr */\
+	BACKOFF_SETUP(%o2);						\
+1:	lduw	[%o1], %g1;						\
+	asm_op	%g1, %o0, %g7;						\
+	post_op								\
+	cas	[%o1], %g1, %g7;					\
+	cmp	%g1, %g7;						\
+	bne,pn	%icc, BACKOFF_LABEL(2f, 1b);				\
+	 op	%g1, %o0, %g1;						\
+	retl;								\
+	 sra	%g1, 0, %o0;						\
+2:	BACKOFF_SPIN(%o2, %o3, 1b);					\
+ENDPROC(atomic_##op##_return);
 
-#ifdef CONFIG_PAX_REFCOUNT
-	tvs	%icc, 6
-#endif
+#define ATOMIC_OP_RETURN(op) __ATOMIC_OP_RETURN(op, , op, ) \
+			     __ATOMIC_OP_RETURN(op, _unchecked, __REFCOUNT_OP(op), __OVERFLOW_IOP)
 
-	cas	[%o1], %g1, %g7
-	cmp	%g1, %g7
-	bne,pn	%icc, BACKOFF_LABEL(2f, 1b)
-	 nop
-	retl
-	 nop
-2:	BACKOFF_SPIN(%o2, %o3, 1b)
-ENDPROC(atomic_sub)
+#define ATOMIC_OPS(op) ATOMIC_OP(op) ATOMIC_OP_RETURN(op)
 
-ENTRY(atomic_sub_unchecked) /* %o0 = decrement, %o1 = atomic_ptr */
-	BACKOFF_SETUP(%o2)
-1:	lduw	[%o1], %g1
-	sub	%g1, %o0, %g7
-	cas	[%o1], %g1, %g7
-	cmp	%g1, %g7
-	bne,pn	%icc, 2f
-	 nop
-	retl
-	 nop
-2:	BACKOFF_SPIN(%o2, %o3, 1b)
-ENDPROC(atomic_sub_unchecked)
+ATOMIC_OPS(add)
+ATOMIC_OPS(sub)
 
-ENTRY(atomic_add_ret) /* %o0 = increment, %o1 = atomic_ptr */
-	BACKOFF_SETUP(%o2)
-1:	lduw	[%o1], %g1
-	addcc	%g1, %o0, %g7
+#undef ATOMIC_OPS
+#undef ATOMIC_OP_RETURN
+#undef __ATOMIC_OP_RETURN
+#undef ATOMIC_OP
+#undef __ATOMIC_OP
 
-#ifdef CONFIG_PAX_REFCOUNT
-	tvs	%icc, 6
-#endif
+#define __ATOMIC64_OP(op, suffix, asm_op, post_op)			\
+ENTRY(atomic64_##op##suffix) /* %o0 = increment, %o1 = atomic_ptr */	\
+	BACKOFF_SETUP(%o2);						\
+1:	ldx	[%o1], %g1;						\
+	asm_op	%g1, %o0, %g7;						\
+	post_op								\
+	casx	[%o1], %g1, %g7;					\
+	cmp	%g1, %g7;						\
+	bne,pn	%xcc, BACKOFF_LABEL(2f, 1b);				\
+	 nop;								\
+	retl;								\
+	 nop;								\
+2:	BACKOFF_SPIN(%o2, %o3, 1b);					\
+ENDPROC(atomic64_##op);							\
 
-	cas	[%o1], %g1, %g7
-	cmp	%g1, %g7
-	bne,pn	%icc, BACKOFF_LABEL(2f, 1b)
-	 add	%g1, %o0, %g1
-	retl
-	 sra	%g1, 0, %o0
-2:	BACKOFF_SPIN(%o2, %o3, 1b)
-ENDPROC(atomic_add_ret)
+#define ATOMIC64_OP(op) __ATOMIC64_OP(op, , op, ) \
+			__ATOMIC64_OP(op, _unchecked, __REFCOUNT_OP(op), __OVERFLOW_XOP)
 
-ENTRY(atomic_add_ret_unchecked) /* %o0 = increment, %o1 = atomic_ptr */
-	BACKOFF_SETUP(%o2)
-1:	lduw	[%o1], %g1
-	addcc	%g1, %o0, %g7
-	cas	[%o1], %g1, %g7
-	cmp	%g1, %g7
-	bne,pn	%icc, 2f
-	 add	%g7, %o0, %g7
-	sra	%g7, 0, %o0
-	retl
-	 nop
-2:	BACKOFF_SPIN(%o2, %o3, 1b)
-ENDPROC(atomic_add_ret_unchecked)
+#define __ATOMIC64_OP_RETURN(op, suffix, asm_op, post_op)		\
+ENTRY(atomic64_##op##_return##suffix) /* %o0 = increment, %o1 = atomic_ptr */\
+	BACKOFF_SETUP(%o2);						\
+1:	ldx	[%o1], %g1;						\
+	asm_op	%g1, %o0, %g7;						\
+	post_op								\
+	casx	[%o1], %g1, %g7;					\
+	cmp	%g1, %g7;						\
+	bne,pn	%xcc, BACKOFF_LABEL(2f, 1b);				\
+	 nop;								\
+	retl;								\
+	 op	%g1, %o0, %o0;						\
+2:	BACKOFF_SPIN(%o2, %o3, 1b);					\
+ENDPROC(atomic64_##op##_return);
 
-ENTRY(atomic_sub_ret) /* %o0 = decrement, %o1 = atomic_ptr */
-	BACKOFF_SETUP(%o2)
-1:	lduw	[%o1], %g1
-	subcc	%g1, %o0, %g7
+#define ATOMIC64_OP_RETURN(op) __ATOMIC64_OP_RETURN(op, , op, ) \
+i			       __ATOMIC64_OP_RETURN(op, _unchecked, __REFCOUNT_OP(op), __OVERFLOW_XOP)
 
-#ifdef CONFIG_PAX_REFCOUNT
-	tvs	%icc, 6
-#endif
+#define ATOMIC64_OPS(op) ATOMIC64_OP(op) ATOMIC64_OP_RETURN(op)
 
-	cas	[%o1], %g1, %g7
-	cmp	%g1, %g7
-	bne,pn	%icc, BACKOFF_LABEL(2f, 1b)
-	 sub	%g1, %o0, %g1
-	retl
-	 sra	%g1, 0, %o0
-2:	BACKOFF_SPIN(%o2, %o3, 1b)
-ENDPROC(atomic_sub_ret)
+ATOMIC64_OPS(add)
+ATOMIC64_OPS(sub)
 
-ENTRY(atomic64_add) /* %o0 = increment, %o1 = atomic_ptr */
-	BACKOFF_SETUP(%o2)
-1:	ldx	[%o1], %g1
-	addcc	%g1, %o0, %g7
-
-#ifdef CONFIG_PAX_REFCOUNT
-	tvs	%xcc, 6
-#endif
-
-	casx	[%o1], %g1, %g7
-	cmp	%g1, %g7
-	bne,pn	%xcc, BACKOFF_LABEL(2f, 1b)
-	 nop
-	retl
-	 nop
-2:	BACKOFF_SPIN(%o2, %o3, 1b)
-ENDPROC(atomic64_add)
-
-ENTRY(atomic64_add_unchecked) /* %o0 = increment, %o1 = atomic_ptr */
-	BACKOFF_SETUP(%o2)
-1:	ldx	[%o1], %g1
-	addcc	%g1, %o0, %g7
-	casx	[%o1], %g1, %g7
-	cmp	%g1, %g7
-	bne,pn	%xcc, 2f
-	 nop
-	retl
-	 nop
-2:	BACKOFF_SPIN(%o2, %o3, 1b)
-ENDPROC(atomic64_add_unchecked)
-
-ENTRY(atomic64_sub) /* %o0 = decrement, %o1 = atomic_ptr */
-	BACKOFF_SETUP(%o2)
-1:	ldx	[%o1], %g1
-	subcc	%g1, %o0, %g7
-
-#ifdef CONFIG_PAX_REFCOUNT
-	tvs	%xcc, 6
-#endif
-
-	casx	[%o1], %g1, %g7
-	cmp	%g1, %g7
-	bne,pn	%xcc, BACKOFF_LABEL(2f, 1b)
-	 nop
-	retl
-	 nop
-2:	BACKOFF_SPIN(%o2, %o3, 1b)
-ENDPROC(atomic64_sub)
-
-ENTRY(atomic64_sub_unchecked) /* %o0 = decrement, %o1 = atomic_ptr */
-	BACKOFF_SETUP(%o2)
-1:	ldx	[%o1], %g1
-	subcc	%g1, %o0, %g7
-	casx	[%o1], %g1, %g7
-	cmp	%g1, %g7
-	bne,pn	%xcc, 2f
-	 nop
-	retl
-	 nop
-2:	BACKOFF_SPIN(%o2, %o3, 1b)
-ENDPROC(atomic64_sub_unchecked)
-
-ENTRY(atomic64_add_ret) /* %o0 = increment, %o1 = atomic_ptr */
-	BACKOFF_SETUP(%o2)
-1:	ldx	[%o1], %g1
-	addcc	%g1, %o0, %g7
-
-#ifdef CONFIG_PAX_REFCOUNT
-	tvs	%xcc, 6
-#endif
-
-	casx	[%o1], %g1, %g7
-	cmp	%g1, %g7
-	bne,pn	%xcc, BACKOFF_LABEL(2f, 1b)
-	 nop
-	retl
-	 add	%g1, %o0, %o0
-2:	BACKOFF_SPIN(%o2, %o3, 1b)
-ENDPROC(atomic64_add_ret)
-
-ENTRY(atomic64_add_ret_unchecked) /* %o0 = increment, %o1 = atomic_ptr */
-	BACKOFF_SETUP(%o2)
-1:	ldx	[%o1], %g1
-	addcc	%g1, %o0, %g7
-	casx	[%o1], %g1, %g7
-	cmp	%g1, %g7
-	bne,pn	%xcc, 2f
-	 add	%g7, %o0, %g7
-	mov	%g7, %o0
-	retl
-	 nop
-2:	BACKOFF_SPIN(%o2, %o3, 1b)
-ENDPROC(atomic64_add_ret_unchecked)
-
-ENTRY(atomic64_sub_ret) /* %o0 = decrement, %o1 = atomic_ptr */
-	BACKOFF_SETUP(%o2)
-1:	ldx	[%o1], %g1
-	subcc	%g1, %o0, %g7
-
-#ifdef CONFIG_PAX_REFCOUNT
-	tvs	%xcc, 6
-#endif
-
-	casx	[%o1], %g1, %g7
-	cmp	%g1, %g7
-	bne,pn	%xcc, BACKOFF_LABEL(2f, 1b)
-	 nop
-	retl
-	 sub	%g1, %o0, %o0
-2:	BACKOFF_SPIN(%o2, %o3, 1b)
-ENDPROC(atomic64_sub_ret)
+#undef ATOMIC64_OPS
+#undef ATOMIC64_OP_RETURN
+#undef __ATOMIC64_OP_RETURN
+#undef ATOMIC64_OP
+#undef __ATOMIC64_OP
+#undef __OVERFLOW_XOP
+#undef __OVERFLOW_IOP
+#undef __REFCOUNT_OP
 
 ENTRY(atomic64_dec_if_positive) /* %o0 = atomic_ptr */
 	BACKOFF_SETUP(%o2)

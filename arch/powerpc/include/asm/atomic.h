@@ -45,227 +45,100 @@ static __inline__ void atomic_set_unchecked(atomic_unchecked_t *v, int i)
 	__asm__ __volatile__("stw%U0%X0 %1,%0" : "=m"(v->counter) : "r"(i));
 }
 
-static __inline__ void atomic_add(int a, atomic_t *v)
-{
-	int t;
-
-	__asm__ __volatile__(
-"1:	lwarx	%0,0,%3		# atomic_add\n"
-
 #ifdef CONFIG_PAX_REFCOUNT
-"	mcrxr	cr0\n"
-"	addo.	%0,%2,%0\n"
-"	bf 4*cr0+so, 3f\n"
-"2:.long " "0x00c00b00""\n"
-#else
-"	add	%0,%2,%0\n"
-#endif
-
-"3:\n"
-	PPC405_ERR77(0,%3)
-"	stwcx.	%0,0,%3 \n\
-	bne-	1b"
-
-#ifdef CONFIG_PAX_REFCOUNT
-"\n4:\n"
+#define __REFCOUNT_OP(op) op##o.
+#define __OVERFLOW_PRE			\
+	"	mcrxr	cr0\n"
+#define __OVERFLOW_POST			\
+	"	bf 4*cr0+so, 3f\n"	\
+	"2:	.long 0x00c00b00\n"	\
+	"3:\n"
+#define __OVERFLOW_EXTABLE \
+	"\n4:\n"
 	_ASM_EXTABLE(2b, 4b)
-#endif
-
-	: "=&r" (t), "+m" (v->counter)
-	: "r" (a), "r" (&v->counter)
-	: "cc");
-}
-
-static __inline__ void atomic_add_unchecked(int a, atomic_unchecked_t *v)
-{
-	int t;
-
-	__asm__ __volatile__(
-"1:	lwarx	%0,0,%3		# atomic_add\n\
-	add	%0,%2,%0\n"
-	PPC405_ERR77(0,%3)
-"	stwcx.	%0,0,%3 \n\
-	bne-	1b"
-	: "=&r" (t), "+m" (v->counter)
-	: "r" (a), "r" (&v->counter)
-	: "cc");
-}
-
-/* Same as atomic_add but return the value */
-static __inline__ int atomic_add_return(int a, atomic_t *v)
-{
-	int t;
-
-	__asm__ __volatile__(
-	PPC_ATOMIC_ENTRY_BARRIER
-"1:	lwarx	%0,0,%2		# atomic_add_return\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-"	mcrxr	cr0\n"
-"	addo.	%0,%1,%0\n"
-"	bf 4*cr0+so, 3f\n"
-"2:.long " "0x00c00b00""\n"
 #else
-"	add	%0,%1,%0\n"
+#define __REFCOUNT_OP(op) op
+#define __OVERFLOW_PRE
+#define __OVERFLOW_POST
+#define __OVERFLOW_EXTABLE
 #endif
 
-"3:\n"
-	PPC405_ERR77(0,%2)
-"	stwcx.	%0,0,%2 \n\
-	bne-	1b\n"
-"4:"
+#define __ATOMIC_OP(op, suffix, pre_op, asm_op, post_op, extable)	\
+static inline void atomic_##op##suffix(int a, atomic##suffix##_t *v)	\
+{									\
+	int t;								\
+									\
+	__asm__ __volatile__(						\
+"1:	lwarx	%0,0,%3		# atomic_" #op #suffix "\n"		\
+	pre_op								\
+	#asm_op " %0,%2,%0\n"						\
+	post_op								\
+	PPC405_ERR77(0,%3)						\
+"	stwcx.	%0,0,%3 \n"						\
+"	bne-	1b\n"							\
+	extable								\
+	: "=&r" (t), "+m" (v->counter)					\
+	: "r" (a), "r" (&v->counter)					\
+	: "cc");							\
+}									\
 
-#ifdef CONFIG_PAX_REFCOUNT
-	_ASM_EXTABLE(2b, 4b)
-#endif
+#define ATOMIC_OP(op, asm_op) __ATOMIC_OP(op, , , asm_op, , )		\
+			      __ATOMIC_OP(op, _unchecked, __OVERFLOW_PRE, __REFCOUNT_OP(asm_op), __OVERFLOW_POST, __OVERFLOW_EXTABLE)
 
-	PPC_ATOMIC_EXIT_BARRIER
-	: "=&r" (t)
-	: "r" (a), "r" (&v->counter)
-	: "cc", "memory");
-
-	return t;
+#define __ATOMIC_OP_RETURN(op, suffix, pre_op, asm_op, post_op, extable)\
+static inline int atomic_##op##_return##suffix(int a, atomic##suffix##_t *v)\
+{									\
+	int t;								\
+									\
+	__asm__ __volatile__(						\
+	PPC_ATOMIC_ENTRY_BARRIER					\
+"1:	lwarx	%0,0,%2		# atomic_" #op "_return" #suffix "\n"	\
+	pre_op								\
+	#asm_op " %0,%1,%0\n"						\
+	post_op								\
+	PPC405_ERR77(0,%2)						\
+"	stwcx.	%0,0,%2 \n"						\
+"	bne-	1b\n"							\
+	extable								\
+	PPC_ATOMIC_EXIT_BARRIER						\
+	: "=&r" (t)							\
+	: "r" (a), "r" (&v->counter)					\
+	: "cc", "memory");						\
+									\
+	return t;							\
 }
 
-/* Same as atomic_add_unchecked but return the value */
-static __inline__ int atomic_add_return_unchecked(int a, atomic_unchecked_t *v)
-{
-	int t;
+#define ATOMIC_OP_RETURN(op, asm_op) __ATOMIC_OP_RETURN(op, , , asm_op, , )\
+				     __ATOMIC_OP_RETURN(op, _unchecked, __OVERFLOW_PRE, __REFCOUNT_OP(asm_op), __OVERFLOW_POST, __OVERFLOW_EXTABLE)
 
-	__asm__ __volatile__(
-	PPC_ATOMIC_ENTRY_BARRIER
-"1:	lwarx	%0,0,%2		# atomic_add_return\n\
-	add	%0,%1,%0\n"
-	PPC405_ERR77(0,%2)
-"	stwcx.	%0,0,%2 \n\
-	bne-	1b"
-	PPC_ATOMIC_EXIT_BARRIER
-	: "=&r" (t)
-	: "r" (a), "r" (&v->counter)
-	: "cc", "memory");
+#define ATOMIC_OPS(op, asm_op) ATOMIC_OP(op, asm_op) ATOMIC_OP_RETURN(op, asm_op)
 
-	return t;
-}
+ATOMIC_OPS(add, add)
+ATOMIC_OPS(sub, subf)
+
+#undef ATOMIC_OPS
+#undef ATOMIC_OP_RETURN
+#undef __ATOMIC_OP_RETURN
+#undef ATOMIC_OP
+#undef __ATOMIC_OP
 
 #define atomic_add_negative(a, v)	(atomic_add_return((a), (v)) < 0)
 
-static __inline__ void atomic_sub(int a, atomic_t *v)
-{
-	int t;
-
-	__asm__ __volatile__(
-"1:	lwarx	%0,0,%3		# atomic_sub\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-"	mcrxr	cr0\n"
-"	subfo.	%0,%2,%0\n"
-"	bf 4*cr0+so, 3f\n"
-"2:.long " "0x00c00b00""\n"
-#else
-"	subf	%0,%2,%0\n"
-#endif
-
-"3:\n"
-	PPC405_ERR77(0,%3)
-"	stwcx.	%0,0,%3 \n\
-	bne-	1b\n"
-"4:"
-
-#ifdef CONFIG_PAX_REFCOUNT
-	_ASM_EXTABLE(2b, 4b)
-#endif
-
-	: "=&r" (t), "+m" (v->counter)
-	: "r" (a), "r" (&v->counter)
-	: "cc");
-}
-
-static __inline__ void atomic_sub_unchecked(int a, atomic_unchecked_t *v)
-{
-	int t;
-
-	__asm__ __volatile__(
-"1:	lwarx	%0,0,%3		# atomic_sub\n\
-	subf	%0,%2,%0\n"
-	PPC405_ERR77(0,%3)
-"	stwcx.	%0,0,%3 \n\
-	bne-	1b"
-	: "=&r" (t), "+m" (v->counter)
-	: "r" (a), "r" (&v->counter)
-	: "cc");
-}
-
-/* Same as atomic_sub but return the value */
-static __inline__ int atomic_sub_return(int a, atomic_t *v)
-{
-	int t;
-
-	__asm__ __volatile__(
-	PPC_ATOMIC_ENTRY_BARRIER
-"1:	lwarx	%0,0,%2		# atomic_sub_return\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-"	mcrxr	cr0\n"
-"	subfo.	%0,%1,%0\n"
-"	bf 4*cr0+so, 3f\n"
-"2:.long " "0x00c00b00""\n"
-#else
-"	subf	%0,%1,%0\n"
-#endif
-
-"3:\n"
-	PPC405_ERR77(0,%2)
-"	stwcx.	%0,0,%2 \n\
-	bne-	1b\n"
-	PPC_ATOMIC_EXIT_BARRIER
-"4:"
-
-#ifdef CONFIG_PAX_REFCOUNT
-	_ASM_EXTABLE(2b, 4b)
-#endif
-
-	: "=&r" (t)
-	: "r" (a), "r" (&v->counter)
-	: "cc", "memory");
-
-	return t;
-}
-
-/* Same as atomic_sub_unchecked but return the value */
-static __inline__ int atomic_sub_return_unchecked(int a, atomic_unchecked_t *v)
-{
-	int t;
-
-	__asm__ __volatile__(
-	PPC_ATOMIC_ENTRY_BARRIER
-"1:	lwarx	%0,0,%2		# atomic_sub_return\n\
-	subf	%0,%1,%0\n"
-	PPC405_ERR77(0,%2)
-"	stwcx.	%0,0,%2 \n\
-	bne-	1b"
-	PPC_ATOMIC_EXIT_BARRIER
-	: "=&r" (t)
-	: "r" (a), "r" (&v->counter)
-	: "cc", "memory");
-
-	return t;
-}
-
-/* 
+/*
  * atomic_inc - increment atomic variable
  * @v: pointer of type atomic_t
- * 
+ *
  * Automatically increments @v by 1
  */
 #define atomic_inc(v) atomic_add(1, (v))
 #define atomic_inc_return(v) atomic_add_return(1, (v))
 
-static __inline__ void atomic_inc_unchecked(atomic_unchecked_t *v)
+static inline void atomic_inc_unchecked(atomic_unchecked_t *v)
 {
 	atomic_add_unchecked(1, v);
 }
 
-static __inline__ int atomic_inc_return_unchecked(atomic_unchecked_t *v)
+static inline int atomic_inc_return_unchecked(atomic_unchecked_t *v)
 {
 	return atomic_add_return_unchecked(1, v);
 }
@@ -459,215 +332,84 @@ static __inline__ void atomic64_set_unchecked(atomic64_unchecked_t *v, long i)
 	__asm__ __volatile__("std%U0%X0 %1,%0" : "=m"(v->counter) : "r"(i));
 }
 
-static __inline__ void atomic64_add(long a, atomic64_t *v)
-{
-	long t;
-
-	__asm__ __volatile__(
-"1:	ldarx	%0,0,%3		# atomic64_add\n\
-	add	%0,%2,%0\n\
-	stdcx.	%0,0,%3 \n\
-	bne-	1b"
-	: "=&r" (t), "+m" (v->counter)
-	: "r" (a), "r" (&v->counter)
-	: "cc");
+#define __ATOMIC64_OP(op, suffix, pre_op, asm_op, post_op, extable)	\
+static inline void atomic64_##op##suffix(long a, atomic64##suffix##_t *v)\
+{									\
+	long t;								\
+									\
+	__asm__ __volatile__(						\
+"1:	ldarx	%0,0,%3		# atomic64_" #op "\n"			\
+	pre_op								\
+	#asm_op " %0,%2,%0\n"						\
+	post_op								\
+"	stdcx.	%0,0,%3 \n"						\
+"	bne-	1b\n"							\
+	extable								\
+	: "=&r" (t), "+m" (v->counter)					\
+	: "r" (a), "r" (&v->counter)					\
+	: "cc");							\
 }
 
-static __inline__ void atomic64_add_unchecked(long a, atomic64_unchecked_t *v)
-{
-	long t;
+#define ATOMIC64_OP(op, asm_op) __ATOMIC64_OP(op, , , asm_op, , )		\
+				__ATOMIC64_OP(op, _unchecked, __OVERFLOW_PRE, __REFCOUNT_OP(asm_op), __OVERFLOW_POST, __OVERFLOW_EXTABLE)
 
-	__asm__ __volatile__(
-"1:	ldarx	%0,0,%3		# atomic64_add\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-"	mcrxr	cr0\n"
-"	addo.	%0,%2,%0\n"
-"	bf 4*cr0+so, 3f\n"
-"2:.long " "0x00c00b00""\n"
-#else
-"	add	%0,%2,%0\n"
-#endif
-
-"3:\n"
-"	stdcx.	%0,0,%3 \n\
-	bne-	1b\n"
-"4:"
-
-#ifdef CONFIG_PAX_REFCOUNT
-	_ASM_EXTABLE(2b, 4b)
-#endif
-
-	: "=&r" (t), "+m" (v->counter)
-	: "r" (a), "r" (&v->counter)
-	: "cc");
+#define __ATOMIC64_OP_RETURN(op, suffix, pre_op, asm_op, post_op, extable)\
+static inline long atomic64_##op##_return##suffix(long a, atomic64##suffix##_t *v)\
+{									\
+	long t;								\
+									\
+	__asm__ __volatile__(						\
+	PPC_ATOMIC_ENTRY_BARRIER					\
+"1:	ldarx	%0,0,%2		# atomic64_" #op "_return\n"		\
+	pre_op								\
+	#asm_op " %0,%1,%0\n"						\
+	post_op								\
+"	stdcx.	%0,0,%2 \n"						\
+"	bne-	1b\n"							\
+	extable								\
+	PPC_ATOMIC_EXIT_BARRIER						\
+	: "=&r" (t)							\
+	: "r" (a), "r" (&v->counter)					\
+	: "cc", "memory");						\
+									\
+	return t;							\
 }
 
-static __inline__ long atomic64_add_return(long a, atomic64_t *v)
-{
-	long t;
+#define ATOMIC64_OP_RETURN(op, asm_op) __ATOMIC64_OP_RETURN(op, , , asm_op, , )\
+				       __ATOMIC64_OP_RETURN(op, _unchecked, __OVERFLOW_PRE, __REFCOUNT_OP(asm_op), __OVERFLOW_POST, __OVERFLOW_EXTABLE)
 
-	__asm__ __volatile__(
-	PPC_ATOMIC_ENTRY_BARRIER
-"1:	ldarx	%0,0,%2		# atomic64_add_return\n"
+#define ATOMIC64_OPS(op, asm_op) ATOMIC64_OP(op, asm_op) ATOMIC64_OP_RETURN(op, asm_op)
 
-#ifdef CONFIG_PAX_REFCOUNT
-"	mcrxr	cr0\n"
-"	addo.	%0,%1,%0\n"
-"	bf 4*cr0+so, 3f\n"
-"2:.long " "0x00c00b00""\n"
-#else
-"	add	%0,%1,%0\n"
-#endif
+ATOMIC64_OPS(add, add)
+ATOMIC64_OPS(sub, subf)
 
-"3:\n"
-"	stdcx.	%0,0,%2 \n\
-	bne-	1b\n"
-	PPC_ATOMIC_EXIT_BARRIER
-"4:"
-
-#ifdef CONFIG_PAX_REFCOUNT
-	_ASM_EXTABLE(2b, 4b)
-#endif
-
-	: "=&r" (t)
-	: "r" (a), "r" (&v->counter)
-	: "cc", "memory");
-
-	return t;
-}
-
-static __inline__ long atomic64_add_return_unchecked(long a, atomic64_unchecked_t *v)
-{
-	long t;
-
-	__asm__ __volatile__(
-	PPC_ATOMIC_ENTRY_BARRIER
-"1:	ldarx	%0,0,%2		# atomic64_add_return\n\
-	add	%0,%1,%0\n\
-	stdcx.	%0,0,%2 \n\
-	bne-	1b"
-	PPC_ATOMIC_EXIT_BARRIER
-	: "=&r" (t)
-	: "r" (a), "r" (&v->counter)
-	: "cc", "memory");
-
-	return t;
-}
+#undef ATOMIC64_OPS
+#undef ATOMIC64_OP_RETURN
+#undef __ATOMIC64_OP_RETURN
+#undef ATOMIC64_OP
+#undef __ATOMIC64_OP
+#undef __OVERFLOW_EXTABLE
+#undef __OVERFLOW_POST
+#undef __OVERFLOW_PRE
+#undef __REFCOUNT_OP
 
 #define atomic64_add_negative(a, v)	(atomic64_add_return((a), (v)) < 0)
 
-static __inline__ void atomic64_sub(long a, atomic64_t *v)
-{
-	long t;
-
-	__asm__ __volatile__(
-"1:	ldarx	%0,0,%3		# atomic64_sub\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-"	mcrxr	cr0\n"
-"	subfo.	%0,%2,%0\n"
-"	bf 4*cr0+so, 3f\n"
-"2:.long " "0x00c00b00""\n"
-#else
-"	subf	%0,%2,%0\n"
-#endif
-
-"3:\n"
-"	stdcx.	%0,0,%3 \n\
-	bne-	1b"
-"4:"
-
-#ifdef CONFIG_PAX_REFCOUNT
-	_ASM_EXTABLE(2b, 4b)
-#endif
-
-	: "=&r" (t), "+m" (v->counter)
-	: "r" (a), "r" (&v->counter)
-	: "cc");
-}
-
-static __inline__ void atomic64_sub_unchecked(long a, atomic64_unchecked_t *v)
-{
-	long t;
-
-	__asm__ __volatile__(
-"1:	ldarx	%0,0,%3		# atomic64_sub\n\
-	subf	%0,%2,%0\n\
-	stdcx.	%0,0,%3 \n\
-	bne-	1b"
-	: "=&r" (t), "+m" (v->counter)
-	: "r" (a), "r" (&v->counter)
-	: "cc");
-}
-
-static __inline__ long atomic64_sub_return(long a, atomic64_t *v)
-{
-	long t;
-
-	__asm__ __volatile__(
-	PPC_ATOMIC_ENTRY_BARRIER
-"1:	ldarx	%0,0,%2		# atomic64_sub_return\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-"	mcrxr	cr0\n"
-"	subfo.	%0,%1,%0\n"
-"	bf 4*cr0+so, 3f\n"
-"2:.long " "0x00c00b00""\n"
-#else
-"	subf	%0,%1,%0\n"
-#endif
-
-"3:\n"
-"	stdcx.	%0,0,%2 \n\
-	bne-	1b\n"
-	PPC_ATOMIC_EXIT_BARRIER
-"4:"
-
-#ifdef CONFIG_PAX_REFCOUNT
-	_ASM_EXTABLE(2b, 4b)
-#endif
-
-	: "=&r" (t)
-	: "r" (a), "r" (&v->counter)
-	: "cc", "memory");
-
-	return t;
-}
-
-static __inline__ long atomic64_sub_return_unchecked(long a, atomic64_unchecked_t *v)
-{
-	long t;
-
-	__asm__ __volatile__(
-	PPC_ATOMIC_ENTRY_BARRIER
-"1:	ldarx	%0,0,%2		# atomic64_sub_return\n\
-	subf	%0,%1,%0\n\
-	stdcx.	%0,0,%2 \n\
-	bne-	1b"
-	PPC_ATOMIC_EXIT_BARRIER
-	: "=&r" (t)
-	: "r" (a), "r" (&v->counter)
-	: "cc", "memory");
-
-	return t;
-}
-
-/* 
+/*
  * atomic64_inc - increment atomic variable
  * @v: pointer of type atomic64_t
- * 
+ *
  * Automatically increments @v by 1
  */
 #define atomic64_inc(v) atomic64_add(1, (v))
 #define atomic64_inc_return(v) atomic64_add_return(1, (v))
 
-static __inline__ void atomic64_inc_unchecked(atomic64_unchecked_t *v)
+static inline void atomic64_inc_unchecked(atomic64_unchecked_t *v)
 {
 	atomic64_add_unchecked(1, v);
 }
 
-static __inline__ long atomic64_inc_return_unchecked(atomic64_unchecked_t *v)
+static inline long atomic64_inc_return_unchecked(atomic64_unchecked_t *v)
 {
 	return atomic64_add_return_unchecked(1, v);
 }

@@ -232,13 +232,13 @@ SECTIONS
 	__data_loc = ALIGN(4);		/* location in binary */
 	. = PAGE_OFFSET + TEXT_OFFSET;
 #else
+	. = ALIGN(THREAD_SIZE);
 	__init_end = .;
 
 #ifdef CONFIG_PAX_KERNEXEC
 	. = ALIGN(1<<SECTION_SHIFT);
 #endif
 
-	. = ALIGN(THREAD_SIZE);
 	__data_loc = .;
 #endif
 

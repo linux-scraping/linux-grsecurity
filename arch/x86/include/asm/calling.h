@@ -84,7 +84,7 @@ For 32-bit we have the following conventions - kernel is built with
 
 #define ARGOFFSET	R15
 
-	.macro SAVE_ARGS addskip=0, save_rcx=1, save_r891011=1
+	.macro SAVE_ARGS addskip=0, save_rcx=1, save_r891011=1, rax_enosys=0
 	subq  $ORIG_RAX-ARGOFFSET+\addskip, %rsp
 	CFI_ADJUST_CFA_OFFSET	ORIG_RAX-ARGOFFSET+\addskip
 	movq_cfi rdi, RDI
@@ -95,7 +95,11 @@ For 32-bit we have the following conventions - kernel is built with
 	movq_cfi rcx, RCX
 	.endif
 
+	.if \rax_enosys
+	movq $-ENOSYS, RAX(%rsp)
+	.else
 	movq_cfi rax, RAX
+	.endif
 
 	.if \save_r891011
 	movq_cfi r8,  R8

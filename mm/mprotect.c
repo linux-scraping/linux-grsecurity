@@ -37,13 +37,6 @@
 #include <asm/tlbflush.h>
 #include <asm/mmu_context.h>
 
-#ifndef pgprot_modify
-static inline pgprot_t pgprot_modify(pgprot_t oldprot, pgprot_t newprot)
-{
-	return newprot;
-}
-#endif
-
 /*
  * For a prot_numa update we only hold mmap_sem for read so there is a
  * potential race with faulting where a pmd was temporarily none. This
@@ -101,7 +94,9 @@ static unsigned long change_pte_range(struct vm_area_struct *vma, pmd_t *pmd,
 				 * Avoid taking write faults for pages we
 				 * know to be dirty.
 				 */
-				if (dirty_accountable && pte_dirty(ptent))
+				if (dirty_accountable && pte_dirty(ptent) &&
+				    (pte_soft_dirty(ptent) ||
+				     !(vma->vm_flags & VM_SOFTDIRTY)))
 					ptent = pte_mkwrite(ptent);
 				ptep_modify_prot_commit(mm, addr, pte, ptent);
 				updated = true;
@@ -436,13 +431,8 @@ success:
 		mm->binfmt->handle_mprotect(vma, newflags);
 #endif
 
-	vma->vm_page_prot = pgprot_modify(vma->vm_page_prot,
-					  vm_get_page_prot(vma->vm_flags));
-
-	if (vma_wants_writenotify(vma)) {
-		vma->vm_page_prot = vm_get_page_prot(newflags & ~VM_SHARED);
-		dirty_accountable = 1;
-	}
+	dirty_accountable = vma_wants_writenotify(vma);
+	vma_set_page_prot(vma);
 
 	change_protection(vma, start, end, vma->vm_page_prot,
 			  dirty_accountable, 0);

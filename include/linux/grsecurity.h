@@ -209,16 +209,6 @@ void gr_put_exec_file(struct task_struct *task);
 
 int gr_ptrace_readexec(struct file *file, int unsafe_flags);
 
-#if defined(CONFIG_GRKERNSEC) && (defined(CONFIG_GRKERNSEC_RESLOG) || !defined(CONFIG_GRKERNSEC_NO_RBAC))
-extern void gr_learn_resource(const struct task_struct *task, const int res,
-			      const unsigned long wanted, const int gt);
-#else
-static inline void gr_learn_resource(const struct task_struct *task, const int res,
-				     const unsigned long wanted, const int gt)
-{
-}
-#endif
-
 #ifdef CONFIG_GRKERNSEC_RESLOG
 extern void gr_log_resource(const struct task_struct *task, const int res,
 				   const unsigned long wanted, const int gt);

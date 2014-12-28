@@ -20,10 +20,14 @@
  * Andi Kleen - Fix a few bad bugs and races.
  * Kris Katterjohn - Added many additional checks in bpf_check_classic()
  */
+
 #include <linux/filter.h>
 #include <linux/skbuff.h>
 #include <linux/vmalloc.h>
+#include <linux/random.h>
+#include <linux/moduleloader.h>
 #include <asm/unaligned.h>
+#include <linux/bpf.h>
 
 /* Registers */
 #define BPF_R0	regs[BPF_REG_0]
@@ -68,7 +72,7 @@ struct bpf_prog *bpf_prog_alloc(unsigned int size, gfp_t gfp_extra_flags)
 {
 	gfp_t gfp_flags = GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO |
 			  gfp_extra_flags;
-	struct bpf_work_struct *ws;
+	struct bpf_prog_aux *aux;
 	struct bpf_prog *fp;
 
 	size = round_up(size, PAGE_SIZE);
@@ -76,14 +80,14 @@ struct bpf_prog *bpf_prog_alloc(unsigned int size, gfp_t gfp_extra_flags)
 	if (fp == NULL)
 		return NULL;
 
-	ws = kmalloc(sizeof(*ws), GFP_KERNEL | gfp_extra_flags);
-	if (ws == NULL) {
+	aux = kzalloc(sizeof(*aux), GFP_KERNEL | gfp_extra_flags);
+	if (aux == NULL) {
 		vfree(fp);
 		return NULL;
 	}
 
 	fp->pages = size / PAGE_SIZE;
-	fp->work = ws;
+	fp->aux = aux;
 
 	return fp;
 }
@@ -107,10 +111,10 @@ struct bpf_prog *bpf_prog_realloc(struct bpf_prog *fp_old, unsigned int size,
 		memcpy(fp, fp_old, fp_old->pages * PAGE_SIZE);
 		fp->pages = size / PAGE_SIZE;
 
-		/* We keep fp->work from fp_old around in the new
+		/* We keep fp->aux from fp_old around in the new
 		 * reallocated structure.
 		 */
-		fp_old->work = NULL;
+		fp_old->aux = NULL;
 		__bpf_prog_free(fp_old);
 	}
 
@@ -120,10 +124,48 @@ EXPORT_SYMBOL_GPL(bpf_prog_realloc);
 
 void __bpf_prog_free(struct bpf_prog *fp)
 {
-	kfree(fp->work);
+	kfree(fp->aux);
 	vfree(fp);
 }
 EXPORT_SYMBOL_GPL(__bpf_prog_free);
+
+#ifdef CONFIG_BPF_JIT
+struct bpf_binary_header *
+bpf_jit_binary_alloc(unsigned int proglen, u8 **image_ptr,
+		     unsigned int alignment,
+		     bpf_jit_fill_hole_t bpf_fill_ill_insns)
+{
+	struct bpf_binary_header *hdr;
+	unsigned int size, hole, start;
+
+	/* Most of BPF filters are really small, but if some of them
+	 * fill a page, allow at least 128 extra bytes to insert a
+	 * random section of illegal instructions.
+	 */
+	size = round_up(proglen + sizeof(*hdr) + 128, PAGE_SIZE);
+	hdr = module_alloc_exec(size);
+	if (hdr == NULL)
+		return NULL;
+
+	/* Fill space with illegal/arch-dep instructions. */
+	bpf_fill_ill_insns(hdr, size);
+
+	hdr->pages = size / PAGE_SIZE;
+	hole = min_t(unsigned int, size - (proglen + sizeof(*hdr)),
+		     PAGE_SIZE - sizeof(*hdr));
+	start = (prandom_u32() % hole) & ~(alignment - 1);
+
+	/* Leave a random number of instructions before BPF code. */
+	*image_ptr = &hdr->image[start];
+
+	return hdr;
+}
+
+void bpf_jit_binary_free(struct bpf_binary_header *hdr)
+{
+	module_free_exec(NULL, hdr);
+}
+#endif /* CONFIG_BPF_JIT */
 
 /* Base function for offset calculation. Needs to go into .text section,
  * therefore keeping it non-static as well; will also be used by JITs
@@ -242,6 +284,7 @@ static unsigned int __bpf_prog_run(void *ctx, const struct bpf_insn *insn)
 		[BPF_LD | BPF_IND | BPF_W] = &&LD_IND_W,
 		[BPF_LD | BPF_IND | BPF_H] = &&LD_IND_H,
 		[BPF_LD | BPF_IND | BPF_B] = &&LD_IND_B,
+		[BPF_LD | BPF_IMM | BPF_DW] = &&LD_IMM_DW,
 	};
 	void *ptr;
 	int off;
@@ -300,6 +343,10 @@ select_insn:
 		CONT;
 	ALU64_MOV_K:
 		DST = IMM;
+		CONT;
+	LD_IMM_DW:
+		DST = (u64) (u32) insn[0].imm | ((u64) (u32) insn[1].imm) << 32;
+		insn++;
 		CONT;
 	ALU64_ARSH_X:
 		(*(s64 *) &DST) >>= SRC;
@@ -592,19 +639,28 @@ EXPORT_SYMBOL_GPL(bpf_prog_select_runtime);
 
 static void bpf_prog_free_deferred(struct work_struct *work)
 {
-	struct bpf_work_struct *ws;
+	struct bpf_prog_aux *aux;
 
-	ws = container_of(work, struct bpf_work_struct, work);
-	bpf_jit_free(ws->prog);
+	aux = container_of(work, struct bpf_prog_aux, work);
+	bpf_jit_free(aux->prog);
 }
 
 /* Free internal BPF program */
 void bpf_prog_free(struct bpf_prog *fp)
 {
-	struct bpf_work_struct *ws = fp->work;
+	struct bpf_prog_aux *aux = fp->aux;
 
-	INIT_WORK(&ws->work, bpf_prog_free_deferred);
-	ws->prog = fp;
-	schedule_work(&ws->work);
+	INIT_WORK(&aux->work, bpf_prog_free_deferred);
+	aux->prog = fp;
+	schedule_work(&aux->work);
 }
 EXPORT_SYMBOL_GPL(bpf_prog_free);
+
+/* To execute LD_ABS/LD_IND instructions __bpf_prog_run() may call
+ * skb_copy_bits(), so provide a weak definition of it for NET-less config.
+ */
+int __weak skb_copy_bits(const struct sk_buff *skb, int offset, void *to,
+			 int len)
+{
+	return -EFAULT;
+}

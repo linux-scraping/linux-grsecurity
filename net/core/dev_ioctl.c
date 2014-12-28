@@ -369,9 +369,7 @@ void dev_load(struct net *net, const char *name)
 #ifdef CONFIG_GRKERNSEC_MODHARDEN
 		___request_module(true, "grsec_modharden_netdev", "%s", name);
 #else
-		if (!request_module("%s", name))
-			pr_warn("Loading kernel module for a network device with CAP_SYS_MODULE (deprecated).  Use CAP_NET_ADMIN and alias netdev-%s instead.\n",
-				name);
+		request_module("%s", name);
 #endif
 	}
 }

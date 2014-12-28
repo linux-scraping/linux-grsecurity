@@ -229,6 +229,7 @@ register struct thread_info *current_thread_info_reg asm("g6");
 	(_TIF_SYSCALL_TRACE | _TIF_SECCOMP | _TIF_SYSCALL_AUDIT | \
 	 _TIF_SYSCALL_TRACEPOINT | _TIF_NOHZ | _TIF_GRSEC_SETXID)
 
+#define is_32bit_task()	(test_thread_flag(TIF_32BIT))
 
 /*
  * Thread-synchronous status.

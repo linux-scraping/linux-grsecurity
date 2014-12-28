@@ -343,6 +343,7 @@ int acpi_device_update_power(struct acpi_device *device, int *state_p)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(acpi_device_update_power);
 
 int acpi_bus_update_power(acpi_handle handle, int *state_p)
 {
@@ -1020,6 +1021,8 @@ EXPORT_SYMBOL_GPL(acpi_subsys_freeze);
 
 #endif /* CONFIG_PM_SLEEP */
 
+static void acpi_dev_pm_detach(struct device *dev, bool power_off);
+
 static struct dev_pm_domain acpi_general_pm_domain = {
 	.ops = {
 #ifdef CONFIG_PM_RUNTIME
@@ -1038,7 +1041,42 @@ static struct dev_pm_domain acpi_general_pm_domain = {
 		.restore_early = acpi_subsys_resume_early,
 #endif
 	},
+	.detach = acpi_dev_pm_detach
 };
+
+/**
+ * acpi_dev_pm_detach - Remove ACPI power management from the device.
+ * @dev: Device to take care of.
+ * @power_off: Whether or not to try to remove power from the device.
+ *
+ * Remove the device from the general ACPI PM domain and remove its wakeup
+ * notifier.  If @power_off is set, additionally remove power from the device if
+ * possible.
+ *
+ * Callers must ensure proper synchronization of this function with power
+ * management callbacks.
+ */
+static void acpi_dev_pm_detach(struct device *dev, bool power_off)
+{
+	struct acpi_device *adev = ACPI_COMPANION(dev);
+
+	if (adev && dev->pm_domain == &acpi_general_pm_domain) {
+		dev->pm_domain = NULL;
+		acpi_remove_pm_notifier(adev);
+		if (power_off) {
+			/*
+			 * If the device's PM QoS resume latency limit or flags
+			 * have been exposed to user space, they have to be
+			 * hidden at this point, so that they don't affect the
+			 * choice of the low-power state to put the device into.
+			 */
+			dev_pm_qos_hide_latency_limit(dev);
+			dev_pm_qos_hide_flags(dev);
+			acpi_device_wakeup(adev, ACPI_STATE_S0, false);
+			acpi_dev_pm_low_power(dev, adev, ACPI_STATE_S0);
+		}
+	}
+}
 
 /**
  * acpi_dev_pm_attach - Prepare device for ACPI power management.
@@ -1072,42 +1110,8 @@ int acpi_dev_pm_attach(struct device *dev, bool power_on)
 		acpi_dev_pm_full_power(adev);
 		acpi_device_wakeup(adev, ACPI_STATE_S0, false);
 	}
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(acpi_dev_pm_attach);
-
-/**
- * acpi_dev_pm_detach - Remove ACPI power management from the device.
- * @dev: Device to take care of.
- * @power_off: Whether or not to try to remove power from the device.
- *
- * Remove the device from the general ACPI PM domain and remove its wakeup
- * notifier.  If @power_off is set, additionally remove power from the device if
- * possible.
- *
- * Callers must ensure proper synchronization of this function with power
- * management callbacks.
- */
-void acpi_dev_pm_detach(struct device *dev, bool power_off)
-{
-	struct acpi_device *adev = ACPI_COMPANION(dev);
-
-	if (adev && dev->pm_domain == &acpi_general_pm_domain) {
-		dev->pm_domain = NULL;
-		acpi_remove_pm_notifier(adev);
-		if (power_off) {
-			/*
-			 * If the device's PM QoS resume latency limit or flags
-			 * have been exposed to user space, they have to be
-			 * hidden at this point, so that they don't affect the
-			 * choice of the low-power state to put the device into.
-			 */
-			dev_pm_qos_hide_latency_limit(dev);
-			dev_pm_qos_hide_flags(dev);
-			acpi_device_wakeup(adev, ACPI_STATE_S0, false);
-			acpi_dev_pm_low_power(dev, adev, ACPI_STATE_S0);
-		}
-	}
-}
-EXPORT_SYMBOL_GPL(acpi_dev_pm_detach);
 #endif /* CONFIG_PM */

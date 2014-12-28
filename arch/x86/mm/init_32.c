@@ -539,7 +539,7 @@ static void __init pagetable_init(void)
 	permanent_kmaps_init(swapper_pg_dir);
 }
 
-pteval_t __supported_pte_mask __read_only = ~(_PAGE_NX | _PAGE_GLOBAL | _PAGE_IOMAP);
+pteval_t __supported_pte_mask __read_only = ~(_PAGE_NX | _PAGE_GLOBAL);
 EXPORT_SYMBOL_GPL(__supported_pte_mask);
 
 /* user-defined highmem size */

@@ -789,7 +789,7 @@ static void __net_exit ip4_frags_ns_ctl_unregister(struct net *net)
 	kfree(table);
 }
 
-static void ip4_frags_ctl_register(void)
+static void __init ip4_frags_ctl_register(void)
 {
 	register_net_sysctl(&init_net, "net/ipv4", ip4_frags_ctl_table);
 }
@@ -803,7 +803,7 @@ static inline void ip4_frags_ns_ctl_unregister(struct net *net)
 {
 }
 
-static inline void ip4_frags_ctl_register(void)
+static inline void __init ip4_frags_ctl_register(void)
 {
 }
 #endif

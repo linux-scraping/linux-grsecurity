@@ -76,7 +76,7 @@ struct netns_ipv6 {
 #endif
 #endif
 	atomic_unchecked_t	dev_addr_genid;
-	atomic_unchecked_t	rt_genid;
+	atomic_unchecked_t	fib6_sernum;
 };
 
 #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
