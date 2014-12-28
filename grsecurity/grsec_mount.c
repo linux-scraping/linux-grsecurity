@@ -26,11 +26,11 @@ gr_log_unmount(const char *devname, const int retval)
 }
 
 void
-gr_log_mount(const char *from, const char *to, const int retval)
+gr_log_mount(const char *from, struct path *to, const int retval)
 {
 #ifdef CONFIG_GRKERNSEC_AUDIT_MOUNT
 	if (grsec_enable_mount && (retval >= 0))
-		gr_log_str_str(GR_DO_AUDIT, GR_MOUNT_AUDIT_MSG, from ? from : "none", to);
+		gr_log_str_fs(GR_DO_AUDIT, GR_MOUNT_AUDIT_MSG, from ? from : "none", to->dentry, to->mnt);
 #endif
 	return;
 }

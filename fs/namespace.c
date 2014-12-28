@@ -2652,9 +2652,9 @@ long do_mount(const char *dev_name, const char __user *dir_name,
 		retval = do_new_mount(&path, type_page, flags, mnt_flags,
 				      dev_name, data_page);
 dput_out:
-	path_put(&path);
+	gr_log_mount(dev_name, &path, retval);
 
-	gr_log_mount(dev_name, dir_name, retval);
+	path_put(&path);
 
 	return retval;
 }

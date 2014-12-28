@@ -84,7 +84,7 @@ void gr_log_chroot_exec(const struct dentry *dentry,
 			       const struct vfsmount *mnt);
 void gr_log_remount(const char *devname, const int retval);
 void gr_log_unmount(const char *devname, const int retval);
-void gr_log_mount(const char *from, const char *to, const int retval);
+void gr_log_mount(const char *from, struct path *to, const int retval);
 void gr_log_textrel(struct vm_area_struct *vma);
 void gr_log_ptgnustack(struct file *file);
 void gr_log_rwxmmap(struct file *file);
