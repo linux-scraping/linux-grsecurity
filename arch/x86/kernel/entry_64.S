@@ -1566,15 +1566,15 @@ native_irq_return_ldt:
 	SWAPGS
 	movq PER_CPU_VAR(espfix_waddr),%rdi
 	movq %rax,(0*8)(%rdi)	/* RAX */
-	movq (2*8)(%rsp),%rax	/* RIP */
+	movq (2*8 + RIP-RIP)(%rsp),%rax	/* RIP */
 	movq %rax,(1*8)(%rdi)
-	movq (3*8)(%rsp),%rax	/* CS */
+	movq (2*8 + CS-RIP)(%rsp),%rax	/* CS */
 	movq %rax,(2*8)(%rdi)
-	movq (4*8)(%rsp),%rax	/* RFLAGS */
+	movq (2*8 + EFLAGS-RIP)(%rsp),%rax	/* RFLAGS */
 	movq %rax,(3*8)(%rdi)
-	movq (6*8)(%rsp),%rax	/* SS */
+	movq (2*8 + SS-RIP)(%rsp),%rax	/* SS */
 	movq %rax,(5*8)(%rdi)
-	movq (5*8)(%rsp),%rax	/* RSP */
+	movq (2*8 + RSP-RIP)(%rsp),%rax	/* RSP */
 	movq %rax,(4*8)(%rdi)
 	andl $0xffff0000,%eax
 	popq_cfi %rdi

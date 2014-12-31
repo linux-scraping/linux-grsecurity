@@ -729,11 +729,17 @@ static int kernfs_iop_mkdir(struct inode *dir, struct dentry *dentry,
 {
 	struct kernfs_node *parent = dir->i_private;
 	struct kernfs_dir_ops *kdops = kernfs_root(parent)->dir_ops;
+	int ret;
 
 	if (!kdops || !kdops->mkdir)
 		return -EPERM;
 
-	return kdops->mkdir(parent, dentry->d_name.name, mode);
+	ret = kdops->mkdir(parent, dentry->d_name.name, mode);
+
+	if (!ret)
+		ret = kernfs_iop_lookup(dir, dentry, 0);
+
+	return ret;
 }
 
 static int kernfs_iop_rmdir(struct inode *dir, struct dentry *dentry)

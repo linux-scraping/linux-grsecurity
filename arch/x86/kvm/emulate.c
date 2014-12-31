@@ -3401,7 +3401,7 @@ static int check_cr_write(struct x86_emulate_ctxt *ctxt)
 	int cr = ctxt->modrm_reg;
 	u64 efer = 0;
 
-	static u64 cr_reserved_bits[] = {
+	static const u64 cr_reserved_bits[] = {
 		0xffffffff00000000ULL,
 		0, 0, 0, /* CR3 checked later */
 		CR4_RESERVED_BITS,

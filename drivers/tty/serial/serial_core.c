@@ -1593,7 +1593,7 @@ static int uart_open(struct tty_struct *tty, struct file *filp)
 end:
 	return retval;
 err_dec_count:
-	atomic_inc(&port->count);
+	atomic_dec(&port->count);
 	mutex_unlock(&port->mutex);
 	goto end;
 }
