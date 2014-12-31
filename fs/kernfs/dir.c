@@ -829,6 +829,10 @@ static int kernfs_iop_mkdir(struct inode *dir, struct dentry *dentry,
 	ret = scops->mkdir(parent, dentry->d_name.name, mode);
 
 	kernfs_put_active(parent);
+
+	if (!ret)
+		ret = kernfs_iop_lookup(dir, dentry, 0);
+
 	return ret;
 }
 

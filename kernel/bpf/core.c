@@ -150,7 +150,10 @@ bpf_jit_binary_alloc(unsigned int proglen, u8 **image_ptr,
 	/* Fill space with illegal/arch-dep instructions. */
 	bpf_fill_ill_insns(hdr, size);
 
+	pax_open_kernel();
 	hdr->pages = size / PAGE_SIZE;
+	pax_close_kernel();
+
 	hole = min_t(unsigned int, size - (proglen + sizeof(*hdr)),
 		     PAGE_SIZE - sizeof(*hdr));
 	start = (prandom_u32() % hole) & ~(alignment - 1);

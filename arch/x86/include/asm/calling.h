@@ -165,7 +165,7 @@ For 32-bit we have the following conventions - kernel is built with
 	movq RDI(%rsp), %rdi
 	.if \skiprax
 	.else
-	movq RAX(%rsp), %rax
+	movq ORIG_RAX(%rsp), %rax
 	.endif
 	.endm
 

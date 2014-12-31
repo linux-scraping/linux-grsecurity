@@ -72,22 +72,23 @@ static inline void atomic_set_unchecked(atomic_unchecked_t *v, int i)
 "	mov	%0, %1\n"		\
 	"2:	" REFCOUNT_TRAP_INSN "\n"\
 	"3:\n"
-#define __OVERFLOW_EXTABLE	\
-	"4:\n"
+#define __OVERFLOW_EXTABLE		\
+	"4:\n"				\
 	_ASM_EXTABLE(2b, 4b)
 #else
 #define __OVERFLOW_POST
+#define __OVERFLOW_POST_RETURN
 #define __OVERFLOW_EXTABLE
 #endif
 
 #define __ATOMIC_OP(op, suffix, c_op, asm_op, post_op, extable)		\
-static inline void atomic_##op(int i, atomic_t *v)			\
+static inline void atomic_##op##suffix(int i, atomic##suffix##_t *v)	\
 {									\
 	unsigned long tmp;						\
 	int result;							\
 									\
 	prefetchw(&v->counter);						\
-	__asm__ __volatile__("@ atomic_" #op "\n"			\
+	__asm__ __volatile__("@ atomic_" #op #suffix "\n"		\
 "1:	ldrex	%0, [%3]\n"						\
 "	" #asm_op "	%0, %0, %4\n"					\
 	post_op								\
@@ -104,7 +105,7 @@ static inline void atomic_##op(int i, atomic_t *v)			\
 				    __ATOMIC_OP(op, _unchecked, c_op, asm_op##s, __OVERFLOW_POST, __OVERFLOW_EXTABLE)
 
 #define __ATOMIC_OP_RETURN(op, suffix, c_op, asm_op, post_op, extable)	\
-static inline int atomic_##op##_return(int i, atomic_t *v)		\
+static inline int atomic_##op##_return##suffix(int i, atomic##suffix##_t *v)\
 {									\
 	unsigned long tmp;						\
 	int result;							\
@@ -112,7 +113,7 @@ static inline int atomic_##op##_return(int i, atomic_t *v)		\
 	smp_mb();							\
 	prefetchw(&v->counter);						\
 									\
-	__asm__ __volatile__("@ atomic_" #op "_return\n"		\
+	__asm__ __volatile__("@ atomic_" #op "_return" #suffix "\n"	\
 "1:	ldrex	%0, [%3]\n"						\
 "	" #asm_op "	%0, %0, %4\n"					\
 	post_op								\
