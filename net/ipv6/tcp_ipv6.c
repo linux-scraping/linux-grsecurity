@@ -596,7 +596,7 @@ static int tcp_v6_md5_do_add(struct sock *sk, const struct in6_addr *peer,
 			sk_nocaps_add(sk, NETIF_F_GSO_MASK);
 		}
 		if (tp->md5sig_info->entries6 == 0 &&
-			tcp_alloc_md5sig_pool(sk) == NULL) {
+		    !tcp_alloc_md5sig_pool()) {
 			kfree(newkey);
 			return -ENOMEM;
 		}
@@ -606,8 +606,6 @@ static int tcp_v6_md5_do_add(struct sock *sk, const struct in6_addr *peer,
 
 			if (!keys) {
 				kfree(newkey);
-				if (tp->md5sig_info->entries6 == 0)
-					tcp_free_md5sig_pool();
 				return -ENOMEM;
 			}
 
@@ -653,7 +651,6 @@ static int tcp_v6_md5_do_del(struct sock *sk, const struct in6_addr *peer)
 				kfree(tp->md5sig_info->keys6);
 				tp->md5sig_info->keys6 = NULL;
 				tp->md5sig_info->alloced6 = 0;
-				tcp_free_md5sig_pool();
 			} else {
 				/* shrink the database */
 				if (tp->md5sig_info->entries6 != i)
@@ -677,7 +674,6 @@ static void tcp_v6_clear_md5_list (struct sock *sk)
 		for (i = 0; i < tp->md5sig_info->entries6; i++)
 			kfree(tp->md5sig_info->keys6[i].base.key);
 		tp->md5sig_info->entries6 = 0;
-		tcp_free_md5sig_pool();
 	}
 
 	kfree(tp->md5sig_info->keys6);
@@ -688,7 +684,6 @@ static void tcp_v6_clear_md5_list (struct sock *sk)
 		for (i = 0; i < tp->md5sig_info->entries4; i++)
 			kfree(tp->md5sig_info->keys4[i].base.key);
 		tp->md5sig_info->entries4 = 0;
-		tcp_free_md5sig_pool();
 	}
 
 	kfree(tp->md5sig_info->keys4);
