@@ -332,7 +332,7 @@ static inline int atomic_add_negative(int i, atomic_t *v)
  *
  * Atomically adds @i to @v and returns @i + @v
  */
-static inline int atomic_add_return(int i, atomic_t *v)
+static inline int __intentional_overflow(-1) atomic_add_return(int i, atomic_t *v)
 {
 #ifdef CONFIG_M386
 	int __i;
@@ -388,7 +388,7 @@ no_xadd: /* Legacy 386 processor */
  *
  * Atomically subtracts @i from @v and returns @v - @i
  */
-static inline int atomic_sub_return(int i, atomic_t *v)
+static inline int __intentional_overflow(-1) atomic_sub_return(int i, atomic_t *v)
 {
 	return atomic_add_return(-i, v);
 }

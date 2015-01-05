@@ -128,8 +128,7 @@ void __init init_espfix_bsp(void)
 	pgd_populate(&init_mm, pgd_p, (pud_t *)espfix_pud_page);
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
-	clone_pgd_range(get_cpu_pgd(0, kernel) + index, swapper_pg_dir + index, 1);
-	clone_pgd_range(get_cpu_pgd(0, user) + index, swapper_pg_dir + index, 1);
+	clone_pgd_range(get_cpu_pgd(0) + index, swapper_pg_dir + index, 1);
 #endif
 
 	/* Randomize the locations */

@@ -515,7 +515,7 @@ static const struct nla_policy ipcaif_policy[IFLA_CAIF_MAX + 1] = {
 };
 
 
-static struct rtnl_link_ops ipcaif_link_ops __read_mostly = {
+static struct rtnl_link_ops ipcaif_link_ops = {
 	.kind		= "caif",
 	.priv_size	= sizeof(struct chnl_net),
 	.setup		= ipcaif_net_setup,

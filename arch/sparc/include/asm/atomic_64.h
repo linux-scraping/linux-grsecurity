@@ -16,12 +16,12 @@
 #define atomic_read(v)		(*(volatile int *)&(v)->counter)
 static inline int atomic_read_unchecked(const atomic_unchecked_t *v)
 {
-	return v->counter;
+	return *(const volatile int *)&v->counter;
 }
 #define atomic64_read(v)	(*(volatile long *)&(v)->counter)
 static inline long atomic64_read_unchecked(const atomic64_unchecked_t *v)
 {
-	return v->counter;
+	return *(const volatile long *)&v->counter;
 }
 
 #define atomic_set(v, i)	(((v)->counter) = i)

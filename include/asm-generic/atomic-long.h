@@ -349,7 +349,7 @@ static inline int atomic_long_add_negative(long i, atomic_long_t *l)
 	return atomic_add_negative(i, v);
 }
 
-static inline long atomic_long_add_return(long i, atomic_long_t *l)
+static inline long __intentional_overflow(-1) atomic_long_add_return(long i, atomic_long_t *l)
 {
 	atomic_t *v = (atomic_t *)l;
 
