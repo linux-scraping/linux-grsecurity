@@ -224,8 +224,8 @@ static inline int atomic_cmpxchg_unchecked(atomic_unchecked_t *ptr, int old, int
 #error SMP not supported on pre-ARMv6 CPUs
 #endif
 
-#define ATOMIC_OP(op, c_op, asm_op)					\
-static inline void atomic_##op(int i, atomic_t *v)			\
+#define __ATOMIC_OP(op, suffix, c_op, asm_op)				\
+static inline void atomic_##op##suffix(int i, atomic##suffix##_t *v)	\
 {									\
 	unsigned long flags;						\
 									\
@@ -234,8 +234,11 @@ static inline void atomic_##op(int i, atomic_t *v)			\
 	raw_local_irq_restore(flags);					\
 }									\
 
-#define ATOMIC_OP_RETURN(op, c_op, asm_op)				\
-static inline int atomic_##op##_return(int i, atomic_t *v)		\
+#define ATOMIC_OP(op, c_op, asm_op) __ATOMIC_OP(op, , c_op, asm_op)	\
+				    __ATOMIC_OP(op, _unchecked, c_op, asm_op)
+
+#define __ATOMIC_OP_RETURN(op, suffix, c_op, asm_op)			\
+static inline int atomic_##op##_return##suffix(int i, atomic##suffix##_t *v)\
 {									\
 	unsigned long flags;						\
 	int val;							\
@@ -247,6 +250,9 @@ static inline int atomic_##op##_return(int i, atomic_t *v)		\
 									\
 	return val;							\
 }
+
+#define ATOMIC_OP_RETURN(op, c_op, asm_op) __ATOMIC_OP_RETURN(op, , c_op, asm_op)\
+					   __ATOMIC_OP_RETURN(op, _unchecked, c_op, asm_op)
 
 static inline int atomic_cmpxchg(atomic_t *v, int old, int new)
 {
@@ -264,7 +270,7 @@ static inline int atomic_cmpxchg(atomic_t *v, int old, int new)
 
 static inline int atomic_cmpxchg_unchecked(atomic_unchecked_t *v, int old, int new)
 {
-	return atomic_cmpxchg(v, old, new);
+	return atomic_cmpxchg((atomic_t *)v, old, new);
 }
 
 static inline int __atomic_add_unless(atomic_t *v, int a, int u)
