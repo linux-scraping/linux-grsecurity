@@ -417,6 +417,9 @@ struct bad_iret_stack *fixup_bad_iret(struct bad_iret_stack *s)
 		container_of(task_pt_regs(current),
 			     struct bad_iret_stack, regs);
 
+	if ((current->thread.sp0 ^ (unsigned long)s) < THREAD_SIZE)
+		new_stack = s;
+
 	/* Copy the IRET target to the new stack. */
 	memmove(&new_stack->regs.ip, (void *)s->regs.sp, 5*8);
 
