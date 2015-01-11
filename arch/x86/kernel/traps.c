@@ -428,7 +428,7 @@ NOKPROBE_SYMBOL(do_int3);
  * for scheduling or signal handling. The actual stack switch is done in
  * entry.S
  */
-asmlinkage __visible struct pt_regs *sync_regs(struct pt_regs *eregs)
+asmlinkage __visible notrace struct pt_regs *sync_regs(struct pt_regs *eregs)
 {
 	struct pt_regs *regs = eregs;
 	/* Did already sync */
@@ -454,7 +454,7 @@ struct bad_iret_stack {
 	struct pt_regs regs;
 };
 
-asmlinkage __visible
+asmlinkage __visible notrace
 struct bad_iret_stack *fixup_bad_iret(struct bad_iret_stack *s)
 {
 	/*
@@ -480,6 +480,7 @@ struct bad_iret_stack *fixup_bad_iret(struct bad_iret_stack *s)
 	BUG_ON(!user_mode(&new_stack->regs));
 	return new_stack;
 }
+NOKPROBE_SYMBOL(fixup_bad_iret);
 #endif
 
 /*

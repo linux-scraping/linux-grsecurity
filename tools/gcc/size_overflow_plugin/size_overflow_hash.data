@@ -3206,6 +3206,7 @@ l2cap_skbuff_fromiovec_35003 l2cap_skbuff_fromiovec 4-3 35003 NULL
 sisusb_copy_memory_35016 sisusb_copy_memory 4 35016 NULL
 coda_psdev_read_35029 coda_psdev_read 3 35029 NULL
 hwdep_read_locked_35037 hwdep_read_locked 3 35037 NULL
+proc_setgroups_write_35039 proc_setgroups_write 3 35039 NULL
 pwr_connection_out_of_sync_read_35061 pwr_connection_out_of_sync_read 3 35061 NULL
 __kfifo_uint_must_check_helper_35097 __kfifo_uint_must_check_helper 0-1 35097 NULL
 capi_write_35104 capi_write 3 35104 NULL nohasharray
