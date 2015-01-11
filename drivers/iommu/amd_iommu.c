@@ -542,7 +542,7 @@ static void build_completion_wait(struct iommu_cmd *cmd, u64 address)
 	memset(cmd, 0, sizeof(*cmd));
 
 #ifdef CONFIG_GRKERNSEC_KSTACKOVERFLOW
-	if (object_starts_on_stack(address)) {
+	if (object_starts_on_stack((void *)address)) {
 		void *adjbuf = (void *)address - current->stack + current->lowmem_stack;
 		physaddr = __pa((u64)adjbuf);
 	} else
