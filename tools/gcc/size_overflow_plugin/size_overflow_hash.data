@@ -3222,6 +3222,7 @@ rx_rx_hdr_overflow_read_35002 rx_rx_hdr_overflow_read 3 35002 NULL
 l2cap_skbuff_fromiovec_35003 l2cap_skbuff_fromiovec 4-3 35003 NULL
 sisusb_copy_memory_35016 sisusb_copy_memory 4 35016 NULL
 coda_psdev_read_35029 coda_psdev_read 3 35029 NULL
+proc_setgroups_write_35039 proc_setgroups_write 3 35039 NULL
 xfs_rtallocate_extent_35052 xfs_rtallocate_extent 0 35052 NULL
 pwr_connection_out_of_sync_read_35061 pwr_connection_out_of_sync_read 3 35061 NULL
 ntfs_attr_extend_initialized_35084 ntfs_attr_extend_initialized 0 35084 NULL

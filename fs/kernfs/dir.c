@@ -736,8 +736,10 @@ static int kernfs_iop_mkdir(struct inode *dir, struct dentry *dentry,
 
 	ret = kdops->mkdir(parent, dentry->d_name.name, mode);
 
-	if (!ret)
-		ret = kernfs_iop_lookup(dir, dentry, 0);
+	if (!ret) {
+		struct dentry *dentry = kernfs_iop_lookup(dir, dentry, 0);
+		ret = PTR_ERR_OR_ZERO(dentry);
+	}
 
 	return ret;
 }
