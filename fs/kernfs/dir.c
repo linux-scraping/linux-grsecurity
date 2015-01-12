@@ -831,8 +831,8 @@ static int kernfs_iop_mkdir(struct inode *dir, struct dentry *dentry,
 	kernfs_put_active(parent);
 
 	if (!ret) {
-		struct dentry *dentry = kernfs_iop_lookup(dir, dentry, 0);
-		ret = PTR_ERR_OR_ZERO(dentry);
+		struct dentry *dentry_ret = kernfs_iop_lookup(dir, dentry, 0);
+		ret = PTR_ERR_OR_ZERO(dentry_ret);
 	}
 
 	return ret;
