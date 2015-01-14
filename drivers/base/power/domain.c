@@ -2215,7 +2215,9 @@ int genpd_dev_pm_attach(struct device *dev)
 		return ret;
 	}
 
-	dev->pm_domain->detach = genpd_dev_pm_detach;
+	pax_open_kernel();
+	*(void **)&dev->pm_domain->detach = genpd_dev_pm_detach;
+	pax_close_kernel();
 
 	return 0;
 }

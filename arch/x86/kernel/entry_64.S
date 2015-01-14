@@ -484,6 +484,7 @@ ENTRY(pax_erase_kstack)
 	jne 1b
 
 2:	cld
+	or $2*8, %rdi
 	mov %esp, %ecx
 	sub %edi, %ecx
 

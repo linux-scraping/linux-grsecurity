@@ -480,7 +480,7 @@ static inline void atomic64_##op##suffix(long long i, atomic64##suffix##_t *v)\
 #define ATOMIC64_OP(op, op1, op2) __ATOMIC64_OP(op, , op1, op2, , ) \
 				  __ATOMIC64_OP(op, _unchecked, op1, op2##s, __OVERFLOW_POST, __OVERFLOW_EXTABLE)
 
-#define __ATOMIC64_OP_RETURN(op, op1, op2, post_op, extable)		\
+#define __ATOMIC64_OP_RETURN(op, suffix, op1, op2, post_op, extable)	\
 static inline long long atomic64_##op##_return##suffix(long long i, atomic64##suffix##_t *v) \
 {									\
 	long long result;						\
