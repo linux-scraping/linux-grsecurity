@@ -912,6 +912,7 @@ rx_out_of_mem_read_10157 rx_out_of_mem_read 3 10157 NULL
 hidg_alloc_ep_req_10159 hidg_alloc_ep_req 2 10159 NULL
 asd_store_update_bios_10165 asd_store_update_bios 4 10165 NULL
 kstrtol_from_user_10168 kstrtol_from_user 2 10168 NULL
+persistent_ram_vmap_10169 persistent_ram_vmap 2-1 10169 NULL
 proc_pid_attr_read_10173 proc_pid_attr_read 3 10173 NULL
 jffs2_user_setxattr_10182 jffs2_user_setxattr 4 10182 NULL
 xfs_attr_rmtval_copyout_10222 xfs_attr_rmtval_copyout 0 10222 NULL nohasharray
@@ -3658,6 +3659,7 @@ do_surface_dirty_sou_39678 do_surface_dirty_sou 7 39678 NULL
 sd_completed_bytes_39705 sd_completed_bytes 0 39705 NULL
 ftrace_pid_write_39710 ftrace_pid_write 3 39710 NULL
 adt7316_spi_multi_read_39765 adt7316_spi_multi_read 3 39765 NULL
+persistent_ram_buffer_map_39776 persistent_ram_buffer_map 1-2 39776 NULL
 security_inode_listsecurity_39812 security_inode_listsecurity 0 39812 NULL
 snd_pcm_oss_writev3_39818 snd_pcm_oss_writev3 3 39818 NULL
 get_priv_size_39828 get_priv_size 0-1 39828 NULL
@@ -5771,6 +5773,7 @@ rx_rx_timeout_read_62389 rx_rx_timeout_read 3 62389 NULL
 altera_irscan_62396 altera_irscan 2 62396 NULL
 set_ssp_62411 set_ssp 4 62411 NULL
 udf_expand_file_adinicb_62470 udf_expand_file_adinicb 0 62470 NULL
+persistent_ram_new_62493 persistent_ram_new 1-2 62493 NULL
 ext_rts51x_sd_execute_read_data_62501 ext_rts51x_sd_execute_read_data 9 62501 NULL
 pep_sendmsg_62524 pep_sendmsg 4 62524 NULL
 test_iso_queue_62534 test_iso_queue 5 62534 NULL
