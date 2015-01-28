@@ -162,7 +162,7 @@ int copy_thread(unsigned long clone_flags, unsigned long sp,
 	childregs = task_pt_regs(p);
 	p->thread.sp = (unsigned long) childregs;
 	p->thread.usersp = me->thread.usersp;
-	p->tinfo.lowest_stack = (unsigned long)task_stack_page(p);
+	p->tinfo.lowest_stack = (unsigned long)task_stack_page(p) + 2 * sizeof(unsigned long);
 	set_tsk_thread_flag(p, TIF_FORK);
 	p->thread.fpu_counter = 0;
 	p->thread.io_bitmap_ptr = NULL;
