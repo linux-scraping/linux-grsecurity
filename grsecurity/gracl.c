@@ -1156,9 +1156,10 @@ gr_set_proc_res(struct task_struct *task)
 	rcu_read_lock();
 	read_lock(&tasklist_lock);
 	read_lock(&grsec_exec_file_lock);
+   except in the case of gr_set_role_label() (for __gr_get_subject_for_task)
 */
 
-struct acl_subject_label *__gr_get_subject_for_task(const struct gr_policy_state *state, struct task_struct *task, const char *filename)
+struct acl_subject_label *__gr_get_subject_for_task(const struct gr_policy_state *state, struct task_struct *task, const char *filename, int fallback)
 {
 	char *tmpname;
 	struct acl_subject_label *tmpsubj;
@@ -1200,15 +1201,15 @@ struct acl_subject_label *__gr_get_subject_for_task(const struct gr_policy_state
 	/* this also works for the reload case -- if we don't match a potentially inherited subject
 	   then we fall back to a normal lookup based on the binary's ino/dev
 	*/
-	if (tmpsubj == NULL)
+	if (tmpsubj == NULL && fallback)
 		tmpsubj = chk_subj_label(filp->f_path.dentry, filp->f_path.mnt, task->role);
 
 	return tmpsubj;
 }
 
-static struct acl_subject_label *gr_get_subject_for_task(struct task_struct *task, const char *filename)
+static struct acl_subject_label *gr_get_subject_for_task(struct task_struct *task, const char *filename, int fallback)
 {
-	return __gr_get_subject_for_task(&running_polstate, task, filename);
+	return __gr_get_subject_for_task(&running_polstate, task, filename, fallback);
 }
 
 void __gr_apply_subject_to_task(const struct gr_policy_state *state, struct task_struct *task, struct acl_subject_label *subj)
@@ -1272,7 +1273,7 @@ gr_search_file(const struct dentry * dentry, const __u32 mode,
 			task->role = current->role;
 			rcu_read_lock();
 			read_lock(&grsec_exec_file_lock);
-			subj = gr_get_subject_for_task(task, NULL);
+			subj = gr_get_subject_for_task(task, NULL, 1);
 			gr_apply_subject_to_task(task, subj);
 			read_unlock(&grsec_exec_file_lock);
 			rcu_read_unlock();
@@ -1652,6 +1653,7 @@ void
 gr_set_role_label(struct task_struct *task, const uid_t uid, const uid_t gid)
 {
 	struct acl_role_label *role = task->role;
+	struct acl_role_label *origrole = role;
 	struct acl_subject_label *subj = NULL;
 	struct acl_object_label *obj;
 	struct file *filp;
@@ -1679,10 +1681,28 @@ gr_set_role_label(struct task_struct *task, const uid_t uid, const uid_t gid)
 	     ((role->roletype & GR_ROLE_GROUP) && !gr_acl_is_capable(CAP_SETGID))))
 		return;
 
-	/* perform subject lookup in possibly new role
-	   we can use this result below in the case where role == task->role
-	*/
-	subj = chk_subj_label(filp->f_path.dentry, filp->f_path.mnt, role);
+	task->role = role;
+
+	if (task->inherited) {
+		/* if we reached our subject through inheritance, then first see
+		   if there's a subject of the same name in the new role that has
+		   an object that would result in the same inherited subject
+		*/
+		subj = gr_get_subject_for_task(task, task->acl->filename, 0);
+		if (subj) {
+			obj = chk_obj_label(filp->f_path.dentry, filp->f_path.mnt, subj);
+			if (!(obj->mode & GR_INHERIT))
+				subj = NULL;
+		}
+		
+	}
+	if (subj == NULL) {
+		/* otherwise:
+		   perform subject lookup in possibly new role
+		   we can use this result below in the case where role == task->role
+		*/
+		subj = chk_subj_label(filp->f_path.dentry, filp->f_path.mnt, role);
+	}
 
 	/* if we changed uid/gid, but result in the same role
 	   and are using inheritance, don't lose the inherited subject
@@ -1690,13 +1710,11 @@ gr_set_role_label(struct task_struct *task, const uid_t uid, const uid_t gid)
 	   would result in, we arrived via inheritance, don't
 	   lose subject
 	*/
-	if (role != task->role || (!(task->acl->mode & GR_INHERITLEARN) &&
+	if (role != origrole || (!(task->acl->mode & GR_INHERITLEARN) &&
 				   (subj == task->acl)))
 		task->acl = subj;
 
 	/* leave task->inherited unaffected */
-
-	task->role = role;
 
 	task->is_writable = 0;
 

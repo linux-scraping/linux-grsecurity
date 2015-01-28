@@ -67,7 +67,7 @@ extern void gr_free_uidset(void);
 extern void gr_remove_uid(uid_t uid);
 extern int gr_find_uid(uid_t uid);
 
-extern struct acl_subject_label *__gr_get_subject_for_task(const struct gr_policy_state *state, struct task_struct *task, const char *filename);
+extern struct acl_subject_label *__gr_get_subject_for_task(const struct gr_policy_state *state, struct task_struct *task, const char *filename, int fallback);
 extern void __gr_apply_subject_to_task(struct gr_policy_state *state, struct task_struct *task, struct acl_subject_label *subj);
 extern int gr_streq(const char *a, const char *b, const unsigned int lena, const unsigned int lenb);
 extern void __insert_inodev_entry(const struct gr_policy_state *state, struct inodev_entry *entry);
@@ -1172,8 +1172,8 @@ static int gracl_reload_apply_policies(void *reload)
 		}
 		/* this handles non-nested inherited subjects, nested subjects will still
 		   be dropped currently */
-		subj = __gr_get_subject_for_task(polstate, task, task->acl->filename);
-		task->tmpacl = __gr_get_subject_for_task(polstate, task, NULL);
+		subj = __gr_get_subject_for_task(polstate, task, task->acl->filename, 1);
+		task->tmpacl = __gr_get_subject_for_task(polstate, task, NULL, 1);
 		/* change the role back so that we've made no modifications to the policy */
 		task->role = rtmp;
 
@@ -1205,7 +1205,7 @@ static int gracl_reload_apply_policies(void *reload)
 			/* this handles non-nested inherited subjects, nested subjects will still
 			   be dropped currently */
 			if (!reload_state->oldmode && task->inherited)
-				subj = __gr_get_subject_for_task(polstate, task, task->acl->filename);
+				subj = __gr_get_subject_for_task(polstate, task, task->acl->filename, 1);
 			else {
 				/* looked up and tagged to the task previously */
 				subj = task->tmpacl;
@@ -1754,7 +1754,7 @@ gr_set_acls(const int type)
 		if (task->exec_file) {
 			cred = __task_cred(task);
 			task->role = __lookup_acl_role_label(polstate, task, cred->uid, cred->gid);
-			subj = __gr_get_subject_for_task(polstate, task, NULL);
+			subj = __gr_get_subject_for_task(polstate, task, NULL, 1);
 			if (subj == NULL) {
 				ret = -EINVAL;
 				read_unlock(&grsec_exec_file_lock);
