@@ -40,6 +40,7 @@ int grsec_enable_chroot_mknod;
 int grsec_enable_chroot_nice;
 int grsec_enable_chroot_execlog;
 int grsec_enable_chroot_caps;
+int grsec_enable_chroot_rename;
 int grsec_enable_chroot_sysctl;
 int grsec_enable_chroot_unix;
 int grsec_enable_tpe;
@@ -250,6 +251,9 @@ grsecurity_init(void)
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_CAPS
 	grsec_enable_chroot_caps = 1;
+#endif
+#ifdef CONFIG_GRKERNSEC_CHROOT_RENAME
+	grsec_enable_chroot_rename = 1;
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_SYSCTL
 	grsec_enable_chroot_sysctl = 1;

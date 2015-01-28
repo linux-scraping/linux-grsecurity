@@ -41,6 +41,7 @@
 #define GR_ATIME_ACL_MSG "%s access time change of %.950s by "
 #define GR_ACCESS_ACL_MSG "%s access of %.950s for%s%s%s by "
 #define GR_CHROOT_CHROOT_MSG "denied double chroot to %.950s by "
+#define GR_CHROOT_RENAME_MSG "denied bad rename of %.950s out of a chroot by "
 #define GR_CHMOD_CHROOT_MSG "denied chmod +s of %.950s by "
 #define GR_CHMOD_ACL_MSG "%s chmod of %.950s by "
 #define GR_CHROOT_FCHDIR_MSG "denied fchdir outside of chroot to %.950s by "

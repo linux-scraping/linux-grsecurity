@@ -973,6 +973,7 @@ vhost_add_used_n_10760 vhost_add_used_n 3 10760 NULL
 rd_build_prot_space_10761 rd_build_prot_space 2-3 10761 NULL
 kvm_read_guest_atomic_10765 kvm_read_guest_atomic 4 10765 NULL
 __qp_memcpy_to_queue_10779 __qp_memcpy_to_queue 2-4 10779 NULL
+ttm_dma_page_pool_free_10796 ttm_dma_page_pool_free 2-0 10796 NULL
 diva_set_trace_filter_10820 diva_set_trace_filter 0-1 10820 NULL
 lbs_sleepparams_read_10840 lbs_sleepparams_read 3 10840 NULL
 ext4_direct_IO_10843 ext4_direct_IO 4 10843 NULL
@@ -2263,6 +2264,7 @@ rtw_set_wps_assoc_resp_24440 rtw_set_wps_assoc_resp 3 24440 &smk_user_access_244
 evdev_do_ioctl_24459 evdev_do_ioctl 2 24459 NULL
 lbs_highsnr_write_24460 lbs_highsnr_write 3 24460 NULL
 skb_copy_and_csum_datagram_iovec_24466 skb_copy_and_csum_datagram_iovec 2 24466 NULL
+ttm_page_pool_free_24486 ttm_page_pool_free 2-0 24486 NULL
 dut_mode_read_24489 dut_mode_read 3 24489 NULL
 read_file_spec_scan_ctl_24491 read_file_spec_scan_ctl 3 24491 NULL
 pd_video_read_24510 pd_video_read 3 24510 NULL

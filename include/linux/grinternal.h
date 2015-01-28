@@ -57,6 +57,7 @@ extern int grsec_enable_chroot_fchdir;
 extern int grsec_enable_chroot_nice;
 extern int grsec_enable_chroot_execlog;
 extern int grsec_enable_chroot_caps;
+extern int grsec_enable_chroot_rename;
 extern int grsec_enable_chroot_sysctl;
 extern int grsec_enable_chroot_unix;
 extern int grsec_enable_symlinkown;
