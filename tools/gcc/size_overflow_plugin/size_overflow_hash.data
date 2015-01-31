@@ -2079,6 +2079,7 @@ ext4_ext_direct_IO_22679 ext4_ext_direct_IO 4 22679 NULL
 l2tp_ip_recvmsg_22681 l2tp_ip_recvmsg 4 22681 NULL
 bch_dump_read_22685 bch_dump_read 3 22685 NULL
 reg_umr_22686 reg_umr 5 22686 NULL
+nr_cpusets_22705 nr_cpusets 0 22705 NULL
 alloc_libipw_22708 alloc_libipw 1 22708 NULL
 cx18_copy_buf_to_user_22735 cx18_copy_buf_to_user 4-0 22735 NULL
 ceph_decode_32_22738 ceph_decode_32 0 22738 NULL nohasharray
@@ -2732,6 +2733,7 @@ probes_write_29711 probes_write 3 29711 NULL
 read_cis_cache_29735 read_cis_cache 4 29735 NULL
 xfs_new_eof_29737 xfs_new_eof 2 29737 NULL
 std_nic_write_29752 std_nic_write 3 29752 NULL
+static_key_count_29771 static_key_count 0 29771 NULL
 dbAlloc_29794 dbAlloc 0 29794 NULL
 tcp_sendpage_29829 tcp_sendpage 4 29829 NULL
 __probe_kernel_write_29842 __probe_kernel_write 3 29842 NULL
