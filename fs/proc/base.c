@@ -665,8 +665,10 @@ struct mm_struct *proc_mem_open(struct inode *inode, unsigned int mode)
 
 	if (task) {
 		mm = mm_access(task, mode);
-		if (gr_acl_handle_procpidmem(task))
+		if (!IS_ERR_OR_NULL(mm) && gr_acl_handle_procpidmem(task)) {
+			mmput(mm);
 			mm = ERR_PTR(-EPERM);
+		}
 		put_task_struct(task);
 
 		if (!IS_ERR_OR_NULL(mm)) {
