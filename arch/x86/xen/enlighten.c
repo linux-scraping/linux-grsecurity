@@ -1452,7 +1452,9 @@ static void __ref xen_setup_gdt(int cpu)
 	pv_cpu_ops.load_gdt = xen_load_gdt_boot;
 
 	setup_stack_canary_segment(cpu);
+#ifdef CONFIG_X86_64
 	load_percpu_segment(cpu);
+#endif
 	switch_to_new_gdt(cpu);
 
 	pv_cpu_ops.write_gdt_entry = xen_write_gdt_entry;
