@@ -1034,8 +1034,10 @@ ascend:
 		write_sequnlock(&rename_lock);
 	return 0; /* No mount points found in tree */
 positive:
-	if (!locked && read_seqretry(&rename_lock, seq))
+	if (!locked && read_seqretry(&rename_lock, seq)) {
+		rcu_read_lock();
 		goto rename_retry;
+	}
 	if (locked)
 		write_sequnlock(&rename_lock);
 	return 1;
