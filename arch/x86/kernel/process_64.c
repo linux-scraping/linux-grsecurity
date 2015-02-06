@@ -276,7 +276,7 @@ int copy_thread(unsigned long clone_flags, unsigned long sp,
 	p->thread.sp = (unsigned long) childregs;
 	p->thread.sp0 = (unsigned long) (childregs+1);
 	p->thread.usersp = me->thread.usersp;
-	p->tinfo.lowest_stack = (unsigned long)task_stack_page(p);
+	p->tinfo.lowest_stack = (unsigned long)task_stack_page(p) + 2 * sizeof(unsigned long);
 
 	set_tsk_thread_flag(p, TIF_FORK);
 

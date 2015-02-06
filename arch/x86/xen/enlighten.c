@@ -1140,6 +1140,9 @@ static void __init xen_setup_stackprotector(void)
 	pv_cpu_ops.load_gdt = xen_load_gdt_boot;
 
 	setup_stack_canary_segment(0);
+#ifdef CONFIG_X86_64
+	load_percpu_segment(0);
+#endif
 	switch_to_new_gdt(0);
 
 	pv_cpu_ops.write_gdt_entry = xen_write_gdt_entry;
