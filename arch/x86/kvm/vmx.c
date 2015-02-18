@@ -441,7 +441,7 @@ struct vcpu_vmx {
 #endif
 		int           gs_ldt_reload_needed;
 		int           fs_reload_needed;
-		unsigned long vmcs_host_cr4;	/* May not match real cr4 */
+		unsigned long vmcs_host_cr4;    /* May not match real cr4 */
 	} host_state;
 	struct {
 		int vm86_active;
@@ -4182,6 +4182,7 @@ static void vmx_set_constant_host_state(struct vcpu_vmx *vmx)
 	unsigned long cr4;
 
 	vmcs_writel(HOST_CR0, read_cr0() & ~X86_CR0_TS);  /* 22.2.3 */
+
 #ifndef CONFIG_PAX_PER_CPU_PGD
 	vmcs_writel(HOST_CR3, read_cr3());  /* 22.2.3  FIXME: shadow tables */
 #endif

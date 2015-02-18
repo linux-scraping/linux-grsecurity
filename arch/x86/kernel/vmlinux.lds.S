@@ -256,7 +256,6 @@ SECTIONS
 	.init.text (. - __KERNEL_TEXT_OFFSET): AT(init_begin - LOAD_OFFSET) {
 		VMLINUX_SYMBOL(_sinittext) = .;
 		INIT_TEXT
-		VMLINUX_SYMBOL(_einittext) = .;
 		. = ALIGN(PAGE_SIZE);
 	} :text.init
 
@@ -266,6 +265,7 @@ SECTIONS
 	 */
 	.exit.text : AT(ADDR(.exit.text) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
 		EXIT_TEXT
+		VMLINUX_SYMBOL(_einittext) = .;
 		. = ALIGN(16);
 	} :text.exit
 	. = init_begin + SIZEOF(.init.text) + SIZEOF(.exit.text);

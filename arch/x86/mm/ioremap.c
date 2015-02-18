@@ -317,21 +317,14 @@ EXPORT_SYMBOL(iounmap);
  */
 void *xlate_dev_mem_ptr(unsigned long phys)
 {
-	void *addr;
-	unsigned long start = phys & PAGE_MASK;
-
 	/* If page is RAM, we can use __va. Otherwise ioremap and unmap. */
-	if (page_is_ram(start >> PAGE_SHIFT))
+	if (page_is_ram(phys >> PAGE_SHIFT))
 #ifdef CONFIG_HIGHMEM
-	if ((start >> PAGE_SHIFT) < max_low_pfn)
+	if ((phys >> PAGE_SHIFT) < max_low_pfn)
 #endif
 		return __va(phys);
 
-	addr = (void __force *)ioremap_cache(start, PAGE_SIZE);
-	if (addr)
-		addr = (void *)((unsigned long)addr | (phys & ~PAGE_MASK));
-
-	return addr;
+	return (void __force *)ioremap_cache(phys, PAGE_SIZE);
 }
 
 void unxlate_dev_mem_ptr(unsigned long phys, void *addr)
