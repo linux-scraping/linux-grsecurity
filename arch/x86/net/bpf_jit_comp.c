@@ -74,7 +74,8 @@ do {						\
 	EMIT2(0x81, 0xf1);			\
 	EMIT((_key) ^ (_off), 4);		\
 } while (0)
-
+#define SHORT_JMP_LENGTH 2
+#define NEAR_JMP_LENGTH (5 + 8)
 #define EMIT1_off32(b1, _off)								\
 do { 											\
 	switch (b1) {									\
@@ -82,12 +83,20 @@ do { 											\
 		case 0x2d: /* sub eax, imm32 */						\
 		case 0x25: /* and eax, imm32 */						\
 		case 0x0d: /* or eax, imm32 */						\
-		case 0xb8: /* mov eax, imm32 */						\
 		case 0x35: /* xor eax, imm32 */						\
 		case 0x3d: /* cmp eax, imm32 */						\
-		case 0xa9: /* test eax, imm32 */					\
 			DILUTE_CONST_SEQUENCE(_off, randkey);				\
 			EMIT2((b1) - 4, 0xc8); /* convert imm instruction to eax, ecx */\
+			break;								\
+		case 0xb8: /* mov eax, imm32 */						\
+			DILUTE_CONST_SEQUENCE(_off, randkey);				\
+			/* mov eax, ecx */						\
+			EMIT2(0x89, 0xc8);						\
+			break;								\
+		case 0xa9: /* test eax, imm32 */					\
+			DILUTE_CONST_SEQUENCE(_off, randkey);				\
+			/* test eax, ecx */						\
+			EMIT2(0x85, 0xc8);						\
 			break;								\
 		case 0xbb: /* mov ebx, imm32 */						\
 			DILUTE_CONST_SEQUENCE(_off, randkey);				\
@@ -133,6 +142,8 @@ do { 									\
 #else
 #define EMIT1_off32(b1, off)	do { EMIT1(b1); EMIT(off, 4);} while (0)
 #define EMIT2_off32(b1, b2, off) do { EMIT2(b1, b2); EMIT(off, 4);} while (0)
+#define SHORT_JMP_LENGTH 2
+#define NEAR_JMP_LENGTH 5
 #endif
 
 #define CLEAR_A() EMIT2(0x31, 0xc0) /* xor %eax,%eax */
@@ -821,7 +832,7 @@ cond_branch:			f_offset = addrs[i + filter[i].jf] - addrs[i];
 				}
 				if (filter[i].jt != 0) {
 					if (filter[i].jf && f_offset)
-						t_offset += is_near(f_offset) ? 2 : 5;
+						t_offset += is_near(f_offset) ? SHORT_JMP_LENGTH : NEAR_JMP_LENGTH;
 					EMIT_COND_JMP(t_op, t_offset);
 					if (filter[i].jf)
 						EMIT_JMP(f_offset);
