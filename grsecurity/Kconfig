@@ -640,6 +640,22 @@ config GRKERNSEC_CHROOT_SYSCTL
 	  sysctl option is enabled, a sysctl option with name
 	  "chroot_deny_sysctl" is created.
 
+config GRKERNSEC_CHROOT_RENAME
+	bool "Deny bad renames"
+	default y if GRKERNSEC_CONFIG_AUTO
+	depends on GRKERNSEC_CHROOT
+	help
+	  If you say Y here, an attacker in a chroot will not be able to
+	  abuse the ability to create double chroots to break out of the
+	  chroot by exploiting a race condition between a rename of a directory
+	  within a chroot against an open of a symlink with relative path
+	  components.  This feature will likewise prevent an accomplice outside
+	  a chroot from enabling a user inside the chroot to break out and make
+	  use of their credentials on the global filesystem.  Enabling this
+	  feature is essential to prevent root users from breaking out of a
+	  chroot. If the sysctl option is enabled, a sysctl option with name
+	  "chroot_deny_bad_rename" is created.
+
 config GRKERNSEC_CHROOT_CAPS
 	bool "Capability restrictions"
 	default y if GRKERNSEC_CONFIG_AUTO

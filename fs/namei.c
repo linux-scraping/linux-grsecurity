@@ -4433,6 +4433,14 @@ retry_deleg:
 	if (new_dentry == trap)
 		goto exit5;
 
+	if (gr_bad_chroot_rename(old_dentry, oldnd.path.mnt, new_dentry, newnd.path.mnt)) {
+		/* use EXDEV error to cause 'mv' to switch to an alternative
+		 * method for usability
+		 */
+		error = -EXDEV;
+		goto exit5;
+	}
+
 	error = gr_acl_handle_rename(new_dentry, new_dir, newnd.path.mnt,
 				     old_dentry, old_dir->d_inode, oldnd.path.mnt,
 				     to);

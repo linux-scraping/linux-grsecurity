@@ -1522,6 +1522,9 @@ struct dentry *__d_alloc(struct super_block *sb, const struct qstr *name)
 	dentry->d_sb = sb;
 	dentry->d_op = NULL;
 	dentry->d_fsdata = NULL;
+#ifdef CONFIG_GRKERNSEC_CHROOT_RENAME
+	atomic_set(&dentry->chroot_refcnt, 0);
+#endif
 	INIT_HLIST_BL_NODE(&dentry->d_hash);
 	INIT_LIST_HEAD(&dentry->d_lru);
 	INIT_LIST_HEAD(&dentry->d_subdirs);

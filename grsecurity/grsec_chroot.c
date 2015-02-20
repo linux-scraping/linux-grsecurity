@@ -13,6 +13,88 @@
 int gr_init_ran;
 #endif
 
+void gr_inc_chroot_refcnts(struct dentry *dentry, struct vfsmount *mnt)
+{
+#ifdef CONFIG_GRKERNSEC_CHROOT_RENAME
+	struct dentry *tmpd = dentry;
+
+	read_seqlock_excl(&mount_lock);
+	write_seqlock(&rename_lock);
+
+	while (tmpd != mnt->mnt_root) {
+		atomic_inc(&tmpd->chroot_refcnt);
+		tmpd = tmpd->d_parent;
+	}
+	atomic_inc(&tmpd->chroot_refcnt);
+
+	write_sequnlock(&rename_lock);
+	read_sequnlock_excl(&mount_lock);
+#endif
+}
+
+void gr_dec_chroot_refcnts(struct dentry *dentry, struct vfsmount *mnt)
+{
+#ifdef CONFIG_GRKERNSEC_CHROOT_RENAME
+	struct dentry *tmpd = dentry;
+
+	read_seqlock_excl(&mount_lock);
+	write_seqlock(&rename_lock);
+
+	while (tmpd != mnt->mnt_root) {
+		atomic_dec(&tmpd->chroot_refcnt);
+		tmpd = tmpd->d_parent;
+	}
+	atomic_dec(&tmpd->chroot_refcnt);
+
+	write_sequnlock(&rename_lock);
+	read_sequnlock_excl(&mount_lock);
+#endif
+}
+
+#ifdef CONFIG_GRKERNSEC_CHROOT_RENAME
+static struct dentry *get_closest_chroot(struct dentry *dentry)
+{
+	write_seqlock(&rename_lock);
+	do {
+		if (atomic_read(&dentry->chroot_refcnt)) {
+			write_sequnlock(&rename_lock);
+			return dentry;
+		}
+		dentry = dentry->d_parent;
+	} while (!IS_ROOT(dentry));
+	write_sequnlock(&rename_lock);
+	return NULL;
+}
+#endif
+
+int gr_bad_chroot_rename(struct dentry *olddentry, struct vfsmount *oldmnt,
+			 struct dentry *newdentry, struct vfsmount *newmnt)
+{
+#ifdef CONFIG_GRKERNSEC_CHROOT_RENAME
+	struct dentry *chroot;
+
+	if (unlikely(!grsec_enable_chroot_rename))
+		return 0;
+
+	if (likely(!proc_is_chrooted(current) && gr_is_global_root(current_uid())))
+		return 0;
+
+	chroot = get_closest_chroot(olddentry);
+
+	if (chroot == NULL)
+		return 0;
+
+	if (is_subdir(newdentry, chroot))
+		return 0;
+
+	gr_log_fs_generic(GR_DONT_AUDIT, GR_CHROOT_RENAME_MSG, olddentry, oldmnt);
+
+	return 1;
+#else
+	return 0;
+#endif
+}
+
 void gr_set_chroot_entries(struct task_struct *task, const struct path *path)
 {
 #ifdef CONFIG_GRKERNSEC

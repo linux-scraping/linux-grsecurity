@@ -221,13 +221,18 @@ static inline void gr_learn_resource(const struct task_struct *task, const int r
 
 #ifdef CONFIG_GRKERNSEC_RESLOG
 extern void gr_log_resource(const struct task_struct *task, const int res,
-				   const unsigned long wanted, const int gt);
+				const unsigned long wanted, const int gt);
 #else
 static inline void gr_log_resource(const struct task_struct *task, const int res,
-				   const unsigned long wanted, const int gt)
+				const unsigned long wanted, const int gt)
 {
 }
 #endif
+
+void gr_inc_chroot_refcnts(struct dentry *dentry, struct vfsmount *mnt);
+void gr_dec_chroot_refcnts(struct dentry *dentry, struct vfsmount *mnt);
+int gr_bad_chroot_rename(struct dentry *olddentry, struct vfsmount *oldmnt,
+			 struct dentry *newdentry, struct vfsmount *newmnt);
 
 #ifdef CONFIG_GRKERNSEC
 void task_grsec_rbac(struct seq_file *m, struct task_struct *p);
