@@ -25,7 +25,7 @@ void set_fs_root(struct fs_struct *fs, const struct path *path)
 	write_seqcount_end(&fs->seq);
 	spin_unlock(&fs->lock);
 	if (old_root.dentry) {
-		gr_inc_chroot_refcnts(old_root.dentry, old_root.mnt);
+		gr_dec_chroot_refcnts(old_root.dentry, old_root.mnt);
 		path_put(&old_root);
 	}
 }
