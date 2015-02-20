@@ -207,7 +207,7 @@ static struct phy_device* phy_device_create(struct mii_bus *bus,
  * Description: Reads the ID registers of the PHY at @addr on the
  *   @bus, stores it in @phy_id and returns zero on success.
  */
-int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id)
+int get_phy_id(struct mii_bus *bus, int addr, int *phy_id)
 {
 	int phy_reg;
 
@@ -243,7 +243,7 @@ EXPORT_SYMBOL(get_phy_id);
 struct phy_device * get_phy_device(struct mii_bus *bus, int addr)
 {
 	struct phy_device *dev = NULL;
-	u32 phy_id;
+	int phy_id;
 	int r;
 
 	r = get_phy_id(bus, addr, &phy_id);

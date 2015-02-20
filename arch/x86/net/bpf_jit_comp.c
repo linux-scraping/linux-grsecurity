@@ -108,8 +108,9 @@ do { 											\
 			EMIT(_off, 4);							\
 			break;								\
 		case 0xe9: /* jmp rel imm32 */						\
+			BUG_ON((int)(_off) < 0);					\
 			EMIT1(b1);							\
-			EMIT(_off, 4);							\
+			EMIT(_off + 8, 4);						\
 			/* prevent fall-through, we're not called if off = 0 */		\
 			EMIT(0xcccccccc, 4);						\
 			EMIT(0xcccccccc, 4);						\
@@ -151,6 +152,7 @@ static inline bool is_near(int offset)
 
 #define EMIT_JMP(offset)						\
 do {									\
+        BUG_ON((int)(offset) < 0);					\
 	if (offset) {							\
 		if (is_near(offset))					\
 			EMIT2(0xeb, offset); /* jmp .+off8 */		\
@@ -189,11 +191,12 @@ do {				\
 
 #define EMIT_COND_JMP(op, offset)				\
 do {								\
+        BUG_ON((int)(offset) < 0);				\
 	if (is_near(offset))					\
 		EMIT2(op, offset); /* jxx .+off8 */		\
 	else {							\
 		EMIT2(0x0f, op + 0x10);				\
-		EMIT(offset, 4); /* jxx .+off32 */		\
+		EMIT((offset) + 21, 4); /* jxx .+off32 */		\
 		APPEND_FLOW_VERIFY();				\
 	}							\
 } while (0)
@@ -384,7 +387,7 @@ void bpf_jit_compile(struct sk_filter *fp)
 					EMIT_COND_JMP(X86_JE, addrs[pc_ret0 - 1] -
 								(addrs[i] - 4));
 				} else {
-					EMIT_COND_JMP(X86_JNE, 2 + 5);
+					EMIT_COND_JMP(X86_JNE, 2 + NEAR_JMP_LENGTH);
 					CLEAR_A();
 					EMIT1_off32(0xe9, cleanup_addr - (addrs[i] - 4)); /* jmp .+off32 */
 				}

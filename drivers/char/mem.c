@@ -131,7 +131,7 @@ static ssize_t read_mem(struct file *file, char __user *buf,
 #endif
 
 	while (count > 0) {
-		unsigned long remaining;
+		unsigned long remaining = 0;
 		char *temp;
 
 		sz = size_inside_page(p, count);
@@ -154,12 +154,13 @@ static ssize_t read_mem(struct file *file, char __user *buf,
 			unxlate_dev_mem_ptr(p, ptr);
 			return -ENOMEM;
 		}
-		memcpy(temp, ptr, sz);
+		remaining = probe_kernel_read(temp, ptr, sz);
 #else
 		temp = ptr;
 #endif
 
-		remaining = copy_to_user(buf, temp, sz);
+		if (!remaining)
+			remaining = copy_to_user(buf, temp, sz);
 
 #ifdef CONFIG_PAX_USERCOPY
 		kfree(temp);
@@ -465,12 +466,13 @@ static ssize_t read_kmem(struct file *file, char __user *buf,
 			temp = kmalloc(sz, GFP_KERNEL|GFP_USERCOPY);
 			if (!temp)
 				return -ENOMEM;
-			memcpy(temp, kbuf, sz);
+			err = probe_kernel_read(temp, kbuf, sz);
 #else
 			temp = kbuf;
 #endif
 
-			err = copy_to_user(buf, temp, sz);
+			if (!err)
+				err = copy_to_user(buf, temp, sz);
 
 #ifdef CONFIG_PAX_USERCOPY
 			kfree(temp);

@@ -208,6 +208,11 @@ void gr_put_exec_file(struct task_struct *task);
 
 int gr_ptrace_readexec(struct file *file, int unsafe_flags);
 
+void gr_inc_chroot_refcnts(struct dentry *dentry, struct vfsmount *mnt);
+void gr_dec_chroot_refcnts(struct dentry *dentry, struct vfsmount *mnt);
+int gr_bad_chroot_rename(struct dentry *olddentry, struct vfsmount *oldmnt,
+			 struct dentry *newdentry, struct vfsmount *newmnt);
+
 #ifdef CONFIG_GRKERNSEC
 void task_grsec_rbac(struct seq_file *m, struct task_struct *p);
 void gr_handle_vm86(void);

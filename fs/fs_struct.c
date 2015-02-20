@@ -27,6 +27,7 @@ void set_fs_root(struct fs_struct *fs, struct path *path)
 {
 	struct path old_root;
 
+	gr_inc_chroot_refcnts(path->dentry, path->mnt);
 	spin_lock(&fs->lock);
 	write_seqcount_begin(&fs->seq);
 	old_root = fs->root;
@@ -35,8 +36,10 @@ void set_fs_root(struct fs_struct *fs, struct path *path)
 	gr_set_chroot_entries(current, path);
 	write_seqcount_end(&fs->seq);
 	spin_unlock(&fs->lock);
-	if (old_root.dentry)
+	if (old_root.dentry) {
+		gr_dec_chroot_refcnts(old_root.dentry, old_root.mnt);
 		path_put_longterm(&old_root);
+	}
 }
 
 /*
@@ -103,6 +106,7 @@ void chroot_fs_refs(struct path *old_root, struct path *new_root)
 
 void free_fs_struct(struct fs_struct *fs)
 {
+	gr_dec_chroot_refcnts(fs->root.dentry, fs->root.mnt);
 	path_put_longterm(&fs->root);
 	path_put_longterm(&fs->pwd);
 	kmem_cache_free(fs_cachep, fs);

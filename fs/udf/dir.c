@@ -164,7 +164,7 @@ static int do_udf_readdir(struct inode *dir, struct file *filp,
 
 			iblock = udf_get_lb_pblock(dir->i_sb, &tloc, 0);
 			flen = udf_get_filename(dir->i_sb, nameptr, lfi, fname,
-					UDF_NAME_LEN);
+						UDF_NAME_LEN);
 			dt_type = DT_UNKNOWN;
 		}
 

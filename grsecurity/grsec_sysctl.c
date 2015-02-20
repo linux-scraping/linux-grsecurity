@@ -265,6 +265,15 @@ struct ctl_table grsecurity_table[] = {
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
+#ifdef CONFIG_GRKERNSEC_CHROOT_RENAME
+	{
+		.procname	= "chroot_deny_bad_rename",
+		.data		= &grsec_enable_chroot_rename,
+		.maxlen		= sizeof(int),
+		.mode		= 0600,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_SYSCTL
 	{
 		.procname	= "chroot_deny_sysctl",
