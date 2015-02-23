@@ -119,7 +119,7 @@ gr_set_proc_label(const struct dentry *dentry, const struct vfsmount *mnt,
 }
 
 void
-gr_handle_delete(const ino_t ino, const dev_t dev)
+gr_handle_delete(const u64 ino, const dev_t dev)
 {
 	return;
 }
@@ -319,7 +319,7 @@ gr_acl_handle_rename(const struct dentry *new_dentry,
 
 int
 gr_acl_handle_filldir(const struct file *file, const char *name,
-		      const int namelen, const ino_t ino)
+		      const int namelen, const u64 ino)
 {
 	return 1;
 }
@@ -426,6 +426,11 @@ int gr_acl_enable_at_secure(void)
 dev_t gr_get_dev_from_dentry(struct dentry *dentry)
 {
 	return dentry->d_sb->s_dev;
+}
+
+u64 gr_get_ino_from_dentry(struct dentry *dentry)
+{
+	return dentry->d_inode->i_ino;
 }
 
 void gr_put_exec_file(struct task_struct *task)

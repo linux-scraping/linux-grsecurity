@@ -165,7 +165,7 @@ __u32 gr_acl_handle_mkdir(const struct dentry *new_dentry,
 				 const struct vfsmount *parent_mnt);
 __u32 gr_acl_handle_rmdir(const struct dentry *dentry,
 				 const struct vfsmount *mnt);
-void gr_handle_delete(const ino_t ino, const dev_t dev);
+void gr_handle_delete(const u64 ino, const dev_t dev);
 __u32 gr_acl_handle_unlink(const struct dentry *dentry,
 				  const struct vfsmount *mnt);
 __u32 gr_acl_handle_symlink(const struct dentry *new_dentry,
@@ -194,7 +194,7 @@ __u32 gr_check_link(const struct dentry *new_dentry,
 			   const struct dentry *old_dentry,
 			   const struct vfsmount *old_mnt);
 int gr_acl_handle_filldir(const struct file *file, const char *name,
-				 const unsigned int namelen, const ino_t ino);
+				 const unsigned int namelen, const u64 ino);
 
 __u32 gr_acl_handle_unix(const struct dentry *dentry,
 				const struct vfsmount *mnt);
@@ -205,6 +205,7 @@ int gr_handle_rofs_mount(struct dentry *dentry, struct vfsmount *mnt, int mnt_fl
 int gr_handle_rofs_blockwrite(struct dentry *dentry, struct vfsmount *mnt, int acc_mode);
 void gr_audit_ptrace(struct task_struct *task);
 dev_t gr_get_dev_from_dentry(struct dentry *dentry);
+u64 gr_get_ino_from_dentry(struct dentry *dentry);
 void gr_put_exec_file(struct task_struct *task);
 
 int gr_ptrace_readexec(struct file *file, int unsafe_flags);

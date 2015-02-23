@@ -21,7 +21,7 @@ struct gr_hash_struct_compat {
 
 struct acl_subject_label_compat {
 	compat_uptr_t filename;
-	compat_ino_t inode;
+	compat_u64 inode;
 	__u32 device;
 	__u32 mode;
 	kernel_cap_t cap_mask;
@@ -109,7 +109,7 @@ struct user_acl_role_db_compat {
 
 struct acl_object_label_compat {
 	compat_uptr_t filename;
-	compat_ino_t inode;
+	compat_u64 inode;
 	__u32 device;
 	__u32 mode;
 
@@ -141,7 +141,7 @@ struct gr_arg_compat {
 	unsigned char sp_role[GR_SPROLE_LEN];
 	compat_uptr_t sprole_pws;
 	__u32 segv_device;
-	compat_ino_t segv_inode;
+	compat_u64 segv_inode;
 	uid_t segv_uid;
 	__u16 num_sprole_pws;
 	__u16 mode;
