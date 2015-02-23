@@ -77,8 +77,8 @@ extern void insert_acl_obj_label(struct acl_object_label *obj, struct acl_subjec
 extern void insert_acl_subj_label(struct acl_subject_label *obj, struct acl_role_label *role);
 extern struct name_entry * __lookup_name_entry(const struct gr_policy_state *state, const char *name);
 extern char *gr_to_filename_rbac(const struct dentry *dentry, const struct vfsmount *mnt);
-extern struct acl_subject_label *lookup_acl_subj_label(const ino_t ino, const dev_t dev, const struct acl_role_label *role);
-extern struct acl_subject_label *lookup_acl_subj_label_deleted(const ino_t ino, const dev_t dev, const struct acl_role_label *role);
+extern struct acl_subject_label *lookup_acl_subj_label(const u64 ino, const dev_t dev, const struct acl_role_label *role);
+extern struct acl_subject_label *lookup_acl_subj_label_deleted(const u64 ino, const dev_t dev, const struct acl_role_label *role);
 extern void assign_special_role(const char *rolename);
 extern struct acl_subject_label *chk_subj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt, const struct acl_role_label *role);
 extern int gr_rbac_disable(void *unused);
@@ -161,8 +161,7 @@ static int copy_gr_arg_wrapper_normal(const char __user *buf, struct gr_arg_wrap
 	if (copy_from_user(uwrap, buf, sizeof (struct gr_arg_wrapper)))
 		return -EFAULT;
 
-	if (((uwrap->version != GRSECURITY_VERSION) &&
-	     (uwrap->version != 0x2901)) ||
+	if ((uwrap->version != GRSECURITY_VERSION) ||
 	    (uwrap->size != sizeof(struct gr_arg)))
 		return -EINVAL;
 
@@ -347,7 +346,7 @@ insert_acl_role_label(struct acl_role_label *role)
 }
 					
 static int
-insert_name_entry(char *name, const ino_t inode, const dev_t device, __u8 deleted)
+insert_name_entry(char *name, const u64 inode, const dev_t device, __u8 deleted)
 {
 	struct name_entry **curr, *nentry;
 	struct inodev_entry *ientry;

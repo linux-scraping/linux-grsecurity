@@ -9,8 +9,8 @@
 
 /* Major status information */
 
-#define GR_VERSION  "grsecurity 3.0"
-#define GRSECURITY_VERSION 0x3000
+#define GR_VERSION  "grsecurity 3.1"
+#define GRSECURITY_VERSION 0x3100
 
 enum {
 	GR_SHUTDOWN = 0,
@@ -55,7 +55,7 @@ struct sprole_pw {
 
 struct name_entry {
 	__u32 key;
-	ino_t inode;
+	u64 inode;
 	dev_t device;
 	char *name;
 	__u16 len;
@@ -103,7 +103,7 @@ struct gr_hash_struct {
 
 struct acl_subject_label {
 	char *filename;
-	ino_t inode;
+	u64 inode;
 	dev_t device;
 	__u32 mode;
 	kernel_cap_t cap_mask;
@@ -191,7 +191,7 @@ struct user_acl_role_db {
 
 struct acl_object_label {
 	char *filename;
-	ino_t inode;
+	u64 inode;
 	dev_t device;
 	__u32 mode;
 
@@ -227,7 +227,7 @@ struct gr_arg {
 	unsigned char sp_role[GR_SPROLE_LEN];
 	struct sprole_pw *sprole_pws;
 	dev_t segv_device;
-	ino_t segv_inode;
+	u64 segv_inode;
 	uid_t segv_uid;
 	__u16 num_sprole_pws;
 	__u16 mode;
@@ -299,9 +299,11 @@ gr_shash(const struct acl_subject_label *userp, const unsigned int sz)
 }
 
 static __inline__ unsigned int
-gr_fhash(const ino_t ino, const dev_t dev, const unsigned int sz)
+gr_fhash(const u64 ino, const dev_t dev, const unsigned int sz)
 {
-	return (((ino + dev) ^ ((ino << 13) + (ino << 23) + (dev << 9))) % sz);
+	unsigned int rem;
+	div_u64_rem((ino + dev) ^ ((ino << 13) + (ino << 23) + (dev << 9)), sz, &rem);
+	return rem;
 }
 
 static __inline__ unsigned int

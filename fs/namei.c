@@ -3726,7 +3726,7 @@ static long do_rmdir(int dfd, const char __user *pathname)
 	struct filename *name;
 	struct dentry *dentry;
 	struct nameidata nd;
-	ino_t saved_ino = 0;
+	u64 saved_ino = 0;
 	dev_t saved_dev = 0;
 	unsigned int lookup_flags = 0;
 retry:
@@ -3761,7 +3761,7 @@ retry:
 		goto exit3;
 	}
 
-	saved_ino = dentry->d_inode->i_ino;
+	saved_ino = gr_get_ino_from_dentry(dentry);
 	saved_dev = gr_get_dev_from_dentry(dentry);
 
 	if (!gr_acl_handle_rmdir(dentry, nd.path.mnt)) {
@@ -3867,7 +3867,7 @@ static long do_unlinkat(int dfd, const char __user *pathname)
 	struct nameidata nd;
 	struct inode *inode = NULL;
 	struct inode *delegated_inode = NULL;
-	ino_t saved_ino = 0;
+	u64 saved_ino = 0;
 	dev_t saved_dev = 0;
 	unsigned int lookup_flags = 0;
 retry:
@@ -3897,7 +3897,7 @@ retry_deleg:
 		ihold(inode);
 
 		if (inode->i_nlink <= 1) {
-			saved_ino = inode->i_ino;
+			saved_ino = gr_get_ino_from_dentry(dentry);
 			saved_dev = gr_get_dev_from_dentry(dentry);
 		}
 		if (!gr_acl_handle_unlink(dentry, nd.path.mnt)) {

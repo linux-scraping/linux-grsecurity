@@ -105,9 +105,24 @@ static inline dev_t __get_dev(const struct dentry *dentry)
 		return dentry->d_sb->s_dev;
 }
 
+static inline u64 __get_ino(const struct dentry *dentry)
+{
+#if defined(CONFIG_BTRFS_FS) || defined(CONFIG_BTRFS_FS_MODULE)
+	if (dentry->d_sb->s_magic == BTRFS_SUPER_MAGIC)
+		return btrfs_ino(dentry->d_inode);
+	else
+#endif
+		return dentry->d_inode->i_ino;
+}
+
 dev_t gr_get_dev_from_dentry(struct dentry *dentry)
 {
 	return __get_dev(dentry);
+}
+
+u64 gr_get_ino_from_dentry(struct dentry *dentry)
+{
+	return __get_ino(dentry);
 }
 
 static char gr_task_roletype_to_char(struct task_struct *task)
@@ -448,7 +463,7 @@ lookup_acl_role_label(const struct task_struct *task, const uid_t uid,
 }
 
 struct acl_subject_label *
-lookup_acl_subj_label(const ino_t ino, const dev_t dev,
+lookup_acl_subj_label(const u64 ino, const dev_t dev,
 		      const struct acl_role_label *role)
 {
 	unsigned int index = gr_fhash(ino, dev, role->subj_hash_size);
@@ -468,7 +483,7 @@ lookup_acl_subj_label(const ino_t ino, const dev_t dev,
 }
 
 struct acl_subject_label *
-lookup_acl_subj_label_deleted(const ino_t ino, const dev_t dev,
+lookup_acl_subj_label_deleted(const u64 ino, const dev_t dev,
 			  const struct acl_role_label *role)
 {
 	unsigned int index = gr_fhash(ino, dev, role->subj_hash_size);
@@ -488,7 +503,7 @@ lookup_acl_subj_label_deleted(const ino_t ino, const dev_t dev,
 }
 
 static struct acl_object_label *
-lookup_acl_obj_label(const ino_t ino, const dev_t dev,
+lookup_acl_obj_label(const u64 ino, const dev_t dev,
 		     const struct acl_subject_label *subj)
 {
 	unsigned int index = gr_fhash(ino, dev, subj->obj_hash_size);
@@ -508,7 +523,7 @@ lookup_acl_obj_label(const ino_t ino, const dev_t dev,
 }
 
 static struct acl_object_label *
-lookup_acl_obj_label_create(const ino_t ino, const dev_t dev,
+lookup_acl_obj_label_create(const u64 ino, const dev_t dev,
 		     const struct acl_subject_label *subj)
 {
 	unsigned int index = gr_fhash(ino, dev, subj->obj_hash_size);
@@ -589,7 +604,7 @@ lookup_name_entry_create(const char *name)
 }
 
 static struct inodev_entry *
-lookup_inodev_entry(const ino_t ino, const dev_t dev)
+lookup_inodev_entry(const u64 ino, const dev_t dev)
 {
 	unsigned int index = gr_fhash(ino, dev, running_polstate.inodev_set.i_size);
 	struct inodev_entry *match;
@@ -814,7 +829,7 @@ chk_glob_label(struct acl_object_label *globbed,
 
 static struct acl_object_label *
 __full_lookup(const struct dentry *orig_dentry, const struct vfsmount *orig_mnt,
-	    const ino_t curr_ino, const dev_t curr_dev,
+	    const u64 curr_ino, const dev_t curr_dev,
 	    const struct acl_subject_label *subj, char **path, const int checkglob)
 {
 	struct acl_subject_label *tmpsubj;
@@ -845,7 +860,7 @@ full_lookup(const struct dentry *orig_dentry, const struct vfsmount *orig_mnt,
 	    const struct acl_subject_label *subj, char **path, const int checkglob)
 {
 	int newglob = checkglob;
-	ino_t inode;
+	u64 inode;
 	dev_t device;
 
 	/* if we aren't checking a subdirectory of the original path yet, don't do glob checking
@@ -857,7 +872,7 @@ full_lookup(const struct dentry *orig_dentry, const struct vfsmount *orig_mnt,
 		newglob = GR_NO_GLOB;
 
 	spin_lock(&curr_dentry->d_lock);
-	inode = curr_dentry->d_inode->i_ino;
+	inode = __get_ino(curr_dentry);
 	device = __get_dev(curr_dentry);
 	spin_unlock(&curr_dentry->d_lock);
 
@@ -990,7 +1005,7 @@ chk_subj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 			spin_lock(&dentry->d_lock);
 			read_lock(&gr_inode_lock);
 			retval =
-				lookup_acl_subj_label(dentry->d_inode->i_ino,
+				lookup_acl_subj_label(__get_ino(dentry),
 						__get_dev(dentry), role);
 			read_unlock(&gr_inode_lock);
 			spin_unlock(&dentry->d_lock);
@@ -1005,7 +1020,7 @@ chk_subj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 
 		spin_lock(&dentry->d_lock);
 		read_lock(&gr_inode_lock);
-		retval = lookup_acl_subj_label(dentry->d_inode->i_ino,
+		retval = lookup_acl_subj_label(__get_ino(dentry),
 					  __get_dev(dentry), role);
 		read_unlock(&gr_inode_lock);
 		parent = dentry->d_parent;
@@ -1019,7 +1034,7 @@ chk_subj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 
 	spin_lock(&dentry->d_lock);
 	read_lock(&gr_inode_lock);
-	retval = lookup_acl_subj_label(dentry->d_inode->i_ino,
+	retval = lookup_acl_subj_label(__get_ino(dentry),
 				  __get_dev(dentry), role);
 	read_unlock(&gr_inode_lock);
 	spin_unlock(&dentry->d_lock);
@@ -1027,7 +1042,7 @@ chk_subj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	if (unlikely(retval == NULL)) {
 		/* gr_real_root is pinned, we don't need to hold a reference */
 		read_lock(&gr_inode_lock);
-		retval = lookup_acl_subj_label(gr_real_root.dentry->d_inode->i_ino,
+		retval = lookup_acl_subj_label(__get_ino(gr_real_root.dentry),
 					  __get_dev(gr_real_root.dentry), role);
 		read_unlock(&gr_inode_lock);
 	}
@@ -1154,14 +1169,27 @@ gr_set_proc_res(struct task_struct *task)
 		return;
 
 	for (i = 0; i < RLIM_NLIMITS; i++) {
+		unsigned long rlim_cur, rlim_max;
+
 		if (!(proc->resmask & (1U << i)))
 			continue;
 
-		task->signal->rlim[i].rlim_cur = proc->res[i].rlim_cur;
-		task->signal->rlim[i].rlim_max = proc->res[i].rlim_max;
+		rlim_cur = proc->res[i].rlim_cur;
+		rlim_max = proc->res[i].rlim_max;
+
+		if (i == RLIMIT_NOFILE) {
+			unsigned long saved_sysctl_nr_open = sysctl_nr_open;
+			if (rlim_cur > saved_sysctl_nr_open)
+				rlim_cur = saved_sysctl_nr_open;
+			if (rlim_max > saved_sysctl_nr_open)
+				rlim_max = saved_sysctl_nr_open;
+		}
+
+		task->signal->rlim[i].rlim_cur = rlim_cur;
+		task->signal->rlim[i].rlim_max = rlim_max;
 
 		if (i == RLIMIT_CPU)
-			update_rlimit_cpu(task, proc->res[i].rlim_cur);
+			update_rlimit_cpu(task, rlim_cur);
 	}
 
 	return;
@@ -1864,7 +1892,7 @@ skip_check:
 
 /* always called with valid inodev ptr */
 static void
-do_handle_delete(struct inodev_entry *inodev, const ino_t ino, const dev_t dev)
+do_handle_delete(struct inodev_entry *inodev, const u64 ino, const dev_t dev)
 {
 	struct acl_object_label *matchpo;
 	struct acl_subject_label *matchps;
@@ -1892,7 +1920,7 @@ do_handle_delete(struct inodev_entry *inodev, const ino_t ino, const dev_t dev)
 }
 
 void
-gr_handle_delete(const ino_t ino, const dev_t dev)
+gr_handle_delete(const u64 ino, const dev_t dev)
 {
 	struct inodev_entry *inodev;
 
@@ -1909,8 +1937,8 @@ gr_handle_delete(const ino_t ino, const dev_t dev)
 }
 
 static void
-update_acl_obj_label(const ino_t oldinode, const dev_t olddevice,
-		     const ino_t newinode, const dev_t newdevice,
+update_acl_obj_label(const u64 oldinode, const dev_t olddevice,
+		     const u64 newinode, const dev_t newdevice,
 		     struct acl_subject_label *subj)
 {
 	unsigned int index = gr_fhash(oldinode, olddevice, subj->obj_hash_size);
@@ -1948,8 +1976,8 @@ update_acl_obj_label(const ino_t oldinode, const dev_t olddevice,
 }
 
 static void
-update_acl_subj_label(const ino_t oldinode, const dev_t olddevice,
-		      const ino_t newinode, const dev_t newdevice,
+update_acl_subj_label(const u64 oldinode, const dev_t olddevice,
+		      const u64 newinode, const dev_t newdevice,
 		      struct acl_role_label *role)
 {
 	unsigned int index = gr_fhash(oldinode, olddevice, role->subj_hash_size);
@@ -1987,8 +2015,8 @@ update_acl_subj_label(const ino_t oldinode, const dev_t olddevice,
 }
 
 static void
-update_inodev_entry(const ino_t oldinode, const dev_t olddevice,
-		    const ino_t newinode, const dev_t newdevice)
+update_inodev_entry(const u64 oldinode, const dev_t olddevice,
+		    const u64 newinode, const dev_t newdevice)
 {
 	unsigned int index = gr_fhash(oldinode, olddevice, running_polstate.inodev_set.i_size);
 	struct inodev_entry *match;
@@ -2024,7 +2052,7 @@ update_inodev_entry(const ino_t oldinode, const dev_t olddevice,
 }
 
 static void
-__do_handle_create(const struct name_entry *matchn, ino_t ino, dev_t dev)
+__do_handle_create(const struct name_entry *matchn, u64 ino, dev_t dev)
 {
 	struct acl_subject_label *subj;
 	struct acl_role_label *role;
@@ -2057,7 +2085,7 @@ static void
 do_handle_create(const struct name_entry *matchn, const struct dentry *dentry,
 		 const struct vfsmount *mnt)
 {
-	ino_t ino = dentry->d_inode->i_ino;
+	u64 ino = __get_ino(dentry);
 	dev_t dev = __get_dev(dentry);
 
 	__do_handle_create(matchn, ino, dev);	
@@ -2117,7 +2145,7 @@ gr_handle_rename(struct inode *old_dir, struct inode *new_dir,
 	struct name_entry *matchn2 = NULL;
 	struct inodev_entry *inodev;
 	struct inode *inode = new_dentry->d_inode;
-	ino_t old_ino = old_dentry->d_inode->i_ino;
+	u64 old_ino = __get_ino(old_dentry);
 	dev_t old_dev = __get_dev(old_dentry);
 	unsigned int exchange = flags & RENAME_EXCHANGE;
 
@@ -2159,7 +2187,7 @@ gr_handle_rename(struct inode *old_dir, struct inode *new_dir,
 
 	write_lock(&gr_inode_lock);
 	if (unlikely((replace || exchange) && inode)) {
-		ino_t new_ino = inode->i_ino;
+		u64 new_ino = __get_ino(new_dentry);
 		dev_t new_dev = __get_dev(new_dentry);
 
 		inodev = lookup_inodev_entry(new_ino, new_dev);
@@ -2620,7 +2648,7 @@ int gr_acl_enable_at_secure(void)
 	return 0;
 }
 	
-int gr_acl_handle_filldir(const struct file *file, const char *name, const unsigned int namelen, const ino_t ino)
+int gr_acl_handle_filldir(const struct file *file, const char *name, const unsigned int namelen, const u64 ino)
 {
 	struct task_struct *task = current;
 	struct dentry *dentry = file->f_path.dentry;
