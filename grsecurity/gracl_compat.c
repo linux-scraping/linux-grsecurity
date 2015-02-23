@@ -12,8 +12,7 @@ int copy_gr_arg_wrapper_compat(const char *buf, struct gr_arg_wrapper *uwrap)
         if (copy_from_user(&uwrapcompat, buf, sizeof(uwrapcompat)))
                 return -EFAULT;
 
-        if (((uwrapcompat.version != GRSECURITY_VERSION) &&
-	     (uwrapcompat.version != 0x2901)) ||
+        if ((uwrapcompat.version != GRSECURITY_VERSION) ||
 	    (uwrapcompat.size != sizeof(struct gr_arg_compat)))  
                 return -EINVAL;
 

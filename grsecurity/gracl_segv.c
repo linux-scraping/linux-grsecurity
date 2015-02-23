@@ -28,7 +28,7 @@ static unsigned short uid_used;
 static DEFINE_SPINLOCK(gr_uid_lock);
 extern rwlock_t gr_inode_lock;
 extern struct acl_subject_label *
-	lookup_acl_subj_label(const ino_t inode, const dev_t dev,
+	lookup_acl_subj_label(const u64 inode, const dev_t dev,
 			      struct acl_role_label *role);
 
 static inline dev_t __get_dev(const struct dentry *dentry)
@@ -39,6 +39,16 @@ static inline dev_t __get_dev(const struct dentry *dentry)
 	else
 #endif
 		return dentry->d_sb->s_dev;
+}
+
+static inline u64 __get_ino(const struct dentry *dentry)
+{
+#if defined(CONFIG_BTRFS_FS) || defined(CONFIG_BTRFS_FS_MODULE)
+	if (dentry->d_sb->s_magic == BTRFS_SUPER_MAGIC)
+		return btrfs_ino(dentry->d_inode);
+	else
+#endif
+		return dentry->d_inode->i_ino;
 }
 
 int
@@ -257,13 +267,14 @@ int
 gr_check_crash_exec(const struct file *filp)
 {
 	struct acl_subject_label *curr;
+	struct dentry *dentry;
 
 	if (unlikely(!gr_acl_is_enabled()))
 		return 0;
 
 	read_lock(&gr_inode_lock);
-	curr = lookup_acl_subj_label(filp->f_path.dentry->d_inode->i_ino,
-				     __get_dev(filp->f_path.dentry),
+	dentry = filp->f_path.dentry;
+	curr = lookup_acl_subj_label(__get_ino(dentry), __get_dev(dentry),
 				     current->role);
 	read_unlock(&gr_inode_lock);
 
