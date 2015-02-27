@@ -2054,7 +2054,7 @@ void __check_object_size(const void *ptr, unsigned long n, bool to_user, bool co
 	const char *type;
 #endif
 
-#ifndef CONFIG_STACK_GROWSUP
+#if !defined(CONFIG_STACK_GROWSUP) && !defined(CONFIG_X86_64)
 	unsigned long stackstart = (unsigned long)task_stack_page(current);
 	unsigned long currentsp = (unsigned long)&stackstart;
 	if (unlikely((currentsp < stackstart + 512 ||
