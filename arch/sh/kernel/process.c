@@ -54,7 +54,7 @@ void free_thread_info(struct thread_info *ti)
 void thread_info_cache_init(void)
 {
 	thread_info_cache = kmem_cache_create("thread_info", THREAD_SIZE,
-					      THREAD_SIZE, SLAB_PANIC, NULL);
+					      THREAD_SIZE, SLAB_PANIC | SLAB_USERCOPY, NULL);
 }
 #else
 struct thread_info *alloc_thread_info_node(struct task_struct *tsk, int node)
