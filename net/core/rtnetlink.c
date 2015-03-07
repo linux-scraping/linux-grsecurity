@@ -2080,6 +2080,10 @@ replay:
 		if (IS_ERR(dest_net))
 			return PTR_ERR(dest_net);
 
+		err = -EPERM;
+		if (!netlink_ns_capable(skb, dest_net->user_ns, CAP_NET_ADMIN))
+			goto out;
+
 		dev = rtnl_create_link(dest_net, ifname, name_assign_type, ops, tb);
 		if (IS_ERR(dev)) {
 			err = PTR_ERR(dev);

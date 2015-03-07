@@ -915,7 +915,7 @@ static long pax_parse_pax_flags(const struct elfhdr * const elf_ex, const struct
 
 static unsigned long randomize_stack_top(unsigned long stack_top)
 {
-	unsigned int random_variable = 0;
+	unsigned long random_variable = 0;
 
 #ifdef CONFIG_PAX_RANDUSTACK
 	if (current->mm->pax_flags & MF_PAX_RANDMMAP)
@@ -924,7 +924,8 @@ static unsigned long randomize_stack_top(unsigned long stack_top)
 
 	if ((current->flags & PF_RANDOMIZE) &&
 		!(current->personality & ADDR_NO_RANDOMIZE)) {
-		random_variable = get_random_int() & STACK_RND_MASK;
+		random_variable = (unsigned long) get_random_int();
+		random_variable &= STACK_RND_MASK;
 		random_variable <<= PAGE_SHIFT;
 	}
 #ifdef CONFIG_STACK_GROWSUP
