@@ -1,9 +1,9 @@
 /*
- * Copyright 2011-2014 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011-2015 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2, or (at your option) v3
  *
  * Homepage:
- * http://www.grsecurity.net/~ephox/overflow_plugin/
+ * https://github.com/ephox-gcc-plugins/size_overflow
  *
  * Documentation:
  * http://forums.grsecurity.net/viewtopic.php?f=7&t=3043
@@ -17,11 +17,82 @@
  * $ make run
  */
 
-#include "gcc-common.h"
 #include "size_overflow.h"
 
+static enum intentional_mark walk_use_def(struct pointer_set_t *visited, const_tree lhs);
+
+static const char *get_asm_string(const_gimple stmt)
+{
+	if (!stmt)
+		return NULL;
+	if (gimple_code(stmt) != GIMPLE_ASM)
+		return NULL;
+
+	return gimple_asm_string(stmt);
+}
+
+tree get_size_overflow_asm_input(const_gimple stmt)
+{
+	gcc_assert(gimple_asm_ninputs(stmt) != 0);
+	return TREE_VALUE(gimple_asm_input_op(stmt, 0));
+}
+
+bool is_size_overflow_insert_check_asm(const_gimple stmt)
+{
+	const char *str;
+
+	if (!is_size_overflow_asm(stmt))
+		return false;
+
+	str = get_asm_string(stmt);
+	if (!str)
+		return false;
+	return !strncmp(str, OK_ASM_STR, sizeof(OK_ASM_STR) - 1);
+}
+
+bool is_size_overflow_asm(const_gimple stmt)
+{
+	const char *str;
+
+	if (!stmt)
+		return false;
+	if (gimple_code(stmt) != GIMPLE_ASM)
+		return false;
+
+	str = get_asm_string(stmt);
+	if (!str)
+		return false;
+	return !strncmp(str, SO_ASM_STR, sizeof(SO_ASM_STR) - 1);
+}
+
+static bool is_size_overflow_intentional_asm_turn_off(const_gimple stmt)
+{
+	const char *str;
+
+	if (!is_size_overflow_asm(stmt))
+		return false;
+
+	str = get_asm_string(stmt);
+	if (!str)
+		return false;
+	return !strncmp(str, TURN_OFF_ASM_STR, sizeof(TURN_OFF_ASM_STR) - 1);
+}
+
+static bool is_size_overflow_intentional_asm_end(const_gimple stmt)
+{
+	const char *str;
+
+	if (!is_size_overflow_asm(stmt))
+		return false;
+
+	str = get_asm_string(stmt);
+	if (!str)
+		return false;
+	return !strncmp(str, END_INTENTIONAL_ASM_STR, sizeof(END_INTENTIONAL_ASM_STR) - 1);
+}
+
 /* Get the param of the intentional_overflow attribute.
- *   * 0: MARK_NOT_INTENTIONAL
+ *   * 0: MARK_END_INTENTIONAL
  *   * 1..MAX_PARAM: MARK_YES
  *   * -1: MARK_TURN_OFF
  */
@@ -32,15 +103,14 @@ static tree get_attribute_param(const_tree decl)
 	if (decl == NULL_TREE)
 		return NULL_TREE;
 
-	attr = lookup_attribute("intentional_overflow", DECL_ATTRIBUTES(decl));
-	if (!attr || !TREE_VALUE(attr))
-		return NULL_TREE;
-
-	return TREE_VALUE(attr);
+	attr = get_attribute("intentional_overflow", decl);
+	if (attr)
+		return TREE_VALUE(attr);
+	return NULL_TREE;
 }
 
 // MARK_TURN_OFF
-bool is_turn_off_intentional_attr(const_tree decl)
+static bool is_turn_off_intentional_attr(const_tree decl)
 {
 	const_tree param_head;
 
@@ -53,13 +123,10 @@ bool is_turn_off_intentional_attr(const_tree decl)
 	return false;
 }
 
-// MARK_NOT_INTENTIONAL
-bool is_end_intentional_intentional_attr(const_tree decl, unsigned int argnum)
+// MARK_END_INTENTIONAL
+static bool is_end_intentional_intentional_attr(const_tree decl)
 {
 	const_tree param_head;
-
-	if (argnum == 0)
-		return false;
 
 	param_head = get_attribute_param(decl);
 	if (param_head == NULL_TREE)
@@ -71,7 +138,7 @@ bool is_end_intentional_intentional_attr(const_tree decl, unsigned int argnum)
 }
 
 // MARK_YES
-bool is_yes_intentional_attr(const_tree decl, unsigned int argnum)
+static bool is_yes_intentional_attr(const_tree decl, unsigned int argnum)
 {
 	tree param, param_head;
 
@@ -85,14 +152,19 @@ bool is_yes_intentional_attr(const_tree decl, unsigned int argnum)
 	return false;
 }
 
-void print_missing_intentional(enum mark callee_attr, enum mark caller_attr, const_tree decl, unsigned int argnum)
+static void print_missing_intentional(enum intentional_mark callee_attr, enum intentional_mark caller_attr, const_tree decl, unsigned int argnum)
 {
+	const struct size_overflow_hash *hash;
 	location_t loc;
 
-	if (caller_attr == MARK_NO || caller_attr == MARK_NOT_INTENTIONAL || caller_attr == MARK_TURN_OFF)
+	if (caller_attr == MARK_NO || caller_attr == MARK_END_INTENTIONAL || caller_attr == MARK_TURN_OFF)
 		return;
 
-	if (callee_attr == MARK_NOT_INTENTIONAL || callee_attr == MARK_YES)
+	if (callee_attr == MARK_END_INTENTIONAL || callee_attr == MARK_YES)
+		return;
+
+	hash = get_size_overflow_hash_entry_tree(decl, argnum);
+	if (!hash)
 		return;
 
 	loc = DECL_SOURCE_LOCATION(decl);
@@ -118,9 +190,9 @@ static const_tree search_field_decl(const_tree comp_ref)
  *  * MARK_TURN_OFF
  *  * MARK_YES
  *  * MARK_NO
- *  * MARK_NOT_INTENTIONAL
+ *  * MARK_END_INTENTIONAL
  */
-enum mark get_intentional_attr_type(const_tree node)
+static enum intentional_mark get_intentional_attr_type(const_tree node)
 {
 	const_tree cur_decl;
 
@@ -132,108 +204,246 @@ enum mark get_intentional_attr_type(const_tree node)
 		cur_decl = search_field_decl(node);
 		if (is_turn_off_intentional_attr(cur_decl))
 			return MARK_TURN_OFF;
-		if (is_end_intentional_intentional_attr(cur_decl, 1))
+		if (is_end_intentional_intentional_attr(cur_decl))
 			return MARK_YES;
 		break;
 	case PARM_DECL: {
 		unsigned int argnum;
 
-		cur_decl = DECL_ORIGIN(current_function_decl);
+		cur_decl = get_orig_fndecl(current_function_decl);
 		argnum = find_arg_number_tree(node, cur_decl);
 		if (argnum == CANNOT_FIND_ARG)
 			return MARK_NO;
 		if (is_yes_intentional_attr(cur_decl, argnum))
 			return MARK_YES;
-		if (is_end_intentional_intentional_attr(cur_decl, argnum))
-			return MARK_NOT_INTENTIONAL;
+		if (is_end_intentional_intentional_attr(cur_decl))
+			return MARK_END_INTENTIONAL;
 		break;
 	}
-	case FUNCTION_DECL:
-		if (is_turn_off_intentional_attr(DECL_ORIGIN(node)))
+	case FUNCTION_DECL: {
+		const_tree fndecl = get_orig_fndecl(node);
+
+		if (is_turn_off_intentional_attr(fndecl))
 			return MARK_TURN_OFF;
-		break;
+		if (is_end_intentional_intentional_attr(fndecl))
+			return MARK_END_INTENTIONAL;
+	}
 	default:
 		break;
 	}
 	return MARK_NO;
 }
 
-// Search for the intentional_overflow attribute on the last nodes
-static enum mark search_last_nodes_intentional(struct interesting_node *cur_node)
+static enum intentional_mark walk_use_def_phi(struct pointer_set_t *visited, const_tree result)
 {
-	unsigned int i;
-	tree last_node;
-	enum mark mark = MARK_NO;
+	enum intentional_mark mark = MARK_NO;
+	gimple phi = get_def_stmt(result);
+	unsigned int i, n = gimple_phi_num_args(phi);
 
-#if BUILDING_GCC_VERSION <= 4007
-	FOR_EACH_VEC_ELT(tree, cur_node->last_nodes, i, last_node) {
-#else
-	FOR_EACH_VEC_ELT(*cur_node->last_nodes, i, last_node) {
-#endif
-		mark = get_intentional_attr_type(last_node);
+	pointer_set_insert(visited, phi);
+	for (i = 0; i < n; i++) {
+		tree arg = gimple_phi_arg_def(phi, i);
+
+		mark = walk_use_def(visited, arg);
 		if (mark != MARK_NO)
-			break;
+			return mark;
 	}
+
 	return mark;
 }
 
-/* Check the intentional kind of size_overflow asm stmt (created by the gimple pass) and
- * set the appropriate intentional_overflow type. Delete the asm stmt in the end.
- */
-static bool is_intentional_attribute_from_gimple(struct interesting_node *cur_node)
+static enum intentional_mark walk_use_def_binary(struct pointer_set_t *visited, const_tree lhs)
 {
-	if (!cur_node->intentional_mark_from_gimple)
-		return false;
+	enum intentional_mark mark;
+	tree rhs1, rhs2;
+	gimple def_stmt = get_def_stmt(lhs);
 
-	if (is_size_overflow_intentional_asm_yes(cur_node->intentional_mark_from_gimple))
-		cur_node->intentional_attr_cur_fndecl = MARK_YES;
-	else
-		cur_node->intentional_attr_cur_fndecl = MARK_TURN_OFF;
+	rhs1 = gimple_assign_rhs1(def_stmt);
+	rhs2 = gimple_assign_rhs2(def_stmt);
 
-	// skip param decls
-	if (gimple_asm_noutputs(cur_node->intentional_mark_from_gimple) == 0)
-		return true;
-	return true;
+	mark = walk_use_def(visited, rhs1);
+	if (mark == MARK_NO)
+		return walk_use_def(visited, rhs2);
+	return mark;
+}
+
+enum intentional_mark get_so_asm_type(const_gimple stmt)
+{
+	if (!stmt)
+		return MARK_NO;
+	if (!is_size_overflow_asm(stmt))
+		return MARK_NO;
+	if (is_size_overflow_insert_check_asm(stmt))
+		return MARK_NO;
+	if (is_size_overflow_intentional_asm_turn_off(stmt))
+		return MARK_TURN_OFF;
+	if (is_size_overflow_intentional_asm_end(stmt))
+		return MARK_END_INTENTIONAL;
+	return MARK_YES;
+}
+
+static enum intentional_mark walk_use_def(struct pointer_set_t *visited, const_tree lhs)
+{
+	const_gimple def_stmt;
+
+	if (TREE_CODE(lhs) != SSA_NAME)
+		return get_intentional_attr_type(lhs);
+
+	def_stmt = get_def_stmt(lhs);
+	gcc_assert(def_stmt);
+
+	if (pointer_set_insert(visited, def_stmt))
+		return MARK_NO;
+
+	switch (gimple_code(def_stmt)) {
+	case GIMPLE_CALL:
+	case GIMPLE_RETURN:
+		return MARK_NO;
+	case GIMPLE_NOP:
+		return walk_use_def(visited, SSA_NAME_VAR(lhs));
+	case GIMPLE_ASM:
+		return get_so_asm_type(def_stmt);
+	case GIMPLE_PHI:
+		return walk_use_def_phi(visited, lhs);
+	case GIMPLE_ASSIGN:
+		switch (gimple_num_ops(def_stmt)) {
+		case 2:
+			return walk_use_def(visited, gimple_assign_rhs1(def_stmt));
+		case 3:
+			return walk_use_def_binary(visited, lhs);
+		}
+	default:
+		debug_gimple_stmt((gimple)def_stmt);
+		error("%s: unknown gimple code", __func__);
+		gcc_unreachable();
+	}
+}
+
+static enum intentional_mark check_intentional_size_overflow_asm_and_attribute(const_tree var)
+{
+	enum intentional_mark mark;
+	struct pointer_set_t *visited;
+
+	visited = pointer_set_create();
+	mark = walk_use_def(visited, var);
+	pointer_set_destroy(visited);
+
+	return mark;
 }
 
 /* Search intentional_overflow attribute on caller and on callee too.
- * 0</MARK_YES: no dup, search size_overflow and intentional_overflow attributes
- * 0/MARK_NOT_INTENTIONAL: no dup, search size_overflow attribute (int)
- * -1/MARK_TURN_OFF: no dup, no search, current_function_decl -> no dup
-*/
-void check_intentional_attribute_ipa(struct interesting_node *cur_node)
+ * -1 / MARK_TURN_OFF: means that overflow checking is turned off inside the function and
+ *                     parameters aren't tracked backwards.
+ * 1..31 / MARK_YES: e.g., 4 means that overflow checking is turned off on the fourth parameter inside
+ *                   the function.
+ * 0 / MARK_END_INTENTIONAL: means that overflow checking is turned off on all the parameters of the function
+ *                           in all callers (on a structure field means that overflow checking is turned off
+ *                           in all expressions involving the given field).
+ */
+enum intentional_mark check_intentional_attribute(const_gimple stmt, unsigned int argnum)
 {
-	const_tree fndecl;
+	enum intentional_mark caller_mark, callee_mark;
+	const_tree fndecl, orig_cur_fndecl, arg;
 
-	if (is_intentional_attribute_from_gimple(cur_node))
-		return;
+	orig_cur_fndecl = get_orig_fndecl(current_function_decl);
 
-	if (is_turn_off_intentional_attr(DECL_ORIGIN(current_function_decl))) {
-		cur_node->intentional_attr_cur_fndecl = MARK_TURN_OFF;
-		return;
+	// handle MARK_TURN_OFF early on the caller
+	if (is_turn_off_intentional_attr(orig_cur_fndecl))
+		return MARK_TURN_OFF;
+
+	switch (gimple_code(stmt)) {
+	case GIMPLE_RETURN:
+		gcc_assert(argnum == 0);
+		// for now ignore other intentional attribute types on returns
+		return MARK_NO;
+	case GIMPLE_CALL:
+		gcc_assert(argnum != 0);
+		gcc_assert(argnum <= gimple_call_num_args(stmt));
+		arg = gimple_call_arg(stmt, argnum - 1);
+		break;
+	default:
+		debug_gimple_stmt((gimple)stmt);
+		gcc_unreachable();
 	}
 
-	if (gimple_code(cur_node->first_stmt) == GIMPLE_ASM) {
-		cur_node->intentional_attr_cur_fndecl = MARK_NOT_INTENTIONAL;
-		return;
+	// XXX ideiglenesen 0-nal a fuggvenyen belul is ki van kapcsolva a dupolas, eddig igy mukodott a doksi ellenere
+	if (is_end_intentional_intentional_attr(orig_cur_fndecl))
+		return MARK_END_INTENTIONAL;
+
+	fndecl = get_interesting_orig_fndecl_from_stmt(stmt);
+	// handle MARK_TURN_OFF on the callee
+	if (is_turn_off_intentional_attr(fndecl))
+		return MARK_TURN_OFF;
+	// find a defining marked caller argument or struct field for arg
+	caller_mark = check_intentional_size_overflow_asm_and_attribute(arg);
+
+	// did we find a marked struct field?
+	if (caller_mark == MARK_TURN_OFF)
+		return MARK_TURN_OFF;
+
+	// handle MARK_END_INTENTIONAL on the callee
+	if (is_end_intentional_intentional_attr(fndecl))
+		callee_mark = MARK_END_INTENTIONAL;
+	// is it a marked callee parameter?
+	else if (is_yes_intentional_attr(fndecl, argnum))
+		callee_mark = MARK_YES;
+	else
+		callee_mark = MARK_NO;
+
+	// no intentional attribute found
+	if (callee_mark == MARK_NO && caller_mark == MARK_NO)
+		return MARK_NO;
+
+	// MARK_YES is meaningful only on the caller
+	if (caller_mark == MARK_NO && callee_mark == MARK_YES)
+		return MARK_NO;
+
+	// we found a code region where we don't want to duplicate
+	if (caller_mark == MARK_YES && callee_mark == MARK_END_INTENTIONAL)
+		return MARK_END_INTENTIONAL;
+
+	// ignore the intentional attribute on the callee if we didn't find a marked defining argument or struct field
+	if (caller_mark == MARK_NO && callee_mark == MARK_END_INTENTIONAL)
+		return MARK_NO;
+
+	// the callee is missing the intentional attribute (MARK_YES or MARK_END_INTENTIONAL)
+	if (caller_mark == MARK_YES) {
+		print_missing_intentional(callee_mark, caller_mark, fndecl, argnum);
+		return MARK_YES;
 	}
 
-	if (gimple_code(cur_node->first_stmt) == GIMPLE_ASSIGN)
-		return;
+	fprintf(stderr, "caller: %s callee: %s\n", DECL_NAME_POINTER(orig_cur_fndecl), DECL_NAME_POINTER(fndecl));
+	debug_gimple_stmt((gimple)stmt);
+	print_intentional_mark(caller_mark);
+	print_intentional_mark(callee_mark);
+	gcc_unreachable();
+}
 
-	fndecl = get_interesting_orig_fndecl(cur_node->first_stmt, cur_node->num);
-	if (is_turn_off_intentional_attr(fndecl)) {
-		cur_node->intentional_attr_decl = MARK_TURN_OFF;
-		return;
+enum intentional_mark check_intentional_asm(const_gimple stmt, unsigned int argnum)
+{
+	const_tree arg;
+
+	switch (gimple_code(stmt)) {
+	case GIMPLE_RETURN:
+		gcc_assert(argnum == 0);
+		arg = gimple_return_retval(stmt);
+		break;
+	case GIMPLE_CALL:
+		gcc_assert(argnum != 0);
+		gcc_assert(argnum <= gimple_call_num_args(stmt));
+		arg = gimple_call_arg(stmt, argnum - 1);
+		break;
+	case GIMPLE_ASM:
+		gcc_assert(is_size_overflow_insert_check_asm(stmt));
+		arg = get_size_overflow_asm_input(stmt);
+		break;
+	default:
+		debug_gimple_stmt((gimple)stmt);
+		gcc_unreachable();
 	}
 
-	if (is_end_intentional_intentional_attr(fndecl, cur_node->num))
-		cur_node->intentional_attr_decl = MARK_NOT_INTENTIONAL;
-	else if (is_yes_intentional_attr(fndecl, cur_node->num))
-		cur_node->intentional_attr_decl = MARK_YES;
-
-	cur_node->intentional_attr_cur_fndecl = search_last_nodes_intentional(cur_node);
-	print_missing_intentional(cur_node->intentional_attr_decl, cur_node->intentional_attr_cur_fndecl, cur_node->fndecl, cur_node->num);
+	// find a defining marked caller argument or struct field for arg
+	return check_intentional_size_overflow_asm_and_attribute(arg);
 }
 
 bool is_a_cast_and_const_overflow(const_tree no_const_rhs)
@@ -371,7 +581,7 @@ bool is_a_constant_overflow(const_gimple stmt, const_tree rhs)
 	if (!is_gimple_constant(rhs))
 		return false;
 
-	// If the const is between 0 and the max value of the signed type of the same bitsize then there is no intentional overflow
+	// if the const is between 0 and the max value of the signed type of the same bitsize then there is no intentional overflow
 	if (is_lt_signed_type_max(rhs) && is_gt_zero(rhs))
 		return false;
 
@@ -391,7 +601,7 @@ static tree change_assign_rhs(struct visited *visited, gimple stmt, const_tree o
 	return gimple_assign_lhs(assign);
 }
 
-tree handle_intentional_overflow(struct visited *visited, struct cgraph_node *caller_node, bool check_overflow, gimple stmt, tree change_rhs, tree new_rhs2)
+tree handle_intentional_overflow(struct visited *visited, bool check_overflow, gimple stmt, tree change_rhs, tree new_rhs2)
 {
 	tree new_rhs, orig_rhs;
 	void (*gimple_assign_set_rhs)(gimple, tree);
@@ -413,7 +623,7 @@ tree handle_intentional_overflow(struct visited *visited, struct cgraph_node *ca
 		gimple_assign_set_rhs = &gimple_assign_set_rhs2;
 	}
 
-	check_size_overflow(caller_node, stmt, TREE_TYPE(change_rhs), change_rhs, orig_rhs, BEFORE_STMT);
+	check_size_overflow(stmt, TREE_TYPE(change_rhs), change_rhs, orig_rhs, BEFORE_STMT);
 
 	new_rhs = change_assign_rhs(visited, stmt, orig_rhs, change_rhs);
 	gimple_assign_set_rhs(stmt, new_rhs);
@@ -525,7 +735,7 @@ static tree get_def_stmt_rhs(struct visited *visited, const_tree var)
 	}
 }
 
-tree handle_integer_truncation(struct visited *visited, struct cgraph_node *caller_node, const_tree lhs)
+tree handle_integer_truncation(struct visited *visited, const_tree lhs)
 {
 	tree new_rhs1, new_rhs2;
 	tree new_rhs1_def_stmt_rhs1, new_rhs2_def_stmt_rhs1, new_lhs;
@@ -536,8 +746,8 @@ tree handle_integer_truncation(struct visited *visited, struct cgraph_node *call
 	if (!is_subtraction_special(visited, stmt))
 		return NULL_TREE;
 
-	new_rhs1 = expand(visited, caller_node, rhs1);
-	new_rhs2 = expand(visited, caller_node, rhs2);
+	new_rhs1 = expand(visited, rhs1);
+	new_rhs2 = expand(visited, rhs2);
 
 	new_rhs1_def_stmt_rhs1 = get_def_stmt_rhs(visited, new_rhs1);
 	new_rhs2_def_stmt_rhs1 = get_def_stmt_rhs(visited, new_rhs2);
@@ -552,7 +762,7 @@ tree handle_integer_truncation(struct visited *visited, struct cgraph_node *call
 
 	assign = create_binary_assign(visited, MINUS_EXPR, stmt, new_rhs1_def_stmt_rhs1, new_rhs2_def_stmt_rhs1);
 	new_lhs = gimple_assign_lhs(assign);
-	check_size_overflow(caller_node, assign, TREE_TYPE(new_lhs), new_lhs, rhs1, AFTER_STMT);
+	check_size_overflow(assign, TREE_TYPE(new_lhs), new_lhs, rhs1, AFTER_STMT);
 
 	return dup_assign(visited, stmt, lhs, new_rhs1, new_rhs2, NULL_TREE);
 }
@@ -653,7 +863,12 @@ static gimple get_dup_stmt(struct visited *visited, gimple stmt)
 	my_stmt = gsi_stmt(gsi);
 
 	gcc_assert(pointer_set_contains(visited->my_stmts, my_stmt));
-	gcc_assert(gimple_assign_rhs_code(stmt) == gimple_assign_rhs_code(my_stmt));
+	if (gimple_assign_rhs_code(stmt) != gimple_assign_rhs_code(my_stmt)) {
+		fprintf(stderr, "%s != %s\n", get_tree_code_name(gimple_assign_rhs_code(stmt)), get_tree_code_name(gimple_assign_rhs_code(my_stmt)));
+		debug_gimple_stmt(stmt);
+		debug_gimple_stmt(my_stmt);
+		gcc_unreachable();
+	}
 
 	return my_stmt;
 }

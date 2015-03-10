@@ -1,7 +1,8 @@
 /*
  *  Linux MegaRAID driver for SAS based RAID controllers
  *
- *  Copyright (c) 2003-2012  LSI Corporation.
+ *  Copyright (c) 2003-2013  LSI Corporation
+ *  Copyright (c) 2013-2014  Avago Technologies
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -14,22 +15,20 @@
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- *  FILE: megaraid_sas_base.c
- *  Version : 06.805.06.00-rc1
- *
- *  Authors: LSI Corporation
+ *  Authors: Avago Technologies
  *           Sreenivas Bagalkote
  *           Sumant Patro
  *           Bo Yang
- *           Adam Radford <linuxraid@lsi.com>
+ *           Adam Radford
+ *           Kashyap Desai <kashyap.desai@avagotech.com>
+ *           Sumit Saxena <sumit.saxena@avagotech.com>
  *
- *  Send feedback to: <megaraidlinux@lsi.com>
+ *  Send feedback to: megaraidlinux.pdl@avagotech.com
  *
- *  Mail to: LSI Corporation, 1621 Barber Lane, Milpitas, CA 95035
- *     ATTN: Linuxraid
+ *  Mail to: Avago Technologies, 350 West Trimble Road, Building 90,
+ *  San Jose, California 95131
  */
 
 #include <linux/kernel.h>
@@ -1572,6 +1571,12 @@ megasas_queue_command(struct Scsi_Host *shost, struct scsi_cmnd *scmd)
 	instance = (struct megasas_instance *)
 	    scmd->device->host->hostdata;
 
+	if (instance->unload == 1) {
+		scmd->result = DID_NO_CONNECT << 16;
+		scmd->scsi_done(scmd);
+		return 0;
+	}
+
 	if (instance->issuepend_done == 0)
 		return SCSI_MLQUEUE_HOST_BUSY;
 
@@ -1684,22 +1689,66 @@ static int megasas_slave_alloc(struct scsi_device *sdev)
 	return 0;
 }
 
+/*
+* megasas_complete_outstanding_ioctls - Complete outstanding ioctls after a
+*                                       kill adapter
+* @instance:				Adapter soft state
+*
+*/
+void megasas_complete_outstanding_ioctls(struct megasas_instance *instance)
+{
+	int i;
+	struct megasas_cmd *cmd_mfi;
+	struct megasas_cmd_fusion *cmd_fusion;
+	struct fusion_context *fusion = instance->ctrl_context;
+
+	/* Find all outstanding ioctls */
+	if (fusion) {
+		for (i = 0; i < instance->max_fw_cmds; i++) {
+			cmd_fusion = fusion->cmd_list[i];
+			if (cmd_fusion->sync_cmd_idx != (u32)ULONG_MAX) {
+				cmd_mfi = instance->cmd_list[cmd_fusion->sync_cmd_idx];
+				if (cmd_mfi->sync_cmd &&
+					cmd_mfi->frame->hdr.cmd != MFI_CMD_ABORT)
+					megasas_complete_cmd(instance,
+							     cmd_mfi, DID_OK);
+			}
+		}
+	} else {
+		for (i = 0; i < instance->max_fw_cmds; i++) {
+			cmd_mfi = instance->cmd_list[i];
+			if (cmd_mfi->sync_cmd && cmd_mfi->frame->hdr.cmd !=
+				MFI_CMD_ABORT)
+				megasas_complete_cmd(instance, cmd_mfi, DID_OK);
+		}
+	}
+}
+
+
 void megaraid_sas_kill_hba(struct megasas_instance *instance)
 {
+	/* Set critical error to block I/O & ioctls in case caller didn't */
+	instance->adprecovery = MEGASAS_HW_CRITICAL_ERROR;
+	/* Wait 1 second to ensure IO or ioctls in build have posted */
+	msleep(1000);
 	if ((instance->pdev->device == PCI_DEVICE_ID_LSI_SAS0073SKINNY) ||
-	    (instance->pdev->device == PCI_DEVICE_ID_LSI_SAS0071SKINNY) ||
-	    (instance->pdev->device == PCI_DEVICE_ID_LSI_FUSION) ||
-	    (instance->pdev->device == PCI_DEVICE_ID_LSI_PLASMA) ||
-	    (instance->pdev->device == PCI_DEVICE_ID_LSI_INVADER) ||
-	    (instance->pdev->device == PCI_DEVICE_ID_LSI_FURY)) {
-		writel(MFI_STOP_ADP, &instance->reg_set->doorbell);
+		(instance->pdev->device == PCI_DEVICE_ID_LSI_SAS0071SKINNY) ||
+		(instance->pdev->device == PCI_DEVICE_ID_LSI_FUSION) ||
+		(instance->pdev->device == PCI_DEVICE_ID_LSI_PLASMA) ||
+		(instance->pdev->device == PCI_DEVICE_ID_LSI_INVADER) ||
+		(instance->pdev->device == PCI_DEVICE_ID_LSI_FURY)) {
+		writel(MFI_STOP_ADP,
+			&instance->reg_set->doorbell);
 		/* Flush */
 		readl(&instance->reg_set->doorbell);
 		if (instance->mpio && instance->requestorId)
 			memset(instance->ld_ids, 0xff, MEGASAS_MAX_LD_IDS);
 	} else {
-		writel(MFI_STOP_ADP, &instance->reg_set->inbound_doorbell);
+		writel(MFI_STOP_ADP,
+			&instance->reg_set->inbound_doorbell);
 	}
+	/* Complete outstanding ioctls when adapter is killed */
+	megasas_complete_outstanding_ioctls(instance);
 }
 
  /**
@@ -2586,20 +2635,6 @@ megasas_service_aen(struct megasas_instance *instance, struct megasas_cmd *cmd)
 	}
 }
 
-static int megasas_change_queue_depth(struct scsi_device *sdev,
-				      int queue_depth, int reason)
-{
-	if (reason != SCSI_QDEPTH_DEFAULT)
-		return -EOPNOTSUPP;
-
-	if (queue_depth > sdev->host->can_queue)
-		queue_depth = sdev->host->can_queue;
-	scsi_adjust_queue_depth(sdev, scsi_get_tag_type(sdev),
-				queue_depth);
-
-	return queue_depth;
-}
-
 static ssize_t
 megasas_fw_crash_buffer_store(struct device *cdev,
 	struct device_attribute *attr, const char *buf, size_t count)
@@ -2764,7 +2799,7 @@ static struct scsi_host_template megasas_template = {
 	.shost_attrs = megaraid_host_attrs,
 	.bios_param = megasas_bios_param,
 	.use_clustering = ENABLE_CLUSTERING,
-	.change_queue_depth = megasas_change_queue_depth,
+	.change_queue_depth = scsi_change_queue_depth,
 	.no_write_same = 1,
 };
 
@@ -3037,10 +3072,9 @@ megasas_issue_pending_cmds_again(struct megasas_instance *instance)
 					"was tried multiple times during reset."
 					"Shutting down the HBA\n",
 					cmd, cmd->scmd, cmd->sync_cmd);
+				instance->instancet->disable_intr(instance);
+				atomic_set(&instance->fw_reset_no_pci_access, 1);
 				megaraid_sas_kill_hba(instance);
-
-				instance->adprecovery =
-						MEGASAS_HW_CRITICAL_ERROR;
 				return;
 			}
 		}
@@ -3174,8 +3208,8 @@ process_fw_state_change_wq(struct work_struct *work)
 		if (megasas_transition_to_ready(instance, 1)) {
 			printk(KERN_NOTICE "megaraid_sas:adapter not ready\n");
 
+			atomic_set(&instance->fw_reset_no_pci_access, 1);
 			megaraid_sas_kill_hba(instance);
-			instance->adprecovery	= MEGASAS_HW_CRITICAL_ERROR;
 			return ;
 		}
 
@@ -4026,24 +4060,82 @@ megasas_ld_list_query(struct megasas_instance *instance, u8 query_type)
 	return ret;
 }
 
+/*
+ * megasas_update_ext_vd_details : Update details w.r.t Extended VD
+ * instance			 : Controller's instance
+*/
+static void megasas_update_ext_vd_details(struct megasas_instance *instance)
+{
+	struct fusion_context *fusion;
+	u32 old_map_sz;
+	u32 new_map_sz;
+
+	fusion = instance->ctrl_context;
+	/* For MFI based controllers return dummy success */
+	if (!fusion)
+		return;
+
+	instance->supportmax256vd =
+		instance->ctrl_info->adapterOperations3.supportMaxExtLDs;
+	/* Below is additional check to address future FW enhancement */
+	if (instance->ctrl_info->max_lds > 64)
+		instance->supportmax256vd = 1;
+
+	instance->drv_supported_vd_count = MEGASAS_MAX_LD_CHANNELS
+					* MEGASAS_MAX_DEV_PER_CHANNEL;
+	instance->drv_supported_pd_count = MEGASAS_MAX_PD_CHANNELS
+					* MEGASAS_MAX_DEV_PER_CHANNEL;
+	if (instance->supportmax256vd) {
+		instance->fw_supported_vd_count = MAX_LOGICAL_DRIVES_EXT;
+		instance->fw_supported_pd_count = MAX_PHYSICAL_DEVICES;
+	} else {
+		instance->fw_supported_vd_count = MAX_LOGICAL_DRIVES;
+		instance->fw_supported_pd_count = MAX_PHYSICAL_DEVICES;
+	}
+	dev_info(&instance->pdev->dev, "Firmware supports %d VD %d PD\n",
+		instance->fw_supported_vd_count,
+		instance->fw_supported_pd_count);
+	dev_info(&instance->pdev->dev, "Driver supports %d VD  %d PD\n",
+		instance->drv_supported_vd_count,
+		instance->drv_supported_pd_count);
+
+	old_map_sz =  sizeof(struct MR_FW_RAID_MAP) +
+				(sizeof(struct MR_LD_SPAN_MAP) *
+				(instance->fw_supported_vd_count - 1));
+	new_map_sz =  sizeof(struct MR_FW_RAID_MAP_EXT);
+	fusion->drv_map_sz =  sizeof(struct MR_DRV_RAID_MAP) +
+				(sizeof(struct MR_LD_SPAN_MAP) *
+				(instance->drv_supported_vd_count - 1));
+
+	fusion->max_map_sz = max(old_map_sz, new_map_sz);
+
+
+	if (instance->supportmax256vd)
+		fusion->current_map_sz = new_map_sz;
+	else
+		fusion->current_map_sz = old_map_sz;
+
+}
+
 /**
  * megasas_get_controller_info -	Returns FW's controller structure
  * @instance:				Adapter soft state
- * @ctrl_info:				Controller information structure
  *
  * Issues an internal command (DCMD) to get the FW's controller structure.
  * This information is mainly used to find out the maximum IO transfer per
  * command supported by the FW.
  */
 int
-megasas_get_ctrl_info(struct megasas_instance *instance,
-		      struct megasas_ctrl_info *ctrl_info)
+megasas_get_ctrl_info(struct megasas_instance *instance)
 {
 	int ret = 0;
 	struct megasas_cmd *cmd;
 	struct megasas_dcmd_frame *dcmd;
 	struct megasas_ctrl_info *ci;
+	struct megasas_ctrl_info *ctrl_info;
 	dma_addr_t ci_h = 0;
+
+	ctrl_info = instance->ctrl_info;
 
 	cmd = megasas_get_cmd(instance);
 
@@ -4084,8 +4176,13 @@ megasas_get_ctrl_info(struct megasas_instance *instance,
 	else
 		ret = megasas_issue_polled(instance, cmd);
 
-	if (!ret)
+	if (!ret) {
 		memcpy(ctrl_info, ci, sizeof(struct megasas_ctrl_info));
+		le32_to_cpus((u32 *)&ctrl_info->properties.OnOffProperties);
+		le32_to_cpus((u32 *)&ctrl_info->adapterOperations2);
+		le32_to_cpus((u32 *)&ctrl_info->adapterOperations3);
+		megasas_update_ext_vd_details(instance);
+	}
 
 	pci_free_consistent(instance->pdev, sizeof(struct megasas_ctrl_info),
 			    ci, ci_h);
@@ -4287,7 +4384,7 @@ megasas_init_adapter_mfi(struct megasas_instance *instance)
 	if (megasas_issue_init_mfi(instance))
 		goto fail_fw_init;
 
-	if (megasas_get_ctrl_info(instance, instance->ctrl_info)) {
+	if (megasas_get_ctrl_info(instance)) {
 		dev_err(&instance->pdev->dev, "(%d): Could get controller info "
 			"Fail from %s %d\n", instance->unique_id,
 			__func__, __LINE__);
@@ -4525,12 +4622,8 @@ static int megasas_init_fw(struct megasas_instance *instance)
 		dev_info(&instance->pdev->dev,
 			"Controller type: iMR\n");
 	}
-	/* OnOffProperties are converted into CPU arch*/
-	le32_to_cpus((u32 *)&ctrl_info->properties.OnOffProperties);
 	instance->disableOnlineCtrlReset =
 	ctrl_info->properties.OnOffProperties.disableOnlineCtrlReset;
-	/* adapterOperations2 are converted into CPU arch*/
-	le32_to_cpus((u32 *)&ctrl_info->adapterOperations2);
 	instance->mpio = ctrl_info->adapterOperations2.mpio;
 	instance->UnevenSpanSupport =
 		ctrl_info->adapterOperations2.supportUnevenSpans;
@@ -4560,7 +4653,6 @@ static int megasas_init_fw(struct megasas_instance *instance)
 		       "requestorId %d\n", instance->requestorId);
 	}
 
-	le32_to_cpus((u32 *)&ctrl_info->adapterOperations3);
 	instance->crash_dump_fw_support =
 		ctrl_info->adapterOperations3.supportCrashDump;
 	instance->crash_dump_drv_support =
@@ -4584,8 +4676,6 @@ static int megasas_init_fw(struct megasas_instance *instance)
 						PAGE_SIZE / 512;
 	if (tmp_sectors && (instance->max_sectors_per_req > tmp_sectors))
 		instance->max_sectors_per_req = tmp_sectors;
-
-	kfree(ctrl_info);
 
 	/* Check for valid throttlequeuedepth module parameter */
 	if (instance->is_imr) {
@@ -4955,10 +5045,6 @@ static int megasas_io_attach(struct megasas_instance *instance)
 		return -ENODEV;
 	}
 
-	/*
-	 * Trigger SCSI to scan our drives
-	 */
-	scsi_scan_host(host);
 	return 0;
 }
 
@@ -5081,6 +5167,8 @@ static int megasas_probe_one(struct pci_dev *pdev,
 			goto fail_alloc_dma_buf;
 		}
 		fusion = instance->ctrl_context;
+		memset(fusion, 0,
+			((1 << PAGE_SHIFT) << instance->ctrl_context_pages));
 		INIT_LIST_HEAD(&fusion->cmd_pool);
 		spin_lock_init(&fusion->mpt_pool_lock);
 		memset(fusion->load_balance_info, 0,
@@ -5286,6 +5374,10 @@ retry_irq_register:
 		goto fail_io_attach;
 
 	instance->unload = 0;
+	/*
+	 * Trigger SCSI to scan our drives
+	 */
+	scsi_scan_host(host);
 
 	/*
 	 * Initiate AEN (Asynchronous Event Notification)
@@ -6049,6 +6141,11 @@ megasas_mgmt_fw_ioctl(struct megasas_instance *instance,
 	megasas_issue_blocked_cmd(instance, cmd, 0);
 	cmd->sync_cmd = 0;
 
+	if (instance->unload == 1) {
+		dev_info(&instance->pdev->dev, "Driver unload is in progress "
+			"don't submit data to application\n");
+		goto out;
+	}
 	/*
 	 * copy out the kernel buffers to user buffers
 	 */
@@ -6398,16 +6495,6 @@ static ssize_t megasas_sysfs_show_version(struct device_driver *dd, char *buf)
 static DRIVER_ATTR(version, S_IRUGO, megasas_sysfs_show_version, NULL);
 
 static ssize_t
-megasas_sysfs_show_release_date(struct device_driver *dd, char *buf)
-{
-	return snprintf(buf, strlen(MEGASAS_RELDATE) + 2, "%s\n",
-			MEGASAS_RELDATE);
-}
-
-static DRIVER_ATTR(release_date, S_IRUGO, megasas_sysfs_show_release_date,
-		   NULL);
-
-static ssize_t
 megasas_sysfs_show_support_poll_for_event(struct device_driver *dd, char *buf)
 {
 	return sprintf(buf, "%u\n", support_poll_for_event);
@@ -6710,8 +6797,7 @@ static int __init megasas_init(void)
 	/*
 	 * Announce driver version and other information
 	 */
-	printk(KERN_INFO "megasas: %s %s\n", MEGASAS_VERSION,
-	       MEGASAS_EXT_VERSION);
+	pr_info("megasas: %s\n", MEGASAS_VERSION);
 
 	spin_lock_init(&poll_aen_lock);
 
@@ -6738,7 +6824,7 @@ static int __init megasas_init(void)
 	rval = pci_register_driver(&megasas_pci_driver);
 
 	if (rval) {
-		printk(KERN_DEBUG "megasas: PCI hotplug regisration failed \n");
+		printk(KERN_DEBUG "megasas: PCI hotplug registration failed \n");
 		goto err_pcidrv;
 	}
 
@@ -6746,10 +6832,6 @@ static int __init megasas_init(void)
 				  &driver_attr_version);
 	if (rval)
 		goto err_dcf_attr_ver;
-	rval = driver_create_file(&megasas_pci_driver.driver,
-				  &driver_attr_release_date);
-	if (rval)
-		goto err_dcf_rel_date;
 
 	rval = driver_create_file(&megasas_pci_driver.driver,
 				&driver_attr_support_poll_for_event);
@@ -6773,12 +6855,7 @@ err_dcf_support_device_change:
 err_dcf_dbg_lvl:
 	driver_remove_file(&megasas_pci_driver.driver,
 			&driver_attr_support_poll_for_event);
-
 err_dcf_support_poll_for_event:
-	driver_remove_file(&megasas_pci_driver.driver,
-			   &driver_attr_release_date);
-
-err_dcf_rel_date:
 	driver_remove_file(&megasas_pci_driver.driver, &driver_attr_version);
 err_dcf_attr_ver:
 	pci_unregister_driver(&megasas_pci_driver);
@@ -6798,8 +6875,6 @@ static void __exit megasas_exit(void)
 			&driver_attr_support_poll_for_event);
 	driver_remove_file(&megasas_pci_driver.driver,
 			&driver_attr_support_device_change);
-	driver_remove_file(&megasas_pci_driver.driver,
-			   &driver_attr_release_date);
 	driver_remove_file(&megasas_pci_driver.driver, &driver_attr_version);
 
 	pci_unregister_driver(&megasas_pci_driver);

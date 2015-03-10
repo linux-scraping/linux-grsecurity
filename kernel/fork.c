@@ -451,7 +451,7 @@ static struct vm_area_struct *dup_vma(struct mm_struct *mm, struct mm_struct *ol
 		get_file(file);
 		if (tmp->vm_flags & VM_DENYWRITE)
 			atomic_dec(&inode->i_writecount);
-		mutex_lock(&mapping->i_mmap_mutex);
+		i_mmap_lock_write(mapping);
 		if (tmp->vm_flags & VM_SHARED)
 			atomic_inc(&mapping->i_mmap_writable);
 		flush_dcache_mmap_lock(mapping);
@@ -461,7 +461,7 @@ static struct vm_area_struct *dup_vma(struct mm_struct *mm, struct mm_struct *ol
 		else
 			vma_interval_tree_insert_after(tmp, mpnt, &mapping->i_mmap);
 		flush_dcache_mmap_unlock(mapping);
-		mutex_unlock(&mapping->i_mmap_mutex);
+		i_mmap_unlock_write(mapping);
 	}
 
 	/*
@@ -1124,10 +1124,13 @@ void __cleanup_sighand(struct sighand_struct *sighand)
 {
 	if (atomic_dec_and_test(&sighand->count)) {
 		signalfd_cleanup(sighand);
+		/*
+		 * sighand_cachep is SLAB_DESTROY_BY_RCU so we can free it
+		 * without an RCU grace period, see __lock_task_sighand().
+		 */
 		kmem_cache_free(sighand_cachep, sighand);
 	}
 }
-
 
 /*
  * Initialize POSIX timer handling for a thread group.

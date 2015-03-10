@@ -523,7 +523,7 @@ static int vesafb_probe(struct platform_device *dev)
 err:
 
 #if defined(__i386__) && defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
-	module_free_exec(NULL, pmi_code);
+	module_memfree_exec(pmi_code);
 #endif
 
 	if (info->screen_base)
@@ -546,7 +546,6 @@ static int vesafb_remove(struct platform_device *pdev)
 static struct platform_driver vesafb_driver = {
 	.driver = {
 		.name = "vesa-framebuffer",
-		.owner = THIS_MODULE,
 	},
 	.probe = vesafb_probe,
 	.remove = vesafb_remove,

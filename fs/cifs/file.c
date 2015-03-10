@@ -1070,7 +1070,7 @@ cifs_push_mandatory_locks(struct cifsFileInfo *cfile)
 
 	max_num = (max_buf - sizeof(struct smb_hdr)) /
 						sizeof(LOCKING_ANDX_RANGE);
-	buf = kzalloc(max_num * sizeof(LOCKING_ANDX_RANGE), GFP_KERNEL);
+	buf = kcalloc(max_num, sizeof(LOCKING_ANDX_RANGE), GFP_KERNEL);
 	if (!buf) {
 		free_xid(xid);
 		return -ENOMEM;
@@ -1405,7 +1405,7 @@ cifs_unlock_range(struct cifsFileInfo *cfile, struct file_lock *flock,
 
 	max_num = (max_buf - sizeof(struct smb_hdr)) /
 						sizeof(LOCKING_ANDX_RANGE);
-	buf = kzalloc(max_num * sizeof(LOCKING_ANDX_RANGE), GFP_KERNEL);
+	buf = kcalloc(max_num, sizeof(LOCKING_ANDX_RANGE), GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
 
@@ -1590,7 +1590,7 @@ int cifs_lock(struct file *file, int cmd, struct file_lock *flock)
 	cifs_read_flock(flock, &type, &lock, &unlock, &wait_flag,
 			tcon->ses->server);
 
-	cifs_sb = CIFS_SB(file->f_path.dentry->d_sb);
+	cifs_sb = CIFS_FILE_SB(file);
 	netfid = cfile->fid.netfid;
 	cinode = CIFS_I(file_inode(file));
 
@@ -2313,7 +2313,7 @@ int cifs_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 	struct cifs_tcon *tcon;
 	struct TCP_Server_Info *server;
 	struct cifsFileInfo *smbfile = file->private_data;
-	struct cifs_sb_info *cifs_sb = CIFS_SB(file->f_path.dentry->d_sb);
+	struct cifs_sb_info *cifs_sb = CIFS_FILE_SB(file);
 	struct inode *inode = file->f_mapping->host;
 
 	rc = filemap_write_and_wait_range(inode->i_mapping, start, end);
@@ -2593,7 +2593,7 @@ cifs_iovec_write(struct file *file, struct iov_iter *from, loff_t *poffset)
 	iov_iter_truncate(from, len);
 
 	INIT_LIST_HEAD(&wdata_list);
-	cifs_sb = CIFS_SB(file->f_path.dentry->d_sb);
+	cifs_sb = CIFS_FILE_SB(file);
 	open_file = file->private_data;
 	tcon = tlink_tcon(open_file->tlink);
 
@@ -3018,7 +3018,7 @@ ssize_t cifs_user_readv(struct kiocb *iocb, struct iov_iter *to)
 		return 0;
 
 	INIT_LIST_HEAD(&rdata_list);
-	cifs_sb = CIFS_SB(file->f_path.dentry->d_sb);
+	cifs_sb = CIFS_FILE_SB(file);
 	open_file = file->private_data;
 	tcon = tlink_tcon(open_file->tlink);
 
@@ -3163,7 +3163,7 @@ cifs_read(struct file *file, char *read_data, size_t read_size, loff_t *offset)
 	__u32 pid;
 
 	xid = get_xid();
-	cifs_sb = CIFS_SB(file->f_path.dentry->d_sb);
+	cifs_sb = CIFS_FILE_SB(file);
 
 	/* FIXME: set up handlers for larger reads and/or convert to async */
 	rsize = min_t(unsigned int, cifs_sb->rsize, CIFSMaxBufSize);
@@ -3470,7 +3470,7 @@ static int cifs_readpages(struct file *file, struct address_space *mapping,
 	int rc;
 	struct list_head tmplist;
 	struct cifsFileInfo *open_file = file->private_data;
-	struct cifs_sb_info *cifs_sb = CIFS_SB(file->f_path.dentry->d_sb);
+	struct cifs_sb_info *cifs_sb = CIFS_FILE_SB(file);
 	struct TCP_Server_Info *server;
 	pid_t pid;
 

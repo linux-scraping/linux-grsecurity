@@ -310,14 +310,14 @@ static __always_inline __size_overflow(1) int kmalloc_index(size_t size)
 }
 #endif /* !CONFIG_SLOB */
 
-void *__kmalloc(size_t size, gfp_t flags) __alloc_size(1);
+void *__kmalloc(size_t size, gfp_t flags) __alloc_size(1) __size_overflow(1);
 void *kmem_cache_alloc(struct kmem_cache *, gfp_t flags);
 
 #ifdef CONFIG_NUMA
-void *__kmalloc_node(size_t size, gfp_t flags, int node) __alloc_size(1);
+void *__kmalloc_node(size_t size, gfp_t flags, int node) __alloc_size(1) __size_overflow(1);
 void *kmem_cache_alloc_node(struct kmem_cache *, gfp_t flags, int node);
 #else
-static __always_inline void *__kmalloc_node(size_t size, gfp_t flags, int node)
+static __always_inline void * __size_overflow(1) __kmalloc_node(size_t size, gfp_t flags, int node)
 {
 	return __kmalloc(size, flags);
 }
@@ -516,7 +516,6 @@ static __always_inline void *kmalloc_node(size_t size, gfp_t flags, int node)
  * @memcg: pointer to the memcg this cache belongs to
  * @list: list_head for the list of all caches in this memcg
  * @root_cache: pointer to the global, root cache, this cache was derived from
- * @nr_pages: number of pages that belongs to this cache.
  */
 struct memcg_cache_params {
 	bool is_root_cache;
@@ -529,16 +528,11 @@ struct memcg_cache_params {
 			struct mem_cgroup *memcg;
 			struct list_head list;
 			struct kmem_cache *root_cache;
-			atomic_t nr_pages;
 		};
 	};
 };
 
 int memcg_update_all_caches(int num_memcgs);
-
-struct seq_file;
-int cache_show(struct kmem_cache *s, struct seq_file *m);
-void print_slabinfo_header(struct seq_file *m);
 
 /**
  * kmalloc_array - allocate memory for an array.

@@ -337,7 +337,7 @@ static inline int atomic_xchg_unchecked(atomic_unchecked_t *v, int new)
  * Atomically adds @a to @v, so long as @v was not already @u.
  * Returns the old value of @v.
  */
-static inline int __intentional_overflow(-1) __atomic_add_unless(atomic_t *v, int a, int u)
+static inline int __atomic_add_unless(atomic_t *v, int a, int u)
 {
 	int c, old, new;
 	c = atomic_read(v);

@@ -20,13 +20,13 @@
 
 /* Handles exceptions in both to and from, but doesn't do access_ok */
 __must_check unsigned long
-copy_user_enhanced_fast_string(void *to, const void *from, unsigned len) __size_overflow(3);
+copy_user_enhanced_fast_string(void *to, const void *from, unsigned len);
 __must_check unsigned long
-copy_user_generic_string(void *to, const void *from, unsigned len) __size_overflow(3);
+copy_user_generic_string(void *to, const void *from, unsigned len);
 __must_check unsigned long
-copy_user_generic_unrolled(void *to, const void *from, unsigned len) __size_overflow(3);
+copy_user_generic_unrolled(void *to, const void *from, unsigned len);
 
-static __always_inline __must_check unsigned long
+static __always_inline __must_check __size_overflow(3) unsigned long
 copy_user_generic(void *to, const void *from, unsigned long len)
 {
 	unsigned ret;

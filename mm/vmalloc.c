@@ -410,7 +410,7 @@ static void purge_vmap_area_lazy(void);
  * Allocate a region of KVA of the specified size and alignment, within the
  * vstart and vend.
  */
-static struct vmap_area *alloc_vmap_area(unsigned long size,
+static struct vmap_area * __size_overflow(1) alloc_vmap_area(unsigned long size,
 				unsigned long align,
 				unsigned long vstart, unsigned long vend,
 				int node, gfp_t gfp_mask)
@@ -532,8 +532,7 @@ overflow:
 		goto retry;
 	}
 	if (printk_ratelimit())
-		printk(KERN_WARNING
-			"vmap allocation for size %lu failed: "
+		pr_warn("vmap allocation for size %lu failed: "
 			"use vmalloc=<size> to increase size.\n", size);
 	kfree(va);
 	return ERR_PTR(-EBUSY);
@@ -1612,7 +1611,7 @@ EXPORT_SYMBOL(vunmap);
 void unmap_process_stacks(struct task_struct *task)
 {
 	if (unlikely(in_interrupt())) {
-		struct stack_deferred *p = &__get_cpu_var(stack_deferred);
+		struct stack_deferred *p = this_cpu_ptr(&stack_deferred);
 		struct stack_deferred_llist *list = task->stack;
 		list->stack = task->stack;
 		list->lowmem_stack = task->lowmem_stack;
@@ -2694,10 +2693,10 @@ static void show_numa_info(struct seq_file *m, struct vm_struct *v)
 		if (!counters)
 			return;
 
-		/* Pair with smp_wmb() in clear_vm_uninitialized_flag() */
-		smp_rmb();
 		if (v->flags & VM_UNINITIALIZED)
 			return;
+		/* Pair with smp_wmb() in clear_vm_uninitialized_flag() */
+		smp_rmb();
 
 		memset(counters, 0, nr_node_ids * sizeof(unsigned int));
 

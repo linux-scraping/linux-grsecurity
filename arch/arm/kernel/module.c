@@ -59,11 +59,11 @@ void *module_alloc(unsigned long size)
 }
 
 #ifdef CONFIG_PAX_KERNEXEC
-void module_free_exec(struct module *mod, void *module_region)
+void module_memfree_exec(void *module_region)
 {
-	module_free(mod, module_region);
+	module_memfree(module_region);
 }
-EXPORT_SYMBOL(module_free_exec);
+EXPORT_SYMBOL(module_memfree_exec);
 
 void *module_alloc_exec(unsigned long size)
 {
@@ -278,7 +278,7 @@ apply_relocate(Elf32_Shdr *sechdrs, const char *strtab, unsigned int symindex,
 #endif
 
 		default:
-			printk(KERN_ERR "%s: unknown relocation: %u\n",
+			pr_err("%s: unknown relocation: %u\n",
 			       module->name, ELF32_R_TYPE(rel->r_info));
 			return -ENOEXEC;
 		}

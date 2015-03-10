@@ -2745,8 +2745,7 @@ exit:
 		tty_unregister_device(tty_drv, serial->minor);
 		kfree(serial);
 	}
-	if (hso_dev)
-		kfree(hso_dev);
+	kfree(hso_dev);
 	return NULL;
 
 }

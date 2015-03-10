@@ -8,11 +8,10 @@
 #include <asm/thread_info.h>
 #include <asm/memory.h>
 #include <asm/page.h>
-
-#ifdef CONFIG_PAX_KERNEXEC
+#ifdef CONFIG_ARM_KERNMEM_PERMS
 #include <asm/pgtable.h>
 #endif
-
+	
 #define PROC_INFO							\
 	. = ALIGN(4);							\
 	VMLINUX_SYMBOL(__proc_info_begin) = .;				\
@@ -95,7 +94,7 @@ SECTIONS
 		HEAD_TEXT
 	}
 
-#ifdef CONFIG_PAX_KERNEXEC
+#ifdef CONFIG_ARM_KERNMEM_PERMS
 	. = ALIGN(1<<SECTION_SHIFT);
 #endif
 
@@ -121,6 +120,9 @@ SECTIONS
 			ARM_CPU_KEEP(PROC_INFO)
 	}
 
+#ifdef CONFIG_DEBUG_RODATA
+	. = ALIGN(1<<SECTION_SHIFT);
+#endif
 	_etext = .;			/* End of text section */
 
 	RO_DATA(PAGE_SIZE)
@@ -153,12 +155,12 @@ SECTIONS
 
 	NOTES
 
-#ifdef CONFIG_PAX_KERNEXEC
-	. = ALIGN(1<<SECTION_SHIFT);
-#endif
-
 #ifndef CONFIG_XIP_KERNEL
+# ifdef CONFIG_ARM_KERNMEM_PERMS
+	. = ALIGN(1<<SECTION_SHIFT);
+# else
 	. = ALIGN(PAGE_SIZE);
+# endif
 	__init_begin = .;
 #endif
 	/*
@@ -232,13 +234,12 @@ SECTIONS
 	__data_loc = ALIGN(4);		/* location in binary */
 	. = PAGE_OFFSET + TEXT_OFFSET;
 #else
-	. = ALIGN(THREAD_SIZE);
-	__init_end = .;
-
-#ifdef CONFIG_PAX_KERNEXEC
+#ifdef CONFIG_ARM_KERNMEM_PERMS
 	. = ALIGN(1<<SECTION_SHIFT);
+#else
+	. = ALIGN(THREAD_SIZE);
 #endif
-
+	__init_end = .;
 	__data_loc = .;
 #endif
 

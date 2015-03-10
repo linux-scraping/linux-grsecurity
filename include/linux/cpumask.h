@@ -464,7 +464,7 @@ static inline bool cpumask_full(const struct cpumask *srcp)
  * cpumask_weight - Count of bits in *srcp
  * @srcp: the cpumask to count bits (< nr_cpu_ids) in.
  */
-static inline unsigned int cpumask_weight(const struct cpumask *srcp)
+static inline unsigned int __intentional_overflow(-1) cpumask_weight(const struct cpumask *srcp)
 {
 	return bitmap_weight(cpumask_bits(srcp), nr_cpumask_bits);
 }
@@ -802,6 +802,23 @@ static inline const struct cpumask *get_cpu_mask(unsigned int cpu)
 	[BITS_TO_LONGS(NR_CPUS)-1] = CPU_MASK_LAST_WORD		\
 }
 #endif /* NR_CPUS > BITS_PER_LONG */
+
+/**
+ * cpumap_print_to_pagebuf  - copies the cpumask into the buffer either
+ *	as comma-separated list of cpus or hex values of cpumask
+ * @list: indicates whether the cpumap must be list
+ * @mask: the cpumask to copy
+ * @buf: the buffer to copy into
+ *
+ * Returns the length of the (null-terminated) @buf string, zero if
+ * nothing is copied.
+ */
+static inline ssize_t
+cpumap_print_to_pagebuf(bool list, char *buf, const struct cpumask *mask)
+{
+	return bitmap_print_to_pagebuf(list, buf, cpumask_bits(mask),
+				      nr_cpumask_bits);
+}
 
 /*
  *

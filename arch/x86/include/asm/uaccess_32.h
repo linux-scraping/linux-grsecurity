@@ -40,7 +40,7 @@ unsigned long __must_check __copy_from_user_ll_nocache_nozero
  * anything, so this is accurate.
  */
 
-static __always_inline unsigned long __must_check
+static __always_inline __size_overflow(3) unsigned long __must_check
 __copy_to_user_inatomic(void __user *to, const void *from, unsigned long n)
 {
 	if ((long)n < 0)
@@ -91,7 +91,7 @@ __copy_to_user(void __user *to, const void *from, unsigned long n)
 	return __copy_to_user_inatomic(to, from, n);
 }
 
-static __always_inline unsigned long
+static __always_inline __size_overflow(3) unsigned long
 __copy_from_user_inatomic(void *to, const void __user *from, unsigned long n)
 {
 	if ((long)n < 0)

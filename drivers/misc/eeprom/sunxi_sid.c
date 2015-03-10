@@ -148,7 +148,6 @@ static struct platform_driver sunxi_sid_driver = {
 	.remove = sunxi_sid_remove,
 	.driver = {
 		.name = DRV_NAME,
-		.owner = THIS_MODULE,
 		.of_match_table = sunxi_sid_of_match,
 	},
 };

@@ -251,6 +251,8 @@ SECTIONS
 	 * start another segment - init.
 	 */
 	PERCPU_VADDR(INTERNODE_CACHE_BYTES, 0, :percpu)
+	ASSERT(SIZEOF(.data..percpu) < CONFIG_PHYSICAL_START,
+	       "per-CPU data too large - increase CONFIG_PHYSICAL_START")
 #endif
 
 	. = ALIGN(PAGE_SIZE);

@@ -589,6 +589,7 @@ config PAX_KERNEXEC
 	depends on (X86 || (ARM && (CPU_V6 || CPU_V6K || CPU_V7) && !(ARM_LPAE && MODULES))) && !XEN
 	select PAX_PER_CPU_PGD if X86_64 || (X86_32 && X86_PAE)
 	select PAX_KERNEXEC_PLUGIN if X86_64
+	select ARM_KERNMEM_PERMS if ARM
 	help
 	  This is the kernel land equivalent of PAGEEXEC and MPROTECT,
 	  that is, enabling this option will make it harder to inject

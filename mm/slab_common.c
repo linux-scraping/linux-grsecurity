@@ -264,7 +264,7 @@ struct kmem_cache *find_mergeable(size_t size, size_t align,
 	size = ALIGN(size, align);
 	flags = kmem_cache_flags(size, flags, name, NULL);
 
-	list_for_each_entry(s, &slab_caches, list) {
+	list_for_each_entry_reverse(s, &slab_caches, list) {
 		if (slab_unmergeable(s))
 			continue;
 
@@ -870,7 +870,7 @@ EXPORT_SYMBOL(kmalloc_order_trace);
 #define SLABINFO_RIGHTS S_IRUSR
 #endif
 
-void print_slabinfo_header(struct seq_file *m)
+static void print_slabinfo_header(struct seq_file *m)
 {
 	/*
 	 * Output format version, so at least we can change it
@@ -896,14 +896,9 @@ void print_slabinfo_header(struct seq_file *m)
 	seq_putc(m, '\n');
 }
 
-static void *s_start(struct seq_file *m, loff_t *pos)
+void *slab_start(struct seq_file *m, loff_t *pos)
 {
-	loff_t n = *pos;
-
 	mutex_lock(&slab_mutex);
-	if (!n)
-		print_slabinfo_header(m);
-
 	return seq_list_start(&slab_caches, *pos);
 }
 
@@ -943,7 +938,7 @@ memcg_accumulate_slabinfo(struct kmem_cache *s, struct slabinfo *info)
 	}
 }
 
-int cache_show(struct kmem_cache *s, struct seq_file *m)
+static void cache_show(struct kmem_cache *s, struct seq_file *m)
 {
 	struct slabinfo sinfo;
 
@@ -962,17 +957,32 @@ int cache_show(struct kmem_cache *s, struct seq_file *m)
 		   sinfo.active_slabs, sinfo.num_slabs, sinfo.shared_avail);
 	slabinfo_show_stats(m, s);
 	seq_putc(m, '\n');
-	return 0;
 }
 
-static int s_show(struct seq_file *m, void *p)
+static int slab_show(struct seq_file *m, void *p)
 {
 	struct kmem_cache *s = list_entry(p, struct kmem_cache, list);
 
-	if (!is_root_cache(s))
-		return 0;
-	return cache_show(s, m);
+	if (p == slab_caches.next)
+		print_slabinfo_header(m);
+	if (is_root_cache(s))
+		cache_show(s, m);
+	return 0;
 }
+
+#ifdef CONFIG_MEMCG_KMEM
+int memcg_slab_show(struct seq_file *m, void *p)
+{
+	struct kmem_cache *s = list_entry(p, struct kmem_cache, list);
+	struct mem_cgroup *memcg = mem_cgroup_from_css(seq_css(m));
+
+	if (p == slab_caches.next)
+		print_slabinfo_header(m);
+	if (!is_root_cache(s) && s->memcg_params->memcg == memcg)
+		cache_show(s, m);
+	return 0;
+}
+#endif
 
 /*
  * slabinfo_op - iterator that generates /proc/slabinfo
@@ -988,10 +998,10 @@ static int s_show(struct seq_file *m, void *p)
  * + further values on SMP and with statistics enabled
  */
 static const struct seq_operations slabinfo_op = {
-	.start = s_start,
+	.start = slab_start,
 	.next = slab_next,
 	.stop = slab_stop,
-	.show = s_show,
+	.show = slab_show,
 };
 
 static int slabinfo_open(struct inode *inode, struct file *file)
@@ -1016,7 +1026,7 @@ static int __init slab_proc_init(void)
 module_init(slab_proc_init);
 #endif /* CONFIG_SLABINFO */
 
-static __always_inline void *__do_krealloc(const void *p, size_t new_size,
+static __always_inline void * __size_overflow(2) __do_krealloc(const void *p, size_t new_size,
 					   gfp_t flags)
 {
 	void *ret;

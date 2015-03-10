@@ -1243,8 +1243,7 @@ static int uvesafb_release(struct fb_info *info, int user)
 	uvesafb_vbe_state_restore(par, par->vbe_state_orig);
 out:
 	atomic_dec(&par->ref_count);
-	if (task)
-		uvesafb_free(task);
+	uvesafb_free(task);
 	return 0;
 }
 
@@ -1819,7 +1818,7 @@ out:
 
 #if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
 	if (par->pmi_code)
-		module_free_exec(NULL, par->pmi_code);
+		module_memfree_exec(par->pmi_code);
 #endif
 
 	framebuffer_release(info);
@@ -1848,7 +1847,7 @@ static int uvesafb_remove(struct platform_device *dev)
 
 #if defined(CONFIG_MODULES) && defined(CONFIG_PAX_KERNEXEC)
 		if (par->pmi_code)
-			module_free_exec(NULL, par->pmi_code);
+			module_memfree_exec(par->pmi_code);
 #endif
 
 		framebuffer_release(info);
@@ -1963,8 +1962,7 @@ static int uvesafb_init(void)
 			err = -ENOMEM;
 
 		if (err) {
-			if (uvesafb_device)
-				platform_device_put(uvesafb_device);
+			platform_device_put(uvesafb_device);
 			platform_driver_unregister(&uvesafb_driver);
 			cn_del_callback(&uvesafb_cn_id);
 			return err;

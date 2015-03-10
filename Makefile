@@ -1,6 +1,6 @@
 VERSION = 3
-PATCHLEVEL = 18
-SUBLEVEL = 9
+PATCHLEVEL = 19
+SUBLEVEL = 1
 EXTRAVERSION =
 NAME = Diseased Newt
 
@@ -393,6 +393,7 @@ USERINCLUDE    := \
 # Needed to be compatible with the O= option
 LINUXINCLUDE    := \
 		-I$(srctree)/arch/$(hdr-arch)/include \
+		-Iarch/$(hdr-arch)/include/generated/uapi \
 		-Iarch/$(hdr-arch)/include/generated \
 		$(if $(KBUILD_SRC), -I$(srctree)/include) \
 		-Iinclude \
@@ -483,9 +484,10 @@ asm-generic:
 # of make so .config is not included in this case either (for *config).
 
 version_h := include/generated/uapi/linux/version.h
+old_version_h := include/linux/version.h
 
 no-dot-config-targets := clean mrproper distclean \
-			 cscope gtags TAGS tags help %docs check% coccicheck \
+			 cscope gtags TAGS tags help% %docs check% coccicheck \
 			 $(version_h) headers_% archheaders archscripts \
 			 kernelversion %src-pkg
 
@@ -1078,6 +1080,7 @@ endef
 
 $(version_h): $(srctree)/Makefile FORCE
 	$(call filechk,version.h)
+	$(Q)rm -f $(old_version_h)
 
 include/generated/utsrelease.h: include/config/kernel.release FORCE
 	$(call filechk,utsrelease.h)
@@ -1108,8 +1111,6 @@ firmware_install: FORCE
 
 #Default location for installed headers
 export INSTALL_HDR_PATH = $(objtree)/usr
-
-hdr-inst := -rR -f $(srctree)/scripts/Makefile.headersinst obj
 
 # If we do an all arch process set dst to asm-$(hdr-arch)
 hdr-dst = $(if $(KBUILD_HEADERS), dst=include/asm-$(hdr-arch), dst=include/asm)
@@ -1250,7 +1251,7 @@ MRPROPER_FILES += .config .config.old .version .old_version $(version_h) \
 		  Module.symvers tags TAGS cscope* GPATH GTAGS GRTAGS GSYMS \
 		  signing_key.priv signing_key.x509 x509.genkey		\
 		  extra_certificates signing_key.x509.keyid		\
-		  signing_key.x509.signer include/linux/version.h	\
+		  signing_key.x509.signer \
 		  tools/gcc/size_overflow_plugin/size_overflow_hash_aux.h \
 		  tools/gcc/size_overflow_plugin/size_overflow_hash.h \
 		  tools/gcc/randomize_layout_seed.h
@@ -1313,7 +1314,7 @@ rpm: include/config/kernel.release FORCE
 # ---------------------------------------------------------------------------
 
 boards := $(wildcard $(srctree)/arch/$(SRCARCH)/configs/*_defconfig)
-boards := $(notdir $(boards))
+boards := $(sort $(notdir $(boards)))
 board-dirs := $(dir $(wildcard $(srctree)/arch/$(SRCARCH)/configs/*/*_defconfig))
 board-dirs := $(sort $(notdir $(board-dirs:/=)))
 
@@ -1404,7 +1405,7 @@ help-board-dirs := $(addprefix help-,$(board-dirs))
 
 help-boards: $(help-board-dirs)
 
-boards-per-dir = $(notdir $(wildcard $(srctree)/arch/$(SRCARCH)/configs/$*/*_defconfig))
+boards-per-dir = $(sort $(notdir $(wildcard $(srctree)/arch/$(SRCARCH)/configs/$*/*_defconfig)))
 
 $(help-board-dirs): help-%:
 	@echo  'Architecture specific targets ($(SRCARCH) $*):'
@@ -1668,11 +1669,6 @@ ifneq ($(cmd_files),)
   $(cmd_files): ;	# Do not try to update included dependency files
   include $(cmd_files)
 endif
-
-# Shorthand for $(Q)$(MAKE) -f scripts/Makefile.clean obj=dir
-# Usage:
-# $(Q)$(MAKE) $(clean)=dir
-clean := -f $(srctree)/scripts/Makefile.clean obj
 
 endif	# skip-makefile
 

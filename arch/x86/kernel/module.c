@@ -117,17 +117,17 @@ return area ? area->addr : NULL;
 }
 EXPORT_SYMBOL(module_alloc_exec);
 
-void module_free_exec(struct module *mod, void *module_region)
+void module_memfree_exec(void *module_region)
 {
 	vunmap(module_region);
 }
-EXPORT_SYMBOL(module_free_exec);
+EXPORT_SYMBOL(module_memfree_exec);
 #else
-void module_free_exec(struct module *mod, void *module_region)
+void module_memfree_exec(void *module_region)
 {
-	module_free(mod, module_region);
+	module_memfree(module_region);
 }
-EXPORT_SYMBOL(module_free_exec);
+EXPORT_SYMBOL(module_memfree_exec);
 
 void *module_alloc_exec(unsigned long size)
 {

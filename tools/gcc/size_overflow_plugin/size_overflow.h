@@ -2,21 +2,50 @@
 #define SIZE_OVERFLOW_H
 
 #define CREATE_NEW_VAR NULL_TREE
-#define CANNOT_FIND_ARG 32
 #define MAX_PARAM 31
+#define CANNOT_FIND_ARG 32
+#define NONE_ARGNUM 32
+
 #define BEFORE_STMT true
 #define AFTER_STMT false
 
 #define TURN_OFF_ASM_STR "# size_overflow MARK_TURN_OFF "
 #define YES_ASM_STR "# size_overflow MARK_YES "
-#define OK_ASM_STR "# size_overflow "
+#define END_INTENTIONAL_ASM_STR "# size_overflow MARK_END_INTENTIONAL "
+#define SO_ASM_STR "# size_overflow "
+#define OK_ASM_STR "# size_overflow MARK_NO"
 
-enum mark {
-	MARK_NO, MARK_YES, MARK_NOT_INTENTIONAL, MARK_TURN_OFF
+#define FUNCTION_PTR_P(node) \
+	(TREE_CODE(TREE_TYPE(node)) == POINTER_TYPE && (TREE_CODE(TREE_TYPE(TREE_TYPE(node))) == FUNCTION_TYPE || TREE_CODE(TREE_TYPE(TREE_TYPE(node))) == METHOD_TYPE))
+
+#define CODES_LIMIT 32
+
+#define GLOBAL_NIFN_LEN 65536
+#define NO_HASH 65537
+
+#include "gcc-common.h"
+
+#include <string.h>
+#include <limits.h>
+
+enum intentional_mark {
+	MARK_NO, MARK_YES, MARK_END_INTENTIONAL, MARK_TURN_OFF
 };
 
 enum intentional_overflow_type {
 	NO_INTENTIONAL_OVERFLOW, RHS1_INTENTIONAL_OVERFLOW, RHS2_INTENTIONAL_OVERFLOW
+};
+
+enum size_overflow_mark {
+	NO_SO_MARK, YES_SO_MARK, ASM_STMT_SO_MARK
+};
+
+struct decl_hash {
+	size_t tree_codes_len;
+	unsigned char tree_codes[CODES_LIMIT];
+	const_tree decl;
+	unsigned int hash;
+	const char *fn_name;
 };
 
 struct visited {
@@ -24,6 +53,38 @@ struct visited {
 	struct pointer_set_t *my_stmts;
 	struct pointer_set_t *skip_expr_casts;
 	struct pointer_set_t *no_cast_check;
+};
+
+struct next_interesting_function;
+typedef struct next_interesting_function *  next_interesting_function_t;
+
+#if BUILDING_GCC_VERSION <= 4007
+DEF_VEC_P(next_interesting_function_t);
+DEF_VEC_ALLOC_P(next_interesting_function_t, heap);
+#endif
+
+/*
+ *  * children: callers with data flow into the integer parameter of decl
+ *  * decl_name: name of the function or the field
+ *  * context: the containing type name for a function pointer (or "fielddecl" if the type has no name), otherwise either "vardecl" or "fndecl"
+ *  * hash: hash num of the function
+ *  * num: parameter number (1-31) or return value (0)
+ *  * marked: determines whether to duplicate stmts and/or look for missing hashtable entries
+ *  * orig_next_node: pointer to the originally cloned function
+ */
+struct next_interesting_function {
+	next_interesting_function_t next;
+#if BUILDING_GCC_VERSION <= 4007
+	VEC(next_interesting_function_t, heap) *children;
+#else
+	vec<next_interesting_function_t, va_heap, vl_embed> *children;
+#endif
+	const char *decl_name;
+	const char *context;
+	unsigned int hash;
+	unsigned int num;
+	enum size_overflow_mark marked;
+	next_interesting_function_t orig_next_node;
 };
 
 // size_overflow_plugin.c
@@ -41,66 +102,50 @@ struct size_overflow_hash {
 	const unsigned int param;
 };
 
-struct interesting_node {
-	struct interesting_node *next;
-	gimple first_stmt;
-	const_tree fndecl;
-	tree node;
-#if BUILDING_GCC_VERSION <= 4007
-	VEC(tree, gc) *last_nodes;
-#else
-	vec<tree, va_gc> *last_nodes;
-#endif
-	unsigned int num;
-	enum mark intentional_attr_decl;
-	enum mark intentional_attr_cur_fndecl;
-	gimple intentional_mark_from_gimple;
-};
-
+extern const char *get_orig_decl_name(const_tree decl);
 extern bool is_size_overflow_asm(const_gimple stmt);
-extern unsigned int get_function_num(const_tree node, const_tree orig_fndecl);
-extern unsigned int get_correct_arg_count(unsigned int argnum, const_tree fndecl);
-extern bool is_missing_function(const_tree orig_fndecl, unsigned int num);
-extern bool is_a_return_check(const_tree node);
-extern const struct size_overflow_hash *get_function_hash(const_tree fndecl);
+extern void print_missing_function(next_interesting_function_t node);
+extern const struct size_overflow_hash *get_size_overflow_hash_entry_tree(const_tree fndecl, unsigned int argnum);
 extern unsigned int find_arg_number_tree(const_tree arg, const_tree func);
-
-
-// size_overflow_debug.c
-extern struct opt_pass *make_dump_pass(void);
+extern unsigned int get_decl_hash(const_tree decl, const char *decl_name);
+extern const struct size_overflow_hash *get_size_overflow_hash_entry(unsigned int hash, const char *decl_name, unsigned int argnum);
 
 
 // intentional_overflow.c
-extern enum mark get_intentional_attr_type(const_tree node);
-extern bool is_size_overflow_intentional_asm_yes(const_gimple stmt);
-extern bool is_size_overflow_intentional_asm_turn_off(const_gimple stmt);
-extern bool is_end_intentional_intentional_attr(const_tree decl, unsigned int argnum);
-extern bool is_yes_intentional_attr(const_tree decl, unsigned int argnum);
-extern bool is_turn_off_intentional_attr(const_tree decl);
-extern void print_missing_intentional(enum mark callee_attr, enum mark caller_attr, const_tree decl, unsigned int argnum);
-extern void check_intentional_attribute_ipa(struct interesting_node *cur_node);
+extern tree get_size_overflow_asm_input(const_gimple stmt);
+extern enum intentional_mark check_intentional_asm(const_gimple stmt, unsigned int argnum);
+extern bool is_size_overflow_insert_check_asm(const_gimple stmt);
+extern enum intentional_mark check_intentional_attribute(const_gimple stmt, unsigned int argnum);
+extern enum intentional_mark get_so_asm_type(const_gimple stmt);
+extern const_tree get_attribute(const char* attr_name, const_tree decl);
 extern bool is_a_cast_and_const_overflow(const_tree no_const_rhs);
 extern bool is_const_plus_unsigned_signed_truncation(const_tree lhs);
 extern bool is_a_constant_overflow(const_gimple stmt, const_tree rhs);
-extern tree handle_intentional_overflow(struct visited *visited, struct cgraph_node *caller_node, bool check_overflow, gimple stmt, tree change_rhs, tree new_rhs2);
-extern tree handle_integer_truncation(struct visited *visited, struct cgraph_node *caller_node, const_tree lhs);
+extern tree handle_intentional_overflow(struct visited *visited, bool check_overflow, gimple stmt, tree change_rhs, tree new_rhs2);
+extern tree handle_integer_truncation(struct visited *visited, const_tree lhs);
 extern bool is_a_neg_overflow(const_gimple stmt, const_tree rhs);
 extern enum intentional_overflow_type add_mul_intentional_overflow(const_gimple def_stmt);
 extern void unsigned_signed_cast_intentional_overflow(struct visited *visited, gimple stmt);
 
 
-// insert_size_overflow_check_ipa.c
-extern unsigned int search_function(void);
-extern unsigned int call_count;
-extern struct opt_pass *make_insert_size_overflow_check(void);
-extern const_tree get_interesting_orig_fndecl(const_gimple stmt, unsigned int argnum);
-
-
 // insert_size_overflow_asm.c
+#if BUILDING_GCC_VERSION >= 4009
+extern opt_pass *make_insert_size_overflow_asm_pass(void);
+#else
 extern struct opt_pass *make_insert_size_overflow_asm_pass(void);
+#endif
+extern bool search_interesting_args(tree fndecl, bool *argnums);
 
 
 // misc.c
+extern unsigned int get_correct_argnum_fndecl(const_tree fndecl, const_tree correct_argnum_of_fndecl, unsigned int num);
+extern const char *get_type_name_from_field(const_tree field_decl);
+extern void set_dominance_info(void);
+extern void unset_dominance_info(void);
+extern tree get_interesting_orig_fndecl_from_stmt(const_gimple stmt);
+extern tree get_orig_fndecl(const_tree clone_fndecl);
+extern unsigned int get_correct_argnum(const_tree decl, const_tree correct_argnum_of_decl, unsigned int argnum);
+extern bool is_valid_cgraph_node(struct cgraph_node *node);
 extern void set_current_function_decl(tree fndecl);
 extern void unset_current_function_decl(void);
 extern gimple get_def_stmt(const_tree node);
@@ -109,11 +154,18 @@ extern gimple build_cast_stmt(struct visited *visited, tree dst_type, tree rhs, 
 extern bool skip_types(const_tree var);
 extern tree cast_a_tree(tree type, tree var);
 extern bool is_size_overflow_type(const_tree var);
+extern bool made_by_compiler(const_tree decl);
+extern gimple get_fnptr_def_stmt(const_tree fn_ptr);
 
 
-// insert_size_overflow_check_core.c
-extern tree expand(struct visited *visited, struct cgraph_node *caller_node, tree lhs);
-extern void check_size_overflow(struct cgraph_node *caller_node, gimple stmt, tree size_overflow_type, tree cast_rhs, tree rhs, bool before);
+// size_overflow_transform.c
+extern unsigned int size_overflow_transform(struct cgraph_node *node);
+extern tree handle_fnptr_assign(const_gimple stmt);
+
+
+// size_overflow_transform_core.c
+extern tree expand(struct visited *visited, tree lhs);
+extern void check_size_overflow(gimple stmt, tree size_overflow_type, tree cast_rhs, tree rhs, bool before);
 extern tree dup_assign(struct visited *visited, gimple oldstmt, const_tree node, tree rhs1, tree rhs2, tree __unused rhs3);
 extern tree create_assign(struct visited *visited, gimple oldstmt, tree rhs1, bool before);
 
@@ -123,5 +175,52 @@ extern struct opt_pass *make_remove_unnecessary_dup_pass(void);
 extern void insert_cast_expr(struct visited *visited, gimple stmt, enum intentional_overflow_type type);
 extern bool skip_expr_on_double_type(const_gimple stmt);
 extern void create_up_and_down_cast(struct visited *visited, gimple use_stmt, tree orig_type, tree rhs);
+
+
+// size_overflow_ipa.c
+extern void add_to_global_next_interesting_function(next_interesting_function_t new_entry);
+extern bool has_next_interesting_function_vec(next_interesting_function_t parent, next_interesting_function_t child);
+extern void push_child(next_interesting_function_t parent, next_interesting_function_t child);
+extern struct cgraph_node *get_cnode(const_tree fndecl);
+extern next_interesting_function_t global_next_interesting_function[GLOBAL_NIFN_LEN];
+extern next_interesting_function_t get_global_next_interesting_function_entry(const char *decl_name, const char *context, unsigned int hash, unsigned int num, enum size_overflow_mark marked);
+extern next_interesting_function_t get_global_next_interesting_function_entry_with_hash(const_tree decl, const char *decl_name, unsigned int num, enum size_overflow_mark marked);
+extern void size_overflow_register_hooks(void);
+#if BUILDING_GCC_VERSION >= 4009
+extern opt_pass *make_size_overflow_functions_pass(void);
+#else
+extern struct opt_pass *make_size_overflow_functions_pass(void);
+#endif
+extern void size_overflow_node_removal_hook(struct cgraph_node *node, void *data);
+extern next_interesting_function_t get_and_create_next_node_from_global_next_nodes(tree decl, unsigned int num, enum size_overflow_mark marked, next_interesting_function_t orig_next_node);
+extern next_interesting_function_t create_new_next_interesting_decl(tree decl, const char *decl_name, unsigned int num, enum size_overflow_mark marked, next_interesting_function_t orig_next_node);
+extern next_interesting_function_t create_new_next_interesting_entry(const char *decl_name, const char *context, unsigned int hash, unsigned int num, enum size_overflow_mark marked, next_interesting_function_t orig_next_node);
+
+
+// size_overflow_lto.c
+extern void size_overflow_read_summary_lto(void);
+#if BUILDING_GCC_VERSION >= 4008
+extern void size_overflow_write_summary_lto(void);
+#elif BUILDING_GCC_VERSION >= 4006
+extern void size_overflow_write_summary_lto(cgraph_node_set set, varpool_node_set vset);
+#else
+extern void size_overflow_write_summary_lto(cgraph_node_set set);
+#endif
+
+// size_overflow_fnptrs.c
+extern next_interesting_function_t handle_function_ptr_ret(struct pointer_set_t *visited, next_interesting_function_t next_cnodes_head, const_tree fn_ptr);
+extern void check_local_variables(next_interesting_function_t next_node);
+extern void check_global_variables(next_interesting_function_t cur_global);
+extern next_interesting_function_t get_and_create_next_node_from_global_next_nodes_fnptr(const_tree fn_ptr, unsigned int num, enum size_overflow_mark marked);
+
+
+// size_overflow_debug.c
+extern void __unused print_intentional_mark(enum intentional_mark mark);
+extern unsigned int __unused size_overflow_dump_function(FILE *file, struct cgraph_node *node);
+extern void __unused print_next_interesting_functions_chain(next_interesting_function_t head, bool only_this);
+extern void __unused print_global_next_interesting_functions(void);
+extern void __unused print_children_chain_list(next_interesting_function_t next_node);
+extern void __unused print_all_next_node_children_chain_list(next_interesting_function_t next_node);
+extern const char * __unused print_so_mark_name(enum size_overflow_mark mark);
 
 #endif

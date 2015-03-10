@@ -1,9 +1,9 @@
 /*
- * Copyright 2011-2014 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011-2015 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2, or (at your option) v3
  *
  * Homepage:
- * http://www.grsecurity.net/~ephox/overflow_plugin/
+ * https://github.com/ephox-gcc-plugins/size_overflow
  *
  * Documentation:
  * http://forums.grsecurity.net/viewtopic.php?f=7&t=3043
@@ -17,7 +17,6 @@
  * $ make run
  */
 
-#include "gcc-common.h"
 #include "size_overflow.h"
 
 int plugin_is_GPL_compatible;
@@ -30,7 +29,7 @@ tree size_overflow_type_DI;
 tree size_overflow_type_TI;
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20140725",
+	.version	= "20150303",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
@@ -167,18 +166,11 @@ static void size_overflow_start_unit(void __unused *gcc_data, void __unused *use
 	DECL_EXTERNAL(report_size_overflow_decl) = 1;
 	DECL_ARTIFICIAL(report_size_overflow_decl) = 1;
 	TREE_THIS_VOLATILE(report_size_overflow_decl) = 1;
-}
-
-
-extern struct gimple_opt_pass pass_dce;
-
-static struct opt_pass *make_dce_pass(void)
-{
-#if BUILDING_GCC_VERSION >= 4009
-	return make_pass_dce(g);
-#else
-	return &pass_dce.pass;
-#endif
+// !!!
+	DECL_PRESERVE_P(report_size_overflow_decl) = 1;
+	DECL_UNINLINABLE(report_size_overflow_decl) = 1;
+	TREE_USED(report_size_overflow_decl) = 1;
+	TREE_NOTHROW(report_size_overflow_decl) = 1;
 }
 
 
@@ -190,10 +182,8 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	const struct plugin_argument * const argv = plugin_info->argv;
 	bool enable = true;
 	struct register_pass_info insert_size_overflow_asm_pass_info;
-	struct register_pass_info __unused dump_before_pass_info;
-	struct register_pass_info __unused dump_after_pass_info;
-	struct register_pass_info insert_size_overflow_check_info;
-	struct register_pass_info dce_pass_info;
+	struct register_pass_info size_overflow_functions_pass_info;
+
 	static const struct ggc_root_tab gt_ggc_r_gt_size_overflow[] = {
 		{
 			.base = &report_size_overflow_decl,
@@ -210,25 +200,10 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	insert_size_overflow_asm_pass_info.ref_pass_instance_number	= 1;
 	insert_size_overflow_asm_pass_info.pos_op			= PASS_POS_INSERT_AFTER;
 
-	dump_before_pass_info.pass			= make_dump_pass();
-	dump_before_pass_info.reference_pass_name	= "increase_alignment";
-	dump_before_pass_info.ref_pass_instance_number	= 1;
-	dump_before_pass_info.pos_op			= PASS_POS_INSERT_BEFORE;
-
-	insert_size_overflow_check_info.pass			= make_insert_size_overflow_check();
-	insert_size_overflow_check_info.reference_pass_name	= "increase_alignment";
-	insert_size_overflow_check_info.ref_pass_instance_number	= 1;
-	insert_size_overflow_check_info.pos_op			= PASS_POS_INSERT_BEFORE;
-
-	dump_after_pass_info.pass			= make_dump_pass();
-	dump_after_pass_info.reference_pass_name	= "increase_alignment";
-	dump_after_pass_info.ref_pass_instance_number	= 1;
-	dump_after_pass_info.pos_op			= PASS_POS_INSERT_BEFORE;
-
-	dce_pass_info.pass				= make_dce_pass();
-	dce_pass_info.reference_pass_name		= "vrp";
-	dce_pass_info.ref_pass_instance_number	= 1;
-	dce_pass_info.pos_op			= PASS_POS_INSERT_AFTER;
+	size_overflow_functions_pass_info.pass			= make_size_overflow_functions_pass();
+	size_overflow_functions_pass_info.reference_pass_name	= "inline";
+	size_overflow_functions_pass_info.ref_pass_instance_number	= 1;
+	size_overflow_functions_pass_info.pos_op			= PASS_POS_INSERT_AFTER;
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));
@@ -248,10 +223,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 		register_callback(plugin_name, PLUGIN_START_UNIT, &size_overflow_start_unit, NULL);
 		register_callback(plugin_name, PLUGIN_REGISTER_GGC_ROOTS, NULL, (void *)&gt_ggc_r_gt_size_overflow);
 		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &insert_size_overflow_asm_pass_info);
-//		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &dump_before_pass_info);
-		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &insert_size_overflow_check_info);
-//		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &dump_after_pass_info);
-		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &dce_pass_info);
+		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &size_overflow_functions_pass_info);
 	}
 	register_callback(plugin_name, PLUGIN_ATTRIBUTES, register_attributes, NULL);
 

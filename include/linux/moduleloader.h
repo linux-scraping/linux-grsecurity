@@ -32,12 +32,12 @@ void *module_alloc_exec(unsigned long size);
 #endif
 
 /* Free memory returned from module_alloc. */
-void module_free(struct module *mod, void *module_region);
+void module_memfree(void *module_region);
 
 #ifdef CONFIG_PAX_KERNEXEC
-void module_free_exec(struct module *mod, void *module_region);
+void module_memfree_exec(void *module_region);
 #else
-#define module_free_exec(x, y) module_free((x), (y))
+#define module_memfree_exec(x) module_memfree((x))
 #endif
 
 /*
@@ -98,4 +98,6 @@ int module_finalize(const Elf_Ehdr *hdr,
 /* Any cleanup needed when module leaves. */
 void module_arch_cleanup(struct module *mod);
 
+/* Any cleanup before freeing mod->module_init */
+void module_arch_freeing_init(struct module *mod);
 #endif

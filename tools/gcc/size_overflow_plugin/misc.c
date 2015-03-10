@@ -1,9 +1,9 @@
 /*
- * Copyright 2011-2014 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011-2015 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2, or (at your option) v3
  *
  * Homepage:
- * http://www.grsecurity.net/~ephox/overflow_plugin/
+ * https://github.com/ephox-gcc-plugins/size_overflow
  *
  * Documentation:
  * http://forums.grsecurity.net/viewtopic.php?f=7&t=3043
@@ -17,88 +17,86 @@
  * $ make run
  */
 
-#include "gcc-common.h"
 #include "size_overflow.h"
 
-void set_current_function_decl(tree fndecl)
+const char *get_type_name_from_field(const_tree field_decl)
 {
-	gcc_assert(fndecl != NULL_TREE);
+	const_tree context, type_name;
 
-	push_cfun(DECL_STRUCT_FUNCTION(fndecl));
-	calculate_dominance_info(CDI_DOMINATORS);
-	current_function_decl = fndecl;
+	if (TREE_CODE(field_decl) != FIELD_DECL)
+		return NULL;
+
+	context = DECL_CONTEXT(field_decl);
+	gcc_assert(TREE_CODE(context) == RECORD_TYPE);
+	type_name = TYPE_NAME(TYPE_MAIN_VARIANT(context));
+	if (type_name == NULL_TREE)
+		return NULL;
+
+	if (TREE_CODE(type_name) == IDENTIFIER_NODE)
+		return IDENTIFIER_POINTER(type_name);
+	else if (TREE_CODE(type_name) == TYPE_DECL)
+		return DECL_NAME_POINTER(type_name);
+
+	debug_tree((tree)field_decl);
+	debug_tree((tree)type_name);
+	gcc_unreachable();
 }
 
-void unset_current_function_decl(void)
+// Was the function created by the compiler itself?
+bool made_by_compiler(const_tree decl)
 {
-	free_dominance_info(CDI_DOMINATORS);
-	pop_cfun();
-	current_function_decl = NULL_TREE;
-}
+	struct cgraph_node *node;
 
-static bool is_bool(const_tree node)
-{
-	const_tree type;
-
-	if (node == NULL_TREE)
+	if (FUNCTION_PTR_P(decl))
+		return false;
+	if (TREE_CODE(decl) == VAR_DECL)
 		return false;
 
-	type = TREE_TYPE(node);
-	if (!INTEGRAL_TYPE_P(type))
+	gcc_assert(TREE_CODE(decl) == FUNCTION_DECL);
+	if (DECL_ARTIFICIAL(decl))
+		return true;
+
+	node = get_cnode(decl);
+	if (!node)
 		return false;
-	if (TREE_CODE(type) == BOOLEAN_TYPE)
-		return true;
-	if (TYPE_PRECISION(type) == 1)
-		return true;
-	return false;
+	return node->clone_of != NULL;
 }
 
 bool skip_types(const_tree var)
 {
-	tree type;
-	enum tree_code code;
-
-	if (is_gimple_constant(var))
-		return true;
-
-	switch (TREE_CODE(var)) {
-		case ADDR_EXPR:
-#if BUILDING_GCC_VERSION >= 4006
-		case MEM_REF:
-#endif
-		case ARRAY_REF:
-		case BIT_FIELD_REF:
-		case INDIRECT_REF:
-		case TARGET_MEM_REF:
-		case COMPONENT_REF:
-		case VAR_DECL:
-		case VIEW_CONVERT_EXPR:
-			return true;
-		default:
-			break;
-	}
-
-	code = TREE_CODE(var);
-	gcc_assert(code == SSA_NAME || code == PARM_DECL);
+	const_tree type;
 
 	type = TREE_TYPE(var);
+	if (type == NULL_TREE)
+		return true;
+
 	switch (TREE_CODE(type)) {
 		case INTEGER_TYPE:
 		case ENUMERAL_TYPE:
 			return false;
-		case BOOLEAN_TYPE:
-			return is_bool(var);
 		default:
 			return true;
 	}
+}
+
+gimple get_fnptr_def_stmt(const_tree fn_ptr)
+{
+	gimple def_stmt;
+
+	gcc_assert(fn_ptr != NULL_TREE);
+	gcc_assert(FUNCTION_PTR_P(fn_ptr));
+
+	if (is_gimple_constant(fn_ptr))
+		return NULL;
+
+	def_stmt = get_def_stmt(fn_ptr);
+	gcc_assert(def_stmt);
+	return def_stmt;
 }
 
 gimple get_def_stmt(const_tree node)
 {
 	gcc_assert(node != NULL_TREE);
-
-	if (skip_types(node))
-		return NULL;
 
 	if (TREE_CODE(node) != SSA_NAME)
 		return NULL;
@@ -199,5 +197,231 @@ bool is_size_overflow_type(const_tree var)
 	if (!strncmp(name, "size_overflow_type", 18))
 		return true;
 	return false;
+}
+
+// Determine if a cloned function has all the original arguments
+static bool unchanged_arglist(struct cgraph_node *new_node, struct cgraph_node *old_node)
+{
+	const_tree new_decl_list, old_decl_list;
+
+	if (new_node->clone_of && new_node->clone.tree_map)
+		return !new_node->clone.args_to_skip;
+
+	new_decl_list = DECL_ARGUMENTS(NODE_DECL(new_node));
+	old_decl_list = DECL_ARGUMENTS(NODE_DECL(old_node));
+	if (new_decl_list != NULL_TREE && old_decl_list != NULL_TREE)
+		gcc_assert(list_length(new_decl_list) == list_length(old_decl_list));
+
+	return true;
+}
+
+unsigned int get_correct_argnum_fndecl(const_tree fndecl, const_tree correct_argnum_of_fndecl, unsigned int num)
+{
+	unsigned int new_num;
+	const_tree fndecl_arg;
+	tree fndecl_arglist = DECL_ARGUMENTS(fndecl);
+	const_tree arg, target_fndecl_arglist;
+
+	if (num == 0)
+		return num;
+
+	if (fndecl == correct_argnum_of_fndecl && !DECL_ARTIFICIAL(fndecl))
+		return num;
+	else if (fndecl == correct_argnum_of_fndecl && DECL_ARTIFICIAL(fndecl))
+		return CANNOT_FIND_ARG;
+
+	target_fndecl_arglist = DECL_ARGUMENTS(correct_argnum_of_fndecl);
+	if (fndecl_arglist == NULL_TREE || target_fndecl_arglist == NULL_TREE)
+		return CANNOT_FIND_ARG;
+
+	fndecl_arg = chain_index(num - 1, fndecl_arglist);
+	gcc_assert(fndecl_arg != NULL_TREE);
+
+	for (arg = target_fndecl_arglist, new_num = 1; arg; arg = TREE_CHAIN(arg), new_num++) {
+		if (arg == fndecl_arg || !strcmp(DECL_NAME_POINTER(arg), DECL_NAME_POINTER(fndecl_arg)))
+			return new_num;
+	}
+
+	return CANNOT_FIND_ARG;
+}
+
+// Find the specified argument in the originally cloned function
+static unsigned int clone_argnum_on_orig(struct cgraph_node *new_node, struct cgraph_node *old_node, unsigned int clone_argnum)
+{
+	bitmap args_to_skip;
+	unsigned int i, new_argnum = clone_argnum;
+
+	if (unchanged_arglist(new_node, old_node))
+		return clone_argnum;
+
+	gcc_assert(new_node->clone_of && new_node->clone.tree_map);
+	args_to_skip = new_node->clone.args_to_skip;
+	for (i = 0; i < clone_argnum; i++) {
+		if (bitmap_bit_p(args_to_skip, i))
+			new_argnum++;
+	}
+	return new_argnum;
+}
+
+// Find the specified argument in the clone
+static unsigned int orig_argnum_on_clone(struct cgraph_node *new_node, struct cgraph_node *old_node, unsigned int orig_argnum)
+{
+	bitmap args_to_skip;
+	unsigned int i, new_argnum = orig_argnum;
+
+	if (unchanged_arglist(new_node, old_node))
+		return orig_argnum;
+
+	gcc_assert(new_node->clone_of && new_node->clone.tree_map);
+	args_to_skip = new_node->clone.args_to_skip;
+	if (bitmap_bit_p(args_to_skip, orig_argnum - 1))
+		// XXX torolni kellene a nodeot
+		return CANNOT_FIND_ARG;
+
+	for (i = 0; i < orig_argnum; i++) {
+		if (bitmap_bit_p(args_to_skip, i))
+			new_argnum--;
+	}
+	return new_argnum;
+}
+
+// Associate the argument between a clone and a cloned function
+static unsigned int get_correct_argnum_cnode(struct cgraph_node *node, struct cgraph_node *correct_argnum_of_node, unsigned int argnum)
+{
+	bool node_clone, correct_argnum_of_node_clone;
+	const_tree correct_argnum_of_node_decl, node_decl;
+
+	if (node == correct_argnum_of_node)
+		return argnum;
+	if (argnum == 0)
+		return argnum;
+
+	correct_argnum_of_node_decl = NODE_DECL(correct_argnum_of_node);
+	gcc_assert(correct_argnum_of_node_decl != NULL_TREE);
+	gcc_assert(correct_argnum_of_node && !DECL_ARTIFICIAL(correct_argnum_of_node_decl));
+
+	if (node) {
+		node_decl = NODE_DECL(node);
+		gcc_assert(!DECL_ARTIFICIAL(node_decl));
+		node_clone = made_by_compiler(node_decl);
+	} else {
+		node_decl = NULL_TREE;
+		node_clone = false;
+	}
+
+	if (correct_argnum_of_node_decl == node_decl)
+		return argnum;
+
+	correct_argnum_of_node_clone = made_by_compiler(correct_argnum_of_node_decl);
+	// the original decl is lost if both nodes are clones
+	if (node_clone && correct_argnum_of_node_clone) {
+		gcc_assert(unchanged_arglist(node, correct_argnum_of_node));
+		return argnum;
+	}
+
+	if (node_clone && !correct_argnum_of_node_clone)
+		return clone_argnum_on_orig(correct_argnum_of_node, node, argnum);
+	else if (!node_clone && correct_argnum_of_node_clone)
+		return orig_argnum_on_clone(correct_argnum_of_node, node, argnum);
+
+	if (node)
+		debug_tree((tree)NODE_DECL(node));
+	debug_tree((tree)correct_argnum_of_node_decl);
+	gcc_unreachable();
+}
+
+unsigned int get_correct_argnum(const_tree decl, const_tree correct_argnum_of_decl, unsigned int argnum)
+{
+	struct cgraph_node *node, *correct_argnum_of_node;
+
+	gcc_assert(decl != NULL_TREE);
+	gcc_assert(correct_argnum_of_decl != NULL_TREE);
+
+	correct_argnum_of_node = get_cnode(correct_argnum_of_decl);
+	if (!correct_argnum_of_node || DECL_ARTIFICIAL(decl) || DECL_ARTIFICIAL(correct_argnum_of_decl))
+		return get_correct_argnum_fndecl(decl, correct_argnum_of_decl, argnum);
+
+	node = get_cnode(decl);
+	return get_correct_argnum_cnode(node, correct_argnum_of_node, argnum);
+}
+
+// Find the original cloned function
+tree get_orig_fndecl(const_tree clone_fndecl)
+{
+	tree orig_fndecl;
+	struct cgraph_node *node;
+
+	orig_fndecl = (tree)DECL_ORIGIN(clone_fndecl);
+	if (!made_by_compiler(orig_fndecl))
+		return orig_fndecl;
+
+	node = get_cnode(clone_fndecl);
+	if (!node)
+		return (tree)clone_fndecl;
+
+	while (node->clone_of)
+		node = node->clone_of;
+	if (!made_by_compiler(NODE_DECL(node)))
+		return NODE_DECL(node);
+	// Return the cloned decl because it is needed for the transform callback
+	return (tree)clone_fndecl;
+}
+
+static tree get_interesting_fndecl_from_stmt(const_gimple stmt)
+{
+	if (gimple_call_num_args(stmt) == 0)
+		return NULL_TREE;
+	return gimple_call_fndecl(stmt);
+}
+
+tree get_interesting_orig_fndecl_from_stmt(const_gimple stmt)
+{
+	tree fndecl;
+
+	fndecl = get_interesting_fndecl_from_stmt(stmt);
+	if (fndecl == NULL_TREE)
+		return NULL_TREE;
+	return get_orig_fndecl(fndecl);
+}
+
+void set_dominance_info(void)
+{
+	calculate_dominance_info(CDI_DOMINATORS);
+	calculate_dominance_info(CDI_POST_DOMINATORS);
+}
+
+void unset_dominance_info(void)
+{
+	free_dominance_info(CDI_DOMINATORS);
+	free_dominance_info(CDI_POST_DOMINATORS);
+}
+
+void set_current_function_decl(tree fndecl)
+{
+	gcc_assert(fndecl != NULL_TREE);
+
+	push_cfun(DECL_STRUCT_FUNCTION(fndecl));
+#if BUILDING_GCC_VERSION <= 4007
+	current_function_decl = fndecl;
+#endif
+	set_dominance_info();
+}
+
+void unset_current_function_decl(void)
+{
+	unset_dominance_info();
+#if BUILDING_GCC_VERSION <= 4007
+	current_function_decl = NULL_TREE;
+#endif
+	pop_cfun();
+}
+
+bool is_valid_cgraph_node(struct cgraph_node *node)
+{
+	if (cgraph_function_body_availability(node) == AVAIL_NOT_AVAILABLE)
+		return false;
+	if (node->thunk.thunk_p || node->alias)
+		return false;
+	return true;
 }
 

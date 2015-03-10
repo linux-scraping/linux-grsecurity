@@ -486,7 +486,7 @@ __do_kmalloc_node(size_t size, gfp_t gfp, int node, unsigned long caller)
 	return ret;
 }
 
-void *__kmalloc(size_t size, gfp_t gfp)
+void * __size_overflow(1) __kmalloc(size_t size, gfp_t gfp)
 {
 	return __do_kmalloc_node(size, gfp, NUMA_NO_NODE, _RET_IP_);
 }
@@ -679,7 +679,7 @@ void *kmem_cache_alloc(struct kmem_cache *cachep, gfp_t flags)
 EXPORT_SYMBOL(kmem_cache_alloc);
 
 #ifdef CONFIG_NUMA
-void *__kmalloc_node(size_t size, gfp_t gfp, int node)
+void * __size_overflow(1) __kmalloc_node(size_t size, gfp_t gfp, int node)
 {
 	return __do_kmalloc_node(size, gfp, node, _RET_IP_);
 }

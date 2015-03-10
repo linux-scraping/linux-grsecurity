@@ -447,7 +447,7 @@ static int dspi_resume(struct device *dev)
 
 static SIMPLE_DEV_PM_OPS(dspi_pm, dspi_suspend, dspi_resume);
 
-static struct regmap_config dspi_regmap_config = {
+static const struct regmap_config dspi_regmap_config = {
 	.reg_bits = 32,
 	.val_bits = 32,
 	.reg_stride = 4,
@@ -502,7 +502,6 @@ static int dspi_probe(struct platform_device *pdev)
 		goto out_master_put;
 	}
 
-	dspi_regmap_config.lock_arg = dspi;
 	dspi->regmap = devm_regmap_init_mmio_clk(&pdev->dev, "dspi", base,
 						&dspi_regmap_config);
 	if (IS_ERR(dspi->regmap)) {

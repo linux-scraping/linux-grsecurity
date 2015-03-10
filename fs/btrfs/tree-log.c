@@ -1010,7 +1010,7 @@ again:
 		base = btrfs_item_ptr_offset(leaf, path->slots[0]);
 
 		while (cur_offset < item_size) {
-			extref = (struct btrfs_inode_extref *)base + cur_offset;
+			extref = (struct btrfs_inode_extref *)(base + cur_offset);
 
 			victim_name_len = btrfs_inode_extref_name_len(leaf, extref);
 
@@ -2612,6 +2612,7 @@ int btrfs_sync_log(struct btrfs_trans_handle *trans,
 	}
 
 	if (log_root_tree->log_transid_committed >= root_log_ctx.log_transid) {
+		blk_finish_plug(&plug);
 		mutex_unlock(&log_root_tree->log_mutex);
 		ret = root_log_ctx.log_ret;
 		goto out;
@@ -2620,12 +2621,14 @@ int btrfs_sync_log(struct btrfs_trans_handle *trans,
 	index2 = root_log_ctx.log_transid % 2;
 	if (atomic_read(&log_root_tree->log_commit[index2])) {
 		blk_finish_plug(&plug);
-		btrfs_wait_marked_extents(log, &log->dirty_log_pages, mark);
+		ret = btrfs_wait_marked_extents(log, &log->dirty_log_pages,
+						mark);
 		btrfs_wait_logged_extents(trans, log, log_transid);
 		wait_log_commit(trans, log_root_tree,
 				root_log_ctx.log_transid);
 		mutex_unlock(&log_root_tree->log_mutex);
-		ret = root_log_ctx.log_ret;
+		if (!ret)
+			ret = root_log_ctx.log_ret;
 		goto out;
 	}
 	ASSERT(root_log_ctx.log_transid == log_root_tree->log_transid);
@@ -2662,10 +2665,17 @@ int btrfs_sync_log(struct btrfs_trans_handle *trans,
 		mutex_unlock(&log_root_tree->log_mutex);
 		goto out_wake_log_root;
 	}
-	btrfs_wait_marked_extents(log, &log->dirty_log_pages, mark);
-	btrfs_wait_marked_extents(log_root_tree,
-				  &log_root_tree->dirty_log_pages,
-				  EXTENT_NEW | EXTENT_DIRTY);
+	ret = btrfs_wait_marked_extents(log, &log->dirty_log_pages, mark);
+	if (!ret)
+		ret = btrfs_wait_marked_extents(log_root_tree,
+						&log_root_tree->dirty_log_pages,
+						EXTENT_NEW | EXTENT_DIRTY);
+	if (ret) {
+		btrfs_set_log_full_commit(root->fs_info, trans);
+		btrfs_free_logged_extents(log, log_transid);
+		mutex_unlock(&log_root_tree->log_mutex);
+		goto out_wake_log_root;
+	}
 	btrfs_wait_logged_extents(trans, log, log_transid);
 
 	btrfs_set_super_log_root(root->fs_info->super_for_commit,
@@ -3650,6 +3660,12 @@ static int wait_ordered_extents(struct btrfs_trans_handle *trans,
 			    test_bit(BTRFS_ORDERED_IOERR, &ordered->flags)));
 
 		if (test_bit(BTRFS_ORDERED_IOERR, &ordered->flags)) {
+			/*
+			 * Clear the AS_EIO/AS_ENOSPC flags from the inode's
+			 * i_mapping flags, so that the next fsync won't get
+			 * an outdated io error too.
+			 */
+			btrfs_inode_check_errors(inode);
 			*ordered_io_error = true;
 			break;
 		}
@@ -4015,7 +4031,7 @@ static int btrfs_log_inode(struct btrfs_trans_handle *trans,
 
 	mutex_lock(&BTRFS_I(inode)->log_mutex);
 
-	btrfs_get_logged_extents(inode, &logged_list);
+	btrfs_get_logged_extents(inode, &logged_list, start, end);
 
 	/*
 	 * a brute force approach to making sure we get the most uptodate
@@ -4162,6 +4178,21 @@ log_extents:
 	btrfs_release_path(path);
 	btrfs_release_path(dst_path);
 	if (fast_search) {
+		/*
+		 * Some ordered extents started by fsync might have completed
+		 * before we collected the ordered extents in logged_list, which
+		 * means they're gone, not in our logged_list nor in the inode's
+		 * ordered tree. We want the application/user space to know an
+		 * error happened while attempting to persist file data so that
+		 * it can take proper action. If such error happened, we leave
+		 * without writing to the log tree and the fsync must report the
+		 * file data write error and not commit the current transaction.
+		 */
+		err = btrfs_inode_check_errors(inode);
+		if (err) {
+			ctx->io_err = err;
+			goto out_unlock;
+		}
 		ret = btrfs_log_changed_extents(trans, root, inode, dst_path,
 						&logged_list, ctx);
 		if (ret) {

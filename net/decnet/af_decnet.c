@@ -1761,7 +1761,7 @@ static int dn_recvmsg(struct kiocb *iocb, struct socket *sock,
 		if ((chunk + copied) > size)
 			chunk = size - copied;
 
-		if (memcpy_toiovec(msg->msg_iov, skb->data, chunk)) {
+		if (memcpy_to_msg(msg, skb->data, chunk)) {
 			rv = -EFAULT;
 			break;
 		}
@@ -2033,7 +2033,7 @@ static int dn_sendmsg(struct kiocb *iocb, struct socket *sock,
 
 		skb_reserve(skb, 64 + DN_MAX_NSP_DATA_HEADER);
 
-		if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
+		if (memcpy_from_msg(skb_put(skb, len), msg, len)) {
 			err = -EFAULT;
 			goto out;
 		}

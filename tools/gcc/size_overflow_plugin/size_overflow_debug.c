@@ -1,9 +1,9 @@
 /*
- * Copyright 2011-2014 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011-2015 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2, or (at your option) v3
  *
  * Homepage:
- * http://www.grsecurity.net/~ephox/overflow_plugin/
+ * https://github.com/ephox-gcc-plugins/size_overflow
  *
  * Documentation:
  * http://forums.grsecurity.net/viewtopic.php?f=7&t=3043
@@ -17,100 +17,148 @@
  * $ make run
  */
 
-#include "gcc-common.h"
+#include "size_overflow.h"
 
-static unsigned int dump_functions(void)
+void __unused print_intentional_mark(enum intentional_mark mark)
 {
-	struct cgraph_node *node;
+	fprintf(stderr, "intentional mark: ");
+	switch (mark) {
+	case MARK_NO:
+		fprintf(stderr, "mark_no\n");
+		break;
+	case MARK_YES:
+		fprintf(stderr, "mark_yes\n");
+		break;
+	case MARK_TURN_OFF:
+		fprintf(stderr, "mark_turn_off\n");
+		break;
+	case MARK_END_INTENTIONAL:
+		fprintf(stderr, "mark_end_intentional\n");
+		break;
+	}
+}
 
-	FOR_EACH_FUNCTION_WITH_GIMPLE_BODY(node) {
-		basic_block bb;
+unsigned int __unused size_overflow_dump_function(FILE *file, struct cgraph_node *node)
+{
+	basic_block bb;
 
-		push_cfun(DECL_STRUCT_FUNCTION(NODE_DECL(node)));
-		current_function_decl = NODE_DECL(node);
+	fprintf(file, "dump_function function_name: %s\n", cgraph_node_name(node));
 
-		fprintf(stderr, "-----------------------------------------\n%s\n-----------------------------------------\n", DECL_NAME_POINTER(current_function_decl));
+	fprintf(file, "\nstmts:\n");
+	FOR_ALL_BB_FN(bb, DECL_STRUCT_FUNCTION(NODE_DECL(node))) {
+		gimple_stmt_iterator si;
 
-		FOR_ALL_BB_FN(bb, cfun) {
-			gimple_stmt_iterator si;
-
-			fprintf(stderr, "<bb %u>:\n", bb->index);
-			for (si = gsi_start_phis(bb); !gsi_end_p(si); gsi_next(&si))
-				debug_gimple_stmt(gsi_stmt(si));
-			for (si = gsi_start_bb(bb); !gsi_end_p(si); gsi_next(&si))
-				debug_gimple_stmt(gsi_stmt(si));
-			fprintf(stderr, "\n");
-		}
-
-		fprintf(stderr, "-------------------------------------------------------------------------\n");
-
-		pop_cfun();
-		current_function_decl = NULL_TREE;
+		fprintf(file, "<bb %u>:\n", bb->index);
+		for (si = gsi_start_phis(bb); !gsi_end_p(si); gsi_next(&si))
+			print_gimple_stmt(file, gsi_stmt(si), 0, TDF_VOPS|TDF_MEMSYMS);
+		for (si = gsi_start_bb(bb); !gsi_end_p(si); gsi_next(&si))
+			print_gimple_stmt(file, gsi_stmt(si), 0, TDF_VOPS|TDF_MEMSYMS);
+		fprintf(file, "\n");
 	}
 
-	fprintf(stderr, "###############################################################################\n");
+	fprintf(file, "---------------------------------\n");
 
 	return 0;
 }
 
-#if BUILDING_GCC_VERSION >= 4009
-static const struct pass_data dump_pass_data = {
-#else
-static struct ipa_opt_pass_d dump_pass = {
-	.pass = {
-#endif
-		.type			= SIMPLE_IPA_PASS,
-		.name			= "dump",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-#if BUILDING_GCC_VERSION >= 4009
-		.has_gate		= false,
-		.has_execute		= true,
-#else
-		.gate			= NULL,
-		.execute		= dump_functions,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-#endif
-		.tv_id			= TV_NONE,
-		.properties_required	= 0,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0,
-		.todo_flags_finish	= 0,
-#if BUILDING_GCC_VERSION < 4009
-	},
-	.generate_summary		= NULL,
-	.write_summary			= NULL,
-	.read_summary			= NULL,
-#if BUILDING_GCC_VERSION >= 4006
-	.write_optimization_summary	= NULL,
-	.read_optimization_summary	= NULL,
-#endif
-	.stmt_fixup			= NULL,
-	.function_transform_todo_flags_start		= 0,
-	.function_transform		= NULL,
-	.variable_transform		= NULL,
-#endif
-};
-
-#if BUILDING_GCC_VERSION >= 4009
-namespace {
-class dump_pass : public ipa_opt_pass_d {
-public:
-	dump_pass() : ipa_opt_pass_d(dump_pass_data, g, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL) {}
-	unsigned int execute() { return dump_functions(); }
-};
-}
-#endif
-
-struct opt_pass *make_dump_pass(void)
+static void __unused print_next_interesting_function(next_interesting_function_t node)
 {
-#if BUILDING_GCC_VERSION >= 4009
-	return new dump_pass();
+	unsigned int i;
+	next_interesting_function_t cur;
+
+	if (!node)
+		return;
+
+	fprintf(stderr, "print_next_interesting_function: ptr: %p, ", node);
+	fprintf(stderr, "decl_name: %s, ", node->decl_name);
+
+	fprintf(stderr, "num: %u marked: %s context: %s\n", node->num, print_so_mark_name(node->marked), node->context);
+#if BUILDING_GCC_VERSION <= 4007
+	if (VEC_empty(next_interesting_function_t, node->children))
+		return;
+	FOR_EACH_VEC_ELT(next_interesting_function_t, node->children, i, cur) {
 #else
-	return &dump_pass.pass;
+	FOR_EACH_VEC_SAFE_ELT(node->children, i, cur) {
 #endif
+		fprintf(stderr, "\t%u. child: %s %u %p\n", i + 1, cur->decl_name, cur->num, cur);
+	}
+}
+
+// Dump the full next_interesting_function_t list for parsing by print_dependecy.py
+void __unused print_next_interesting_functions_chain(next_interesting_function_t head, bool only_this)
+{
+	next_interesting_function_t cur;
+	unsigned int len;
+
+	fprintf(stderr, "----------------------\nnext_interesting_function_t head: %p\n", head);
+	for (cur = head, len = 0; cur; cur = cur->next, len++) {
+		fprintf(stderr, "%u. ", len + 1);
+		print_next_interesting_function(cur);
+
+		fprintf(stderr, "+++++ has orig node: %p +++++\n", cur->orig_next_node);
+		print_next_interesting_function(cur->orig_next_node);
+
+		if (only_this)
+			break;
+	}
+
+	fprintf(stderr, "len: %u\n----------------------\n\n\n", len + 1);
+}
+
+void __unused print_global_next_interesting_functions(void)
+{
+	unsigned int i;
+
+	fprintf(stderr, "----------------------\nprint_global_next_interesting_functions:\n----------------------\n");
+	for (i = 0; i < GLOBAL_NIFN_LEN; i++) {
+		if (!global_next_interesting_function[i])
+			continue;
+		fprintf(stderr, "hash: %u\n", i);
+		print_next_interesting_functions_chain(global_next_interesting_function[i], false);
+	}
+	fprintf(stderr, "----------------------\n\n");
+}
+
+// Dump the information related to the specified next_interesting_function_t for parsing by print_dependecy.py
+void __unused print_children_chain_list(next_interesting_function_t next_node)
+{
+	next_interesting_function_t cur;
+	unsigned int i;
+
+#if BUILDING_GCC_VERSION <= 4007
+	if (VEC_empty(next_interesting_function_t, next_node->children))
+		return;
+	FOR_EACH_VEC_ELT(next_interesting_function_t, next_node->children, i, cur) {
+#else
+	FOR_EACH_VEC_SAFE_ELT(next_node->children, i, cur) {
+#endif
+		fprintf(stderr, "parent: %s %u (marked: %s) child: %s %u\n", next_node->decl_name, next_node->num, print_so_mark_name(next_node->marked), cur->decl_name, cur->num);
+		print_children_chain_list(cur);
+	}
+}
+
+void __unused print_all_next_node_children_chain_list(next_interesting_function_t head)
+{
+	next_interesting_function_t cur;
+
+	for (cur = head; cur; cur = cur->next) {
+#if BUILDING_GCC_VERSION <= 4007
+		if (VEC_empty(next_interesting_function_t, cur->children))
+#else
+		if (vec_safe_length(cur->children) == 0)
+#endif
+			continue;
+		fprintf(stderr, "############ START ############\n");
+		print_children_chain_list(cur);
+		fprintf(stderr, "############ END ############\n");
+	}
+}
+
+const char * __unused print_so_mark_name(enum size_overflow_mark mark)
+{
+	if (mark == ASM_STMT_SO_MARK)
+		return "asm_stmt_so_mark";
+	if (mark == YES_SO_MARK)
+		return "yes_so_mark";
+	return "no_so_mark";
 }

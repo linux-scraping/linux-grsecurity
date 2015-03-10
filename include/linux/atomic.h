@@ -12,7 +12,7 @@
  * Atomically adds @a to @v, so long as @v was not already @u.
  * Returns non-zero if @v was not @u, and zero otherwise.
  */
-static inline int atomic_add_unless(atomic_t *v, int a, int u)
+static inline int __intentional_overflow(-1) atomic_add_unless(atomic_t *v, int a, int u)
 {
 	return __atomic_add_unless(v, a, u) != u;
 }

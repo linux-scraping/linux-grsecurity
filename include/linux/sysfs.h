@@ -72,9 +72,18 @@ typedef struct attribute_group __no_const attribute_group_no_const;
  * for examples..
  */
 
+#define SYSFS_PREALLOC 010000
+
 #define __ATTR(_name, _mode, _show, _store) {				\
 	.attr = {.name = __stringify(_name),				\
 		 .mode = VERIFY_OCTAL_PERMISSIONS(_mode) },		\
+	.show	= _show,						\
+	.store	= _store,						\
+}
+
+#define __ATTR_PREALLOC(_name, _mode, _show, _store) {			\
+	.attr = {.name = __stringify(_name),				\
+		 .mode = SYSFS_PREALLOC | VERIFY_OCTAL_PERMISSIONS(_mode) },\
 	.show	= _show,						\
 	.store	= _store,						\
 }
