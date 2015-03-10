@@ -64,7 +64,7 @@
 #include "gimple-pretty-print.h"
 #endif
 
-#if BUILDING_GCC_VERSION >= 4007
+#if BUILDING_GCC_VERSION >= 4006
 //#include "c-tree.h"
 //#include "cp/cp-tree.h"
 #include "c-family/c-common.h"
