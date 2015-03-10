@@ -34,7 +34,13 @@
 #include "timevar.h"
 
 #include "params.h"
+
+#if BUILDING_GCC_VERSION <= 4009
 #include "pointer-set.h"
+#else
+#include "hash-map.h"
+#endif
+
 #include "emit-rtl.h"
 //#include "reload.h"
 //#include "ira.h"
@@ -49,11 +55,21 @@
 //#include "coverage.h"
 //#include "value-prof.h"
 
+#if BUILDING_GCC_VERSION == 4005
+#include <sys/mman.h>
+#endif
+
 #if BUILDING_GCC_VERSION >= 4007
 #include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
-#include "c-tree.h"
-//#include "alloc-pool.h"
+#endif
+
+#if BUILDING_GCC_VERSION >= 4006
+//#include "c-tree.h"
+//#include "cp/cp-tree.h"
+#include "c-family/c-common.h"
+#else
+#include "c-common.h"
 #endif
 
 #if BUILDING_GCC_VERSION <= 4008
@@ -75,6 +91,7 @@
 #include "stor-layout.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
+#include "gimple-fold.h"
 //#include "diagnostic-color.h"
 #include "context.h"
 #include "tree-ssa-alias.h"
@@ -97,7 +114,11 @@
 #endif
 
 //#include "lto/lto.h"
+#if BUILDING_GCC_VERSION >= 4007
 //#include "data-streamer.h"
+#else
+//#include "lto-streamer.h"
+#endif
 //#include "lto-compress.h"
 
 //#include "expr.h" where are you...
@@ -107,6 +128,15 @@ extern rtx emit_move_insn(rtx x, rtx y);
 extern void debug_dominance_info(enum cdi_direction dir);
 extern void debug_dominance_tree(enum cdi_direction dir, basic_block root);
 
+#ifdef __cplusplus
+static inline void debug_tree(const_tree t)
+{
+	debug_tree(CONST_CAST_TREE(t));
+}
+#else
+#define debug_tree(t) debug_tree(CONST_CAST_TREE(t))
+#endif
+
 #define __unused __attribute__((__unused__))
 
 #define DECL_NAME_POINTER(node) IDENTIFIER_POINTER(DECL_NAME(node))
@@ -114,11 +144,19 @@ extern void debug_dominance_tree(enum cdi_direction dir, basic_block root);
 #define TYPE_NAME_POINTER(node) IDENTIFIER_POINTER(TYPE_NAME(node))
 #define TYPE_NAME_LENGTH(node) IDENTIFIER_LENGTH(TYPE_NAME(node))
 
+// should come from c-tree.h if only it were installed for gcc 4.5...
+#define C_TYPE_FIELDS_READONLY(TYPE) TREE_LANG_FLAG_1(TYPE)
+
 #if BUILDING_GCC_VERSION == 4005
-#define FOR_EACH_LOCAL_DECL(FUN, I, D) for (tree vars = (FUN)->local_decls; vars && (D = TREE_VALUE(vars)); vars = TREE_CHAIN(vars), I)
+#define FOR_EACH_VEC_ELT_REVERSE(T,V,I,P) for (I = VEC_length(T, (V)) - 1; VEC_iterate(T, (V), (I), (P)); (I)--)
+#define FOR_EACH_LOCAL_DECL(FUN, I, D) FOR_EACH_VEC_ELT_REVERSE(tree, (FUN)->local_decls, I, D)
 #define DECL_CHAIN(NODE) (TREE_CHAIN(DECL_MINIMAL_CHECK(NODE)))
 #define FOR_EACH_VEC_ELT(T, V, I, P) for (I = 0; VEC_iterate(T, (V), (I), (P)); ++(I))
 #define TODO_rebuild_cgraph_edges 0
+
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
 
 static inline bool gimple_call_builtin_p(gimple stmt, enum built_in_function code)
 {
@@ -169,23 +207,43 @@ static inline bool is_simple_builtin(tree decl)
 #if BUILDING_GCC_VERSION <= 4006
 #define ANY_RETURN_P(rtx) (GET_CODE(rtx) == RETURN)
 #define C_DECL_REGISTER(EXP) DECL_LANG_FLAG_4(EXP)
-
-// should come from c-tree.h if only it were installed for gcc 4.5...
-#define C_TYPE_FIELDS_READONLY(TYPE) TREE_LANG_FLAG_1(TYPE)
+#define EDGE_PRESERVE 0ULL
+#define HOST_WIDE_INT_PRINT_HEX_PURE "%" HOST_WIDE_INT_PRINT "x"
+#define flag_fat_lto_objects true
 
 #define get_random_seed(noinit) ({						\
 	unsigned HOST_WIDE_INT seed;						\
 	sscanf(get_random_seed(noinit), "%" HOST_WIDE_INT_PRINT "x", &seed);	\
 	seed * seed; })
 
+#define int_const_binop(code, arg1, arg2) int_const_binop((code), (arg1), (arg2), 0)
+
 static inline bool gimple_clobber_p(gimple s)
 {
+	return false;
+}
+
+static inline bool gimple_asm_clobbers_memory_p(const_gimple stmt)
+{
+	unsigned i;
+
+	for (i = 0; i < gimple_asm_nclobbers(stmt); i++) {
+		tree op = gimple_asm_clobber_op(stmt, i);
+		if (!strcmp(TREE_STRING_POINTER(TREE_VALUE(op)), "memory"))
+			return true;
+	}
+
 	return false;
 }
 
 static inline tree builtin_decl_implicit(enum built_in_function fncode)
 {
 	return implicit_built_in_decls[fncode];
+}
+
+static inline int ipa_reverse_postorder(struct cgraph_node **order)
+{
+	return cgraph_postorder(order);
 }
 
 static inline struct cgraph_node *cgraph_get_create_node(tree decl)
@@ -233,8 +291,11 @@ extern void dump_gimple_stmt(pretty_printer *, gimple, int, int);
 #endif
 
 #if BUILDING_GCC_VERSION <= 4007
+#define FOR_EACH_FUNCTION(node) for (node = cgraph_nodes; node; node = node->next)
 #define FOR_EACH_VARIABLE(node) for (node = varpool_nodes; node; node = node->next)
 #define PROP_loops 0
+#define NODE_SYMBOL(node) (node)
+#define NODE_DECL(node) (node)->decl
 
 static inline int bb_loop_depth(const_basic_block bb)
 {
@@ -264,6 +325,8 @@ static inline bool gimple_store_p(gimple gs)
 #define last_basic_block_for_fn(FN)	((FN)->cfg->x_last_basic_block)
 #define label_to_block_map_for_fn(FN)	((FN)->cfg->x_label_to_block_map)
 #define profile_status_for_fn(FN)	((FN)->cfg->x_profile_status)
+#define BASIC_BLOCK_FOR_FN(FN, N)	BASIC_BLOCK_FOR_FUNCTION((FN), (N))
+#define NODE_IMPLICIT_ALIAS(node)	(node)->same_body_alias
 
 static inline const char *get_tree_code_name(enum tree_code code)
 {
@@ -275,9 +338,8 @@ static inline const char *get_tree_code_name(enum tree_code code)
 #endif
 
 #if BUILDING_GCC_VERSION == 4008
-#define NODE_DECL(node) node->symbol.decl
-#else
-#define NODE_DECL(node) node->decl
+#define NODE_SYMBOL(node) (&(node)->symbol)
+#define NODE_DECL(node) (node)->symbol.decl
 #endif
 
 #if BUILDING_GCC_VERSION >= 4008
@@ -288,8 +350,26 @@ static inline const char *get_tree_code_name(enum tree_code code)
 #define TODO_dump_cgraph 0
 #endif
 
+#if BUILDING_GCC_VERSION <= 4009
+#define TODO_verify_il 0
+#endif
+
 #if BUILDING_GCC_VERSION >= 4009
 #define TODO_ggc_collect 0
+#define NODE_SYMBOL(node) (node)
+#define NODE_DECL(node) (node)->decl
+#define cgraph_node_name(node) (node)->name()
+#define NODE_IMPLICIT_ALIAS(node) (node)->cpp_implicit_alias
+#endif
+
+#if BUILDING_GCC_VERSION >= 5000
+#define TODO_verify_ssa TODO_verify_il
+#define TODO_verify_flow TODO_verify_il
+#define TODO_verify_stmts TODO_verify_il
+#define TODO_verify_rtl_sharing TODO_verify_il
+
+#define debug_cgraph_node(node) (node)->debug()
+#define cgraph_get_node(decl) cgraph_node::get(decl)
 #endif
 
 #endif

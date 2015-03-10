@@ -150,6 +150,12 @@ static unsigned long vdso_addr(unsigned long start, unsigned len)
 		addr = start;
 	}
 
+	/*
+	 * Forcibly align the final address in case we have a hardware
+	 * issue that requires alignment for performance reasons.
+	 */
+	addr = align_vdso_addr(addr);
+
 	return addr;
 }
 
@@ -171,13 +177,6 @@ static int setup_additional_pages(struct linux_binprm *bprm,
 #endif
 
 	addr = vdso_addr(mm->start_stack, size);
-
-	/*
-	 * Forcibly align the final address in case we have a hardware
-	 * issue that requires alignment for performance reasons.
-	 */
-	addr = align_vdso_addr(addr);
-
 	addr = get_unmapped_area(NULL, addr, size, 0, 0);
 	if (IS_ERR_VALUE(addr)) {
 		ret = addr;
