@@ -39,6 +39,7 @@ struct vfree_deferred {
 	struct work_struct wq;
 };
 static DEFINE_PER_CPU(struct vfree_deferred, vfree_deferred);
+static DEFINE_PER_CPU(struct vfree_deferred, vunmap_deferred);
 
 #ifdef CONFIG_GRKERNSEC_KSTACKOVERFLOW
 struct stack_deferred_llist {
@@ -57,7 +58,7 @@ static DEFINE_PER_CPU(struct stack_deferred, stack_deferred);
 
 static void __vunmap(const void *, int);
 
-static void free_work(struct work_struct *w)
+static void vfree_work(struct work_struct *w)
 {
 	struct vfree_deferred *p = container_of(w, struct vfree_deferred, wq);
 	struct llist_node *llnode = llist_del_all(&p->list);
@@ -65,6 +66,17 @@ static void free_work(struct work_struct *w)
 		void *x = llnode;
 		llnode = llist_next(llnode);
 		__vunmap(x, 1);
+	}
+}
+
+static void vunmap_work(struct work_struct *w)
+{
+	struct vfree_deferred *p = container_of(w, struct vfree_deferred, wq);
+	struct llist_node *llnode = llist_del_all(&p->list);
+	while (llnode) {
+		void *p = llnode;
+		llnode = llist_next(llnode);
+		__vunmap(p, 0);
 	}
 }
 
@@ -1261,7 +1273,11 @@ void __init vmalloc_init(void)
 
 		p = &per_cpu(vfree_deferred, i);
 		init_llist_head(&p->list);
-		INIT_WORK(&p->wq, free_work);
+		INIT_WORK(&p->wq, vfree_work);
+
+		p = &per_cpu(vunmap_deferred, i);
+		init_llist_head(&p->list);
+		INIT_WORK(&p->wq, vunmap_work);
 
 #ifdef CONFIG_GRKERNSEC_KSTACKOVERFLOW
 		p2 = &per_cpu(stack_deferred, i);
@@ -1600,10 +1616,16 @@ EXPORT_SYMBOL(vfree);
  */
 void vunmap(const void *addr)
 {
-	BUG_ON(in_interrupt());
-	might_sleep();
-	if (addr)
+	if (!addr)
+		return;
+	if (unlikely(in_interrupt())) {
+		struct vfree_deferred *p = this_cpu_ptr(&vunmap_deferred);
+		if (llist_add((struct llist_node *)addr, &p->list))
+			schedule_work(&p->wq);
+	} else {
+		might_sleep();
 		__vunmap(addr, 0);
+	}
 }
 EXPORT_SYMBOL(vunmap);
 

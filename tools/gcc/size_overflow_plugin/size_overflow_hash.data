@@ -1503,7 +1503,8 @@ snd_seq_timer_set_tempo_3544 snd_seq_timer_set_tempo 0 3544 &sht15_send_status_3
 nouveau_fuse_create__3546 nouveau_fuse_create_ 4 3546 NULL
 btrfs_dir_name_len_3549 btrfs_dir_name_len 0 3549 NULL nohasharray
 raid_show_level_3549 raid_show_level 0 3549 &btrfs_dir_name_len_3549
-target_stat_scsi_lu_attr_show_3561 target_stat_scsi_lu_attr_show 0 3561 NULL
+target_stat_scsi_lu_attr_show_3561 target_stat_scsi_lu_attr_show 0 3561 NULL nohasharray
+b43legacy_read16_3561 b43legacy_read16 0 3561 &target_stat_scsi_lu_attr_show_3561
 nilfs_dat_translate_3562 nilfs_dat_translate 0 3562 NULL
 ip_queue_xmit_3564 ip_queue_xmit 0 3564 NULL nohasharray
 stv0680_set_video_mode_3564 stv0680_set_video_mode 0 3564 &ip_queue_xmit_3564 nohasharray
@@ -20997,6 +20998,7 @@ gfs2_quota_lock_49587 gfs2_quota_lock 0 49587 NULL
 aty_valid_pll_ct_49589 aty_valid_pll_ct 0 49589 NULL nohasharray
 cpu_mask_to_apicid_and_49589 cpu_mask_to_apicid_and 0 49589 &aty_valid_pll_ct_49589
 usbhid_get_power_49590 usbhid_get_power 0 49590 NULL
+frag_rx_path_49593 frag_rx_path 3 49593 NULL
 evm_inode_setattr_49594 evm_inode_setattr 0 49594 NULL nohasharray
 tpacpi_rfk_sysfs_enable_store_49594 tpacpi_rfk_sysfs_enable_store 0-4 49594 &evm_inode_setattr_49594
 elants_i2c_fw_update_49595 elants_i2c_fw_update 0 49595 NULL

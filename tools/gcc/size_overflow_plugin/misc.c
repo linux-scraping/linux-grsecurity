@@ -53,6 +53,8 @@ bool made_by_compiler(const_tree decl)
 		return false;
 
 	gcc_assert(TREE_CODE(decl) == FUNCTION_DECL);
+	if (DECL_ABSTRACT_ORIGIN(decl) == NULL_TREE)
+		return false;
 	if (DECL_ARTIFICIAL(decl))
 		return true;
 
@@ -348,13 +350,10 @@ unsigned int get_correct_argnum(const_tree decl, const_tree correct_argnum_of_de
 // Find the original cloned function
 tree get_orig_fndecl(const_tree clone_fndecl)
 {
-	tree orig_fndecl;
 	struct cgraph_node *node;
 
-	orig_fndecl = (tree)DECL_ORIGIN(clone_fndecl);
-	if (!made_by_compiler(orig_fndecl))
-		return orig_fndecl;
-
+	if (DECL_ABSTRACT_ORIGIN(clone_fndecl))
+		return (tree)DECL_ORIGIN(clone_fndecl);
 	node = get_cnode(clone_fndecl);
 	if (!node)
 		return (tree)clone_fndecl;
