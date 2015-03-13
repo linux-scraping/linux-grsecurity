@@ -18,6 +18,7 @@
 #include <linux/syscore_ops.h>
 #include <linux/cpu_pm.h>
 #include <linux/io.h>
+#include <linux/irq.h>
 #include <linux/irqchip/arm-gic.h>
 #include <linux/err.h>
 #include <linux/regulator/machine.h>
@@ -558,8 +559,10 @@ void __init exynos_pm_init(void)
 	tmp |= pm_data->wake_disable_mask;
 	pmu_raw_writel(tmp, S5P_WAKEUP_MASK);
 
-	exynos_pm_syscore_ops.suspend	= pm_data->pm_suspend;
-	exynos_pm_syscore_ops.resume	= pm_data->pm_resume;
+	pax_open_kernel();
+	*(void **)&exynos_pm_syscore_ops.suspend	= pm_data->pm_suspend;
+	*(void **)&exynos_pm_syscore_ops.resume	= pm_data->pm_resume;
+	pax_close_kernel();
 
 	register_syscore_ops(&exynos_pm_syscore_ops);
 	suspend_set_ops(&exynos_suspend_ops);

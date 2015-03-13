@@ -53,8 +53,8 @@ bool made_by_compiler(const_tree decl)
 		return false;
 
 	gcc_assert(TREE_CODE(decl) == FUNCTION_DECL);
-	if (DECL_ABSTRACT_ORIGIN(decl) == NULL_TREE)
-		return false;
+	if (DECL_ABSTRACT_ORIGIN(decl) != NULL_TREE)
+		return true;
 	if (DECL_ARTIFICIAL(decl))
 		return true;
 

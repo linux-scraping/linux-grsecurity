@@ -1618,6 +1618,7 @@ void vunmap(const void *addr)
 {
 	if (!addr)
 		return;
+
 	if (unlikely(in_interrupt())) {
 		struct vfree_deferred *p = this_cpu_ptr(&vunmap_deferred);
 		if (llist_add((struct llist_node *)addr, &p->list))
