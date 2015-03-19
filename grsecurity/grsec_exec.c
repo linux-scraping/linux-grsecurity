@@ -133,7 +133,8 @@ const char *captab_log[] = {
 	"CAP_MAC_ADMIN",
 	"CAP_SYSLOG",
 	"CAP_WAKE_ALARM",
-	"CAP_BLOCK_SUSPEND"
+	"CAP_BLOCK_SUSPEND",
+	"CAP_AUDIT_READ"
 };
 
 int captab_log_entries = sizeof(captab_log)/sizeof(captab_log[0]);

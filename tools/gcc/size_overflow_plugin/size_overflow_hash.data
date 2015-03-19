@@ -7507,6 +7507,7 @@ command_setsensorfps_17814 command_setsensorfps 0 17814 &xhci_queue_ctrl_tx_1781
 copy_out_args_17816 copy_out_args 0 17816 NULL
 generic_validate_add_page_17818 generic_validate_add_page 0 17818 NULL
 _snd_pcm_lib_alloc_vmalloc_buffer_17820 _snd_pcm_lib_alloc_vmalloc_buffer 2 17820 NULL
+gnet_stats_copy_app_17821 gnet_stats_copy_app 3 17821 NULL
 regmap_i2c_gather_write_17823 regmap_i2c_gather_write 0 17823 NULL
 jme_request_irq_17824 jme_request_irq 0 17824 NULL
 velocity_init_td_ring_17825 velocity_init_td_ring 0 17825 NULL
@@ -12022,6 +12023,7 @@ phys_switch_id_show_28314 phys_switch_id_show 0 28314 NULL
 adp5520_bl_office_max_store_28316 adp5520_bl_office_max_store 4-0 28316 NULL
 snd_pcm_oss_read_28317 snd_pcm_oss_read 3-0 28317 NULL nohasharray
 il4965_show_temperature_28317 il4965_show_temperature 0 28317 &snd_pcm_oss_read_28317
+generic_access_phys_28318 generic_access_phys 4-2 28318 NULL
 fc2580_set_params_28319 fc2580_set_params 0 28319 NULL
 filldir64_28323 filldir64 3 28323 NULL
 card_send_command_28325 card_send_command 0 28325 NULL nohasharray
@@ -15403,7 +15405,8 @@ snd_rme96_playback_trigger_36173 snd_rme96_playback_trigger 0 36173 NULL nohasha
 v9fs_xattr_set_36173 v9fs_xattr_set 0 36173 &snd_rme96_playback_trigger_36173
 xilly_get_dma_buffers_36174 xilly_get_dma_buffers 4 36174 NULL
 try_or_set_cluster_36176 try_or_set_cluster 0 36176 NULL nohasharray
-__sync_dirty_buffer_36176 __sync_dirty_buffer 0 36176 &try_or_set_cluster_36176
+__sync_dirty_buffer_36176 __sync_dirty_buffer 0 36176 &try_or_set_cluster_36176 nohasharray
+SyS_kexec_load_36176 SyS_kexec_load 2 36176 &__sync_dirty_buffer_36176
 mcp251x_hw_reset_36177 mcp251x_hw_reset 0 36177 NULL
 modify_device_36179 modify_device 0 36179 NULL
 dummy_validate_stream_36185 dummy_validate_stream 0 36185 NULL
