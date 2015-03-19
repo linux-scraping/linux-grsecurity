@@ -339,10 +339,17 @@ int rts51x_ctrl_transfer(struct rts51x_chip *chip, unsigned int pipe,
 			 void *data, u16 size, int timeout)
 {
 	struct rts51x_usb *rts51x = chip->usb;
+	void *buf = kmalloc(size, GFP_KERNEL);
 	int result;
+	int ret;
+
+	if (buf == NULL)
+		TRACE_RET(chip, STATUS_ERROR);
 
 	RTS51X_DEBUGP("%s: rq=%02x rqtype=%02x value=%04x index=%02x len=%u\n",
 		       __func__, request, requesttype, value, index, size);
+
+	memcpy(buf, data, size);
 
 	/* fill in the devrequest structure */
 	rts51x->cr->bRequestType = requesttype;
@@ -353,12 +360,17 @@ int rts51x_ctrl_transfer(struct rts51x_chip *chip, unsigned int pipe,
 
 	/* fill and submit the URB */
 	usb_fill_control_urb(rts51x->current_urb, rts51x->pusb_dev, pipe,
-			     (unsigned char *)rts51x->cr, data, size,
+			     (unsigned char *)rts51x->cr, buf, size,
 			     urb_done_completion, NULL);
 	result = rts51x_msg_common(chip, rts51x->current_urb, timeout);
 
-	return interpret_urb_result(chip, pipe, size, result,
+	ret = interpret_urb_result(chip, pipe, size, result,
 				    rts51x->current_urb->actual_length);
+	memcpy(data, buf, size);
+
+	kfree(buf);
+
+	return ret;
 }
 
 static int rts51x_clear_halt(struct rts51x_chip *chip, unsigned int pipe)
@@ -535,17 +547,30 @@ static int rts51x_bulk_transfer_buf(struct rts51x_chip *chip,
 			     unsigned int *act_len, int timeout)
 {
 	int result;
+	int ret;
+	void *newbuf = kmalloc(length, GFP_KERNEL);
+
+	if (newbuf == NULL)
+		TRACE_RET(chip, STATUS_ERROR);
+
+	memcpy(newbuf, buf, length);
 
 	/* fill and submit the URB */
 	usb_fill_bulk_urb(chip->usb->current_urb, chip->usb->pusb_dev, pipe,
-			  buf, length, urb_done_completion, NULL);
+			  newbuf, length, urb_done_completion, NULL);
 	result = rts51x_msg_common(chip, chip->usb->current_urb, timeout);
 
 	/* store the actual length of the data transferred */
 	if (act_len)
 		*act_len = chip->usb->current_urb->actual_length;
-	return interpret_urb_result(chip, pipe, length, result,
+	ret = interpret_urb_result(chip, pipe, length, result,
 				    chip->usb->current_urb->actual_length);
+
+	memcpy(buf, newbuf, length);
+
+	kfree(newbuf);
+
+	return ret;
 }
 
 int rts51x_transfer_data(struct rts51x_chip *chip, unsigned int pipe,
@@ -624,10 +649,18 @@ int rts51x_get_epc_status(struct rts51x_chip *chip, u16 *status)
 	unsigned int pipe = RCV_INTR_PIPE(chip);
 	struct usb_host_endpoint *ep;
 	struct completion urb_done;
+	u16 *buf_status;
 	int result;
+	int ret;
 
 	if (!status)
 		TRACE_RET(chip, STATUS_ERROR);
+
+	buf_status = kmalloc(sizeof(*status), GFP_KERNEL);
+	if (buf_status == NULL)
+		TRACE_RET(chip, STATUS_ERROR);
+
+	*buf_status = *status;
 
 	/* set up data structures for the wakeup system */
 	init_completion(&urb_done);
@@ -638,12 +671,17 @@ int rts51x_get_epc_status(struct rts51x_chip *chip, u16 *status)
 	/* Set interval to 10 here to match the endpoint descriptor,
 	 * the polling interval is controlled by the polling thread */
 	usb_fill_int_urb(chip->usb->intr_urb, chip->usb->pusb_dev, pipe,
-			 status, 2, urb_done_completion, &urb_done, 10);
+			 buf_status, 2, urb_done_completion, &urb_done, 10);
 
 	result = rts51x_msg_common(chip, chip->usb->intr_urb, 100);
 
-	return interpret_urb_result(chip, pipe, 2, result,
+	ret = interpret_urb_result(chip, pipe, 2, result,
 				    chip->usb->intr_urb->actual_length);
+	*status = *buf_status;
+
+	kfree(buf_status);
+
+	return ret;
 }
 
 u8 media_not_present[] = {

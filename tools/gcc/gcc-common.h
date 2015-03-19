@@ -218,7 +218,7 @@ static inline bool is_simple_builtin(tree decl)
 
 #define int_const_binop(code, arg1, arg2) int_const_binop((code), (arg1), (arg2), 0)
 
-static inline bool gimple_clobber_p(gimple s)
+static inline bool gimple_clobber_p(gimple s __unused)
 {
 	return false;
 }

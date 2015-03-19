@@ -4490,6 +4490,7 @@ crypto_cipher_ctxsize_48890 crypto_cipher_ctxsize 0 48890 NULL
 joydev_handle_JSIOCSAXMAP_48898 joydev_handle_JSIOCSAXMAP 3 48898 NULL
 xdi_copy_to_user_48900 xdi_copy_to_user 4 48900 NULL
 msg_hdr_sz_48908 msg_hdr_sz 0 48908 NULL
+rts51x_ctrl_transfer_48914 rts51x_ctrl_transfer 8 48914 NULL
 sep_crypto_dma_48937 sep_crypto_dma 0 48937 NULL
 si5351_write_parameters_48940 si5351_write_parameters 2 48940 NULL
 event_heart_beat_read_48961 event_heart_beat_read 3 48961 NULL
@@ -4632,6 +4633,7 @@ nouveau_engine_create__50331 nouveau_engine_create_ 7 50331 NULL
 lpfc_idiag_pcicfg_read_50334 lpfc_idiag_pcicfg_read 3 50334 NULL
 snd_pcm_lib_writev_50337 snd_pcm_lib_writev 0-3 50337 NULL
 tpm_read_50344 tpm_read 3 50344 NULL
+rts51x_bulk_transfer_buf_50352 rts51x_bulk_transfer_buf 4 50352 NULL
 isdn_ppp_read_50356 isdn_ppp_read 4 50356 NULL
 iwl_dbgfs_echo_test_write_50362 iwl_dbgfs_echo_test_write 3 50362 NULL
 xfrm_send_migrate_50365 xfrm_send_migrate 5 50365 NULL
@@ -5500,6 +5502,7 @@ pvr2_debugifc_print_info_59380 pvr2_debugifc_print_info 3 59380 NULL
 journal_init_dev_59384 journal_init_dev 5 59384 NULL
 __net_get_random_once_59389 __net_get_random_once 2 59389 NULL
 isku_sysfs_read_keys_function_59412 isku_sysfs_read_keys_function 6 59412 NULL
+rts51x_transfer_data_59416 rts51x_transfer_data 4 59416 NULL
 pci_ctrl_read_59424 pci_ctrl_read 0 59424 NULL
 vxge_hw_ring_rxds_per_block_get_59425 vxge_hw_ring_rxds_per_block_get 0 59425 NULL
 SyS_sched_setaffinity_59442 SyS_sched_setaffinity 2 59442 NULL

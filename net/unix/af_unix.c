@@ -2262,11 +2262,14 @@ static unsigned int unix_dgram_poll(struct file *file, struct socket *sock,
 	writable = unix_writable(sk);
 	other = unix_peer_get(sk);
 	if (other) {
-		if (unix_peer(other) != sk) {
+		unix_state_lock(other);
+		if (!sock_flag(other, SOCK_DEAD) && unix_peer(other) != sk) {
+			unix_state_unlock(other);
 			sock_poll_wait(file, &unix_sk(other)->peer_wait, wait);
 			if (unix_recvq_full(other))
 				writable = 0;
-		}
+		} else
+			unix_state_unlock(other);
 		sock_put(other);
 	}
 
