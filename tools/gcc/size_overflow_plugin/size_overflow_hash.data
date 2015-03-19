@@ -414,6 +414,7 @@ le_readq_5557 le_readq 0 5557 NULL
 inw_5558 inw 0 5558 NULL
 fir16_create_5574 fir16_create 3 5574 NULL
 bioset_create_5580 bioset_create 1 5580 NULL
+inet_sk_attr_size_5584 inet_sk_attr_size 0 5584 NULL
 do_msgrcv_5590 do_msgrcv 4 5590 NULL
 hidp_output_raw_report_5629 hidp_output_raw_report 3 5629 NULL
 parse_arg_5657 parse_arg 2 5657 NULL
@@ -3813,6 +3814,7 @@ joydev_handle_JSIOCSAXMAP_48898 joydev_handle_JSIOCSAXMAP 3 48898 NULL nohasharr
 mac_drv_rx_init_48898 mac_drv_rx_init 2 48898 &joydev_handle_JSIOCSAXMAP_48898
 xdi_copy_to_user_48900 xdi_copy_to_user 4 48900 NULL
 msg_hdr_sz_48908 msg_hdr_sz 0 48908 NULL
+rts51x_ctrl_transfer_48914 rts51x_ctrl_transfer 8 48914 NULL
 lpfc_sli4_get_els_iocb_cnt_48926 lpfc_sli4_get_els_iocb_cnt 0 48926 NULL
 event_heart_beat_read_48961 event_heart_beat_read 3 48961 NULL
 _alloc_set_attr_list_48991 _alloc_set_attr_list 4 48991 NULL
@@ -3931,6 +3933,7 @@ lpfc_idiag_pcicfg_read_50334 lpfc_idiag_pcicfg_read 3 50334 NULL
 ocfs2_block_to_cluster_group_50337 ocfs2_block_to_cluster_group 2 50337 NULL nohasharray
 snd_pcm_lib_writev_50337 snd_pcm_lib_writev 3-0 50337 &ocfs2_block_to_cluster_group_50337
 tpm_read_50344 tpm_read 3 50344 NULL
+rts51x_bulk_transfer_buf_50352 rts51x_bulk_transfer_buf 4 50352 NULL
 isdn_ppp_read_50356 isdn_ppp_read 4 50356 NULL
 unpack_u16_chunk_50357 unpack_u16_chunk 0 50357 NULL
 iwl_dbgfs_echo_test_write_50362 iwl_dbgfs_echo_test_write 3 50362 NULL
@@ -4650,6 +4653,7 @@ xfs_dir2_sf_entsize_59366 xfs_dir2_sf_entsize 0-2 59366 NULL
 pvr2_debugifc_print_info_59380 pvr2_debugifc_print_info 3 59380 NULL
 journal_init_dev_59384 journal_init_dev 5 59384 NULL
 fc_frame_alloc_fill_59394 fc_frame_alloc_fill 2 59394 NULL
+rts51x_transfer_data_59416 rts51x_transfer_data 4 59416 NULL
 pci_ctrl_read_59424 pci_ctrl_read 0 59424 NULL
 vxge_hw_ring_rxds_per_block_get_59425 vxge_hw_ring_rxds_per_block_get 0 59425 NULL
 squashfs_read_data_59440 squashfs_read_data 6 59440 NULL

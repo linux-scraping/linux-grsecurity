@@ -71,6 +71,19 @@ static inline void inet_diag_unlock_handler(
 	mutex_unlock(&inet_diag_table_mutex);
 }
 
+static size_t inet_sk_attr_size(void)
+{
+	return	  nla_total_size(sizeof(struct tcp_info))
+		+ nla_total_size(1) /* INET_DIAG_SHUTDOWN */
+		+ nla_total_size(1) /* INET_DIAG_TOS */
+		+ nla_total_size(1) /* INET_DIAG_TCLASS */
+		+ nla_total_size(sizeof(struct inet_diag_meminfo))
+		+ nla_total_size(sizeof(struct inet_diag_msg))
+		+ nla_total_size(TCP_CA_NAME_MAX)
+		+ nla_total_size(sizeof(struct tcpvegas_info))
+		+ 64;
+}
+
 static int inet_csk_diag_fill(struct sock *sk,
 			      struct sk_buff *skb,
 			      int ext, u32 pid, u32 seq, u16 nlmsg_flags,
@@ -327,10 +340,7 @@ static int inet_diag_get_exact(struct sk_buff *in_skb,
 #endif
 
 	err = -ENOMEM;
-	rep = alloc_skb(NLMSG_SPACE((sizeof(struct inet_diag_msg) +
-				     sizeof(struct inet_diag_meminfo) +
-				     handler->idiag_info_size + 64)),
-			GFP_KERNEL);
+	rep = alloc_skb(inet_sk_attr_size(), GFP_KERNEL);
 	if (!rep)
 		goto out;
 
