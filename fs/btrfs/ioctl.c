@@ -2738,11 +2738,8 @@ long btrfs_ioctl_space_info(struct btrfs_root *root, void __user *arg)
 	for (i = 0; i < num_types; i++) {
 		struct btrfs_space_info *tmp;
 
-		/* Don't copy in more than we allocated */
 		if (!slot_count)
 			break;
-
-		slot_count--;
 
 		info = NULL;
 		rcu_read_lock();
@@ -2765,7 +2762,10 @@ long btrfs_ioctl_space_info(struct btrfs_root *root, void __user *arg)
 				memcpy(dest, &space, sizeof(space));
 				dest++;
 				space_args.total_spaces++;
+				slot_count--;
 			}
+			if (!slot_count)
+				break;
 		}
 		up_read(&info->groups_sem);
 	}
