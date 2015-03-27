@@ -1329,7 +1329,8 @@ tx_stats_read_3182 tx_stats_read 0 3182 NULL
 patch_via_hdmi_3183 patch_via_hdmi 0 3183 NULL
 compat_do_ip6t_set_ctl_3184 compat_do_ip6t_set_ctl 4 3184 NULL
 mempool_create_node_3191 mempool_create_node 1 3191 NULL
-alloc_context_3194 alloc_context 1 3194 NULL
+alloc_context_3194 alloc_context 1 3194 NULL nohasharray
+ep_aio_read_3194 ep_aio_read 3 3194 &alloc_context_3194
 dma_init_coherent_memory_3197 dma_init_coherent_memory 1-3 3197 NULL
 shmem_pread_slow_3198 shmem_pread_slow 2-3 3198 NULL nohasharray
 udp_sendpage_3198 udp_sendpage 4 3198 &shmem_pread_slow_3198
@@ -6092,6 +6093,7 @@ reshape_direction_store_14340 reshape_direction_store 0-3 14340 NULL
 sbp_tpg_show_enable_14341 sbp_tpg_show_enable 0 14341 NULL
 reset_protection_store_14344 reset_protection_store 0-4 14344 NULL
 p9_client_zc_rpc_14345 p9_client_zc_rpc 7 14345 NULL
+ep_aio_rwtail_14347 ep_aio_rwtail 6 14347 NULL
 writepages_14348 writepages 0 14348 NULL
 bnx2_request_uncached_firmware_14349 bnx2_request_uncached_firmware 0 14349 NULL nohasharray
 alloc_tx_struct_14349 alloc_tx_struct 1 14349 &bnx2_request_uncached_firmware_14349
@@ -10758,7 +10760,7 @@ c2port_read_flash_data_25296 c2port_read_flash_data 0-6-5 25296 NULL
 viafb_check_var_25297 viafb_check_var 0 25297 NULL
 patch_generic_hdmi_25299 patch_generic_hdmi 0 25299 NULL
 usb6fire_pcm_stream_start_25305 usb6fire_pcm_stream_start 0 25305 NULL
-read8_reg_25307 read8_reg 4 25307 NULL
+read8_reg_25307 read8_reg 4-0 25307 NULL
 firm_open_25313 firm_open 0 25313 NULL
 cx25821_write_frame_25315 cx25821_write_frame 3-0 25315 NULL nohasharray
 rtl8139_get_regs_len_25315 rtl8139_get_regs_len 0 25315 &cx25821_write_frame_25315 nohasharray
@@ -12692,7 +12694,8 @@ set_eeprom1_29863 set_eeprom1 4-0 29863 NULL nohasharray
 __dev_pm_qos_update_request_29863 __dev_pm_qos_update_request 0 29863 &set_eeprom1_29863
 acpi_device_modalias_show_29864 acpi_device_modalias_show 0 29864 NULL
 xfs_rtfind_forw_29866 xfs_rtfind_forw 0 29866 NULL
-write_file_bool_bmps_29870 write_file_bool_bmps 3-0 29870 NULL
+write_file_bool_bmps_29870 write_file_bool_bmps 3-0 29870 NULL nohasharray
+extract_icmp6_fields_29870 extract_icmp6_fields 2 29870 &write_file_bool_bmps_29870
 ipv6_setsockopt_29871 ipv6_setsockopt 5-0 29871 NULL nohasharray
 itd_submit_29871 itd_submit 0 29871 &ipv6_setsockopt_29871
 dma_map_xdr_29874 dma_map_xdr 0-3 29874 NULL
