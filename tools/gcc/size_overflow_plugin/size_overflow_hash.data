@@ -493,7 +493,8 @@ ps_pspoll_max_apturn_read_6699 ps_pspoll_max_apturn_read 3 6699 NULL
 mpeg_read_6708 mpeg_read 3 6708 NULL
 ibmpex_query_sensor_count_6709 ibmpex_query_sensor_count 0 6709 NULL
 video_proc_write_6724 video_proc_write 3 6724 NULL
-posix_acl_xattr_count_6725 posix_acl_xattr_count 0-1 6725 NULL
+posix_acl_xattr_count_6725 posix_acl_xattr_count 0-1 6725 NULL nohasharray
+rts51x_transfer_data_rcc_6725 rts51x_transfer_data_rcc 4 6725 &posix_acl_xattr_count_6725
 rds_rdma_pages_6735 rds_rdma_pages 0 6735 NULL
 device_queue_depth_6771 device_queue_depth 0 6771 NULL
 kobject_add_varg_6781 kobject_add_varg 0 6781 NULL

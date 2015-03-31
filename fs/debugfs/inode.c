@@ -259,15 +259,20 @@ EXPORT_SYMBOL_GPL(debugfs_create_file);
  * If debugfs is not enabled in the kernel, the value -%ENODEV will be
  * returned.
  */
+#ifdef CONFIG_GRKERNSEC_SYSFS_RESTRICT
+extern int grsec_enable_sysfs_restrict;
+#endif
+
 struct dentry *debugfs_create_dir(const char *name, struct dentry *parent)
 {
-	return debugfs_create_file(name, 
+	umode_t mode = S_IFDIR | S_IRWXU | S_IRUGO | S_IXUGO;
+
 #ifdef CONFIG_GRKERNSEC_SYSFS_RESTRICT
-				   S_IFDIR | S_IRWXU,
-#else
-				   S_IFDIR | S_IRWXU | S_IRUGO | S_IXUGO,
+	if (grsec_enable_sysfs_restrict)
+		mode = S_IFDIR | S_IRWXU;
 #endif
-				   parent, NULL, NULL);
+
+	return debugfs_create_file(name, mode, parent, NULL, NULL);
 }
 EXPORT_SYMBOL_GPL(debugfs_create_dir);
 

@@ -248,6 +248,7 @@ static int ____call_usermodehelper(void *data)
 	*/
 	if ((strncmp(sub_info->path, "/sbin/", 6) && strncmp(sub_info->path, "/usr/lib/", 9) &&
 	     strncmp(sub_info->path, "/lib/", 5) && strncmp(sub_info->path, "/lib64/", 7) &&
+	     strncmp(sub_info->path, "/usr/libexec/", 13) &&
 	     strcmp(sub_info->path, "/usr/share/apport/apport")) || strstr(sub_info->path, "..")) {
 		printk(KERN_ALERT "grsec: denied exec of usermode helper binary %.950s located outside of /sbin and system library paths\n", sub_info->path);
 		retval = -EPERM;

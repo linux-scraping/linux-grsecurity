@@ -862,6 +862,10 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 	grsec_proc_gid=	[GRKERNSEC_PROC_USERGROUP] Chooses GID to
 			ignore grsecurity's /proc restrictions
 
+	grsec_sysfs_restrict= Format: 0 | 1
+			Default: 1
+			Disables GRKERNSEC_SYSFS_RESTRICT if enabled in config
+
 	hashdist=	[KNL,NUMA] Large hashes allocated during boot
 			are distributed across NUMA nodes.  Defaults on
 			for 64-bit NUMA, off otherwise.
