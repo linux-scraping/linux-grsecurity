@@ -82,7 +82,7 @@ static int ip_forward_finish_gso(struct sk_buff *skb)
 
 	features = netif_skb_dev_features(skb, dst->dev);
 	segs = skb_gso_segment(skb, features & ~NETIF_F_GSO_MASK);
-	if (IS_ERR(segs)) {
+	if (IS_ERR_OR_NULL(segs)) {
 		kfree_skb(skb);
 		return -ENOMEM;
 	}
