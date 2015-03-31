@@ -33,6 +33,10 @@ void sysfs_warn_dup(struct kernfs_node *parent, const char *name)
 	kfree(buf);
 }
 
+#ifdef CONFIG_GRKERNSEC_SYSFS_RESTRICT
+extern int grsec_enable_sysfs_restrict;
+#endif
+
 /**
  * sysfs_create_dir_ns - create a directory for an object with a namespace tag
  * @kobj: object we're creating directory for
@@ -67,6 +71,8 @@ int sysfs_create_dir_ns(struct kobject *kobj, const void *ns)
 	    (!strcmp(parent_name, "devices") && !strcmp(name, "system")) ||
 	    (!strcmp(parent_name, "fs") && (!strcmp(name, "selinux") || !strcmp(name, "fuse") || !strcmp(name, "ecryptfs"))) ||
 	    (!strcmp(parent_name, "system") && !strcmp(name, "cpu")))
+		mode = S_IRWXU | S_IRUGO | S_IXUGO;
+	if (!grsec_enable_sysfs_restrict)
 		mode = S_IRWXU | S_IRUGO | S_IXUGO;
 #endif
 

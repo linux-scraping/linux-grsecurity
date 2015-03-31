@@ -172,6 +172,16 @@ static int __init setup_grsec_proc_gid(char *str)
 }
 __setup("grsec_proc_gid=", setup_grsec_proc_gid);
 #endif
+#ifdef CONFIG_GRKERNSEC_SYSFS_RESTRICT
+int grsec_enable_sysfs_restrict = 1;
+static int __init setup_grsec_sysfs_restrict(char *str)
+{
+	if (!simple_strtol(str, NULL, 0))
+		grsec_enable_sysfs_restrict = 0;
+	return 1;
+}
+__setup("grsec_sysfs_restrict", setup_grsec_sysfs_restrict);
+#endif
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 unsigned long pax_user_shadow_base __read_only;
