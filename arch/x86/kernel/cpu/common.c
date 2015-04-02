@@ -894,6 +894,16 @@ static void identify_cpu(struct cpuinfo_x86 *c)
 	setup_smep(c);
 	setup_smap(c);
 
+#ifdef CONFIG_X86_32
+#ifdef CONFIG_PAX_PAGEEXEC
+	if (!(__supported_pte_mask & _PAGE_NX))
+		clear_cpu_cap(c, X86_FEATURE_PSE);
+#endif
+#if defined(CONFIG_PAX_SEGMEXEC) || defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
+	clear_cpu_cap(c, X86_FEATURE_SEP);
+#endif
+#endif
+
 #ifdef CONFIG_X86_64
 	setup_pcid(c);
 #endif
@@ -905,10 +915,6 @@ static void identify_cpu(struct cpuinfo_x86 *c)
 
 	/* Filter out anything that depends on CPUID levels we don't have */
 	filter_cpuid_features(c, true);
-
-#if defined(CONFIG_X86_32) && (defined(CONFIG_PAX_SEGMEXEC) || defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF))
-	setup_clear_cpu_cap(X86_FEATURE_SEP);
-#endif
 
 	/* If the model name is still unset, do table lookup. */
 	if (!c->x86_model_id[0]) {

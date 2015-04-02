@@ -137,7 +137,7 @@ static void __dma_free_coherent(struct device *dev, size_t size,
 					phys_to_page(paddr),
 					size >> PAGE_SHIFT);
 	if (!freed)
-		swiotlb_free_coherent(dev, size, vaddr, dma_handle);
+		swiotlb_free_coherent(dev, size, vaddr, dma_handle, attrs);
 }
 
 static void *__dma_alloc_noncoherent(struct device *dev, size_t size,
