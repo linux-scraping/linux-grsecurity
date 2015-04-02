@@ -78,6 +78,10 @@
 #include "tree-cfgcleanup.h"
 #endif
 
+#if BUILDING_GCC_VERSION >= 4008
+#include "is-a.h"
+#endif
+
 #include "diagnostic.h"
 //#include "tree-diagnostic.h"
 #include "tree-dump.h"
@@ -120,6 +124,9 @@
 //#include "lto-streamer.h"
 #endif
 //#include "lto-compress.h"
+#if BUILDING_GCC_VERSION >= 5000
+//#include "lto-section-names.h"
+#endif
 
 //#include "expr.h" where are you...
 extern rtx emit_move_insn(rtx x, rtx y);
@@ -148,11 +155,11 @@ static inline void debug_tree(const_tree t)
 #define C_TYPE_FIELDS_READONLY(TYPE) TREE_LANG_FLAG_1(TYPE)
 
 #if BUILDING_GCC_VERSION == 4005
-#define FOR_EACH_VEC_ELT_REVERSE(T,V,I,P) for (I = VEC_length(T, (V)) - 1; VEC_iterate(T, (V), (I), (P)); (I)--)
-#define FOR_EACH_LOCAL_DECL(FUN, I, D) FOR_EACH_VEC_ELT_REVERSE(tree, (FUN)->local_decls, I, D)
+#define FOR_EACH_LOCAL_DECL(FUN, I, D) for (tree vars = (FUN)->local_decls; vars && (D = TREE_VALUE(vars)); vars = TREE_CHAIN(vars), I)
 #define DECL_CHAIN(NODE) (TREE_CHAIN(DECL_MINIMAL_CHECK(NODE)))
 #define FOR_EACH_VEC_ELT(T, V, I, P) for (I = 0; VEC_iterate(T, (V), (I), (P)); ++(I))
 #define TODO_rebuild_cgraph_edges 0
+#define SCOPE_FILE_SCOPE_P(EXP) (!(EXP))
 
 #ifndef O_BINARY
 #define O_BINARY 0
@@ -296,6 +303,7 @@ extern void dump_gimple_stmt(pretty_printer *, gimple, int, int);
 #define PROP_loops 0
 #define NODE_SYMBOL(node) (node)
 #define NODE_DECL(node) (node)->decl
+#define INSN_LOCATION(INSN) RTL_LOCATION(INSN)
 
 static inline int bb_loop_depth(const_basic_block bb)
 {
@@ -314,6 +322,13 @@ static inline bool gimple_store_p(gimple gs)
 	cgraph_create_edge((caller), (callee), (call_stmt), (count), (freq))
 #define cgraph_create_edge_including_clones(caller, callee, old_call_stmt, call_stmt, count, freq, nest, reason) \
 	cgraph_create_edge_including_clones((caller), (callee), (old_call_stmt), (call_stmt), (count), (freq), (reason))
+#endif
+
+#if BUILDING_GCC_VERSION == 4007 || BUILDING_GCC_VERSION == 4008
+static inline struct cgraph_node *cgraph_alias_target(struct cgraph_node *n)
+{
+	return cgraph_alias_aliased_node(n);
+}
 #endif
 
 #if BUILDING_GCC_VERSION <= 4008
@@ -335,6 +350,11 @@ static inline const char *get_tree_code_name(enum tree_code code)
 }
 
 #define ipa_remove_stmt_references(cnode, stmt)
+typedef union gimple_statement_d gasm;
+typedef union gimple_statement_d gassign;
+typedef union gimple_statement_d gcall;
+typedef union gimple_statement_d gphi;
+typedef union gimple_statement_d greturn;
 #endif
 
 #if BUILDING_GCC_VERSION == 4008
@@ -352,6 +372,29 @@ static inline const char *get_tree_code_name(enum tree_code code)
 
 #if BUILDING_GCC_VERSION <= 4009
 #define TODO_verify_il 0
+#define AVAIL_INTERPOSABLE AVAIL_OVERWRITABLE
+#endif
+
+#if BUILDING_GCC_VERSION == 4009
+typedef struct gimple_statement_base gasm;
+typedef struct gimple_statement_base gassign;
+typedef struct gimple_statement_base gcall;
+typedef struct gimple_statement_base gphi;
+typedef struct gimple_statement_base greturn;
+#endif
+
+#if BUILDING_GCC_VERSION <= 4009
+typedef struct rtx_def rtx_insn;
+
+static inline gasm *as_a_gasm(gimple stmt)
+{
+	return stmt;
+}
+
+static inline gcall *as_a_gcall(gimple stmt)
+{
+	return stmt;
+}
 #endif
 
 #if BUILDING_GCC_VERSION >= 4009
@@ -368,8 +411,110 @@ static inline const char *get_tree_code_name(enum tree_code code)
 #define TODO_verify_stmts TODO_verify_il
 #define TODO_verify_rtl_sharing TODO_verify_il
 
+#define TREE_INT_CST_HIGH(NODE) ({ TREE_INT_CST_EXT_NUNITS(NODE) > 1 ? (unsigned HOST_WIDE_INT)TREE_INT_CST_ELT(NODE, 1) : 0; })
+
+#define INSN_DELETED_P(insn) (insn)->deleted()
+
+extern bool is_simple_builtin(tree);
+
+// symtab/cgraph related
 #define debug_cgraph_node(node) (node)->debug()
 #define cgraph_get_node(decl) cgraph_node::get(decl)
+#define cgraph_n_nodes symtab->cgraph_count
+#define cgraph_max_uid symtab->cgraph_max_uid
+
+typedef struct cgraph_node *cgraph_node_ptr;
+typedef struct cgraph_edge *cgraph_edge_p;
+
+static inline void change_decl_assembler_name(tree decl, tree name)
+{
+	symtab->change_decl_assembler_name(decl, name);
+}
+
+static inline void varpool_finalize_decl(tree decl)
+{
+	varpool_node::finalize_decl(decl);
+}
+
+static inline cgraph_node_ptr cgraph_function_node(cgraph_node_ptr node, enum availability *availability)
+{
+	return node->function_symbol(availability);
+}
+
+static inline cgraph_node_ptr cgraph_function_or_thunk_node(cgraph_node_ptr node, enum availability *availability = NULL)
+{
+	return node->ultimate_alias_target(availability);
+}
+
+static inline bool cgraph_only_called_directly_p(cgraph_node_ptr node)
+{
+	return node->only_called_directly_p();
+}
+
+static inline enum availability cgraph_function_body_availability(cgraph_node_ptr node)
+{
+	return node->get_availability();
+}
+
+static inline cgraph_node_ptr cgraph_alias_target(cgraph_node_ptr node)
+{
+	return node->get_alias_target();
+}
+
+static inline struct cgraph_node_hook_list *cgraph_add_function_insertion_hook(cgraph_node_hook hook, void *data)
+{
+	return symtab->add_cgraph_insertion_hook(hook, data);
+}
+
+static inline void cgraph_remove_function_insertion_hook(struct cgraph_node_hook_list *entry)
+{
+	symtab->remove_cgraph_insertion_hook(entry);
+}
+
+static inline struct cgraph_node_hook_list *cgraph_add_node_removal_hook(cgraph_node_hook hook, void *data)
+{
+	return symtab->add_cgraph_removal_hook(hook, data);
+}
+
+static inline void cgraph_remove_node_removal_hook(struct cgraph_node_hook_list *entry)
+{
+	symtab->remove_cgraph_removal_hook(entry);
+}
+
+static inline struct cgraph_2node_hook_list *cgraph_add_node_duplication_hook(cgraph_2node_hook hook, void *data)
+{
+	return symtab->add_cgraph_duplication_hook(hook, data);
+}
+
+static inline void cgraph_remove_node_duplication_hook(struct cgraph_2node_hook_list *entry)
+{
+	symtab->remove_cgraph_duplication_hook(entry);
+}
+
+// gimple related
+static inline gimple gimple_build_assign_with_ops(enum tree_code subcode, tree lhs, tree op1, tree op2 MEM_STAT_DECL)
+{
+	return gimple_build_assign(lhs, subcode, op1, op2 PASS_MEM_STAT);
+}
+
+static inline gasm *as_a_gasm(gimple stmt)
+{
+	return as_a<gasm *>(stmt);
+}
+
+static inline gcall *as_a_gcall(gimple stmt)
+{
+	return as_a<gcall *>(stmt);
+}
+
+// IPA/LTO related
+#define ipa_ref_list_referring_iterate(L,I,P) (L)->referring.iterate((I), &(P))
+#define ipa_ref_list_reference_iterate(L,I,P) (L)->reference.iterate((I), &(P))
+
+static inline cgraph_node_ptr ipa_ref_referring_node(struct ipa_ref *ref)
+{
+	return dyn_cast<cgraph_node_ptr>(ref->referring);
+}
 #endif
 
 #endif

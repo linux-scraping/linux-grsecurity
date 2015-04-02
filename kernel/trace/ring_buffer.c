@@ -475,9 +475,9 @@ struct ring_buffer_per_cpu {
 	local_t				entries;
 	local_unchecked_t		overrun;
 	local_unchecked_t		commit_overrun;
-	local_t				dropped_events;
+	local_unchecked_t		dropped_events;
 	local_t				committing;
-	local_t				commits;
+	local_unchecked_t		commits;
 	unsigned long			read;
 	unsigned long			read_bytes;
 	u64				write_stamp;
@@ -2330,7 +2330,7 @@ rb_move_tail(struct ring_buffer_per_cpu *cpu_buffer,
 			 * this is easy, just stop here.
 			 */
 			if (!(buffer->flags & RB_FL_OVERWRITE)) {
-				local_inc(&cpu_buffer->dropped_events);
+				local_inc_unchecked(&cpu_buffer->dropped_events);
 				goto out_reset;
 			}
 
@@ -2486,7 +2486,7 @@ rb_try_to_discard(struct ring_buffer_per_cpu *cpu_buffer,
 static void rb_start_commit(struct ring_buffer_per_cpu *cpu_buffer)
 {
 	local_inc(&cpu_buffer->committing);
-	local_inc(&cpu_buffer->commits);
+	local_inc_unchecked(&cpu_buffer->commits);
 }
 
 static inline void rb_end_commit(struct ring_buffer_per_cpu *cpu_buffer)
@@ -2498,7 +2498,7 @@ static inline void rb_end_commit(struct ring_buffer_per_cpu *cpu_buffer)
 		return;
 
  again:
-	commits = local_read(&cpu_buffer->commits);
+	commits = local_read_unchecked(&cpu_buffer->commits);
 	/* synchronize with interrupts */
 	barrier();
 	if (local_read(&cpu_buffer->committing) == 1)
@@ -2514,7 +2514,7 @@ static inline void rb_end_commit(struct ring_buffer_per_cpu *cpu_buffer)
 	 * updating of the commit page and the clearing of the
 	 * committing counter.
 	 */
-	if (unlikely(local_read(&cpu_buffer->commits) != commits) &&
+	if (unlikely(local_read_unchecked(&cpu_buffer->commits) != commits) &&
 	    !local_read(&cpu_buffer->committing)) {
 		local_inc(&cpu_buffer->committing);
 		goto again;
@@ -2544,7 +2544,7 @@ rb_reserve_next_event(struct ring_buffer *buffer,
 	barrier();
 	if (unlikely(ACCESS_ONCE(cpu_buffer->buffer) != buffer)) {
 		local_dec(&cpu_buffer->committing);
-		local_dec(&cpu_buffer->commits);
+		local_dec_unchecked(&cpu_buffer->commits);
 		return NULL;
 	}
 #endif
@@ -3293,7 +3293,7 @@ ring_buffer_dropped_events_cpu(struct ring_buffer *buffer, int cpu)
 		return 0;
 
 	cpu_buffer = buffer->buffers[cpu];
-	ret = local_read(&cpu_buffer->dropped_events);
+	ret = local_read_unchecked(&cpu_buffer->dropped_events);
 
 	return ret;
 }
@@ -4153,10 +4153,10 @@ rb_reset_cpu(struct ring_buffer_per_cpu *cpu_buffer)
 	local_set(&cpu_buffer->entries_bytes, 0);
 	local_set_unchecked(&cpu_buffer->overrun, 0);
 	local_set_unchecked(&cpu_buffer->commit_overrun, 0);
-	local_set(&cpu_buffer->dropped_events, 0);
+	local_set_unchecked(&cpu_buffer->dropped_events, 0);
 	local_set(&cpu_buffer->entries, 0);
 	local_set(&cpu_buffer->committing, 0);
-	local_set(&cpu_buffer->commits, 0);
+	local_set_unchecked(&cpu_buffer->commits, 0);
 	cpu_buffer->read = 0;
 	cpu_buffer->read_bytes = 0;
 

@@ -23,7 +23,7 @@
 
 int plugin_is_GPL_compatible;
 
-static tree latent_entropy_decl;
+static GTY(()) tree latent_entropy_decl;
 
 static struct plugin_info latent_entropy_plugin_info = {
 	.version	= "201409101820",
@@ -368,6 +368,7 @@ static void latent_entropy_start_unit(void *gcc_data, void *user_data)
 	TREE_STATIC(latent_entropy_decl) = 1;
 	TREE_PUBLIC(latent_entropy_decl) = 1;
 	TREE_USED(latent_entropy_decl) = 1;
+	DECL_PRESERVE_P(latent_entropy_decl) = 1;
 	TREE_THIS_VOLATILE(latent_entropy_decl) = 1;
 	DECL_EXTERNAL(latent_entropy_decl) = 1;
 	DECL_ARTIFICIAL(latent_entropy_decl) = 1;

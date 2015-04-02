@@ -58,7 +58,6 @@ ENTRY(__put_user_1)
 	GET_THREAD_INFO(%_ASM_BX)
 	cmp TI_addr_limit(%_ASM_BX),%_ASM_CX
 	jae bad_put_user
-	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	mov pax_user_shadow_base,%_ASM_BX
@@ -70,6 +69,7 @@ ENTRY(__put_user_1)
 
 #endif
 
+	ASM_STAC
 1:	__copyuser_seg movb %al,(_DEST)
 	xor %eax,%eax
 	EXIT
@@ -84,7 +84,6 @@ ENTRY(__put_user_2)
 	sub $1,%_ASM_BX
 	cmp %_ASM_BX,%_ASM_CX
 	jae bad_put_user
-	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	mov pax_user_shadow_base,%_ASM_BX
@@ -96,6 +95,7 @@ ENTRY(__put_user_2)
 
 #endif
 
+	ASM_STAC
 2:	__copyuser_seg movw %ax,(_DEST)
 	xor %eax,%eax
 	EXIT
@@ -110,7 +110,6 @@ ENTRY(__put_user_4)
 	sub $3,%_ASM_BX
 	cmp %_ASM_BX,%_ASM_CX
 	jae bad_put_user
-	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	mov pax_user_shadow_base,%_ASM_BX
@@ -122,6 +121,7 @@ ENTRY(__put_user_4)
 
 #endif
 
+	ASM_STAC
 3:	__copyuser_seg movl %eax,(_DEST)
 	xor %eax,%eax
 	EXIT
@@ -136,7 +136,6 @@ ENTRY(__put_user_8)
 	sub $7,%_ASM_BX
 	cmp %_ASM_BX,%_ASM_CX
 	jae bad_put_user
-	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	mov pax_user_shadow_base,%_ASM_BX
@@ -148,6 +147,7 @@ ENTRY(__put_user_8)
 
 #endif
 
+	ASM_STAC
 4:	__copyuser_seg mov %_ASM_AX,(_DEST)
 #ifdef CONFIG_X86_32
 5:	__copyuser_seg movl %edx,4(_DEST)

@@ -51,7 +51,6 @@ ENTRY(__get_user_1)
 	GET_THREAD_INFO(%_ASM_DX)
 	cmp TI_addr_limit(%_ASM_DX),%_ASM_AX
 	jae bad_get_user
-	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	mov pax_user_shadow_base,%_ASM_DX
@@ -63,6 +62,7 @@ ENTRY(__get_user_1)
 
 #endif
 
+	ASM_STAC
 1:	__copyuser_seg movzbl (%_ASM_AX),%edx
 	xor %eax,%eax
 	ASM_CLAC
@@ -80,7 +80,6 @@ ENTRY(__get_user_2)
 	GET_THREAD_INFO(%_ASM_DX)
 	cmp TI_addr_limit(%_ASM_DX),%_ASM_AX
 	jae bad_get_user
-	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	mov pax_user_shadow_base,%_ASM_DX
@@ -92,6 +91,7 @@ ENTRY(__get_user_2)
 
 #endif
 
+	ASM_STAC
 2:	__copyuser_seg movzwl -1(%_ASM_AX),%edx
 	xor %eax,%eax
 	ASM_CLAC
@@ -109,7 +109,6 @@ ENTRY(__get_user_4)
 	GET_THREAD_INFO(%_ASM_DX)
 	cmp TI_addr_limit(%_ASM_DX),%_ASM_AX
 	jae bad_get_user
-	ASM_STAC
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	mov pax_user_shadow_base,%_ASM_DX
@@ -121,6 +120,7 @@ ENTRY(__get_user_4)
 
 #endif
 
+	ASM_STAC
 3:	__copyuser_seg movl -3(%_ASM_AX),%edx
 	xor %eax,%eax
 	ASM_CLAC
