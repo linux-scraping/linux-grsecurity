@@ -54,6 +54,11 @@ static inline int __access_ok(const void __user * addr, unsigned long size)
 	return 1;
 }
 
+static inline int access_ok_noprefault(int type, const void __user * addr, unsigned long size)
+{
+	return 1;
+}
+
 static inline int access_ok(int type, const void __user * addr, unsigned long size)
 {
 	return 1;
