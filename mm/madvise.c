@@ -311,9 +311,9 @@ static long madvise_dontneed(struct vm_area_struct *vma,
 				.nonlinear_vma = vma_m,
 				.last_index = ULONG_MAX,
 			};
-			zap_page_range(vma, start + SEGMEXEC_TASK_SIZE, end - start, &details);
+			zap_page_range(vma_m, start + SEGMEXEC_TASK_SIZE, end - start, &details);
 		} else
-			zap_page_range(vma, start + SEGMEXEC_TASK_SIZE, end - start, NULL);
+			zap_page_range(vma_m, start + SEGMEXEC_TASK_SIZE, end - start, NULL);
 	}
 #endif
 

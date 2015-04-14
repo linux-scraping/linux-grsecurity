@@ -1,7 +1,7 @@
 #!/bin/sh
 srctree=$(dirname "$0")
 gccplugins_dir=$($3 -print-file-name=plugin)
-plugincc=$($1 -E - -o /dev/null -I"${srctree}"/../tools/gcc -I"${gccplugins_dir}"/include 2>&1 <<EOF
+plugincc=$($1 -E -x c++ - -o /dev/null -I"${srctree}"/../tools/gcc -I"${gccplugins_dir}"/include 2>&1 <<EOF
 #include "gcc-common.h"
 #if BUILDING_GCC_VERSION >= 4008 || defined(ENABLE_BUILD_WITH_CXX)
 #warning $2 CXX

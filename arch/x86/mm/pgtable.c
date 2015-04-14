@@ -141,7 +141,7 @@ void __clone_user_pgds(pgd_t *dst, const pgd_t *src)
 #define pyd_t				pgd_t
 #define paravirt_release_pxd(pfn)	paravirt_release_pud(pfn)
 #define pgtable_pxd_page_ctor(page)	true
-#define pgtable_pxd_page_dtor(page)
+#define pgtable_pxd_page_dtor(page)	do {} while (0)
 #define pxd_free(mm, pud)		pud_free((mm), (pud))
 #define pyd_populate(mm, pgd, pud)	pgd_populate((mm), (pgd), (pud))
 #define pyd_offset(mm, address)		pgd_offset((mm), (address))

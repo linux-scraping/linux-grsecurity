@@ -3705,6 +3705,7 @@ ft_nacl_store_port_name_8784 ft_nacl_store_port_name 0-3 8784 NULL
 ext4_try_to_write_inline_data_8785 ext4_try_to_write_inline_data 4-3 8785 NULL
 show_hardware_8789 show_hardware 0 8789 NULL
 edd_show_sectors_8794 edd_show_sectors 0 8794 NULL
+__bitmap_weight_8796 __bitmap_weight 0 8796 NULL
 ip_vs_remote_request6_8805 ip_vs_remote_request6 0 8805 NULL
 gfs2_glock_nq_8808 gfs2_glock_nq 0 8808 NULL nohasharray
 prod_id2_show_8808 prod_id2_show 0 8808 &gfs2_glock_nq_8808 nohasharray

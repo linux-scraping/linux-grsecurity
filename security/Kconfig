@@ -315,9 +315,9 @@ config PAX_XATTR_PAX_FLAGS
 	bool 'Use filesystem extended attributes marking'
 	default y if GRKERNSEC_CONFIG_AUTO
 	select CIFS_XATTR if CIFS
-	select F2FS_FS_XATTR if F2FS_FS
 	select EXT2_FS_XATTR if EXT2_FS
 	select EXT3_FS_XATTR if EXT3_FS
+	select F2FS_FS_XATTR if F2FS_FS
 	select JFFS2_FS_XATTR if JFFS2_FS
 	select REISERFS_FS_XATTR if REISERFS_FS
 	select SQUASHFS_XATTR if SQUASHFS
