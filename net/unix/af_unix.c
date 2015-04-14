@@ -2330,8 +2330,23 @@ static int unix_seq_show(struct seq_file *seq, void *v)
 				seq_putc(seq, '@');
 				i++;
 			}
-			for ( ; i < len; i++)
-				seq_putc(seq, u->addr->name->sun_path[i]);
+			for ( ; i < len; i++) {
+				char c = u->addr->name->sun_path[i];
+				switch (c) {
+				case '\n':
+					seq_putc(seq, '\\');
+					seq_putc(seq, 'n');
+				case '\t':
+					seq_putc(seq, '\\');
+					seq_putc(seq, 't');
+				case '\\':
+					seq_putc(seq, '\\');
+					seq_putc(seq, '\\');
+					break;
+				default:
+					seq_putc(seq, c);
+				}
+			}
 		} else if (peer)
 			seq_printf(seq, " P%lu", sock_i_ino(peer));
 

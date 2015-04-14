@@ -102,7 +102,8 @@ struct simple_ipa_opt_pass colorize_rearm_pass = {
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
-#if BUILDING_GCC_VERSION >= 4009
+#if BUILDING_GCC_VERSION >= 5000
+#elif BUILDING_GCC_VERSION == 4009
 		.has_gate		= false,
 		.has_execute		= true,
 #else
@@ -128,7 +129,11 @@ namespace {
 class colorize_rearm_pass : public simple_ipa_opt_pass {
 public:
 	colorize_rearm_pass() : simple_ipa_opt_pass(colorize_rearm_pass_data, g) {}
+#if BUILDING_GCC_VERSION >= 5000
+	virtual unsigned int execute(function *) { return execute_colorize_rearm(); }
+#else
 	unsigned int execute() { return execute_colorize_rearm(); }
+#endif
 };
 }
 

@@ -25,7 +25,8 @@ int plugin_is_GPL_compatible;
 static int track_frame_size = -1;
 static const char track_function[] = "pax_track_stack";
 static const char check_function[] = "pax_check_alloca";
-static tree track_function_decl, check_function_decl;
+static GTY(()) tree track_function_decl;
+static GTY(()) tree check_function_decl;
 static bool init_locals;
 
 static struct plugin_info stackleak_plugin_info = {
