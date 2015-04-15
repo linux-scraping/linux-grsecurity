@@ -2408,9 +2408,11 @@ static int unix_seq_show(struct seq_file *seq, void *v)
 				case '\n':
 					seq_putc(seq, '\\');
 					seq_putc(seq, 'n');
+					break;
 				case '\t':
 					seq_putc(seq, '\\');
 					seq_putc(seq, 't');
+					break;
 				case '\\':
 					seq_putc(seq, '\\');
 					seq_putc(seq, '\\');
