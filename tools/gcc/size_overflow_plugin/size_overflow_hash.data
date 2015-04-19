@@ -17508,7 +17508,8 @@ vid_to_reg_41246 vid_to_reg 0-1 41246 &mcp3422_show_scales_41246
 show_dts_mode_41247 show_dts_mode 0 41247 NULL
 ext3_journalled_write_end_41248 ext3_journalled_write_end 0-5 41248 NULL
 send_41249 send 0 41249 NULL
-degraded_show_41251 degraded_show 0 41251 NULL
+degraded_show_41251 degraded_show 0 41251 NULL nohasharray
+xfs_zero_last_block_41251 xfs_zero_last_block 3-2-0 41251 &degraded_show_41251
 wakeup_abort_count_show_41252 wakeup_abort_count_show 0 41252 NULL
 hiddev_compat_ioctl_41255 hiddev_compat_ioctl 2 41255 NULL
 carmine_check_var_41256 carmine_check_var 0 41256 NULL
@@ -25029,6 +25030,7 @@ show_tcrit2_hyst_59088 show_tcrit2_hyst 0 59088 NULL nohasharray
 cpuidle_store_59088 cpuidle_store 0-4 59088 &show_tcrit2_hyst_59088
 snd_cmipci_pcm_trigger_59090 snd_cmipci_pcm_trigger 0 59090 NULL
 nfs4_map_errors_59095 nfs4_map_errors 0-1 59095 NULL
+xfs_zero_eof_59103 xfs_zero_eof 3-2-0 59103 NULL
 tiadc_buffer_preenable_59104 tiadc_buffer_preenable 0 59104 NULL
 hfsplus_trusted_listxattr_59112 hfsplus_trusted_listxattr 0-5 59112 NULL nohasharray
 mmc_sd_num_wr_blocks_59112 mmc_sd_num_wr_blocks 0 59112 &hfsplus_trusted_listxattr_59112
