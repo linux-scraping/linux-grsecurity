@@ -274,14 +274,7 @@ static void nft_match_eval(const struct nft_expr *expr,
 		return;
 	}
 
-	switch(ret) {
-	case true:
-		data[NFT_REG_VERDICT].verdict = NFT_CONTINUE;
-		break;
-	case false:
-		data[NFT_REG_VERDICT].verdict = NFT_BREAK;
-		break;
-	}
+	data[NFT_REG_VERDICT].verdict = ret ? NFT_CONTINUE : NFT_BREAK;
 }
 
 static const struct nla_policy nft_match_policy[NFTA_MATCH_MAX + 1] = {

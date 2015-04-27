@@ -1,6 +1,6 @@
 /*
  * Copyright 2011 by Emese Revfy <re.emese@gmail.com>
- * Copyright 2011-2014 by PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2015 by PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2, or (at your option) v3
  *
  * This gcc plugin constifies all structures which contain only function pointers or are explicitly marked for constification.
@@ -15,7 +15,7 @@
 
 #include "gcc-common.h"
 
-// unused C type flag in all versions 4.5-4.9
+// unused C type flag in all versions 4.5-5.0
 #define TYPE_CONSTIFY_VISITED(TYPE) TYPE_LANG_FLAG_4(TYPE)
 
 int plugin_is_GPL_compatible;
@@ -321,6 +321,11 @@ static void finish_type(void *event_data, void *data)
 	if (type == NULL_TREE || type == error_mark_node)
 		return;
 
+#if BUILDING_GCC_VERSION >= 5000
+	if (TREE_CODE(type) == ENUMERAL_TYPE)
+		return;
+#endif
+
 	if (TYPE_FIELDS(type) == NULL_TREE || TYPE_CONSTIFY_VISITED(type))
 		return;
 
@@ -421,6 +426,7 @@ static unsigned int check_local_variables(void)
 }
 
 #if BUILDING_GCC_VERSION >= 4009
+namespace {
 static const struct pass_data check_local_variables_pass_data = {
 #else
 static struct gimple_opt_pass check_local_variables_pass = {
@@ -454,7 +460,6 @@ static struct gimple_opt_pass check_local_variables_pass = {
 };
 
 #if BUILDING_GCC_VERSION >= 4009
-namespace {
 class check_local_variables_pass : public gimple_opt_pass {
 public:
 	check_local_variables_pass() : gimple_opt_pass(check_local_variables_pass_data, g) {}

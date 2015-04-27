@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 by Open Source Security, Inc., Brad Spengler <spender@grsecurity.net>
+ * Copyright 2014,2015 by Open Source Security, Inc., Brad Spengler <spender@grsecurity.net>
  *                   and PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
@@ -14,7 +14,8 @@
 #include "gcc-common.h"
 #include "randomize_layout_seed.h"
 
-#if BUILDING_GCC_MAJOR < 4 || BUILDING_GCC_MINOR < 6 || (BUILDING_GCC_MINOR == 6 && BUILDING_GCC_PATCHLEVEL < 4)
+#if BUILDING_GCC_MAJOR < 4 || (BUILDING_GCC_MAJOR == 4 && BUILDING_GCC_MINOR < 6) || \
+   (BUILDING_GCC_MAJOR == 4 && BUILDING_GCC_MINOR == 6 && BUILDING_GCC_PATCHLEVEL < 4)
 #error "The RANDSTRUCT plugin requires GCC 4.6.4 or newer."
 #endif
 
@@ -814,7 +815,8 @@ static struct gimple_opt_pass randomize_layout_bad_cast = {
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
-#if BUILDING_GCC_VERSION >= 4009
+#if BUILDING_GCC_VERSION >= 5000
+#elif BUILDING_GCC_VERSION >= 4009
 		.has_gate		= false,
 		.has_execute		= true,
 #else
@@ -874,8 +876,8 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 		return 1;
 	}
 
-	if (strcmp(lang_hooks.name, "GNU C")) {
-		inform(UNKNOWN_LOCATION, G_("%s supports C only"), plugin_name);
+	if (strncmp(lang_hooks.name, "GNU C", 5) && !strncmp(lang_hooks.name, "GNU C+", 6)) {
+		inform(UNKNOWN_LOCATION, G_("%s supports C only, not %s"), plugin_name, lang_hooks.name);
 		enable = false;
 	}
 

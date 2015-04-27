@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2014 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2012-2015 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -379,6 +379,7 @@ static void latent_entropy_start_unit(void *gcc_data, void *user_data)
 }
 
 #if BUILDING_GCC_VERSION >= 4009
+namespace {
 static const struct pass_data latent_entropy_pass_data = {
 #else
 static struct gimple_opt_pass latent_entropy_pass = {
@@ -389,7 +390,8 @@ static struct gimple_opt_pass latent_entropy_pass = {
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
-#if BUILDING_GCC_VERSION >= 4009
+#if BUILDING_GCC_VERSION >= 5000
+#elif BUILDING_GCC_VERSION == 4009
 		.has_gate		= true,
 		.has_execute		= true,
 #else
@@ -411,12 +413,16 @@ static struct gimple_opt_pass latent_entropy_pass = {
 };
 
 #if BUILDING_GCC_VERSION >= 4009
-namespace {
 class latent_entropy_pass : public gimple_opt_pass {
 public:
 	latent_entropy_pass() : gimple_opt_pass(latent_entropy_pass_data, g) {}
+#if BUILDING_GCC_VERSION >= 5000
+	virtual bool gate(function *) { return gate_latent_entropy(); }
+	virtual unsigned int execute(function *) { return execute_latent_entropy(); }
+#else
 	bool gate() { return gate_latent_entropy(); }
 	unsigned int execute() { return execute_latent_entropy(); }
+#endif
 };
 }
 

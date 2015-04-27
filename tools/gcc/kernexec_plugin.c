@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2014 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2015 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -32,7 +32,7 @@ static void (*kernexec_instrument_retaddr)(rtx);
  */
 static void kernexec_reload_fptr_mask(gimple_stmt_iterator *gsi)
 {
-	gimple asm_movabs_stmt;
+	gasm *asm_movabs_stmt;
 
 	// build asm volatile("movabs $0x8000000000000000, %%r12\n\t" : : : );
 	asm_movabs_stmt = gimple_build_asm_vec("movabs $0x8000000000000000, %%r12\n\t", NULL, NULL, NULL, NULL);
@@ -54,13 +54,16 @@ static unsigned int execute_kernexec_reload(void)
 
 		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
 			// gimple match: __asm__ ("" :  :  : "r12");
-			gimple asm_stmt;
+			gimple stmt;
+			gasm *asm_stmt;
 			size_t nclobbers;
 
 			// is it an asm ...
-			asm_stmt = gsi_stmt(gsi);
-			if (gimple_code(asm_stmt) != GIMPLE_ASM)
+			stmt = gsi_stmt(gsi);
+			if (gimple_code(stmt) != GIMPLE_ASM)
 				continue;
+
+			asm_stmt = as_a_gasm(stmt);
 
 			// ... clobbering r12
 			nclobbers = gimple_asm_nclobbers(asm_stmt);
@@ -84,10 +87,11 @@ static unsigned int execute_kernexec_reload(void)
  */
 static void kernexec_instrument_fptr_bts(gimple_stmt_iterator *gsi)
 {
-	gimple assign_intptr, assign_new_fptr, call_stmt;
+	gimple assign_intptr, assign_new_fptr;
+	gcall *call_stmt;
 	tree intptr, orptr, old_fptr, new_fptr, kernexec_mask;
 
-	call_stmt = gsi_stmt(*gsi);
+	call_stmt = as_a_gcall(gsi_stmt(*gsi));
 	old_fptr = gimple_call_fn(call_stmt);
 
 	// create temporary unsigned long variable used for bitops and cast fptr to it
@@ -125,7 +129,8 @@ static void kernexec_instrument_fptr_bts(gimple_stmt_iterator *gsi)
 
 static void kernexec_instrument_fptr_or(gimple_stmt_iterator *gsi)
 {
-	gimple asm_or_stmt, call_stmt;
+	gasm *asm_or_stmt;
+	gcall *call_stmt;
 	tree old_fptr, new_fptr, input, output;
 #if BUILDING_GCC_VERSION <= 4007
 	VEC(tree, gc) *inputs = NULL;
@@ -135,7 +140,7 @@ static void kernexec_instrument_fptr_or(gimple_stmt_iterator *gsi)
 	vec<tree, va_gc> *outputs = NULL;
 #endif
 
-	call_stmt = gsi_stmt(*gsi);
+	call_stmt = as_a_gcall(gsi_stmt(*gsi));
 	old_fptr = gimple_call_fn(call_stmt);
 
 	// create temporary fptr variable
@@ -180,12 +185,14 @@ static unsigned int execute_kernexec_fptr(void)
 		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
 			// gimple match: h_1 = get_fptr (); D.2709_3 = h_1 (x_2(D));
 			tree fn;
-			gimple call_stmt;
+			gimple stmt;
+			gcall *call_stmt;
 
 			// is it a call ...
-			call_stmt = gsi_stmt(gsi);
-			if (!is_gimple_call(call_stmt))
+			stmt = gsi_stmt(gsi);
+			if (!is_gimple_call(stmt))
 				continue;
+			call_stmt = as_a_gcall(stmt);
 			fn = gimple_call_fn(call_stmt);
 			if (TREE_CODE(fn) == ADDR_EXPR)
 				continue;
@@ -258,7 +265,7 @@ static void kernexec_instrument_retaddr_or(rtx insn)
  */
 static unsigned int execute_kernexec_retaddr(void)
 {
-	rtx insn;
+	rtx_insn *insn;
 
 //	if (stack_realign_drap)
 //		inform(DECL_SOURCE_LOCATION(current_function_decl), "drap detected in %s\n", IDENTIFIER_POINTER(DECL_NAME(current_function_decl)));
@@ -306,6 +313,7 @@ static bool kernexec_cmodel_check(void)
 }
 
 #if BUILDING_GCC_VERSION >= 4009
+namespace {
 static const struct pass_data kernexec_reload_pass_data = {
 #else
 static struct gimple_opt_pass kernexec_reload_pass = {
@@ -316,7 +324,8 @@ static struct gimple_opt_pass kernexec_reload_pass = {
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
-#if BUILDING_GCC_VERSION >= 4009
+#if BUILDING_GCC_VERSION >= 5000
+#elif BUILDING_GCC_VERSION == 4009
 		.has_gate		= true,
 		.has_execute		= true,
 #else
@@ -348,7 +357,8 @@ static struct gimple_opt_pass kernexec_fptr_pass = {
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
-#if BUILDING_GCC_VERSION >= 4009
+#if BUILDING_GCC_VERSION >= 5000
+#elif BUILDING_GCC_VERSION == 4009
 		.has_gate		= true,
 		.has_execute		= true,
 #else
@@ -380,7 +390,8 @@ static struct rtl_opt_pass kernexec_retaddr_pass = {
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
-#if BUILDING_GCC_VERSION >= 4009
+#if BUILDING_GCC_VERSION >= 5000
+#elif BUILDING_GCC_VERSION == 4009
 		.has_gate		= true,
 		.has_execute		= true,
 #else
@@ -402,26 +413,40 @@ static struct rtl_opt_pass kernexec_retaddr_pass = {
 };
 
 #if BUILDING_GCC_VERSION >= 4009
-namespace {
 class kernexec_reload_pass : public gimple_opt_pass {
 public:
 	kernexec_reload_pass() : gimple_opt_pass(kernexec_reload_pass_data, g) {}
+#if BUILDING_GCC_VERSION >= 5000
+	virtual bool gate(function *) { return kernexec_cmodel_check(); }
+	virtual unsigned int execute(function *) { return execute_kernexec_reload(); }
+#else
 	bool gate() { return kernexec_cmodel_check(); }
 	unsigned int execute() { return execute_kernexec_reload(); }
+#endif
 };
 
 class kernexec_fptr_pass : public gimple_opt_pass {
 public:
 	kernexec_fptr_pass() : gimple_opt_pass(kernexec_fptr_pass_data, g) {}
+#if BUILDING_GCC_VERSION >= 5000
+	virtual bool gate(function *) { return kernexec_cmodel_check(); }
+	virtual unsigned int execute(function *) { return execute_kernexec_fptr(); }
+#else
 	bool gate() { return kernexec_cmodel_check(); }
 	unsigned int execute() { return execute_kernexec_fptr(); }
+#endif
 };
 
 class kernexec_retaddr_pass : public rtl_opt_pass {
 public:
 	kernexec_retaddr_pass() : rtl_opt_pass(kernexec_retaddr_pass_data, g) {}
+#if BUILDING_GCC_VERSION >= 5000
+	virtual bool gate(function *) { return kernexec_cmodel_check(); }
+	virtual unsigned int execute(function *) { return execute_kernexec_retaddr(); }
+#else
 	bool gate() { return kernexec_cmodel_check(); }
 	unsigned int execute() { return execute_kernexec_retaddr(); }
+#endif
 };
 }
 

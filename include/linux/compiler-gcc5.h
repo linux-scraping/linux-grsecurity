@@ -34,7 +34,6 @@
 #define __bos1(ptr)		__bos((ptr), 1)
 
 #ifdef CONSTIFY_PLUGIN
-#error not yet
 #define __no_const __attribute__((no_const))
 #define __do_const __attribute__((do_const))
 #endif
@@ -46,7 +45,6 @@
 #endif
 
 #ifdef LATENT_ENTROPY_PLUGIN
-#error not yet
 #define __latent_entropy __attribute__((latent_entropy))
 #endif
 

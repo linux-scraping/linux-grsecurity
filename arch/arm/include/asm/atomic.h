@@ -101,8 +101,8 @@ static inline void atomic_##op##suffix(int i, atomic##suffix##_t *v)	\
 	: "cc");							\
 }									\
 
-#define ATOMIC_OP(op, c_op, asm_op) __ATOMIC_OP(op, , c_op, asm_op, , )\
-				    __ATOMIC_OP(op, _unchecked, c_op, asm_op##s, __OVERFLOW_POST, __OVERFLOW_EXTABLE)
+#define ATOMIC_OP(op, c_op, asm_op) __ATOMIC_OP(op, _unchecked, c_op, asm_op, , )\
+				    __ATOMIC_OP(op, , c_op, asm_op##s, __OVERFLOW_POST, __OVERFLOW_EXTABLE)
 
 #define __ATOMIC_OP_RETURN(op, suffix, c_op, asm_op, post_op, extable)	\
 static inline int atomic_##op##_return##suffix(int i, atomic##suffix##_t *v)\
@@ -130,8 +130,8 @@ static inline int atomic_##op##_return##suffix(int i, atomic##suffix##_t *v)\
 	return result;							\
 }
 
-#define ATOMIC_OP_RETURN(op, c_op, asm_op) __ATOMIC_OP_RETURN(op, , c_op, asm_op, , )\
-					   __ATOMIC_OP_RETURN(op, _unchecked, c_op, asm_op##s, __OVERFLOW_POST_RETURN, __OVERFLOW_EXTABLE)
+#define ATOMIC_OP_RETURN(op, c_op, asm_op) __ATOMIC_OP_RETURN(op, _unchecked, c_op, asm_op, , )\
+					   __ATOMIC_OP_RETURN(op, , c_op, asm_op##s, __OVERFLOW_POST_RETURN, __OVERFLOW_EXTABLE)
 
 static inline int atomic_cmpxchg(atomic_t *ptr, int old, int new)
 {
@@ -477,8 +477,8 @@ static inline void atomic64_##op##suffix(long long i, atomic64##suffix##_t *v)\
 	: "cc");							\
 }									\
 
-#define ATOMIC64_OP(op, op1, op2) __ATOMIC64_OP(op, , op1, op2, , ) \
-				  __ATOMIC64_OP(op, _unchecked, op1, op2##s, __OVERFLOW_POST, __OVERFLOW_EXTABLE)
+#define ATOMIC64_OP(op, op1, op2) __ATOMIC64_OP(op, _unchecked, op1, op2, , ) \
+				  __ATOMIC64_OP(op, , op1, op2##s, __OVERFLOW_POST, __OVERFLOW_EXTABLE)
 
 #define __ATOMIC64_OP_RETURN(op, suffix, op1, op2, post_op, extable)	\
 static inline long long atomic64_##op##_return##suffix(long long i, atomic64##suffix##_t *v) \
@@ -507,8 +507,8 @@ static inline long long atomic64_##op##_return##suffix(long long i, atomic64##su
 	return result;							\
 }
 
-#define ATOMIC64_OP_RETURN(op, op1, op2) __ATOMIC64_OP_RETURN(op, , op1, op2, , ) \
-					 __ATOMIC64_OP_RETURN(op, _unchecked, op1, op2##s, __OVERFLOW_POST_RETURN, __OVERFLOW_EXTABLE)
+#define ATOMIC64_OP_RETURN(op, op1, op2) __ATOMIC64_OP_RETURN(op, _unchecked, op1, op2, , ) \
+					 __ATOMIC64_OP_RETURN(op, , op1, op2##s, __OVERFLOW_POST_RETURN, __OVERFLOW_EXTABLE)
 
 #define ATOMIC64_OPS(op, op1, op2)					\
 	ATOMIC64_OP(op, op1, op2)					\
