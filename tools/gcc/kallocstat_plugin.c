@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2014 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2015 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -110,6 +110,7 @@ static unsigned int execute_kallocstat(void)
 }
 
 #if BUILDING_GCC_VERSION >= 4009
+namespace {
 static const struct pass_data kallocstat_pass_data = {
 #else
 static struct gimple_opt_pass kallocstat_pass = {
@@ -120,7 +121,8 @@ static struct gimple_opt_pass kallocstat_pass = {
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
-#if BUILDING_GCC_VERSION >= 4009
+#if BUILDING_GCC_VERSION >= 5000
+#elif BUILDING_GCC_VERSION == 4009
 		.has_gate		= false,
 		.has_execute		= true,
 #else
@@ -142,11 +144,14 @@ static struct gimple_opt_pass kallocstat_pass = {
 };
 
 #if BUILDING_GCC_VERSION >= 4009
-namespace {
 class kallocstat_pass : public gimple_opt_pass {
 public:
 	kallocstat_pass() : gimple_opt_pass(kallocstat_pass_data, g) {}
+#if BUILDING_GCC_VERSION >= 5000
+	virtual unsigned int execute(function *) { return execute_kallocstat(); }
+#else
 	unsigned int execute() { return execute_kallocstat(); }
+#endif
 };
 }
 

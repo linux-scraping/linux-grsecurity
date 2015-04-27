@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2014 by PaX Team <pageexec@freemail.hu>
+ * Copyright 2012-2015 by PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -92,6 +92,7 @@ static unsigned int execute_colorize_rearm(void)
 }
 
 #if BUILDING_GCC_VERSION >= 4009
+namespace {
 static const struct pass_data colorize_rearm_pass_data = {
 #else
 struct simple_ipa_opt_pass colorize_rearm_pass = {
@@ -125,7 +126,6 @@ struct simple_ipa_opt_pass colorize_rearm_pass = {
 };
 
 #if BUILDING_GCC_VERSION >= 4009
-namespace {
 class colorize_rearm_pass : public simple_ipa_opt_pass {
 public:
 	colorize_rearm_pass() : simple_ipa_opt_pass(colorize_rearm_pass_data, g) {}

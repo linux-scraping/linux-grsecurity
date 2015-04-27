@@ -34,7 +34,6 @@
 #define __bos1(ptr)		__bos((ptr), 1)
 
 #ifdef CONSTIFY_PLUGIN
-#error not yet
 #define __no_const __attribute__((no_const))
 #define __do_const __attribute__((do_const))
 #endif
@@ -46,7 +45,6 @@
 #endif
 
 #ifdef LATENT_ENTROPY_PLUGIN
-#error not yet
 #define __latent_entropy __attribute__((latent_entropy))
 #endif
 
@@ -75,7 +73,6 @@
  *   http://gcc.gnu.org/bugzilla/show_bug.cgi?id=58670
  *
  * Work it around via a compiler barrier quirk suggested by Jakub Jelinek.
- * Fixed in GCC 4.8.2 and later versions.
  *
  * (asm goto is automatically volatile - the naming reflects this.)
  */

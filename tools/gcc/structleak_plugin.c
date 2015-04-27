@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 by PaX Team <pageexec@freemail.hu>
+ * Copyright 2013-2015 by PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -26,8 +26,8 @@
 
 #include "gcc-common.h"
 
-// unused C type flag in all versions 4.5-4.9
-#define TYPE_USERSPACE(TYPE) TYPE_LANG_FLAG_3(TYPE)
+// unused C type flag in all versions 4.5-5.0
+#define TYPE_USERSPACE(TYPE) TYPE_LANG_FLAG_5(TYPE)
 
 int plugin_is_GPL_compatible;
 
@@ -93,6 +93,14 @@ static bool is_userspace_type(tree type)
 static void finish_type(void *event_data, void *data)
 {
 	tree type = (tree)event_data;
+
+	if (type == NULL_TREE || type == error_mark_node)
+		return;
+
+#if BUILDING_GCC_VERSION >= 5000
+	if (TREE_CODE(type) == ENUMERAL_TYPE)
+		return;
+#endif
 
 	if (TYPE_USERSPACE(type))
 		return;
@@ -180,6 +188,7 @@ static unsigned int handle_function(void)
 }
 
 #if BUILDING_GCC_VERSION >= 4009
+namespace {
 static const struct pass_data structleak_pass_data = {
 #else
 static struct gimple_opt_pass structleak_pass = {
@@ -190,7 +199,8 @@ static struct gimple_opt_pass structleak_pass = {
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
-#if BUILDING_GCC_VERSION >= 4009
+#if BUILDING_GCC_VERSION >= 5000
+#elif BUILDING_GCC_VERSION == 4009
 		.has_gate		= false,
 		.has_execute		= true,
 #else
@@ -212,11 +222,14 @@ static struct gimple_opt_pass structleak_pass = {
 };
 
 #if BUILDING_GCC_VERSION >= 4009
-namespace {
 class structleak_pass : public gimple_opt_pass {
 public:
 	structleak_pass() : gimple_opt_pass(structleak_pass_data, g) {}
+#if BUILDING_GCC_VERSION >= 5000
+	virtual unsigned int execute(function *) { return handle_function(); }
+#else
 	unsigned int execute() { return handle_function(); }
+#endif
 };
 }
 
@@ -250,7 +263,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 		return 1;
 	}
 
-	if (strcmp(lang_hooks.name, "GNU C")) {
+	if (strncmp(lang_hooks.name, "GNU C", 5) || !strncmp(lang_hooks.name, "GNU C+", 6)) {
 		inform(UNKNOWN_LOCATION, G_("%s supports C only"), plugin_name);
 		enable = false;
 	}
