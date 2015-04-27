@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2014 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2015 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -126,7 +126,7 @@ static unsigned int execute_stackleak_tree_instrument(void)
 
 static unsigned int execute_stackleak_final(void)
 {
-	rtx insn, next;
+	rtx_insn *insn, *next;
 
 	if (cfun->calls_alloca)
 		return 0;
@@ -220,6 +220,7 @@ static void stackleak_start_unit(void *gcc_data, void *user_data)
 }
 
 #if BUILDING_GCC_VERSION >= 4009
+namespace {
 static const struct pass_data stackleak_tree_instrument_pass_data = {
 #else
 static struct gimple_opt_pass stackleak_tree_instrument_pass = {
@@ -230,7 +231,8 @@ static struct gimple_opt_pass stackleak_tree_instrument_pass = {
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
-#if BUILDING_GCC_VERSION >= 4009
+#if BUILDING_GCC_VERSION >= 5000
+#elif BUILDING_GCC_VERSION == 4009
 		.has_gate		= true,
 		.has_execute		= true,
 #else
@@ -262,7 +264,8 @@ static struct rtl_opt_pass stackleak_final_rtl_opt_pass = {
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
-#if BUILDING_GCC_VERSION >= 4009
+#if BUILDING_GCC_VERSION >= 5000
+#elif BUILDING_GCC_VERSION == 4009
 		.has_gate		= true,
 		.has_execute		= true,
 #else
@@ -284,19 +287,28 @@ static struct rtl_opt_pass stackleak_final_rtl_opt_pass = {
 };
 
 #if BUILDING_GCC_VERSION >= 4009
-namespace {
 class stackleak_tree_instrument_pass : public gimple_opt_pass {
 public:
 	stackleak_tree_instrument_pass() : gimple_opt_pass(stackleak_tree_instrument_pass_data, g) {}
+#if BUILDING_GCC_VERSION >= 5000
+	virtual bool gate(function *) { return gate_stackleak_track_stack(); }
+	virtual unsigned int execute(function *) { return execute_stackleak_tree_instrument(); }
+#else
 	bool gate() { return gate_stackleak_track_stack(); }
 	unsigned int execute() { return execute_stackleak_tree_instrument(); }
+#endif
 };
 
 class stackleak_final_rtl_opt_pass : public rtl_opt_pass {
 public:
 	stackleak_final_rtl_opt_pass() : rtl_opt_pass(stackleak_final_rtl_opt_pass_data, g) {}
+#if BUILDING_GCC_VERSION >= 5000
+	virtual bool gate(function *) { return gate_stackleak_track_stack(); }
+	virtual unsigned int execute(function *) { return execute_stackleak_final(); }
+#else
 	bool gate() { return gate_stackleak_track_stack(); }
 	unsigned int execute() { return execute_stackleak_final(); }
+#endif
 };
 }
 

@@ -99,11 +99,13 @@
 //#include "diagnostic-color.h"
 #include "context.h"
 #include "tree-ssa-alias.h"
+#include "tree-ssa.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
 #include "print-tree.h"
 #include "tree-eh.h"
 #include "stmt.h"
+#include "gimplify.h"
 #endif
 
 #include "gimple.h"
@@ -126,6 +128,7 @@
 //#include "lto-compress.h"
 #if BUILDING_GCC_VERSION >= 5000
 //#include "lto-section-names.h"
+#include "builtins.h"
 #endif
 
 //#include "expr.h" where are you...
@@ -353,6 +356,7 @@ static inline const char *get_tree_code_name(enum tree_code code)
 typedef union gimple_statement_d gasm;
 typedef union gimple_statement_d gassign;
 typedef union gimple_statement_d gcall;
+typedef union gimple_statement_d gdebug;
 typedef union gimple_statement_d gphi;
 typedef union gimple_statement_d greturn;
 #endif
@@ -379,6 +383,7 @@ typedef union gimple_statement_d greturn;
 typedef struct gimple_statement_base gasm;
 typedef struct gimple_statement_base gassign;
 typedef struct gimple_statement_base gcall;
+typedef struct gimple_statement_base gdebug;
 typedef struct gimple_statement_base gphi;
 typedef struct gimple_statement_base greturn;
 #endif
@@ -392,6 +397,11 @@ static inline gasm *as_a_gasm(gimple stmt)
 }
 
 static inline gcall *as_a_gcall(gimple stmt)
+{
+	return stmt;
+}
+
+static inline greturn *as_a_greturn(gimple stmt)
 {
 	return stmt;
 }
@@ -415,16 +425,16 @@ static inline gcall *as_a_gcall(gimple stmt)
 
 #define INSN_DELETED_P(insn) (insn)->deleted()
 
-extern bool is_simple_builtin(tree);
-
 // symtab/cgraph related
 #define debug_cgraph_node(node) (node)->debug()
 #define cgraph_get_node(decl) cgraph_node::get(decl)
 #define cgraph_n_nodes symtab->cgraph_count
 #define cgraph_max_uid symtab->cgraph_max_uid
+#define varpool_get_node(decl) varpool_node::get(decl)
 
 typedef struct cgraph_node *cgraph_node_ptr;
 typedef struct cgraph_edge *cgraph_edge_p;
+typedef struct varpool_node *varpool_node_ptr;
 
 static inline void change_decl_assembler_name(tree decl, tree name)
 {
@@ -502,9 +512,19 @@ static inline gasm *as_a_gasm(gimple stmt)
 	return as_a<gasm *>(stmt);
 }
 
+static inline const gasm *as_a_gasm(const_gimple stmt)
+{
+	return as_a<const gasm *>(stmt);
+}
+
 static inline gcall *as_a_gcall(gimple stmt)
 {
 	return as_a<gcall *>(stmt);
+}
+
+static inline greturn *as_a_greturn(gimple stmt)
+{
+	return as_a<greturn *>(stmt);
 }
 
 // IPA/LTO related
