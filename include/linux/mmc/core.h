@@ -79,7 +79,7 @@ struct mmc_command {
 #define mmc_cmd_type(cmd)	((cmd)->flags & MMC_CMD_MASK)
 
 	unsigned int		retries;	/* max number of retries */
-	unsigned int		error;		/* command error */
+	int			error;		/* command error */
 
 /*
  * Standard errno values are used for errors, but some have specific

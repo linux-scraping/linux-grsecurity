@@ -414,7 +414,7 @@ static struct platform_driver kempld_driver = {
 	.remove		= kempld_remove,
 };
 
-static struct dmi_system_id __initdata kempld_dmi_table[] = {
+static const struct dmi_system_id __initconst kempld_dmi_table[] = {
 	{
 		.ident = "BHL6",
 		.matches = {

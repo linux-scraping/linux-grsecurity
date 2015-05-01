@@ -764,7 +764,7 @@ static struct inet_protosw l2tp_ip6_protosw = {
 	.no_check	= 0,
 };
 
-static struct inet6_protocol l2tp_ip6_protocol __read_mostly = {
+static const struct inet6_protocol l2tp_ip6_protocol = {
 	.handler	= l2tp_ip6_recv,
 };
 

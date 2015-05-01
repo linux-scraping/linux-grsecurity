@@ -138,6 +138,7 @@ struct fs_struct *copy_fs_struct(struct fs_struct *old)
 		fs->pwd = old->pwd;
 		path_get(&fs->pwd);
 		spin_unlock(&old->lock);
+		gr_inc_chroot_refcnts(fs->root.dentry, fs->root.mnt);
 	}
 	return fs;
 }

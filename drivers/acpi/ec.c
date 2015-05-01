@@ -978,7 +978,7 @@ static int ec_clear_on_resume(const struct dmi_system_id *id)
 	return 0;
 }
 
-static struct dmi_system_id ec_dmi_table[] __initdata = {
+static const struct dmi_system_id ec_dmi_table[] __initconst = {
 	{
 	ec_skip_dsdt_scan, "Compal JFL92", {
 	DMI_MATCH(DMI_BIOS_VENDOR, "COMPAL"),

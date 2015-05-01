@@ -13,7 +13,7 @@
 #include <linux/platform_device.h>
 #include <linux/pstore_ram.h>
 
-static struct dmi_system_id chromeos_pstore_dmi_table[] __initdata = {
+static const struct dmi_system_id chromeos_pstore_dmi_table[] __initconst = {
 	{
 		/*
 		 * Today all Chromebooks/boxes ship with GOOGLE as vendor and

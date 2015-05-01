@@ -413,7 +413,7 @@ static int __init video_set_use_native_backlight(const struct dmi_system_id *d)
 	return 0;
 }
 
-static struct dmi_system_id video_dmi_table[] __initdata = {
+static const struct dmi_system_id video_dmi_table[] __initconst = {
 	/*
 	 * Broken _BQC workaround http://bugzilla.kernel.org/show_bug.cgi?id=13121
 	 */

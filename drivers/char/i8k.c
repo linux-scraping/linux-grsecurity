@@ -659,7 +659,7 @@ static int __init i8k_init_hwmon(void)
 	return 0;
 }
 
-static struct dmi_system_id i8k_dmi_table[] __initdata = {
+static const struct dmi_system_id i8k_dmi_table[] __initconst = {
 	{
 		.ident = "Dell Inspiron",
 		.matches = {

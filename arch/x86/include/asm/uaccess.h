@@ -168,11 +168,13 @@ extern int __get_user_8(void);
 extern int __get_user_bad(void);
 
 /*
- * This is a type: either unsigned long, if the argument fits into
- * that type, or otherwise unsigned long long.
+ * This is a type: either (un)signed int, if the argument fits into
+ * that type, or otherwise (un)signed long long.
  */
 #define __inttype(x) \
-__typeof__(__builtin_choose_expr(sizeof(x) > sizeof(0UL), 0ULL, 0UL))
+__typeof__(__builtin_choose_expr(sizeof(x) > sizeof(0U),		\
+	__builtin_choose_expr(__type_is_unsigned(__typeof__(x)), 0ULL, 0LL),\
+	__builtin_choose_expr(__type_is_unsigned(__typeof__(x)), 0U, 0)))
 
 /**
  * get_user: - Get a simple variable from user space.

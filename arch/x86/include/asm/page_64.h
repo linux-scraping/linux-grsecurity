@@ -20,8 +20,8 @@ static inline unsigned long __intentional_overflow(-1) __phys_addr_nodebug(unsig
 }
 
 #ifdef CONFIG_DEBUG_VIRTUAL
-extern unsigned long __phys_addr(unsigned long);
-extern unsigned long __phys_addr_symbol(unsigned long);
+extern unsigned long __intentional_overflow(-1) __phys_addr(unsigned long);
+extern unsigned long __intentional_overflow(-1) __phys_addr_symbol(unsigned long);
 #else
 #define __phys_addr(x)		__phys_addr_nodebug(x)
 #define __phys_addr_symbol(x) \
