@@ -451,7 +451,7 @@ static int dmi_check_cb(const struct dmi_system_id *id)
 	return 1;
 }
 
-static struct dmi_system_id __initdata msi_dmi_table[] = {
+static const struct dmi_system_id __initconst msi_dmi_table[] = {
 	{
 		.ident = "MSI S270",
 		.matches = {

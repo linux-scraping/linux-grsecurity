@@ -598,23 +598,23 @@ async_copy_data(int frombio, struct bio *bio, struct page *page,
 	struct bio_vec *bvl;
 	struct page *bio_page;
 	int i;
-	int page_offset;
+	s64 page_offset;
 	struct async_submit_ctl submit;
 	enum async_tx_flags flags = 0;
 
 	if (bio->bi_sector >= sector)
-		page_offset = (signed)(bio->bi_sector - sector) * 512;
+		page_offset = (s64)(bio->bi_sector - sector) * 512;
 	else
-		page_offset = (signed)(sector - bio->bi_sector) * -512;
+		page_offset = (s64)(sector - bio->bi_sector) * -512;
 
 	if (frombio)
 		flags |= ASYNC_TX_FENCE;
 	init_async_submit(&submit, flags, tx, NULL, NULL, NULL);
 
 	bio_for_each_segment(bvl, bio, i) {
-		int len = bvl->bv_len;
-		int clen;
-		int b_offset = 0;
+		s64 len = bvl->bv_len;
+		s64 clen;
+		s64 b_offset = 0;
 
 		if (page_offset < 0) {
 			b_offset = -page_offset;

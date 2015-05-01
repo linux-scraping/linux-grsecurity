@@ -320,18 +320,18 @@ static inline bool gimple_store_p(gimple gs)
 }
 #endif
 
-#if BUILDING_GCC_VERSION >= 4007
-#define cgraph_create_edge(caller, callee, call_stmt, count, freq, nest) \
-	cgraph_create_edge((caller), (callee), (call_stmt), (count), (freq))
-#define cgraph_create_edge_including_clones(caller, callee, old_call_stmt, call_stmt, count, freq, nest, reason) \
-	cgraph_create_edge_including_clones((caller), (callee), (old_call_stmt), (call_stmt), (count), (freq), (reason))
-#endif
-
 #if BUILDING_GCC_VERSION == 4007 || BUILDING_GCC_VERSION == 4008
 static inline struct cgraph_node *cgraph_alias_target(struct cgraph_node *n)
 {
 	return cgraph_alias_aliased_node(n);
 }
+#endif
+
+#if BUILDING_GCC_VERSION >= 4007 && BUILDING_GCC_VERSION <= 4009
+#define cgraph_create_edge(caller, callee, call_stmt, count, freq, nest) \
+	cgraph_create_edge((caller), (callee), (call_stmt), (count), (freq))
+#define cgraph_create_edge_including_clones(caller, callee, old_call_stmt, call_stmt, count, freq, nest, reason) \
+	cgraph_create_edge_including_clones((caller), (callee), (old_call_stmt), (call_stmt), (count), (freq), (reason))
 #endif
 
 #if BUILDING_GCC_VERSION <= 4008
@@ -346,6 +346,40 @@ static inline struct cgraph_node *cgraph_alias_target(struct cgraph_node *n)
 #define BASIC_BLOCK_FOR_FN(FN, N)	BASIC_BLOCK_FOR_FUNCTION((FN), (N))
 #define NODE_IMPLICIT_ALIAS(node)	(node)->same_body_alias
 
+static inline bool tree_fits_shwi_p(const_tree t)
+{
+	if (t == NULL_TREE || TREE_CODE(t) != INTEGER_CST)
+		return false;
+
+	if (TREE_INT_CST_HIGH(t) == 0 && (HOST_WIDE_INT)TREE_INT_CST_LOW(t) >= 0)
+		return true;
+
+	if (TREE_INT_CST_HIGH(t) == -1 && (HOST_WIDE_INT)TREE_INT_CST_LOW(t) < 0 && !TYPE_UNSIGNED(TREE_TYPE(t)))
+		return true;
+
+	return false;
+}
+
+static inline bool tree_fits_uhwi_p(const_tree t)
+{
+	if (t == NULL_TREE || TREE_CODE(t) != INTEGER_CST)
+		return false;
+
+	return TREE_INT_CST_HIGH(t) == 0;
+}
+
+static inline HOST_WIDE_INT tree_to_shwi(const_tree t)
+{
+	gcc_assert(tree_fits_shwi_p(t));
+	return TREE_INT_CST_LOW(t);
+}
+
+static inline unsigned HOST_WIDE_INT tree_to_uhwi(const_tree t)
+{
+	gcc_assert(tree_fits_uhwi_p(t));
+	return TREE_INT_CST_LOW(t);
+}
+
 static inline const char *get_tree_code_name(enum tree_code code)
 {
 	gcc_assert(code < MAX_TREE_CODES);
@@ -356,6 +390,7 @@ static inline const char *get_tree_code_name(enum tree_code code)
 typedef union gimple_statement_d gasm;
 typedef union gimple_statement_d gassign;
 typedef union gimple_statement_d gcall;
+typedef union gimple_statement_d gcond;
 typedef union gimple_statement_d gdebug;
 typedef union gimple_statement_d gphi;
 typedef union gimple_statement_d greturn;
@@ -383,6 +418,7 @@ typedef union gimple_statement_d greturn;
 typedef struct gimple_statement_base gasm;
 typedef struct gimple_statement_base gassign;
 typedef struct gimple_statement_base gcall;
+typedef struct gimple_statement_base gcond;
 typedef struct gimple_statement_base gdebug;
 typedef struct gimple_statement_base gphi;
 typedef struct gimple_statement_base greturn;
@@ -396,12 +432,47 @@ static inline gasm *as_a_gasm(gimple stmt)
 	return stmt;
 }
 
+static inline const gasm *as_a_const_gasm(const_gimple stmt)
+{
+	return stmt;
+}
+
+static inline gassign *as_a_gassign(gimple stmt)
+{
+	return stmt;
+}
+
+static inline const gassign *as_a_const_gassign(const_gimple stmt)
+{
+	return stmt;
+}
+
 static inline gcall *as_a_gcall(gimple stmt)
 {
 	return stmt;
 }
 
+static inline const gcall *as_a_const_gcall(const_gimple stmt)
+{
+	return stmt;
+}
+
+static inline gphi *as_a_gphi(gimple stmt)
+{
+	return stmt;
+}
+
+static inline const gphi *as_a_const_gphi(const_gimple stmt)
+{
+	return stmt;
+}
+
 static inline greturn *as_a_greturn(gimple stmt)
+{
+	return stmt;
+}
+
+static inline const greturn *as_a_const_greturn(const_gimple stmt)
 {
 	return stmt;
 }
@@ -421,16 +492,22 @@ static inline greturn *as_a_greturn(gimple stmt)
 #define TODO_verify_stmts TODO_verify_il
 #define TODO_verify_rtl_sharing TODO_verify_il
 
-#define TREE_INT_CST_HIGH(NODE) ({ TREE_INT_CST_EXT_NUNITS(NODE) > 1 ? (unsigned HOST_WIDE_INT)TREE_INT_CST_ELT(NODE, 1) : 0; })
+//#define TREE_INT_CST_HIGH(NODE) ({ TREE_INT_CST_EXT_NUNITS(NODE) > 1 ? (unsigned HOST_WIDE_INT)TREE_INT_CST_ELT(NODE, 1) : 0; })
 
 #define INSN_DELETED_P(insn) (insn)->deleted()
 
 // symtab/cgraph related
 #define debug_cgraph_node(node) (node)->debug()
 #define cgraph_get_node(decl) cgraph_node::get(decl)
+#define cgraph_get_create_node(decl) cgraph_node::get_create(decl)
 #define cgraph_n_nodes symtab->cgraph_count
 #define cgraph_max_uid symtab->cgraph_max_uid
 #define varpool_get_node(decl) varpool_node::get(decl)
+
+#define cgraph_create_edge(caller, callee, call_stmt, count, freq, nest) \
+	(caller)->create_edge((callee), (call_stmt), (count), (freq))
+#define cgraph_create_edge_including_clones(caller, callee, old_call_stmt, call_stmt, count, freq, nest, reason) \
+	(caller)->create_edge_including_clones((callee), (old_call_stmt), (call_stmt), (count), (freq), (reason))
 
 typedef struct cgraph_node *cgraph_node_ptr;
 typedef struct cgraph_edge *cgraph_edge_p;
@@ -507,14 +584,38 @@ static inline gimple gimple_build_assign_with_ops(enum tree_code subcode, tree l
 	return gimple_build_assign(lhs, subcode, op1, op2 PASS_MEM_STAT);
 }
 
+template <>
+template <>
+inline bool is_a_helper<const gassign *>::test(const_gimple gs)
+{
+	return gs->code == GIMPLE_ASSIGN;
+}
+
+template <>
+template <>
+inline bool is_a_helper<const greturn *>::test(const_gimple gs)
+{
+	return gs->code == GIMPLE_RETURN;
+}
+
 static inline gasm *as_a_gasm(gimple stmt)
 {
 	return as_a<gasm *>(stmt);
 }
 
-static inline const gasm *as_a_gasm(const_gimple stmt)
+static inline const gasm *as_a_const_gasm(const_gimple stmt)
 {
 	return as_a<const gasm *>(stmt);
+}
+
+static inline gassign *as_a_gassign(gimple stmt)
+{
+	return as_a<gassign *>(stmt);
+}
+
+static inline const gassign *as_a_const_gassign(const_gimple stmt)
+{
+	return as_a<const gassign *>(stmt);
 }
 
 static inline gcall *as_a_gcall(gimple stmt)
@@ -522,9 +623,29 @@ static inline gcall *as_a_gcall(gimple stmt)
 	return as_a<gcall *>(stmt);
 }
 
+static inline const gcall *as_a_const_gcall(const_gimple stmt)
+{
+	return as_a<const gcall *>(stmt);
+}
+
+static inline gphi *as_a_gphi(gimple stmt)
+{
+	return as_a<gphi *>(stmt);
+}
+
+static inline const gphi *as_a_const_gphi(const_gimple stmt)
+{
+	return as_a<const gphi *>(stmt);
+}
+
 static inline greturn *as_a_greturn(gimple stmt)
 {
 	return as_a<greturn *>(stmt);
+}
+
+static inline const greturn *as_a_const_greturn(const_gimple stmt)
+{
+	return as_a<const greturn *>(stmt);
 }
 
 // IPA/LTO related
@@ -534,6 +655,11 @@ static inline greturn *as_a_greturn(gimple stmt)
 static inline cgraph_node_ptr ipa_ref_referring_node(struct ipa_ref *ref)
 {
 	return dyn_cast<cgraph_node_ptr>(ref->referring);
+}
+
+static inline void ipa_remove_stmt_references(symtab_node *referring_node, gimple stmt)
+{
+	referring_node->remove_stmt_references(stmt);
 }
 #endif
 

@@ -3385,7 +3385,7 @@ static struct acpi_driver sony_pic_driver = {
 		},
 };
 
-static struct dmi_system_id __initdata sonypi_dmi_table[] = {
+static const struct dmi_system_id __initconst sonypi_dmi_table[] = {
 	{
 		.ident = "Sony Vaio",
 		.matches = {

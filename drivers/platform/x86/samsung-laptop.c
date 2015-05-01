@@ -543,7 +543,7 @@ static DEVICE_ATTR(performance_level, S_IWUSR | S_IRUGO,
 		   get_performance_level, set_performance_level);
 
 
-static struct dmi_system_id __initdata samsung_dmi_table[] = {
+static const struct dmi_system_id __initconst samsung_dmi_table[] = {
 	{
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR,

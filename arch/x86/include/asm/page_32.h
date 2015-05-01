@@ -11,7 +11,7 @@
 
 #define __phys_addr_nodebug(x)	((x) - PAGE_OFFSET)
 #ifdef CONFIG_DEBUG_VIRTUAL
-extern unsigned long __phys_addr(unsigned long);
+extern unsigned long __intentional_overflow(-1) __phys_addr(unsigned long);
 #else
 #define __phys_addr(x)		__phys_addr_nodebug(x)
 #endif

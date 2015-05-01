@@ -83,12 +83,11 @@ struct file_handle;
 #define __SC_DECL5(t5, a5, ...) t5 a5, __SC_DECL4(__VA_ARGS__)
 #define __SC_DECL6(t6, a6, ...) t6 a6, __SC_DECL5(__VA_ARGS__)
 
-#define __TYPE_IS_U(t) (__same_type((t)0, 0UL) || __same_type((t)0, 0U) || __same_type((t)0, (unsigned short)0) || __same_type((t)0, (unsigned char)0))
 #define __SC_TYPE(t, a) __typeof(				\
 	__builtin_choose_expr(					\
 		sizeof(t) > sizeof(int),			\
 		(t) 0,						\
-		__builtin_choose_expr(__TYPE_IS_U(t), 0UL, 0L)	\
+		__builtin_choose_expr(__type_is_unsigned(t), 0UL, 0L)	\
 	)) a
 
 #define __SC_LONG1(t1, a1) 	__SC_TYPE(t1, a1)

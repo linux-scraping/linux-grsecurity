@@ -95,10 +95,10 @@ static int zlib_compress_setup(struct crypto_pcomp *tfm, void *params,
 	zlib_comp_exit(ctx);
 
 	window_bits = tb[ZLIB_COMP_WINDOWBITS]
-					? nla_get_u32(tb[ZLIB_COMP_WINDOWBITS])
+					? nla_get_s32(tb[ZLIB_COMP_WINDOWBITS])
 					: MAX_WBITS;
 	mem_level = tb[ZLIB_COMP_MEMLEVEL]
-					? nla_get_u32(tb[ZLIB_COMP_MEMLEVEL])
+					? nla_get_s32(tb[ZLIB_COMP_MEMLEVEL])
 					: DEF_MEM_LEVEL;
 
 	workspacesize = zlib_deflate_workspacesize(window_bits, mem_level);

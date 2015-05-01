@@ -607,7 +607,7 @@ static void __exit i8k_exit_hwmon(void)
 	hwmon_device_unregister(i8k_hwmon_dev);
 }
 
-static struct dmi_system_id __initdata i8k_dmi_table[] = {
+static const struct dmi_system_id __initconst i8k_dmi_table[] = {
 	{
 		.ident = "Dell Inspiron",
 		.matches = {

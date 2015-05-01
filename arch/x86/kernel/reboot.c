@@ -145,7 +145,7 @@ static int __init set_kbd_reboot(const struct dmi_system_id *d)
 	return 0;
 }
 
-static struct dmi_system_id __initdata reboot_dmi_table[] = {
+static const struct dmi_system_id __initconst reboot_dmi_table[] = {
 	{	/* Handle problems with rebooting on Dell E520's */
 		.callback = set_bios_reboot,
 		.ident = "Dell E520",

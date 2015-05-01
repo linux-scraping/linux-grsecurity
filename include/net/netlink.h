@@ -135,6 +135,7 @@
  *   nla_get_u16(nla)			get payload for a u16 attribute
  *   nla_get_u32(nla)			get payload for a u32 attribute
  *   nla_get_u64(nla)			get payload for a u64 attribute
+ *   nla_get_s32(nla)			get payload for a s32 attribute
  *   nla_get_flag(nla)			return 1 if flag is true
  *   nla_get_msecs(nla)			get payload for a msecs attribute
  *
@@ -995,6 +996,15 @@ static inline __be64 nla_get_be64(const struct nlattr *nla)
 	nla_memcpy(&tmp, nla, sizeof(tmp));
 
 	return tmp;
+}
+
+/**
+ * nla_get_s32 - return payload of s32 attribute
+ * @nla: s32 netlink attribute
+ */
+static inline s32 nla_get_s32(const struct nlattr *nla)
+{
+	return *(s32 *) nla_data(nla);
 }
 
 /**

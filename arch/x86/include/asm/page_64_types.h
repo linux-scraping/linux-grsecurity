@@ -57,7 +57,7 @@ void copy_page(void *to, void *from);
 extern unsigned long max_pfn;
 extern const unsigned long phys_base;
 
-extern unsigned long __phys_addr(unsigned long);
+extern unsigned long __intentional_overflow(-1) __phys_addr(unsigned long);
 #define __phys_reloc_hide(x)	(x)
 
 #define vmemmap ((struct page *)VMEMMAP_START)

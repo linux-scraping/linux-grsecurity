@@ -2299,7 +2299,7 @@ static struct pci_driver rhine_driver = {
 	.shutdown =	rhine_shutdown,
 };
 
-static struct dmi_system_id __initdata rhine_dmi_table[] = {
+static const struct dmi_system_id __initconst rhine_dmi_table[] = {
 	{
 		.ident = "EPIA-M",
 		.matches = {

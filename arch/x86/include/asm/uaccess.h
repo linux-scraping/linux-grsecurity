@@ -160,6 +160,15 @@ extern int __get_user_bad(void);
 /* Careful: we have to cast the result to the type of the pointer
  * for sign reasons */
 
+/*
+ * This is a type: either (un)signed int, if the argument fits into
+ * that type, or otherwise (un)signed long long.
+ */
+#define __inttype(x) \
+__typeof__(__builtin_choose_expr(sizeof(x) > sizeof(0U),		\
+	__builtin_choose_expr(__type_is_unsigned(__typeof__(x)), 0ULL, 0LL),\
+	__builtin_choose_expr(__type_is_unsigned(__typeof__(x)), 0U, 0)))
+
 /**
  * get_user: - Get a simple variable from user space.
  * @x:   Variable to store result.
@@ -188,7 +197,7 @@ extern int __get_user_bad(void);
 #define get_user(x, ptr)						\
 ({									\
 	int __ret_gu;							\
-	unsigned long __val_gu;						\
+	__inttype(*(ptr)) __val_gu;					\
 	__chk_user_ptr(ptr);						\
 	might_fault();							\
 	switch (sizeof(*(ptr))) {					\
