@@ -19,7 +19,7 @@
 
 #include "size_overflow.h"
 
-static next_interesting_function_t walk_use_def_next_functions(struct pointer_set_t *visited, next_interesting_function_t next_cnodes_head, const_tree lhs);
+static next_interesting_function_t walk_use_def_next_functions(gimple_set *visited, next_interesting_function_t next_cnodes_head, const_tree lhs);
 
 next_interesting_function_t global_next_interesting_function[GLOBAL_NIFN_LEN];
 
@@ -307,9 +307,9 @@ static next_interesting_function_t handle_function(next_interesting_function_t n
 	return new_node;
 }
 
-static next_interesting_function_t walk_use_def_next_functions_phi(struct pointer_set_t *visited, next_interesting_function_t next_cnodes_head, const_tree result)
+static next_interesting_function_t walk_use_def_next_functions_phi(gimple_set *visited, next_interesting_function_t next_cnodes_head, const_tree result)
 {
-	gimple phi = get_def_stmt(result);
+	gphi *phi = as_a_gphi(get_def_stmt(result));
 	unsigned int i, n = gimple_phi_num_args(phi);
 
 	pointer_set_insert(visited, phi);
@@ -322,9 +322,9 @@ static next_interesting_function_t walk_use_def_next_functions_phi(struct pointe
 	return next_cnodes_head;
 }
 
-static next_interesting_function_t walk_use_def_next_functions_binary(struct pointer_set_t *visited, next_interesting_function_t next_cnodes_head, const_tree lhs)
+static next_interesting_function_t walk_use_def_next_functions_binary(gimple_set *visited, next_interesting_function_t next_cnodes_head, const_tree lhs)
 {
-	gimple def_stmt = get_def_stmt(lhs);
+	gassign *def_stmt = as_a_gassign(get_def_stmt(lhs));
 	tree rhs1, rhs2;
 
 	rhs1 = gimple_assign_rhs1(def_stmt);
@@ -334,7 +334,7 @@ static next_interesting_function_t walk_use_def_next_functions_binary(struct poi
 	return walk_use_def_next_functions(visited, next_cnodes_head, rhs2);
 }
 
-next_interesting_function_t __attribute__((weak)) handle_function_ptr_ret(struct pointer_set_t *visited __unused, next_interesting_function_t next_cnodes_head, const_tree fn_ptr __unused)
+next_interesting_function_t __attribute__((weak)) handle_function_ptr_ret(gimple_set *visited __unused, next_interesting_function_t next_cnodes_head, const_tree fn_ptr __unused)
 {
 	return next_cnodes_head;
 }
@@ -343,7 +343,7 @@ next_interesting_function_t __attribute__((weak)) handle_function_ptr_ret(struct
  *
  * Encountered functions are added to the children vector (next_interesting_function_t).
  */
-static next_interesting_function_t walk_use_def_next_functions(struct pointer_set_t *visited, next_interesting_function_t next_cnodes_head, const_tree lhs)
+static next_interesting_function_t walk_use_def_next_functions(gimple_set *visited, next_interesting_function_t next_cnodes_head, const_tree lhs)
 {
 	const_gimple def_stmt;
 
@@ -368,7 +368,7 @@ static next_interesting_function_t walk_use_def_next_functions(struct pointer_se
 		return walk_use_def_next_functions(visited, next_cnodes_head, SSA_NAME_VAR(lhs));
 	case GIMPLE_ASM:
 		if (is_size_overflow_asm(def_stmt))
-			return walk_use_def_next_functions(visited, next_cnodes_head, get_size_overflow_asm_input(def_stmt));
+			return walk_use_def_next_functions(visited, next_cnodes_head, get_size_overflow_asm_input(as_a_const_gasm(def_stmt)));
 		return next_cnodes_head;
 	case GIMPLE_CALL: {
 		tree fndecl = gimple_call_fndecl(def_stmt);
@@ -397,7 +397,7 @@ static next_interesting_function_t walk_use_def_next_functions(struct pointer_se
 // Start the search for next_interesting_function_t children based on the (next_interesting_function_t) parent node
 static next_interesting_function_t search_next_functions(const_tree node)
 {
-	struct pointer_set_t *visited;
+	gimple_set *visited;
 	next_interesting_function_t next_cnodes_head;
 
 	visited = pointer_set_create();
@@ -506,16 +506,16 @@ static void collect_all_possible_size_overflow_fns(const_gimple stmt, unsigned i
 
 	switch (gimple_code(stmt)) {
 	case GIMPLE_ASM:
-		if (!is_size_overflow_insert_check_asm(stmt))
+		if (!is_size_overflow_insert_check_asm(as_a_const_gasm(stmt)))
 			return;
-		start_var = get_size_overflow_asm_input(stmt);
+		start_var = get_size_overflow_asm_input(as_a_const_gasm(stmt));
 		gcc_assert(start_var != NULL_TREE);
 		break;
 	case GIMPLE_CALL:
 		start_var = gimple_call_arg(stmt, num - 1);
 		break;
 	case GIMPLE_RETURN:
-		start_var = gimple_return_retval(stmt);
+		start_var = gimple_return_retval(as_a_const_greturn(stmt));
 		if (start_var == NULL_TREE)
 			return;
 		break;
@@ -771,7 +771,7 @@ static void search_missing_fptr_arg(next_interesting_function_t parent)
 }
 
 // Do a depth-first recursive dump of the next_interesting_function_t children vector
-static void print_missing_functions(struct pointer_set_t *visited, next_interesting_function_t parent)
+static void print_missing_functions(next_interesting_function_set *visited, next_interesting_function_t parent)
 {
 	unsigned int i;
 	next_interesting_function_t child;
@@ -801,10 +801,10 @@ void __attribute__((weak)) check_global_variables(next_interesting_function_t cu
 static unsigned int size_overflow_execute(void)
 {
 	unsigned int i;
-	struct pointer_set_t *visited;
+	next_interesting_function_set *visited;
 	next_interesting_function_t cur_global;
 
-	visited = pointer_set_create();
+	visited = next_interesting_function_pointer_set_create();
 
 	for (i = 0; i < GLOBAL_NIFN_LEN; i++) {
 		for (cur_global = global_next_interesting_function[i]; cur_global; cur_global = cur_global->next) {
@@ -845,7 +845,8 @@ static struct ipa_opt_pass_d size_overflow_functions_pass = {
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
-#if BUILDING_GCC_VERSION >= 4009
+#if BUILDING_GCC_VERSION >= 5000
+#elif BUILDING_GCC_VERSION >= 4009
 		.has_gate		= false,
 		.has_execute		= true,
 #else
@@ -892,7 +893,11 @@ public:
 			 0,
 			 size_overflow_transform,
 			 NULL) {}
+#if BUILDING_GCC_VERSION >= 5000
+	virtual unsigned int execute(function *) { return size_overflow_execute(); }
+#else
 	unsigned int execute() { return size_overflow_execute(); }
+#endif
 };
 }
 

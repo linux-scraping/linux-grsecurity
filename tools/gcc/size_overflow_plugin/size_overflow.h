@@ -48,13 +48,6 @@ struct decl_hash {
 	const char *fn_name;
 };
 
-struct visited {
-	struct pointer_set_t *stmts;
-	struct pointer_set_t *my_stmts;
-	struct pointer_set_t *skip_expr_casts;
-	struct pointer_set_t *no_cast_check;
-};
-
 struct next_interesting_function;
 typedef struct next_interesting_function *  next_interesting_function_t;
 
@@ -62,6 +55,67 @@ typedef struct next_interesting_function *  next_interesting_function_t;
 DEF_VEC_P(next_interesting_function_t);
 DEF_VEC_ALLOC_P(next_interesting_function_t, heap);
 #endif
+
+#if BUILDING_GCC_VERSION >= 5000
+typedef struct hash_set<const_gimple> gimple_set;
+
+static inline bool pointer_set_insert(gimple_set *visited, const_gimple stmt)
+{
+	return visited->add(stmt);
+}
+
+static inline bool pointer_set_contains(gimple_set *visited, const_gimple stmt)
+{
+	return visited->contains(stmt);
+}
+
+static inline gimple_set* pointer_set_create(void)
+{
+	return new hash_set<const_gimple>;
+}
+
+static inline void pointer_set_destroy(gimple_set *visited)
+{
+	delete visited;
+}
+
+typedef struct hash_set<next_interesting_function_t> next_interesting_function_set;
+
+static inline bool pointer_set_insert(next_interesting_function_set *visited, next_interesting_function_t node)
+{
+	return visited->add(node);
+}
+
+static inline bool pointer_set_contains(next_interesting_function_set *visited, next_interesting_function_t node)
+{
+	return visited->contains(node);
+}
+
+static inline next_interesting_function_set *next_interesting_function_pointer_set_create(void)
+{
+	return new hash_set<next_interesting_function_t>;
+}
+
+static inline void pointer_set_destroy(next_interesting_function_set *visited)
+{
+	delete visited;
+}
+#else
+typedef struct pointer_set_t gimple_set;
+typedef struct pointer_set_t next_interesting_function_set;
+
+static inline next_interesting_function_set *next_interesting_function_pointer_set_create(void)
+{
+	return pointer_set_create();
+}
+#endif
+
+struct visited {
+	gimple_set *stmts;
+	gimple_set *my_stmts;
+	gimple_set *skip_expr_casts;
+	gimple_set *no_cast_check;
+};
 
 /*
  *  * children: callers with data flow into the integer parameter of decl
@@ -88,11 +142,11 @@ struct next_interesting_function {
 };
 
 // size_overflow_plugin.c
-extern GTY(()) tree report_size_overflow_decl;
-extern GTY(()) tree size_overflow_type_HI;
-extern GTY(()) tree size_overflow_type_SI;
-extern GTY(()) tree size_overflow_type_DI;
-extern GTY(()) tree size_overflow_type_TI;
+extern tree report_size_overflow_decl;
+extern tree size_overflow_type_HI;
+extern tree size_overflow_type_SI;
+extern tree size_overflow_type_DI;
+extern tree size_overflow_type_TI;
 
 
 // size_overflow_plugin_hash.c
@@ -112,20 +166,20 @@ extern const struct size_overflow_hash *get_size_overflow_hash_entry(unsigned in
 
 
 // intentional_overflow.c
-extern tree get_size_overflow_asm_input(const_gimple stmt);
+extern tree get_size_overflow_asm_input(const gasm *stmt);
 extern enum intentional_mark check_intentional_asm(const_gimple stmt, unsigned int argnum);
-extern bool is_size_overflow_insert_check_asm(const_gimple stmt);
+extern bool is_size_overflow_insert_check_asm(const gasm *stmt);
 extern enum intentional_mark check_intentional_attribute(const_gimple stmt, unsigned int argnum);
 extern enum intentional_mark get_so_asm_type(const_gimple stmt);
 extern const_tree get_attribute(const char* attr_name, const_tree decl);
 extern bool is_a_cast_and_const_overflow(const_tree no_const_rhs);
 extern bool is_const_plus_unsigned_signed_truncation(const_tree lhs);
-extern bool is_a_constant_overflow(const_gimple stmt, const_tree rhs);
-extern tree handle_intentional_overflow(struct visited *visited, bool check_overflow, gimple stmt, tree change_rhs, tree new_rhs2);
+extern bool is_a_constant_overflow(const gassign *stmt, const_tree rhs);
+extern tree handle_intentional_overflow(struct visited *visited, bool check_overflow, gassign *stmt, tree change_rhs, tree new_rhs2);
 extern tree handle_integer_truncation(struct visited *visited, const_tree lhs);
-extern bool is_a_neg_overflow(const_gimple stmt, const_tree rhs);
-extern enum intentional_overflow_type add_mul_intentional_overflow(const_gimple def_stmt);
-extern void unsigned_signed_cast_intentional_overflow(struct visited *visited, gimple stmt);
+extern bool is_a_neg_overflow(const gassign *stmt, const_tree rhs);
+extern enum intentional_overflow_type add_mul_intentional_overflow(const gassign *stmt);
+extern void unsigned_signed_cast_intentional_overflow(struct visited *visited, gassign *stmt);
 
 
 // insert_size_overflow_asm.c
@@ -142,7 +196,7 @@ extern unsigned int get_correct_argnum_fndecl(const_tree fndecl, const_tree corr
 extern const char *get_type_name_from_field(const_tree field_decl);
 extern void set_dominance_info(void);
 extern void unset_dominance_info(void);
-extern tree get_interesting_orig_fndecl_from_stmt(const_gimple stmt);
+extern tree get_interesting_orig_fndecl_from_stmt(const gcall *stmt);
 extern tree get_orig_fndecl(const_tree clone_fndecl);
 extern unsigned int get_correct_argnum(const_tree decl, const_tree correct_argnum_of_decl, unsigned int argnum);
 extern bool is_valid_cgraph_node(struct cgraph_node *node);
@@ -156,6 +210,7 @@ extern tree cast_a_tree(tree type, tree var);
 extern bool is_size_overflow_type(const_tree var);
 extern bool made_by_compiler(const_tree decl);
 extern gimple get_fnptr_def_stmt(const_tree fn_ptr);
+extern tree get_lhs(const_gimple stmt);
 
 
 // size_overflow_transform.c
@@ -166,15 +221,15 @@ extern tree handle_fnptr_assign(const_gimple stmt);
 // size_overflow_transform_core.c
 extern tree expand(struct visited *visited, tree lhs);
 extern void check_size_overflow(gimple stmt, tree size_overflow_type, tree cast_rhs, tree rhs, bool before);
-extern tree dup_assign(struct visited *visited, gimple oldstmt, const_tree node, tree rhs1, tree rhs2, tree __unused rhs3);
+extern tree dup_assign(struct visited *visited, gassign *oldstmt, const_tree node, tree rhs1, tree rhs2, tree __unused rhs3);
 extern tree create_assign(struct visited *visited, gimple oldstmt, tree rhs1, bool before);
 
 
 // remove_unnecessary_dup.c
 extern struct opt_pass *make_remove_unnecessary_dup_pass(void);
-extern void insert_cast_expr(struct visited *visited, gimple stmt, enum intentional_overflow_type type);
-extern bool skip_expr_on_double_type(const_gimple stmt);
-extern void create_up_and_down_cast(struct visited *visited, gimple use_stmt, tree orig_type, tree rhs);
+extern void insert_cast_expr(struct visited *visited, gassign *stmt, enum intentional_overflow_type type);
+extern bool skip_expr_on_double_type(const gassign *stmt);
+extern void create_up_and_down_cast(struct visited *visited, gassign *use_stmt, tree orig_type, tree rhs);
 
 
 // size_overflow_ipa.c
@@ -208,7 +263,7 @@ extern void size_overflow_write_summary_lto(cgraph_node_set set);
 #endif
 
 // size_overflow_fnptrs.c
-extern next_interesting_function_t handle_function_ptr_ret(struct pointer_set_t *visited, next_interesting_function_t next_cnodes_head, const_tree fn_ptr);
+extern next_interesting_function_t handle_function_ptr_ret(gimple_set *visited, next_interesting_function_t next_cnodes_head, const_tree fn_ptr);
 extern void check_local_variables(next_interesting_function_t next_node);
 extern void check_global_variables(next_interesting_function_t cur_global);
 extern next_interesting_function_t get_and_create_next_node_from_global_next_nodes_fnptr(const_tree fn_ptr, unsigned int num, enum size_overflow_mark marked);

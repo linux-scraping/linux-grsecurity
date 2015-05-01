@@ -26,10 +26,10 @@ static tree cast_to_orig_type(struct visited *visited, gimple stmt, const_tree o
 	gimple_stmt_iterator gsi = gsi_for_stmt(stmt);
 
 	assign = build_cast_stmt(visited, orig_type, new_node, CREATE_NEW_VAR, &gsi, BEFORE_STMT, false);
-	return gimple_assign_lhs(assign);
+	return get_lhs(assign);
 }
 
-static void change_size_overflow_asm_input(gimple stmt, tree new_input)
+static void change_size_overflow_asm_input(gasm *stmt, tree new_input)
 {
 	tree list;
 
@@ -46,13 +46,13 @@ static void change_orig_node(struct visited *visited, gimple stmt, const_tree or
 
 	switch (gimple_code(stmt)) {
 	case GIMPLE_RETURN:
-		gimple_return_set_retval(stmt, cast_lhs);
+		gimple_return_set_retval(as_a_greturn(stmt), cast_lhs);
 		break;
 	case GIMPLE_CALL:
 		gimple_call_set_arg(stmt, num - 1, cast_lhs);
 		break;
 	case GIMPLE_ASM:
-		change_size_overflow_asm_input(stmt, cast_lhs);
+		change_size_overflow_asm_input(as_a_gasm(stmt), cast_lhs);
 		break;
 	default:
 		debug_gimple_stmt(stmt);
@@ -237,7 +237,7 @@ tree handle_fnptr_assign(const_gimple stmt)
 	return field;
 }
 
-static tree get_fn_or_fnptr_decl(const_gimple call_stmt)
+static tree get_fn_or_fnptr_decl(const gcall *call_stmt)
 {
 	const_tree fnptr;
 	const_gimple def_stmt;
@@ -255,7 +255,7 @@ static tree get_fn_or_fnptr_decl(const_gimple call_stmt)
 }
 
 // Start stmt duplication on marked function parameters
-static struct interesting_stmts *search_interesting_calls(struct interesting_stmts *head, gimple call_stmt)
+static struct interesting_stmts *search_interesting_calls(struct interesting_stmts *head, gcall *call_stmt)
 {
 	tree decl;
 	unsigned int i, len;
@@ -301,21 +301,21 @@ static void search_interesting_stmts(struct visited *visited)
 
 			switch (gimple_code(stmt)) {
 			case GIMPLE_ASM:
-				if (!is_size_overflow_insert_check_asm(stmt))
+				if (!is_size_overflow_insert_check_asm(as_a_gasm(stmt)))
 					continue;
-				first_node = get_size_overflow_asm_input(stmt);
+				first_node = get_size_overflow_asm_input(as_a_gasm(stmt));
 				head = search_interesting_stmt(head, stmt, first_node, 0);
 				break;
 			case GIMPLE_RETURN:
 				if (!search_ret)
 					continue;
-				first_node = gimple_return_retval(stmt);
+				first_node = gimple_return_retval(as_a_greturn(stmt));
 				if (first_node == NULL_TREE)
 					break;
 				head = search_interesting_stmt(head, stmt, first_node, 0);
 				break;
 			case GIMPLE_CALL:
-				head = search_interesting_calls(head, stmt);
+				head = search_interesting_calls(head, as_a_gcall(stmt));
 				break;
 			default:
 				break;
@@ -350,9 +350,9 @@ static void free_visited(struct visited *visited)
 }
 
 // Remove the size_overflow asm stmt and create an assignment from the input and output of the asm
-static void replace_size_overflow_asm_with_assign(gimple asm_stmt, tree lhs, tree rhs)
+static void replace_size_overflow_asm_with_assign(gasm *asm_stmt, tree lhs, tree rhs)
 {
-	gimple assign;
+	gassign *assign;
 	gimple_stmt_iterator gsi;
 
 	// already removed
@@ -376,16 +376,17 @@ static void remove_size_overflow_asm(gimple stmt)
 	if (!is_size_overflow_asm(stmt))
 		return;
 
-	if (gimple_asm_noutputs(stmt) == 0) {
+	if (gimple_asm_noutputs(as_a_gasm(stmt)) == 0) {
 		gsi = gsi_for_stmt(stmt);
-		ipa_remove_stmt_references(cgraph_get_create_node(current_function_decl), stmt);
+
+		ipa_remove_stmt_references(cgraph_get_node(current_function_decl), stmt);
 		gsi_remove(&gsi, true);
 		return;
 	}
 
-	input = gimple_asm_input_op(stmt, 0);
-	output = gimple_asm_output_op(stmt, 0);
-	replace_size_overflow_asm_with_assign(stmt, TREE_VALUE(output), TREE_VALUE(input));
+	input = gimple_asm_input_op(as_a_gasm(stmt), 0);
+	output = gimple_asm_output_op(as_a_gasm(stmt), 0);
+	replace_size_overflow_asm_with_assign(as_a_gasm(stmt), TREE_VALUE(output), TREE_VALUE(input));
 }
 
 static void remove_all_size_overflow_asm(void)

@@ -19,7 +19,7 @@
 
 #include "size_overflow.h"
 
-bool skip_expr_on_double_type(const_gimple stmt)
+bool skip_expr_on_double_type(const gassign *stmt)
 {
 	enum tree_code code = gimple_assign_rhs_code(stmt);
 
@@ -41,19 +41,19 @@ bool skip_expr_on_double_type(const_gimple stmt)
 	}
 }
 
-void create_up_and_down_cast(struct visited *visited, gimple use_stmt, tree orig_type, tree rhs)
+void create_up_and_down_cast(struct visited *visited, gassign *use_stmt, tree orig_type, tree rhs)
 {
 	const_tree orig_rhs1;
 	tree down_lhs, new_lhs, dup_type = TREE_TYPE(rhs);
-	gimple down_cast, up_cast;
+	const_gimple down_cast, up_cast;
 	gimple_stmt_iterator gsi = gsi_for_stmt(use_stmt);
 
 	down_cast = build_cast_stmt(visited, orig_type, rhs, CREATE_NEW_VAR, &gsi, BEFORE_STMT, false);
-	down_lhs = gimple_assign_lhs(down_cast);
+	down_lhs = get_lhs(down_cast);
 
 	gsi = gsi_for_stmt(use_stmt);
 	up_cast = build_cast_stmt(visited, dup_type, down_lhs, CREATE_NEW_VAR, &gsi, BEFORE_STMT, false);
-	new_lhs = gimple_assign_lhs(up_cast);
+	new_lhs = get_lhs(up_cast);
 
 	orig_rhs1 = gimple_assign_rhs1(use_stmt);
 	if (operand_equal_p(orig_rhs1, rhs, 0))
@@ -97,7 +97,7 @@ static tree get_proper_unsigned_half_type(const_tree node)
 	return new_type;
 }
 
-static void insert_cast_rhs(struct visited *visited, gimple stmt, tree rhs)
+static void insert_cast_rhs(struct visited *visited, gassign *stmt, tree rhs)
 {
 	tree type;
 
@@ -112,7 +112,7 @@ static void insert_cast_rhs(struct visited *visited, gimple stmt, tree rhs)
 	create_up_and_down_cast(visited, stmt, type, rhs);
 }
 
-static void insert_cast(struct visited *visited, gimple stmt, tree rhs)
+static void insert_cast(struct visited *visited, gassign *stmt, tree rhs)
 {
 	if (LONG_TYPE_SIZE == GET_MODE_BITSIZE(SImode) && !is_size_overflow_type(rhs))
 		return;
@@ -120,7 +120,7 @@ static void insert_cast(struct visited *visited, gimple stmt, tree rhs)
 	insert_cast_rhs(visited, stmt, rhs);
 }
 
-void insert_cast_expr(struct visited *visited, gimple stmt, enum intentional_overflow_type type)
+void insert_cast_expr(struct visited *visited, gassign *stmt, enum intentional_overflow_type type)
 {
 	tree rhs1, rhs2;
 

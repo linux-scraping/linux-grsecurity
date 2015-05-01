@@ -199,13 +199,13 @@ unsigned int get_decl_hash(const_tree decl, const char *decl_name)
 	struct decl_hash decl_hash_data;
 	enum tree_code code = TREE_CODE(decl);
 
-	decl_hash_data.fn_name = decl_name;
 	gcc_assert(code == FIELD_DECL || code == FUNCTION_DECL || code == VAR_DECL);
 
 	// skip builtins __builtin_constant_p
 	if (code == FUNCTION_DECL && DECL_BUILT_IN(decl))
 		return NO_HASH;
 
+	decl_hash_data.fn_name = decl_name;
 	decl_hash_data.decl = decl;
 	decl_hash_data.tree_codes_len = 0;
 

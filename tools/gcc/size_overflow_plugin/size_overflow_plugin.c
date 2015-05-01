@@ -29,7 +29,7 @@ tree size_overflow_type_DI;
 tree size_overflow_type_TI;
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20150311",
+	.version	= "20150429",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
@@ -53,10 +53,21 @@ static tree handle_size_overflow_attribute(tree *node, tree __unused name, tree 
 	}
 
 	for (; args; args = TREE_CHAIN(args)) {
+		int cur_val;
 		tree position = TREE_VALUE(args);
-		if (TREE_CODE(position) != INTEGER_CST || TREE_INT_CST_LOW(position) > arg_count ) {
-			error("%s: parameter %u is outside range.", __func__, (unsigned int)TREE_INT_CST_LOW(position));
+
+		if (TREE_CODE(position) != INTEGER_CST) {
+			error("%s: parameter isn't an integer", __func__);
+			debug_tree(args);
 			*no_add_attrs = true;
+			return NULL_TREE;
+		}
+
+		cur_val = tree_to_shwi(position);
+		if (cur_val < 0 || arg_count < (unsigned int)cur_val) {
+			error("%s: parameter %d is outside range.", __func__, cur_val);
+			*no_add_attrs = true;
+			return NULL_TREE;
 		}
 	}
 	return NULL_TREE;
@@ -65,6 +76,7 @@ static tree handle_size_overflow_attribute(tree *node, tree __unused name, tree 
 static tree handle_intentional_overflow_attribute(tree *node, tree __unused name, tree args, int __unused flags, bool *no_add_attrs)
 {
 	unsigned int arg_count;
+	HOST_WIDE_INT s_first_arg;
 	enum tree_code code = TREE_CODE(*node);
 
 	switch (code) {
@@ -83,14 +95,27 @@ static tree handle_intentional_overflow_attribute(tree *node, tree __unused name
 		return NULL_TREE;
 	}
 
-	if (TREE_INT_CST_HIGH(TREE_VALUE(args)) != 0)
+	s_first_arg = tree_to_shwi(TREE_VALUE(args));
+	if (s_first_arg == -1)
 		return NULL_TREE;
+	if (s_first_arg < -1)
+		error("%s: parameter %d is outside range.", __func__, (int)s_first_arg);
 
 	for (; args; args = TREE_CHAIN(args)) {
-		tree position = TREE_VALUE(args);
-		if (TREE_CODE(position) != INTEGER_CST || TREE_INT_CST_LOW(position) > arg_count ) {
-			error("%s: parameter %u is outside range.", __func__, (unsigned int)TREE_INT_CST_LOW(position));
+		unsigned int cur_val;
+
+		if (TREE_CODE(TREE_VALUE(args)) != INTEGER_CST) {
+			error("%s: parameter isn't an integer", __func__);
+			debug_tree(args);
 			*no_add_attrs = true;
+			return NULL_TREE;
+		}
+
+		cur_val = (unsigned int)tree_to_uhwi(TREE_VALUE(args));
+		if (cur_val > arg_count ) {
+			error("%s: parameter %u is outside range. (arg_count: %u)", __func__, cur_val, arg_count);
+			*no_add_attrs = true;
+			return NULL_TREE;
 		}
 	}
 	return NULL_TREE;

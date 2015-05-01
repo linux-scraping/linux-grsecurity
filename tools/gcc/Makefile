@@ -10,7 +10,7 @@ HOST_EXTRACFLAGS += -I$(GCCPLUGINS_DIR)/include -I$(src) -std=gnu99 -ggdb
 export HOST_EXTRACFLAGS
 else
 HOSTLIBS := hostcxxlibs
-HOST_EXTRACXXFLAGS += -I$(GCCPLUGINS_DIR)/include -I$(src) -std=gnu++98 -fno-rtti -ggdb -Wno-unused-parameter -Wno-narrowing -Wno-unused-variable
+HOST_EXTRACXXFLAGS += -I$(GCCPLUGINS_DIR)/include -I$(src) -std=gnu++98 -fno-rtti -fno-exceptions -fasynchronous-unwind-tables -ggdb -Wno-unused-parameter -Wno-narrowing -Wno-unused-variable
 export HOST_EXTRACXXFLAGS
 endif
 

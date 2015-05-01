@@ -108,7 +108,7 @@ static void create_so_asm_stmt(struct asm_data *asm_data)
 {
 	char *asm_comment;
 	const char *mark_str;
-	gimple asm_stmt;
+	gasm *asm_stmt;
 	gimple_stmt_iterator gsi;
 	tree str_input, str_output;
 #if BUILDING_GCC_VERSION <= 4007
@@ -158,7 +158,7 @@ static tree get_so_asm_output(struct asm_data *asm_data)
 	switch (gimple_code(stmt)) {
 	case GIMPLE_RETURN:
 		gcc_assert(argnum == 0);
-		return gimple_return_retval(stmt);
+		return gimple_return_retval(as_a_greturn(stmt));
 	case GIMPLE_CALL:
 		gcc_assert(argnum != 0);
 		gcc_assert(gimple_call_num_args(stmt) >= argnum);
@@ -171,7 +171,7 @@ static tree get_so_asm_output(struct asm_data *asm_data)
 
 static tree get_so_asm_input(struct asm_data *asm_data)
 {
-	gimple assign;
+	gassign *assign;
 	tree output_type, new_var;
 	gimple_stmt_iterator gsi;
 
@@ -199,7 +199,7 @@ static void set_so_asm_input_target_stmt(struct asm_data *asm_data)
 		gimple_call_set_arg(asm_data->target_stmt, asm_data->argnum - 1, asm_data->output);
 		break;
 	case GIMPLE_RETURN:
-		gimple_return_set_retval(asm_data->target_stmt, asm_data->output);
+		gimple_return_set_retval(as_a_greturn(asm_data->target_stmt), asm_data->output);
 		break;
 	default:
 		debug_gimple_stmt(asm_data->target_stmt);
@@ -265,7 +265,7 @@ static void set_argnum_attribute(const_tree attr, bool *argnums)
 
 	gcc_assert(attr);
 	for (attr_value = TREE_VALUE(attr); attr_value; attr_value = TREE_CHAIN(attr_value)) {
-		argnum = TREE_INT_CST_LOW(TREE_VALUE(attr_value));
+		argnum = (unsigned int)tree_to_uhwi(TREE_VALUE(attr_value));
 		argnums[argnum] = true;
 	}
 }
@@ -291,7 +291,7 @@ static enum intentional_mark handle_intentional_attr(gimple stmt, unsigned int a
 	return mark;
 }
 
-static void handle_size_overflow_attr_ret(gimple stmt)
+static void handle_size_overflow_attr_ret(greturn *stmt)
 {
 	enum intentional_mark mark;
 	bool orig_argnums[MAX_PARAM + 1] = {false};
@@ -304,7 +304,7 @@ static void handle_size_overflow_attr_ret(gimple stmt)
 }
 
 // If the argument(s) of the callee function are marked by an attribute then mark the call stmt with an asm stmt
-static void handle_size_overflow_attr_call(gimple stmt)
+static void handle_size_overflow_attr_call(gcall *stmt)
 {
 	tree fndecl;
 	unsigned int argnum;
@@ -338,9 +338,9 @@ static unsigned int search_interesting_functions(void)
 			gimple stmt = gsi_stmt(gsi);
 
 			if (is_gimple_call(stmt))
-				handle_size_overflow_attr_call(stmt);
+				handle_size_overflow_attr_call(as_a_gcall(stmt));
 			else if (gimple_code(stmt) == GIMPLE_RETURN)
-				handle_size_overflow_attr_ret(stmt);
+				handle_size_overflow_attr_ret(as_a_greturn(stmt));
 		}
 	}
 	return 0;
@@ -362,7 +362,8 @@ static struct gimple_opt_pass insert_size_overflow_asm_pass = {
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
-#if BUILDING_GCC_VERSION >= 4009
+#if BUILDING_GCC_VERSION >= 5000
+#elif BUILDING_GCC_VERSION >= 4009
 		.has_gate		= false,
 		.has_execute		= true,
 #else
@@ -388,7 +389,11 @@ namespace {
 class insert_size_overflow_asm_pass : public gimple_opt_pass {
 public:
 	insert_size_overflow_asm_pass() : gimple_opt_pass(insert_size_overflow_asm_pass_data, g) {}
+#if BUILDING_GCC_VERSION >= 5000
+	virtual unsigned int execute(function *) { return search_interesting_functions(); }
+#else
 	unsigned int execute() { return search_interesting_functions(); }
+#endif
 };
 }
 

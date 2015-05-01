@@ -19,25 +19,22 @@
 
 #include "size_overflow.h"
 
-static enum intentional_mark walk_use_def(struct pointer_set_t *visited, const_tree lhs);
+static enum intentional_mark walk_use_def(gimple_set *visited, const_tree lhs);
 
-static const char *get_asm_string(const_gimple stmt)
+static const char *get_asm_string(const gasm *stmt)
 {
-	if (!stmt)
-		return NULL;
-	if (gimple_code(stmt) != GIMPLE_ASM)
-		return NULL;
-
-	return gimple_asm_string(stmt);
+	if (stmt)
+		return gimple_asm_string(stmt);
+	return NULL;
 }
 
-tree get_size_overflow_asm_input(const_gimple stmt)
+tree get_size_overflow_asm_input(const gasm *stmt)
 {
 	gcc_assert(gimple_asm_ninputs(stmt) != 0);
 	return TREE_VALUE(gimple_asm_input_op(stmt, 0));
 }
 
-bool is_size_overflow_insert_check_asm(const_gimple stmt)
+bool is_size_overflow_insert_check_asm(const gasm *stmt)
 {
 	const char *str;
 
@@ -59,13 +56,13 @@ bool is_size_overflow_asm(const_gimple stmt)
 	if (gimple_code(stmt) != GIMPLE_ASM)
 		return false;
 
-	str = get_asm_string(stmt);
+	str = get_asm_string(as_a_const_gasm(stmt));
 	if (!str)
 		return false;
 	return !strncmp(str, SO_ASM_STR, sizeof(SO_ASM_STR) - 1);
 }
 
-static bool is_size_overflow_intentional_asm_turn_off(const_gimple stmt)
+static bool is_size_overflow_intentional_asm_turn_off(const gasm *stmt)
 {
 	const char *str;
 
@@ -78,7 +75,7 @@ static bool is_size_overflow_intentional_asm_turn_off(const_gimple stmt)
 	return !strncmp(str, TURN_OFF_ASM_STR, sizeof(TURN_OFF_ASM_STR) - 1);
 }
 
-static bool is_size_overflow_intentional_asm_end(const_gimple stmt)
+static bool is_size_overflow_intentional_asm_end(const gasm *stmt)
 {
 	const char *str;
 
@@ -118,7 +115,7 @@ static bool is_turn_off_intentional_attr(const_tree decl)
 	if (param_head == NULL_TREE)
 		return false;
 
-	if (TREE_INT_CST_HIGH(TREE_VALUE(param_head)) == -1)
+	if (tree_to_shwi(TREE_VALUE(param_head)) == -1)
 		return true;
 	return false;
 }
@@ -132,7 +129,7 @@ static bool is_end_intentional_intentional_attr(const_tree decl)
 	if (param_head == NULL_TREE)
 		return false;
 
-	if (!TREE_INT_CST_LOW(TREE_VALUE(param_head)))
+	if (tree_to_shwi(TREE_VALUE(param_head)) == 0)
 		return true;
 	return false;
 }
@@ -146,9 +143,14 @@ static bool is_yes_intentional_attr(const_tree decl, unsigned int argnum)
 		return false;
 
 	param_head = get_attribute_param(decl);
-	for (param = param_head; param; param = TREE_CHAIN(param))
-		if (argnum == TREE_INT_CST_LOW(TREE_VALUE(param)))
+	for (param = param_head; param; param = TREE_CHAIN(param)) {
+		int argval = tree_to_shwi(TREE_VALUE(param));
+
+		if (argval <= 0)
+			continue;
+		if (argnum == (unsigned int)argval)
 			return true;
+	}
 	return false;
 }
 
@@ -234,10 +236,10 @@ static enum intentional_mark get_intentional_attr_type(const_tree node)
 	return MARK_NO;
 }
 
-static enum intentional_mark walk_use_def_phi(struct pointer_set_t *visited, const_tree result)
+static enum intentional_mark walk_use_def_phi(gimple_set *visited, const_tree result)
 {
 	enum intentional_mark mark = MARK_NO;
-	gimple phi = get_def_stmt(result);
+	gphi *phi = as_a_gphi(get_def_stmt(result));
 	unsigned int i, n = gimple_phi_num_args(phi);
 
 	pointer_set_insert(visited, phi);
@@ -252,11 +254,11 @@ static enum intentional_mark walk_use_def_phi(struct pointer_set_t *visited, con
 	return mark;
 }
 
-static enum intentional_mark walk_use_def_binary(struct pointer_set_t *visited, const_tree lhs)
+static enum intentional_mark walk_use_def_binary(gimple_set *visited, const_tree lhs)
 {
 	enum intentional_mark mark;
 	tree rhs1, rhs2;
-	gimple def_stmt = get_def_stmt(lhs);
+	gassign *def_stmt = as_a_gassign(get_def_stmt(lhs));
 
 	rhs1 = gimple_assign_rhs1(def_stmt);
 	rhs2 = gimple_assign_rhs2(def_stmt);
@@ -269,20 +271,24 @@ static enum intentional_mark walk_use_def_binary(struct pointer_set_t *visited, 
 
 enum intentional_mark get_so_asm_type(const_gimple stmt)
 {
+	const gasm *asm_stmt;
+
 	if (!stmt)
 		return MARK_NO;
 	if (!is_size_overflow_asm(stmt))
 		return MARK_NO;
-	if (is_size_overflow_insert_check_asm(stmt))
+
+	asm_stmt = as_a_const_gasm(stmt);
+	if (is_size_overflow_insert_check_asm(asm_stmt))
 		return MARK_NO;
-	if (is_size_overflow_intentional_asm_turn_off(stmt))
+	if (is_size_overflow_intentional_asm_turn_off(asm_stmt))
 		return MARK_TURN_OFF;
-	if (is_size_overflow_intentional_asm_end(stmt))
+	if (is_size_overflow_intentional_asm_end(asm_stmt))
 		return MARK_END_INTENTIONAL;
 	return MARK_YES;
 }
 
-static enum intentional_mark walk_use_def(struct pointer_set_t *visited, const_tree lhs)
+static enum intentional_mark walk_use_def(gimple_set *visited, const_tree lhs)
 {
 	const_gimple def_stmt;
 
@@ -302,7 +308,7 @@ static enum intentional_mark walk_use_def(struct pointer_set_t *visited, const_t
 	case GIMPLE_NOP:
 		return walk_use_def(visited, SSA_NAME_VAR(lhs));
 	case GIMPLE_ASM:
-		return get_so_asm_type(def_stmt);
+		return get_so_asm_type(as_a_const_gasm(def_stmt));
 	case GIMPLE_PHI:
 		return walk_use_def_phi(visited, lhs);
 	case GIMPLE_ASSIGN:
@@ -322,7 +328,7 @@ static enum intentional_mark walk_use_def(struct pointer_set_t *visited, const_t
 static enum intentional_mark check_intentional_size_overflow_asm_and_attribute(const_tree var)
 {
 	enum intentional_mark mark;
-	struct pointer_set_t *visited;
+	gimple_set *visited;
 
 	visited = pointer_set_create();
 	mark = walk_use_def(visited, var);
@@ -370,7 +376,7 @@ enum intentional_mark check_intentional_attribute(const_gimple stmt, unsigned in
 	if (is_end_intentional_intentional_attr(orig_cur_fndecl))
 		return MARK_END_INTENTIONAL;
 
-	fndecl = get_interesting_orig_fndecl_from_stmt(stmt);
+	fndecl = get_interesting_orig_fndecl_from_stmt(as_a_const_gcall(stmt));
 	// handle MARK_TURN_OFF on the callee
 	if (is_turn_off_intentional_attr(fndecl))
 		return MARK_TURN_OFF;
@@ -426,7 +432,7 @@ enum intentional_mark check_intentional_asm(const_gimple stmt, unsigned int argn
 	switch (gimple_code(stmt)) {
 	case GIMPLE_RETURN:
 		gcc_assert(argnum == 0);
-		arg = gimple_return_retval(stmt);
+		arg = gimple_return_retval(as_a_const_greturn(stmt));
 		break;
 	case GIMPLE_CALL:
 		gcc_assert(argnum != 0);
@@ -434,8 +440,8 @@ enum intentional_mark check_intentional_asm(const_gimple stmt, unsigned int argn
 		arg = gimple_call_arg(stmt, argnum - 1);
 		break;
 	case GIMPLE_ASM:
-		gcc_assert(is_size_overflow_insert_check_asm(stmt));
-		arg = get_size_overflow_asm_input(stmt);
+		gcc_assert(is_size_overflow_insert_check_asm(as_a_const_gasm(stmt)));
+		arg = get_size_overflow_asm_input(as_a_const_gasm(stmt));
 		break;
 	default:
 		debug_gimple_stmt((gimple)stmt);
@@ -574,7 +580,7 @@ static bool is_gt_zero(const_tree rhs)
 	return false;
 }
 
-bool is_a_constant_overflow(const_gimple stmt, const_tree rhs)
+bool is_a_constant_overflow(const gassign *stmt, const_tree rhs)
 {
 	if (gimple_assign_rhs_code(stmt) == MIN_EXPR)
 		return false;
@@ -588,20 +594,18 @@ bool is_a_constant_overflow(const_gimple stmt, const_tree rhs)
 	return true;
 }
 
-static tree change_assign_rhs(struct visited *visited, gimple stmt, const_tree orig_rhs, tree new_rhs)
+static tree change_assign_rhs(struct visited *visited, gassign *stmt, const_tree orig_rhs, tree new_rhs)
 {
-	gimple assign;
+	const_gimple assign;
 	gimple_stmt_iterator gsi = gsi_for_stmt(stmt);
 	tree origtype = TREE_TYPE(orig_rhs);
 
-	gcc_assert(is_gimple_assign(stmt));
-
 	assign = build_cast_stmt(visited, origtype, new_rhs, CREATE_NEW_VAR, &gsi, BEFORE_STMT, false);
 	pointer_set_insert(visited->my_stmts, assign);
-	return gimple_assign_lhs(assign);
+	return get_lhs(assign);
 }
 
-tree handle_intentional_overflow(struct visited *visited, bool check_overflow, gimple stmt, tree change_rhs, tree new_rhs2)
+tree handle_intentional_overflow(struct visited *visited, bool check_overflow, gassign *stmt, tree change_rhs, tree new_rhs2)
 {
 	tree new_rhs, orig_rhs;
 	void (*gimple_assign_set_rhs)(gimple, tree);
@@ -632,7 +636,7 @@ tree handle_intentional_overflow(struct visited *visited, bool check_overflow, g
 	return create_assign(visited, stmt, lhs, AFTER_STMT);
 }
 
-static bool is_subtraction_special(struct visited *visited, const_gimple stmt)
+static bool is_subtraction_special(struct visited *visited, const gassign *stmt)
 {
 	gimple rhs1_def_stmt, rhs2_def_stmt;
 	const_tree rhs1_def_stmt_rhs1, rhs2_def_stmt_rhs1, rhs1_def_stmt_lhs, rhs2_def_stmt_lhs;
@@ -671,15 +675,15 @@ static bool is_subtraction_special(struct visited *visited, const_gimple stmt)
 	return true;
 }
 
-static gimple create_binary_assign(struct visited *visited, enum tree_code code, gimple stmt, tree rhs1, tree rhs2)
+static gassign *create_binary_assign(struct visited *visited, enum tree_code code, gassign *stmt, tree rhs1, tree rhs2)
 {
-	gimple assign;
+	gassign *assign;
 	gimple_stmt_iterator gsi = gsi_for_stmt(stmt);
 	tree type = TREE_TYPE(rhs1);
 	tree lhs = create_new_var(type);
 
 	gcc_assert(types_compatible_p(type, TREE_TYPE(rhs2)));
-	assign = gimple_build_assign_with_ops(code, lhs, rhs1, rhs2);
+	assign = as_a_gassign(gimple_build_assign_with_ops(code, lhs, rhs1, rhs2));
 	gimple_assign_set_lhs(assign, make_ssa_name(lhs, assign));
 
 	gsi_insert_before(&gsi, assign, GSI_NEW_STMT);
@@ -688,10 +692,10 @@ static gimple create_binary_assign(struct visited *visited, enum tree_code code,
 	return assign;
 }
 
-static tree cast_to_TI_type(struct visited *visited, gimple stmt, tree node)
+static tree cast_to_TI_type(struct visited *visited, gassign *stmt, tree node)
 {
 	gimple_stmt_iterator gsi;
-	gimple cast_stmt;
+	const_gimple cast_stmt;
 	tree type = TREE_TYPE(node);
 
 	if (types_compatible_p(type, intTI_type_node))
@@ -700,7 +704,7 @@ static tree cast_to_TI_type(struct visited *visited, gimple stmt, tree node)
 	gsi = gsi_for_stmt(stmt);
 	cast_stmt = build_cast_stmt(visited, intTI_type_node, node, CREATE_NEW_VAR, &gsi, BEFORE_STMT, false);
 	pointer_set_insert(visited->my_stmts, cast_stmt);
-	return gimple_assign_lhs(cast_stmt);
+	return get_lhs(cast_stmt);
 }
 
 static tree get_def_stmt_rhs(struct visited *visited, const_tree var)
@@ -739,7 +743,7 @@ tree handle_integer_truncation(struct visited *visited, const_tree lhs)
 {
 	tree new_rhs1, new_rhs2;
 	tree new_rhs1_def_stmt_rhs1, new_rhs2_def_stmt_rhs1, new_lhs;
-	gimple assign, stmt = get_def_stmt(lhs);
+	gassign *assign, *stmt = as_a_gassign(get_def_stmt(lhs));
 	tree rhs1 = gimple_assign_rhs1(stmt);
 	tree rhs2 = gimple_assign_rhs2(stmt);
 
@@ -767,7 +771,7 @@ tree handle_integer_truncation(struct visited *visited, const_tree lhs)
 	return dup_assign(visited, stmt, lhs, new_rhs1, new_rhs2, NULL_TREE);
 }
 
-bool is_a_neg_overflow(const_gimple stmt, const_tree rhs)
+bool is_a_neg_overflow(const gassign *stmt, const_tree rhs)
 {
 	const_gimple def_stmt;
 
@@ -833,7 +837,7 @@ static bool look_for_mult_and_add(const_gimple stmt)
 	return true;
 }
 
-enum intentional_overflow_type add_mul_intentional_overflow(const_gimple stmt)
+enum intentional_overflow_type add_mul_intentional_overflow(const gassign *stmt)
 {
 	const_gimple def_stmt_1, def_stmt_2;
 	const_tree rhs1, rhs2;
@@ -854,13 +858,13 @@ enum intentional_overflow_type add_mul_intentional_overflow(const_gimple stmt)
 	return NO_INTENTIONAL_OVERFLOW;
 }
 
-static gimple get_dup_stmt(struct visited *visited, gimple stmt)
+static gassign *get_dup_stmt(struct visited *visited, gassign *stmt)
 {
-	gimple my_stmt;
+	gassign *my_stmt;
 	gimple_stmt_iterator gsi = gsi_for_stmt(stmt);
 
 	gsi_next(&gsi);
-	my_stmt = gsi_stmt(gsi);
+	my_stmt = as_a_gassign(gsi_stmt(gsi));
 
 	gcc_assert(pointer_set_contains(visited->my_stmts, my_stmt));
 	if (gimple_assign_rhs_code(stmt) != gimple_assign_rhs_code(my_stmt)) {
@@ -911,10 +915,10 @@ static bool is_unsigned_cast_or_call_def_stmt(const_tree node)
 	return is_call_or_cast(def_stmt);
 }
 
-void unsigned_signed_cast_intentional_overflow(struct visited *visited, gimple stmt)
+void unsigned_signed_cast_intentional_overflow(struct visited *visited, gassign *stmt)
 {
 	unsigned int use_num;
-	gimple so_stmt;
+	gassign *so_stmt;
 	const_gimple def_stmt;
 	const_tree rhs1, rhs2;
 	tree rhs = gimple_assign_rhs1(stmt);

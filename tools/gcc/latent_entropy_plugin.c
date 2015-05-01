@@ -16,7 +16,7 @@
  * - more instrumentation control via attribute parameters
  *
  * BUGS:
- * - LTO needs -flto-partition=none for now
+ * - none known
  */
 
 #include "gcc-common.h"
@@ -26,7 +26,7 @@ int plugin_is_GPL_compatible;
 static GTY(()) tree latent_entropy_decl;
 
 static struct plugin_info latent_entropy_plugin_info = {
-	.version	= "201409101820",
+	.version	= "201504282240",
 	.help		= NULL
 };
 
@@ -304,6 +304,8 @@ static unsigned int execute_latent_entropy(void)
 		FOR_EACH_VARIABLE(node) {
 			tree var = NODE_DECL(node);
 
+			if (DECL_NAME_LENGTH(var) < sizeof("latent_entropy") - 1)
+				continue;
 			if (strcmp(IDENTIFIER_POINTER(DECL_NAME(var)), "latent_entropy"))
 				continue;
 			latent_entropy_decl = var;
@@ -464,8 +466,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 
 	register_callback(plugin_name, PLUGIN_INFO, NULL, &latent_entropy_plugin_info);
 	register_callback(plugin_name, PLUGIN_START_UNIT, &latent_entropy_start_unit, NULL);
-	if (!in_lto_p)
-		register_callback(plugin_name, PLUGIN_REGISTER_GGC_ROOTS, NULL, (void *)&gt_ggc_r_gt_latent_entropy);
+	register_callback(plugin_name, PLUGIN_REGISTER_GGC_ROOTS, NULL, (void *)&gt_ggc_r_gt_latent_entropy);
 	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &latent_entropy_pass_info);
 	register_callback(plugin_name, PLUGIN_ATTRIBUTES, register_attributes, NULL);
 

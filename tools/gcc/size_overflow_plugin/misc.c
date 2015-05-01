@@ -147,7 +147,8 @@ tree cast_a_tree(tree type, tree var)
 
 gimple build_cast_stmt(struct visited *visited, tree dst_type, tree rhs, tree lhs, gimple_stmt_iterator *gsi, bool before, bool force)
 {
-	gimple assign, def_stmt;
+	gassign *assign;
+	gimple def_stmt;
 
 	gcc_assert(dst_type != NULL_TREE && rhs != NULL_TREE);
 	gcc_assert(!is_gimple_constant(rhs));
@@ -366,14 +367,14 @@ tree get_orig_fndecl(const_tree clone_fndecl)
 	return (tree)clone_fndecl;
 }
 
-static tree get_interesting_fndecl_from_stmt(const_gimple stmt)
+static tree get_interesting_fndecl_from_stmt(const gcall *stmt)
 {
 	if (gimple_call_num_args(stmt) == 0)
 		return NULL_TREE;
 	return gimple_call_fndecl(stmt);
 }
 
-tree get_interesting_orig_fndecl_from_stmt(const_gimple stmt)
+tree get_interesting_orig_fndecl_from_stmt(const gcall *stmt)
 {
 	tree fndecl;
 
@@ -422,5 +423,19 @@ bool is_valid_cgraph_node(struct cgraph_node *node)
 	if (node->thunk.thunk_p || node->alias)
 		return false;
 	return true;
+}
+
+tree get_lhs(const_gimple stmt)
+{
+	switch (gimple_code(stmt)) {
+	case GIMPLE_ASSIGN:
+	case GIMPLE_CALL:
+		return gimple_get_lhs(stmt);
+	case GIMPLE_PHI:
+		return gimple_phi_result(stmt);
+	default:
+		debug_gimple_stmt((gimple)stmt);
+		gcc_unreachable();
+	}
 }
 
