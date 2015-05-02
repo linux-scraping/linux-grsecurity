@@ -853,12 +853,6 @@ static int logi_dj_dj_event(struct hid_device *hdev,
 	 * case we forward it to the correct hid device (via hid_input_report()
 	 * ) and return 1 so hid-core does not anything else with it.
 	 */
-	if ((dj_report->device_index < DJ_DEVICE_INDEX_MIN) ||
-	    (dj_report->device_index > DJ_DEVICE_INDEX_MAX)) {
-		dev_err(&hdev->dev, "%s: invalid device index:%d\n",
-				__func__, dj_report->device_index);
-		return false;
-	}
 
 	if ((dj_report->device_index < DJ_DEVICE_INDEX_MIN) ||
 	    (dj_report->device_index > DJ_DEVICE_INDEX_MAX)) {
