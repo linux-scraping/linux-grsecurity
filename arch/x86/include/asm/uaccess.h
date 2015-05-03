@@ -216,7 +216,7 @@ __typeof__(__builtin_choose_expr(sizeof(x) > sizeof(0U),		\
 	asm volatile("call __get_user_%P3"				\
 		     : "=a" (__ret_gu), "=r" (__val_gu)			\
 		     : "0" (ptr), "i" (sizeof(*(ptr))));		\
-	(x) = (__typeof__(*(ptr))) __val_gu;				\
+	(x) = (__force __typeof__(*(ptr))) __val_gu;			\
 	pax_close_userland();						\
 	__ret_gu;							\
 })

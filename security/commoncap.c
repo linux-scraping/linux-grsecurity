@@ -460,7 +460,6 @@ int is_privileged_binary(const struct dentry *dentry)
  */
 static int get_file_caps(struct linux_binprm *bprm, bool *effective, bool *has_cap)
 {
-	struct dentry *dentry;
 	int rc = 0;
 	struct cpu_vfs_cap_data vcaps;
 
@@ -472,9 +471,7 @@ static int get_file_caps(struct linux_binprm *bprm, bool *effective, bool *has_c
 	if (bprm->file->f_path.mnt->mnt_flags & MNT_NOSUID)
 		return 0;
 
-	dentry = dget(bprm->file->f_path.dentry);
-
-	rc = get_vfs_caps_from_disk(dentry, &vcaps);
+	rc = get_vfs_caps_from_disk(bprm->file->f_path.dentry, &vcaps);
 	if (rc < 0) {
 		if (rc == -EINVAL)
 			printk(KERN_NOTICE "%s: get_vfs_caps_from_disk returned %d for %s\n",
@@ -490,7 +487,6 @@ static int get_file_caps(struct linux_binprm *bprm, bool *effective, bool *has_c
 		       __func__, rc, bprm->filename);
 
 out:
-	dput(dentry);
 	if (rc)
 		bprm_clear_caps(bprm);
 

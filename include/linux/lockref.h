@@ -28,12 +28,13 @@ struct lockref {
 #endif
 		struct {
 			spinlock_t lock;
-			unsigned int count;
+			atomic_t count;
 		};
 	};
 };
 
 extern void lockref_get(struct lockref *);
+extern int lockref_put_return(struct lockref *);
 extern int lockref_get_not_zero(struct lockref *);
 extern int lockref_get_or_lock(struct lockref *);
 extern int lockref_put_or_lock(struct lockref *);
@@ -42,41 +43,29 @@ extern void lockref_mark_dead(struct lockref *);
 extern int lockref_get_not_dead(struct lockref *);
 
 /* Must be called under spinlock for reliable results */
-static inline int __lockref_is_dead(const struct lockref *l)
+static inline int __lockref_is_dead(const struct lockref *lockref)
 {
-	return ((int)l->count < 0);
+	return atomic_read(&lockref->count) < 0;
 }
 
-static inline unsigned int __lockref_read(struct lockref *lockref)
+static inline int __lockref_read(const struct lockref *lockref)
 {
-	return lockref->count;
+	return atomic_read(&lockref->count);
 }
 
-static inline void __lockref_set(struct lockref *lockref, unsigned int count)
+static inline void __lockref_set(struct lockref *lockref, int count)
 {
-	lockref->count = count;
+	atomic_set(&lockref->count, count);
 }
 
 static inline void __lockref_inc(struct lockref *lockref)
 {
-
-#ifdef CONFIG_PAX_REFCOUNT
-	atomic_inc((atomic_t *)&lockref->count);
-#else
-	lockref->count++;
-#endif
-
+	atomic_inc(&lockref->count);
 }
 
 static inline void __lockref_dec(struct lockref *lockref)
 {
-
-#ifdef CONFIG_PAX_REFCOUNT
-	atomic_dec((atomic_t *)&lockref->count);
-#else
-	lockref->count--;
-#endif
-
+	atomic_dec(&lockref->count);
 }
 
 #endif /* __LINUX_LOCKREF_H */

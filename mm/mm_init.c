@@ -14,14 +14,14 @@
 #include "internal.h"
 
 #ifdef CONFIG_DEBUG_MEMORY_INIT
-int mminit_loglevel;
+int __meminitdata mminit_loglevel;
 
 #ifndef SECTIONS_SHIFT
 #define SECTIONS_SHIFT	0
 #endif
 
 /* The zonelists are simply reported, validation is manual. */
-void mminit_verify_zonelist(void)
+void __init mminit_verify_zonelist(void)
 {
 	int nid;
 
@@ -177,7 +177,7 @@ static int __meminit mm_compute_batch_notifier(struct notifier_block *self,
 	return NOTIFY_OK;
 }
 
-static struct notifier_block compute_batch_nb __meminitdata = {
+static struct notifier_block compute_batch_nb __meminitconst = {
 	.notifier_call = mm_compute_batch_notifier,
 	.priority = IPC_CALLBACK_PRI, /* use lowest priority */
 };

@@ -89,6 +89,7 @@
 #include <asm/cacheflush.h>
 #include <asm/processor.h>
 #include <asm/bugs.h>
+#include <asm/kasan.h>
 
 #include <asm/vsyscall.h>
 #include <asm/cpu.h>
@@ -213,42 +214,6 @@ __visible unsigned long mmu_cr4_features __read_only = X86_CR4_PAE;
 #else
 __visible unsigned long mmu_cr4_features __read_only;
 #endif
-
-void set_in_cr4(unsigned long mask)
-{
-	unsigned long cr4 = read_cr4();
-
-	if ((cr4 & mask) == mask && cr4 == mmu_cr4_features)
-		return;
-
-	pax_open_kernel();
-	mmu_cr4_features |= mask;
-	pax_close_kernel();
-
-	if (trampoline_cr4_features)
-		*trampoline_cr4_features = mmu_cr4_features;
-	cr4 |= mask;
-	write_cr4(cr4);
-}
-EXPORT_SYMBOL(set_in_cr4);
-
-void clear_in_cr4(unsigned long mask)
-{
-	unsigned long cr4 = read_cr4();
-
-	if (!(cr4 & mask) && cr4 == mmu_cr4_features)
-		return;
-
-	pax_open_kernel();
-	mmu_cr4_features &= ~mask;
-	pax_close_kernel();
-
-	if (trampoline_cr4_features)
-		*trampoline_cr4_features = mmu_cr4_features;
-	cr4 &= ~mask;
-	write_cr4(cr4);
-}
-EXPORT_SYMBOL(clear_in_cr4);
 
 /* Boot loader ID and version as integers, for the benefit of proc_dointvec */
 int bootloader_type, bootloader_version;
@@ -470,15 +435,13 @@ static void __init parse_setup_data(void)
 
 	pa_data = boot_params.hdr.setup_data;
 	while (pa_data) {
-		u32 data_len, map_len, data_type;
+		u32 data_len, data_type;
 
-		map_len = max(PAGE_SIZE - (pa_data & ~PAGE_MASK),
-			      (u64)sizeof(struct setup_data));
-		data = early_memremap(pa_data, map_len);
+		data = early_memremap(pa_data, sizeof(*data));
 		data_len = data->len + sizeof(struct setup_data);
 		data_type = data->type;
 		pa_next = data->next;
-		early_iounmap(data, map_len);
+		early_iounmap(data, sizeof(*data));
 
 		switch (data_type) {
 		case SETUP_E820_EXT:
@@ -1219,9 +1182,11 @@ void __init setup_arch(char **cmdline_p)
 
 	x86_init.paging.pagetable_init();
 
+	kasan_init();
+
 	if (boot_cpu_data.cpuid_level >= 0) {
 		/* A CPU has %cr4 if and only if it has CPUID */
-		mmu_cr4_features = read_cr4();
+		mmu_cr4_features = __read_cr4();
 		if (trampoline_cr4_features)
 			*trampoline_cr4_features = mmu_cr4_features;
 	}

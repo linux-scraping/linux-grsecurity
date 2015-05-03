@@ -1029,7 +1029,6 @@ static void acpi_dev_pm_detach(struct device *dev, bool power_off);
 
 static struct dev_pm_domain acpi_general_pm_domain = {
 	.ops = {
-#ifdef CONFIG_PM
 		.runtime_suspend = acpi_subsys_runtime_suspend,
 		.runtime_resume = acpi_subsys_runtime_resume,
 #ifdef CONFIG_PM_SLEEP
@@ -1042,7 +1041,6 @@ static struct dev_pm_domain acpi_general_pm_domain = {
 		.poweroff = acpi_subsys_suspend,
 		.poweroff_late = acpi_subsys_suspend_late,
 		.restore_early = acpi_subsys_resume_early,
-#endif
 #endif
 	},
 	.detach = acpi_dev_pm_detach

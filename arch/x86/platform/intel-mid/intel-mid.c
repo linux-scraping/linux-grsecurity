@@ -63,7 +63,7 @@ enum intel_mid_timer_options intel_mid_timer_options;
 /* intel_mid_ops to store sub arch ops */
 struct intel_mid_ops *intel_mid_ops;
 /* getter function for sub arch ops*/
-static void *(*get_intel_mid_ops[])(void) = INTEL_MID_OPS_INIT;
+static const void *(*get_intel_mid_ops[])(void) = INTEL_MID_OPS_INIT;
 enum intel_mid_cpu_type __intel_mid_cpu_chip;
 EXPORT_SYMBOL_GPL(__intel_mid_cpu_chip);
 
@@ -131,7 +131,7 @@ static void intel_mid_arch_setup(void)
 		intel_mid_ops = get_intel_mid_ops[__intel_mid_cpu_chip]();
 	else {
 		intel_mid_ops = get_intel_mid_ops[INTEL_MID_CPU_CHIP_PENWELL]();
-		pr_info("ARCH: Uknown SoC, assuming PENWELL!\n");
+		pr_info("ARCH: Unknown SoC, assuming PENWELL!\n");
 	}
 
 out:

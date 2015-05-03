@@ -102,20 +102,20 @@ static inline void atomic_##op##suffix(int i, atomic##suffix##_t * v)	      \
 		"	beqzl	%0, 1b					\n"   \
 		extable							      \
 		"	.set	mips0					\n"   \
-		: "=&r" (temp), "+" GCC_OFF12_ASM() (v->counter)	      \
+		: "=&r" (temp), "+" GCC_OFF_SMALL_ASM() (v->counter)	      \
 		: "Ir" (i));						      \
 	} else if (kernel_uses_llsc) {					      \
 		int temp;						      \
 									      \
 		__asm__ __volatile__(					      \
-		"	.set	mips3					\n"   \
+		"	.set	"MIPS_ISA_LEVEL"			\n"   \
 		"1:	ll	%0, %1		# atomic_" #op #suffix "\n"   \
 		"2:	" #asm_op " %0, %2				\n"   \
 		"	sc	%0, %1					\n"   \
 		"	beqz	%0, 1b					\n"   \
 			extable						      \
 		"	.set	mips0					\n"   \
-		: "=&r" (temp), "+" GCC_OFF12_ASM() (v->counter)	      \
+		: "=&r" (temp), "+" GCC_OFF_SMALL_ASM() (v->counter)	      \
 		: "Ir" (i));						      \
 	} else {							      \
 		unsigned long flags;					      \
@@ -154,13 +154,13 @@ static inline int atomic_##op##_return##suffix(int i, atomic##suffix##_t * v) \
 		"5:							\n"   \
 		"	.set	mips0					\n"   \
 		: "=&r" (result), "=&r" (temp),				      \
-		  "+" GCC_OFF12_ASM() (v->counter)			      \
+		  "+" GCC_OFF_SMALL_ASM() (v->counter)			      \
 		: "Ir" (i));						      \
 	} else if (kernel_uses_llsc) {					      \
 		int temp;						      \
 									      \
 		__asm__ __volatile__(					      \
-		"	.set	mips3					\n"   \
+		"	.set	"MIPS_ISA_LEVEL"			\n"   \
 		"1:	ll	%1, %2	# atomic_" #op "_return" #suffix "\n" \
 		"2:	" #asm_op " %0, %1, %3				\n"   \
 		"	sc	%0, %2					\n"   \
@@ -170,7 +170,7 @@ static inline int atomic_##op##_return##suffix(int i, atomic##suffix##_t * v) \
 		"5:							\n"   \
 		"	.set	mips0					\n"   \
 		: "=&r" (result), "=&r" (temp),				      \
-		  "+" GCC_OFF12_ASM() (v->counter)			      \
+		  "+" GCC_OFF_SMALL_ASM() (v->counter)			      \
 		: "Ir" (i));						      \
 									      \
 		result = temp; result c_op i;				      \
@@ -184,7 +184,7 @@ static inline int atomic_##op##_return##suffix(int i, atomic##suffix##_t * v) \
 		"	sw	%0, %1					\n"   \
 		"3:							\n"   \
 		extable							      \
-		: "=&r" (result), "+" GCC_OFF12_ASM() (v->counter) 	      \
+		: "=&r" (result), "+" GCC_OFF_SMALL_ASM() (v->counter)	      \
 		: "Ir" (i));						      \
 		raw_local_irq_restore(flags);				      \
 	}								      \
@@ -228,7 +228,7 @@ static __inline__ int atomic_sub_if_positive(int i, atomic_t *v)
 		int temp;
 
 		__asm__ __volatile__(
-		"	.set	arch=r4000				\n"
+		"	.set	"MIPS_ISA_LEVEL"			\n"
 		"1:	ll	%1, %2		# atomic_sub_if_positive\n"
 		"	subu	%0, %1, %3				\n"
 		"	bltz	%0, 1f					\n"
@@ -240,14 +240,14 @@ static __inline__ int atomic_sub_if_positive(int i, atomic_t *v)
 		"1:							\n"
 		"	.set	mips0					\n"
 		: "=&r" (result), "=&r" (temp),
-		  "+" GCC_OFF12_ASM() (v->counter)
-		: "Ir" (i), GCC_OFF12_ASM() (v->counter)
+		  "+" GCC_OFF_SMALL_ASM() (v->counter)
+		: "Ir" (i), GCC_OFF_SMALL_ASM() (v->counter)
 		: "memory");
 	} else if (kernel_uses_llsc) {
 		int temp;
 
 		__asm__ __volatile__(
-		"	.set	arch=r4000				\n"
+		"	.set	"MIPS_ISA_LEVEL"			\n"
 		"1:	ll	%1, %2		# atomic_sub_if_positive\n"
 		"	subu	%0, %1, %3				\n"
 		"	bltz	%0, 1f					\n"
@@ -259,7 +259,7 @@ static __inline__ int atomic_sub_if_positive(int i, atomic_t *v)
 		"1:							\n"
 		"	.set	mips0					\n"
 		: "=&r" (result), "=&r" (temp),
-		  "+" GCC_OFF12_ASM() (v->counter)
+		  "+" GCC_OFF_SMALL_ASM() (v->counter)
 		: "Ir" (i));
 	} else {
 		unsigned long flags;
@@ -446,27 +446,27 @@ static inline void atomic64_##op##suffix(long i, atomic64##suffix##_t * v)    \
 		long temp;						      \
 									      \
 		__asm__ __volatile__(					      \
-		"	.set	mips3					\n"   \
+		"	.set	"MIPS_ISA_LEVEL"			\n"   \
 		"1:	lld	%0, %1		# atomic64_" #op #suffix "\n" \
 		"2:	" #asm_op " %0, %2				\n"   \
 		"	scd	%0, %1					\n"   \
 		"	beqzl	%0, 1b					\n"   \
 		extable							      \
 		"	.set	mips0					\n"   \
-		: "=&r" (temp), "+" GCC_OFF12_ASM() (v->counter)	      \
+		: "=&r" (temp), "+" GCC_OFF_SMALL_ASM() (v->counter)	      \
 		: "Ir" (i));						      \
 	} else if (kernel_uses_llsc) {					      \
 		long temp;						      \
 									      \
 		__asm__ __volatile__(					      \
-		"	.set	mips3					\n"   \
+		"	.set	"MIPS_ISA_LEVEL"			\n"   \
 		"1:	lld	%0, %1		# atomic64_" #op #suffix "\n" \
 		"2:	" #asm_op " %0, %2				\n"   \
 		"	scd	%0, %1					\n"   \
 		"	beqz	%0, 1b					\n"   \
 			extable						      \
 		"	.set	mips0					\n"   \
-		: "=&r" (temp), "+" GCC_OFF12_ASM() (v->counter)	      \
+		: "=&r" (temp), "+" GCC_OFF_SMALL_ASM() (v->counter)	      \
 		: "Ir" (i));						      \
 	} else {							      \
 		unsigned long flags;					      \
@@ -475,7 +475,7 @@ static inline void atomic64_##op##suffix(long i, atomic64##suffix##_t * v)    \
 		__asm__ __volatile__(					      \
 		"2:	" #asm_op " %0, %1				\n"   \
 		extable							      \
-		: "+" GCC_OFF12_ASM() (v->counter) : "Ir" (i));		      \
+		: "+" GCC_OFF_SMALL_ASM() (v->counter) : "Ir" (i));	      \
 		raw_local_irq_restore(flags);				      \
 	}								      \
 }
@@ -505,13 +505,13 @@ static inline long atomic64_##op##_return##suffix(long i, atomic64##suffix##_t *
 		"5:							\n"   \
 		"	.set	mips0					\n"   \
 		: "=&r" (result), "=&r" (temp),				      \
-		  "+" GCC_OFF12_ASM() (v->counter)			      \
+		  "+" GCC_OFF_SMALL_ASM() (v->counter)			      \
 		: "Ir" (i));						      \
 	} else if (kernel_uses_llsc) {					      \
 		long temp;						      \
 									      \
 		__asm__ __volatile__(					      \
-		"	.set	mips3					\n"   \
+		"	.set	"MIPS_ISA_LEVEL"			\n"   \
 		"1:	lld	%1, %2	# atomic64_" #op "_return" #suffix "\n"\
 		"2:	" #asm_op " %0, %1, %3				\n"   \
 		"	scd	%0, %2					\n"   \
@@ -522,8 +522,8 @@ static inline long atomic64_##op##_return##suffix(long i, atomic64##suffix##_t *
 		"5:							\n"   \
 		"	.set	mips0					\n"   \
 		: "=&r" (result), "=&r" (temp),				      \
-		  "=" GCC_OFF12_ASM() (v->counter)			      \
-		: "Ir" (i), GCC_OFF12_ASM() (v->counter)		      \
+		  "=" GCC_OFF_SMALL_ASM() (v->counter)			      \
+		: "Ir" (i), GCC_OFF_SMALL_ASM() (v->counter)		      \
 		: "memory");						      \
 									      \
 		result = temp; result c_op i;				      \
@@ -537,7 +537,7 @@ static inline long atomic64_##op##_return##suffix(long i, atomic64##suffix##_t *
 		"	sd	%0, %1					\n"   \
 		"3:							\n"   \
 		extable							      \
-		: "=&r" (result), "+" GCC_OFF12_ASM() (v->counter)	      \
+		: "=&r" (result), "+" GCC_OFF_SMALL_ASM() (v->counter)	      \
 		: "Ir" (i));						      \
 		raw_local_irq_restore(flags);				      \
 	}								      \
@@ -584,7 +584,7 @@ static __inline__ long atomic64_sub_if_positive(long i, atomic64_t *v)
 		long temp;
 
 		__asm__ __volatile__(
-		"	.set	arch=r4000				\n"
+		"	.set	"MIPS_ISA_LEVEL"			\n"
 		"1:	lld	%1, %2		# atomic64_sub_if_positive\n"
 		"	dsubu	%0, %1, %3				\n"
 		"	bltz	%0, 1f					\n"
@@ -596,14 +596,14 @@ static __inline__ long atomic64_sub_if_positive(long i, atomic64_t *v)
 		"1:							\n"
 		"	.set	mips0					\n"
 		: "=&r" (result), "=&r" (temp),
-		  "=" GCC_OFF12_ASM() (v->counter)
-		: "Ir" (i), GCC_OFF12_ASM() (v->counter)
+		  "=" GCC_OFF_SMALL_ASM() (v->counter)
+		: "Ir" (i), GCC_OFF_SMALL_ASM() (v->counter)
 		: "memory");
 	} else if (kernel_uses_llsc) {
 		long temp;
 
 		__asm__ __volatile__(
-		"	.set	arch=r4000				\n"
+		"	.set	"MIPS_ISA_LEVEL"			\n"
 		"1:	lld	%1, %2		# atomic64_sub_if_positive\n"
 		"	dsubu	%0, %1, %3				\n"
 		"	bltz	%0, 1f					\n"
@@ -615,7 +615,7 @@ static __inline__ long atomic64_sub_if_positive(long i, atomic64_t *v)
 		"1:							\n"
 		"	.set	mips0					\n"
 		: "=&r" (result), "=&r" (temp),
-		  "+" GCC_OFF12_ASM() (v->counter)
+		  "+" GCC_OFF_SMALL_ASM() (v->counter)
 		: "Ir" (i));
 	} else {
 		unsigned long flags;

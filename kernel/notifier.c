@@ -409,6 +409,7 @@ int raw_notifier_call_chain(struct raw_notifier_head *nh,
 }
 EXPORT_SYMBOL_GPL(raw_notifier_call_chain);
 
+#ifdef CONFIG_SRCU
 /*
  *	SRCU notifier chain routines.    Registration and unregistration
  *	use a mutex, and call_chain is synchronized by SRCU (no locks).
@@ -534,6 +535,8 @@ void srcu_init_notifier_head(struct srcu_notifier_head *nh)
 	nh->head = NULL;
 }
 EXPORT_SYMBOL_GPL(srcu_init_notifier_head);
+
+#endif /* CONFIG_SRCU */
 
 static ATOMIC_NOTIFIER_HEAD(die_chain);
 

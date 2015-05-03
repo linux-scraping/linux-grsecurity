@@ -215,7 +215,9 @@ do {								\
 } while (0)
 #endif /* CONFIG_COMPAT */
 
-#define STACK_RND_MASK	0x7ffUL
+extern unsigned long mmap_rnd_mask;
+
+#define STACK_RND_MASK	(test_thread_flag(TIF_31BIT) ? 0x7ff : mmap_rnd_mask)
 
 #define ARCH_DLINFO							    \
 do {									    \

@@ -226,10 +226,10 @@ sysenter_dispatch:
 sysexit_from_sys_call:
 	pax_exit_kernel_user
 	pax_erase_kstack
-	andl    $~TS_COMPAT,TI_status(%r11)
+	andl	$~TS_COMPAT,TI_status(%r11)
 	/* clear IF, that popfq doesn't enable interrupts early */
-	andl  $~X86_EFLAGS_IF,EFLAGS(%rsp)
-	movl	RIP(%rsp),%edx		/* User %eip */
+	andl	$~X86_EFLAGS_IF,EFLAGS-ARGOFFSET(%rsp)
+	movl	RIP-ARGOFFSET(%rsp),%edx		/* User %eip */
 	CFI_REGISTER rip,rdx
 	RESTORE_ARGS 0,24,0,0,0,0
 	xorq	%r8,%r8

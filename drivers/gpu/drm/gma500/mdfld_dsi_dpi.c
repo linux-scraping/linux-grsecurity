@@ -825,9 +825,15 @@ void mdfld_dsi_dpi_mode_set(struct drm_encoder *encoder,
 	u32 pipeconf_reg = PIPEACONF;
 	u32 dspcntr_reg = DSPACNTR;
 
-	u32 pipeconf = dev_priv->pipeconf[pipe];
-	u32 dspcntr = dev_priv->dspcntr[pipe];
+	u32 pipeconf;
+	u32 dspcntr;
 	u32 mipi = MIPI_PORT_EN | PASS_FROM_SPHY_TO_AFE | SEL_FLOPPED_HSTX;
+
+	if (pipe == -1)
+		return;
+
+	pipeconf = dev_priv->pipeconf[pipe];
+	dspcntr = dev_priv->dspcntr[pipe];
 
 	if (pipe) {
 		pipeconf_reg = PIPECCONF;

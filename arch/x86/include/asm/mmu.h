@@ -31,6 +31,8 @@ typedef struct {
 
 #endif
 #endif
+
+	atomic_t perf_rdpmc_allowed;	/* nonzero if rdpmc is allowed */
 } mm_context_t;
 
 #ifdef CONFIG_SMP

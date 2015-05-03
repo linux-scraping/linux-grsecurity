@@ -531,7 +531,7 @@ do_pass:
 			*insn = BPF_LDX_MEM(BPF_W, BPF_REG_A, BPF_REG_CTX, fp->k);
 			break;
 
-		/* Unkown instruction. */
+		/* Unknown instruction. */
 		default:
 			WARN(1, KERN_ALERT "Unknown sock filter code:%u jt:%u tf:%u k:%u\n",
 				       fp->code, fp->jt, fp->jf, fp->k);

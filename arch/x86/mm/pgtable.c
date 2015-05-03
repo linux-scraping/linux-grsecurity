@@ -146,6 +146,8 @@ void __clone_user_pgds(pgd_t *dst, const pgd_t *src)
 #define pyd_populate(mm, pgd, pud)	pgd_populate((mm), (pgd), (pud))
 #define pyd_offset(mm, address)		pgd_offset((mm), (address))
 #define PYD_SIZE			PGDIR_SIZE
+#define mm_inc_nr_pxds(mm)		do {} while (0)
+#define mm_dec_nr_pxds(mm)		do {} while (0)
 #else
 #define pxd_t				pmd_t
 #define pyd_t				pud_t
@@ -156,6 +158,8 @@ void __clone_user_pgds(pgd_t *dst, const pgd_t *src)
 #define pyd_populate(mm, pgd, pud)	pud_populate((mm), (pgd), (pud))
 #define pyd_offset(mm, address)		pud_offset((mm), (address))
 #define PYD_SIZE			PUD_SIZE
+#define mm_inc_nr_pxds(mm)		mm_inc_nr_pmds(mm)
+#define mm_dec_nr_pxds(mm)		mm_dec_nr_pmds(mm)
 #endif
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
@@ -254,7 +258,7 @@ void pud_populate(struct mm_struct *mm, pud_t *pudp, pmd_t *pmd)
 
 #endif	/* CONFIG_X86_PAE */
 
-static void free_pxds(pxd_t *pxds[])
+static void free_pxds(struct mm_struct *mm, pxd_t *pxds[])
 {
 	int i;
 
@@ -262,10 +266,11 @@ static void free_pxds(pxd_t *pxds[])
 		if (pxds[i]) {
 			pgtable_pxd_page_dtor(virt_to_page(pxds[i]));
 			free_page((unsigned long)pxds[i]);
+			mm_dec_nr_pxds(mm);
 		}
 }
 
-static int preallocate_pxds(pxd_t *pxds[])
+static int preallocate_pxds(struct mm_struct *mm, pxd_t *pxds[])
 {
 	int i;
 	bool failed = false;
@@ -279,11 +284,13 @@ static int preallocate_pxds(pxd_t *pxds[])
 			pxd = NULL;
 			failed = true;
 		}
+		if (pxd)
+			mm_inc_nr_pxds(mm);
 		pxds[i] = pxd;
 	}
 
 	if (failed) {
-		free_pxds(pxds);
+		free_pxds(mm, pxds);
 		return -ENOMEM;
 	}
 
@@ -310,6 +317,7 @@ static void pgd_mop_up_pxds(struct mm_struct *mm, pgd_t *pgdp)
 
 			paravirt_release_pxd(pgd_val(pgd) >> PAGE_SHIFT);
 			pxd_free(mm, pxd);
+			mm_dec_nr_pxds(mm);
 		}
 	}
 }
@@ -330,6 +338,7 @@ static void pgd_prepopulate_pxd(struct mm_struct *mm, pgd_t *pgd, pxd_t *pxds[])
 
 	for (i = 0; i < PREALLOCATED_PXDS; i++, pyd++) {
 		pxd_t *pxd = pxds[i];
+
 		if (i >= KERNEL_PGD_BOUNDARY)
 			memcpy(pxd, (pxd_t *)pgd_page_vaddr(swapper_pg_dir[i]),
 			       sizeof(pxd_t) * PTRS_PER_PMD);
@@ -350,7 +359,7 @@ pgd_t *pgd_alloc(struct mm_struct *mm)
 
 	mm->pgd = pgd;
 
-	if (preallocate_pxds(pxds) != 0)
+	if (preallocate_pxds(mm, pxds) != 0)
 		goto out_free_pgd;
 
 	if (paravirt_pgd_alloc(mm) != 0)
@@ -371,7 +380,7 @@ pgd_t *pgd_alloc(struct mm_struct *mm)
 	return pgd;
 
 out_free_pxds:
-	free_pxds(pxds);
+	free_pxds(mm, pxds);
 out_free_pgd:
 	free_page((unsigned long)pgd);
 out:

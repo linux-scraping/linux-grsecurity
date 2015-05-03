@@ -309,8 +309,7 @@ int gaudio_setup(struct gaudio *card)
  */
 void gaudio_cleanup(struct gaudio *the_card)
 {
-	if (the_card) {
+	if (the_card)
 		gaudio_close_snd_dev(the_card);
-	}
 }
 

@@ -300,6 +300,6 @@ __copy_from_user_inatomic_nocache(void *dst, const void __user *src,
 }
 
 unsigned long
-copy_user_handle_tail(char __user *to, char __user *from, unsigned long len, unsigned zerorest) __size_overflow(3);
+copy_user_handle_tail(char __user *to, char __user *from, unsigned long len) __size_overflow(3);
 
 #endif /* _ASM_X86_UACCESS_64_H */

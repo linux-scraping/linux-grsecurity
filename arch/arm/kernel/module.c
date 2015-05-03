@@ -43,7 +43,7 @@ static inline void *__module_alloc(unsigned long size, pgprot_t prot)
 	if (!size || PAGE_ALIGN(size) > MODULES_END - MODULES_VADDR)
 		return NULL;
 	return __vmalloc_node_range(size, 1, MODULES_VADDR, MODULES_END,
-				GFP_KERNEL, prot, NUMA_NO_NODE,
+				GFP_KERNEL, prot, 0, NUMA_NO_NODE,
 				__builtin_return_address(0));
 }
 

@@ -1222,6 +1222,9 @@ ENTRY(xen_hypervisor_callback)
 ENTRY(xen_do_upcall)
 1:	mov %esp, %eax
 	call xen_evtchn_do_upcall
+#ifndef CONFIG_PREEMPT
+	call xen_maybe_preempt_hcall
+#endif
 	jmp  ret_from_intr
 	CFI_ENDPROC
 ENDPROC(xen_hypervisor_callback)

@@ -536,7 +536,7 @@ static int xgbe_set_rxfh(struct net_device *netdev, const u32 *indir,
 			 const u8 *key, const u8 hfunc)
 {
 	struct xgbe_prv_data *pdata = netdev_priv(netdev);
-	struct xgbe_hw_if *hw_if = &pdata->hw_if;
+	struct xgbe_hw_if *hw_if = pdata->hw_if;
 	unsigned int ret;
 
 	if (hfunc != ETH_RSS_HASH_NO_CHANGE && hfunc != ETH_RSS_HASH_TOP)

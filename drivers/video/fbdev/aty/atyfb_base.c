@@ -3952,7 +3952,7 @@ static struct notifier_block atyfb_reboot_notifier = {
 	.notifier_call = atyfb_reboot_notify,
 };
 
-static const struct dmi_system_id atyfb_reboot_ids[] = {
+static const struct dmi_system_id atyfb_reboot_ids[] __initconst = {
 	{
 		.ident = "HP OmniBook 500",
 		.matches = {
@@ -3964,6 +3964,7 @@ static const struct dmi_system_id atyfb_reboot_ids[] = {
 
 	{ }
 };
+static bool registered_notifier = false;
 
 static int __init atyfb_init(void)
 {
@@ -3986,15 +3987,17 @@ static int __init atyfb_init(void)
 	if (err1 && err2)
 		return -ENODEV;
 
-	if (dmi_check_system(atyfb_reboot_ids))
+	if (dmi_check_system(atyfb_reboot_ids)) {
 		register_reboot_notifier(&atyfb_reboot_notifier);
+		registered_notifier = true;
+	}
 
 	return 0;
 }
 
 static void __exit atyfb_exit(void)
 {
-	if (dmi_check_system(atyfb_reboot_ids))
+	if (registered_notifier)
 		unregister_reboot_notifier(&atyfb_reboot_notifier);
 
 #ifdef CONFIG_PCI

@@ -145,7 +145,8 @@ static void gfs2_qd_dispose(struct list_head *list)
 }
 
 
-static enum lru_status gfs2_qd_isolate(struct list_head *item, spinlock_t *lock, void *arg)
+static enum lru_status gfs2_qd_isolate(struct list_head *item,
+		struct list_lru_one *lru, spinlock_t *lru_lock, void *arg)
 {
 	struct list_head *dispose = arg;
 	struct gfs2_quota_data *qd = list_entry(item, struct gfs2_quota_data, qd_lru);
@@ -153,9 +154,9 @@ static enum lru_status gfs2_qd_isolate(struct list_head *item, spinlock_t *lock,
 	if (!spin_trylock(&qd->qd_lockref.lock))
 		return LRU_SKIP;
 
-	if (qd->qd_lockref.count == 0) {
+	if (__lockref_read(&qd->qd_lockref) == 0) {
 		lockref_mark_dead(&qd->qd_lockref);
-		list_move(&qd->qd_lru, dispose);
+		list_lru_isolate_move(lru, &qd->qd_lru, dispose);
 	}
 
 	spin_unlock(&qd->qd_lockref.lock);
@@ -171,8 +172,8 @@ static unsigned long gfs2_qd_shrink_scan(struct shrinker *shrink,
 	if (!(sc->gfp_mask & __GFP_FS))
 		return SHRINK_STOP;
 
-	freed = list_lru_walk_node(&gfs2_qd_lru, sc->nid, gfs2_qd_isolate,
-				   &dispose, &sc->nr_to_scan);
+	freed = list_lru_shrink_walk(&gfs2_qd_lru, sc,
+				     gfs2_qd_isolate, &dispose);
 
 	gfs2_qd_dispose(&dispose);
 
@@ -182,7 +183,7 @@ static unsigned long gfs2_qd_shrink_scan(struct shrinker *shrink,
 static unsigned long gfs2_qd_shrink_count(struct shrinker *shrink,
 					  struct shrink_control *sc)
 {
-	return vfs_pressure_ratio(list_lru_count_node(&gfs2_qd_lru, sc->nid));
+	return vfs_pressure_ratio(list_lru_shrink_count(&gfs2_qd_lru, sc));
 }
 
 struct shrinker gfs2_qd_shrinker = {
@@ -220,7 +221,7 @@ static struct gfs2_quota_data *qd_alloc(unsigned hash, struct gfs2_sbd *sdp, str
 		return NULL;
 
 	qd->qd_sbd = sdp;
-	qd->qd_lockref.count = 1;
+	__lockref_set(&qd->qd_lockref, 1);
 	spin_lock_init(&qd->qd_lockref.lock);
 	qd->qd_id = qid;
 	qd->qd_slot = -1;
@@ -311,7 +312,7 @@ static void qd_put(struct gfs2_quota_data *qd)
 	if (lockref_put_or_lock(&qd->qd_lockref))
 		return;
 
-	qd->qd_lockref.count = 0;
+	__lockref_set(&qd->qd_lockref, 0);
 	list_lru_add(&gfs2_qd_lru, &qd->qd_lru);
 	spin_unlock(&qd->qd_lockref.lock);
 

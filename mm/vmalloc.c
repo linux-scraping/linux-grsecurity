@@ -74,9 +74,9 @@ static void vunmap_work(struct work_struct *w)
 	struct vfree_deferred *p = container_of(w, struct vfree_deferred, wq);
 	struct llist_node *llnode = llist_del_all(&p->list);
 	while (llnode) {
-		void *p = llnode;
+		void *x = llnode;
 		llnode = llist_next(llnode);
-		__vunmap(p, 0);
+		__vunmap(x, 0);
 	}
 }
 
@@ -1429,10 +1429,8 @@ static struct vm_struct *__get_vm_area_node(unsigned long size,
 	if (unlikely(!area))
 		return NULL;
 
-	/*
-	 * We always allocate a guard page.
-	 */
-	size += PAGE_SIZE;
+	if (!(flags & VM_NO_GUARD))
+		size += PAGE_SIZE;
 
 	va = alloc_vmap_area(size, align, start, end, node, gfp_mask);
 	if (IS_ERR(va)) {
@@ -1525,6 +1523,7 @@ struct vm_struct *remove_vm_area(const void *addr)
 		spin_unlock(&vmap_area_lock);
 
 		vmap_debug_free_range(va->va_start, va->va_end);
+		kasan_free_shadow(vm);
 		free_unmap_vmap_area(va);
 		vm->size -= PAGE_SIZE;
 
@@ -1618,7 +1617,6 @@ void vunmap(const void *addr)
 {
 	if (!addr)
 		return;
-
 	if (unlikely(in_interrupt())) {
 		struct vfree_deferred *p = this_cpu_ptr(&vunmap_deferred);
 		if (llist_add((struct llist_node *)addr, &p->list))
@@ -1755,6 +1753,7 @@ fail:
  *	@end:		vm area range end
  *	@gfp_mask:	flags for the page level allocator
  *	@prot:		protection mask for the allocated pages
+ *	@vm_flags:	additional vm area flags (e.g. %VM_NO_GUARD)
  *	@node:		node to use for allocation or NUMA_NO_NODE
  *	@caller:	caller's return address
  *
@@ -1764,7 +1763,8 @@ fail:
  */
 void *__vmalloc_node_range(unsigned long size, unsigned long align,
 			unsigned long start, unsigned long end, gfp_t gfp_mask,
-			pgprot_t prot, int node, const void *caller)
+			pgprot_t prot, unsigned long vm_flags, int node,
+			const void *caller)
 {
 	struct vm_struct *area;
 	void *addr;
@@ -1775,14 +1775,15 @@ void *__vmalloc_node_range(unsigned long size, unsigned long align,
 		goto fail;
 
 #if defined(CONFIG_X86) && defined(CONFIG_PAX_KERNEXEC)
-	if (!(pgprot_val(prot) & _PAGE_NX))
-		area = __get_vm_area_node(size, align, VM_ALLOC | VM_UNINITIALIZED | VM_KERNEXEC,
-					  VMALLOC_START, VMALLOC_END, node, gfp_mask, caller);
-	else
+	if (!(pgprot_val(prot) & _PAGE_NX)) {
+		vm_flags |= VM_KERNEXEC;
+		start = VMALLOC_START;
+		end = VMALLOC_END;
+	}
 #endif
 
-	area = __get_vm_area_node(size, align, VM_ALLOC | VM_UNINITIALIZED,
-				  start, end, node, gfp_mask, caller);
+	area = __get_vm_area_node(size, align, VM_ALLOC | VM_UNINITIALIZED |
+				vm_flags, start, end, node, gfp_mask, caller);
 	if (!area)
 		goto fail;
 
@@ -1831,7 +1832,7 @@ static void *__vmalloc_node(unsigned long size, unsigned long align,
 			    int node, const void *caller)
 {
 	return __vmalloc_node_range(size, align, VMALLOC_START, VMALLOC_END,
-				gfp_mask, prot, node, caller);
+				gfp_mask, prot, 0, node, caller);
 }
 
 void *__vmalloc(unsigned long size, gfp_t gfp_mask, pgprot_t prot)

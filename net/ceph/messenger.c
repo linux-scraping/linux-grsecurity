@@ -510,6 +510,16 @@ static int ceph_tcp_connect(struct ceph_connection *con)
 		return ret;
 	}
 
+	if (con->msgr->tcp_nodelay) {
+		int optval = 1;
+
+		ret = kernel_setsockopt(sock, SOL_TCP, TCP_NODELAY,
+					(char *)&optval, sizeof(optval));
+		if (ret)
+			pr_err("kernel_setsockopt(TCP_NODELAY) failed: %d",
+			       ret);
+	}
+
 	con->sock = sock;
 	return 0;
 }
@@ -2915,7 +2925,8 @@ void ceph_messenger_init(struct ceph_messenger *msgr,
 			struct ceph_entity_addr *myaddr,
 			u64 supported_features,
 			u64 required_features,
-			bool nocrc)
+			bool nocrc,
+			bool tcp_nodelay)
 {
 	msgr->supported_features = supported_features;
 	msgr->required_features = required_features;
@@ -2930,6 +2941,7 @@ void ceph_messenger_init(struct ceph_messenger *msgr,
 	get_random_bytes(&msgr->inst.addr.nonce, sizeof(msgr->inst.addr.nonce));
 	encode_my_addr(msgr);
 	msgr->nocrc = nocrc;
+	msgr->tcp_nodelay = tcp_nodelay;
 
 	atomic_set(&msgr->stopping, 0);
 

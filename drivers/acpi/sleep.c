@@ -321,7 +321,7 @@ static const struct dmi_system_id acpisleep_dmi_table[] __initconst = {
 	{},
 };
 
-static void acpi_sleep_dmi_check(void)
+static void __init acpi_sleep_dmi_check(void)
 {
 	int year;
 

@@ -70,22 +70,21 @@ EXPORT_SYMBOL(copy_in_user);
  * it is not necessary to optimize tail handling.
  */
 __visible unsigned long
-copy_user_handle_tail(char __user *to, char __user *from, unsigned long len, unsigned zerorest)
+copy_user_handle_tail(char __user *to, char __user *from, unsigned long len)
 {
-	char c;
-	unsigned zero_len;
-
 	clac();
 	pax_close_userland();
 	for (; len; --len, to++) {
+		char c;
+
 		if (__get_user_nocheck(c, from++, sizeof(char)))
 			break;
 		if (__put_user_nocheck(c, to, sizeof(char)))
 			break;
 	}
 
-	for (c = 0, zero_len = len; zerorest && zero_len; --zero_len)
-		if (__put_user_nocheck(c, to++, sizeof(char)))
-			break;
+	/* If the destination is a kernel buffer, we always clear the end */
+	if ((unsigned long)to >= TASK_SIZE_MAX)
+		memset(to, 0, len);
 	return len;
 }
