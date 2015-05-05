@@ -202,10 +202,9 @@ long r128_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	if (nr < DRM_COMMAND_BASE)
 		return drm_compat_ioctl(filp, cmd, arg);
 
-	if (nr < DRM_COMMAND_BASE + DRM_ARRAY_SIZE(r128_compat_ioctls)) {
-		drm_ioctl_compat_t fn = r128_compat_ioctls[nr - DRM_COMMAND_BASE];
-		ret = (*fn) (filp, cmd, arg);
-	} else
+	if (nr < DRM_COMMAND_BASE + DRM_ARRAY_SIZE(r128_compat_ioctls) && r128_compat_ioctls[nr - DRM_COMMAND_BASE])
+		ret = (*r128_compat_ioctls[nr - DRM_COMMAND_BASE]) (filp, cmd, arg);
+	else
 		ret = drm_ioctl(filp, cmd, arg);
 
 	return ret;
