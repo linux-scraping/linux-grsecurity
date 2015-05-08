@@ -4201,6 +4201,7 @@ smk_write_ambient_45691 smk_write_ambient 3 45691 NULL
 unix_dgram_sendmsg_45699 unix_dgram_sendmsg 4 45699 NULL nohasharray
 bscnl_emit_45699 bscnl_emit 2-5-0 45699 &unix_dgram_sendmsg_45699
 sg_proc_write_adio_45704 sg_proc_write_adio 3 45704 NULL
+sk_forced_wmem_schedule_45721 sk_forced_wmem_schedule 2 45721 NULL
 snd_cs46xx_io_read_45734 snd_cs46xx_io_read 5 45734 NULL nohasharray
 task_cgroup_path_45734 task_cgroup_path 3 45734 &snd_cs46xx_io_read_45734
 rw_copy_check_uvector_45748 rw_copy_check_uvector 3-0 45748 NULL nohasharray
