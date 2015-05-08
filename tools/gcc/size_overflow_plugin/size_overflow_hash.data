@@ -364,6 +364,7 @@ qla4_8xxx_sysfs_write_fw_dump_883 qla4_8xxx_sysfs_write_fw_dump 0-6-5 883 &fc258
 set_node_desc_885 set_node_desc 0-4 885 NULL
 show_fnode_max_burst_len_889 show_fnode_max_burst_len 0 889 NULL
 vsock_stream_sendmsg_898 vsock_stream_sendmsg 0-4 898 NULL
+btrfs_is_valid_xattr_899 btrfs_is_valid_xattr 0 899 NULL
 drv_attr_show_903 drv_attr_show 0 903 NULL nohasharray
 regulator_bulk_enable_903 regulator_bulk_enable 0 903 &drv_attr_show_903
 tcpprobe_read_904 tcpprobe_read 0-3 904 NULL
@@ -8600,6 +8601,7 @@ dn_auto_bind_20098 dn_auto_bind 0 20098 &read_int_20098
 attr_press_speed_store_tpkbd_20100 attr_press_speed_store_tpkbd 0-4 20100 NULL
 snd_es1938_playback1_trigger_20102 snd_es1938_playback1_trigger 0 20102 NULL
 xfs_qm_dqget_20103 xfs_qm_dqget 0 20103 NULL
+fd_do_unmap_20109 fd_do_unmap 4 20109 NULL
 nilfs_segments_clean_segments_show_20115 nilfs_segments_clean_segments_show 0 20115 NULL
 iscsi_tpg_param_store_TargetAlias_20119 iscsi_tpg_param_store_TargetAlias 0-3 20119 NULL
 cx18_s_audio_sampling_freq_20123 cx18_s_audio_sampling_freq 0 20123 NULL nohasharray
@@ -11461,6 +11463,7 @@ amdtp_stream_get_max_payload_26645 amdtp_stream_get_max_payload 0 26645 NULL
 pch_gbe_set_mac_26647 pch_gbe_set_mac 0 26647 NULL
 statfs_quantum_show_26649 statfs_quantum_show 0 26649 NULL
 irq_alloc_generic_chip_26650 irq_alloc_generic_chip 2 26650 NULL
+fd_do_prot_fill_26652 fd_do_prot_fill 5-3 26652 NULL
 show_state_desc_26653 show_state_desc 0 26653 NULL nohasharray
 rom_index_show_26653 rom_index_show 0 26653 &show_state_desc_26653
 nouveau_volt_create__26654 nouveau_volt_create_ 4 26654 NULL
@@ -13277,6 +13280,7 @@ cmd_ie_add_30894 cmd_ie_add 0 30894 &regmap_update_bits_check_30894
 copy_send_mad_30897 copy_send_mad 0 30897 NULL nohasharray
 ubifs_wbuf_seek_nolock_30897 ubifs_wbuf_seek_nolock 0 30897 &copy_send_mad_30897
 pxa168_get_settings_30899 pxa168_get_settings 0 30899 NULL
+fd_do_prot_unmap_30900 fd_do_prot_unmap 3 30900 NULL
 copy_to_iter_30901 copy_to_iter 0-2 30901 NULL
 bq2415x_get_battery_regulation_voltage_30903 bq2415x_get_battery_regulation_voltage 0 30903 NULL nohasharray
 fc_host_post_vendor_event_30903 fc_host_post_vendor_event 3 30903 &bq2415x_get_battery_regulation_voltage_30903

@@ -747,7 +747,7 @@ COMPAT_SYSCALL_DEFINE3(shmctl, int, first, int, second, void __user *, uptr)
 }
 
 COMPAT_SYSCALL_DEFINE4(semtimedop, int, semid, struct sembuf __user *, tsems,
-		       unsigned, nsops,
+		       compat_long_t, nsops,
 		       const struct compat_timespec __user *, timeout)
 {
 	struct timespec __user *ts64;

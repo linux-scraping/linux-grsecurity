@@ -1,6 +1,6 @@
 VERSION = 4
 PATCHLEVEL = 0
-SUBLEVEL = 1
+SUBLEVEL = 2
 EXTRAVERSION =
 NAME = Hurr durr I'ma sheep
 
@@ -298,7 +298,7 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 HOSTCC       = gcc
 HOSTCXX      = g++
 HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -std=gnu89
-HOSTCFLAGS   = -Wall -W -Wmissing-prototypes -Wstrict-prototypes -Wno-unused-parameter -Wno-missing-field-initializers -O2 -fomit-frame-pointer -std=gnu89 -fno-delete-null-pointer-checks
+HOSTCFLAGS   = -W -Wno-unused-parameter -Wno-missing-field-initializers -fno-delete-null-pointer-checks
 HOSTCFLAGS  += $(call cc-option, -Wno-empty-body)
 HOSTCXXFLAGS = -O2 -Wall -W -Wno-array-bounds
 

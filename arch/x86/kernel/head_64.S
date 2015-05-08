@@ -113,6 +113,8 @@ startup_64:
 	addq	%rbp, level3_kernel_pgt + (L3_START_KERNEL*8)(%rip)
 	addq	%rbp, level3_kernel_pgt + ((L3_START_KERNEL+1)*8)(%rip)
 
+	addq	%rbp, level2_fixmap_pgt + (504*8)(%rip)
+	addq	%rbp, level2_fixmap_pgt + (505*8)(%rip)
 	addq	%rbp, level2_fixmap_pgt + (506*8)(%rip)
 	addq	%rbp, level2_fixmap_pgt + (507*8)(%rip)
 
@@ -231,6 +233,8 @@ ENTRY(secondary_startup_64)
 	btsq	$_PAGE_BIT_NX, init_level4_pgt + 8*L4_VMALLOC_START(%rip)
 	btsq	$_PAGE_BIT_NX, init_level4_pgt + 8*L4_VMALLOC_END(%rip)
 	btsq	$_PAGE_BIT_NX, init_level4_pgt + 8*L4_VMEMMAP_START(%rip)
+	btsq	$_PAGE_BIT_NX, level2_fixmap_pgt + 8*504(%rip)
+	btsq	$_PAGE_BIT_NX, level2_fixmap_pgt + 8*505(%rip)
 	btsq	$_PAGE_BIT_NX, level2_fixmap_pgt + 8*506(%rip)
 	btsq	$_PAGE_BIT_NX, level2_fixmap_pgt + 8*507(%rip)
 	btsq	$_PAGE_BIT_NX, __supported_pte_mask(%rip)
@@ -551,14 +555,14 @@ NEXT_PAGE(level2_kernel_pgt)
 		KERNEL_IMAGE_SIZE/PMD_SIZE)
 
 NEXT_PAGE(level2_fixmap_pgt)
-	.fill	506,8,0
-	.quad	level1_fixmap_pgt - __START_KERNEL_map + _PAGE_TABLE
+	.fill	504,8,0
+	PMDS(level1_fixmap_pgt - __START_KERNEL_map, _PAGE_TABLE, 3)
 	.quad	level1_vsyscall_pgt - __START_KERNEL_map + _PAGE_TABLE
 	/* 6MB reserved for vsyscalls + a 2MB hole = 3 + 1 entries */
 	.fill	4,8,0
 
 NEXT_PAGE(level1_fixmap_pgt)
-	.fill	512,8,0
+	.fill	3*512,8,0
 
 NEXT_PAGE(level1_vsyscall_pgt)
 	.fill	512,8,0
