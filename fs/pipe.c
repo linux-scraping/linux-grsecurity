@@ -33,7 +33,7 @@ unsigned int pipe_max_size = 1048576;
 /*
  * Minimum pipe size, as required by POSIX
  */
-unsigned int pipe_min_size = PAGE_SIZE;
+unsigned int pipe_min_size __read_only = PAGE_SIZE;
 
 /*
  * We use a start+len construction, which provides full use of the 
@@ -1204,7 +1204,7 @@ static long pipe_set_size(struct pipe_inode_info *pipe, unsigned long nr_pages)
  * Currently we rely on the pipe array holding a power-of-2 number
  * of pages.
  */
-static inline unsigned int round_pipe_size(unsigned int size)
+static inline unsigned long round_pipe_size(unsigned long size)
 {
 	unsigned long nr_pages;
 
@@ -1254,13 +1254,16 @@ long pipe_fcntl(struct file *file, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 	case F_SETPIPE_SZ: {
-		unsigned int size, nr_pages;
+		unsigned long size, nr_pages;
+
+		ret = -EINVAL;
+		if (arg < pipe_min_size)
+			goto out;
 
 		size = round_pipe_size(arg);
 		nr_pages = size >> PAGE_SHIFT;
 
-		ret = -EINVAL;
-		if (!nr_pages)
+		if (size < pipe_min_size)
 			goto out;
 
 		if (!capable(CAP_SYS_RESOURCE) && size > pipe_max_size) {

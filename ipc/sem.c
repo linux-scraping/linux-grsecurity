@@ -1329,7 +1329,7 @@ static int get_queue_result(struct sem_queue *q)
 
 
 SYSCALL_DEFINE4(semtimedop, int, semid, struct sembuf __user *, tsops,
-		unsigned, nsops, const struct timespec __user *, timeout)
+		long, nsops, const struct timespec __user *, timeout)
 {
 	int error = -EINVAL;
 	struct sem_array *sma;
@@ -1547,7 +1547,7 @@ out_free:
 }
 
 SYSCALL_DEFINE3(semop, int, semid, struct sembuf __user *, tsops,
-		unsigned, nsops)
+		long, nsops)
 {
 	return sys_semtimedop(semid, tsops, nsops, NULL);
 }

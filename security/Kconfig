@@ -67,6 +67,11 @@ config GRKERNSEC_CONFIG_CUSTOM
 	  grsecurity and PaX settings manually.  Via this method, no options are
 	  automatically enabled.
 
+	  Take note that if menuconfig is exited with this configuration method
+	  chosen, you will not be able to use the automatic configuration methods
+	  without starting again with a kernel configuration with no grsecurity
+	  or PaX options specified inside.
+
 endchoice
 
 choice
