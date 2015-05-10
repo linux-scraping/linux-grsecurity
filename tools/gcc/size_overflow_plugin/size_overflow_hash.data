@@ -234,7 +234,8 @@ compat_sys_migrate_pages_3157 compat_sys_migrate_pages 2 3157 NULL
 encrypted_instantiate_3168 encrypted_instantiate 3 3168 NULL
 uv_num_possible_blades_3177 uv_num_possible_blades 0 3177 NULL
 compat_do_ip6t_set_ctl_3184 compat_do_ip6t_set_ctl 4 3184 NULL
-alloc_context_3194 alloc_context 1 3194 NULL
+alloc_context_3194 alloc_context 1 3194 NULL nohasharray
+ep_aio_read_3194 ep_aio_read 3 3194 &alloc_context_3194
 codec_reg_write_file_3204 codec_reg_write_file 3 3204 NULL
 ath6kl_mgmt_tx_3230 ath6kl_mgmt_tx 9 3230 NULL
 btrfs_next_leaf_3232 btrfs_next_leaf 0 3232 NULL
@@ -1146,6 +1147,7 @@ i915_gem_object_finish_gpu_14312 i915_gem_object_finish_gpu 0 14312 NULL
 oo_objects_14319 oo_objects 0 14319 NULL
 iwl_legacy_dbgfs_interrupt_read_14324 iwl_legacy_dbgfs_interrupt_read 3 14324 NULL
 p9_client_zc_rpc_14345 p9_client_zc_rpc 7 14345 NULL
+ep_aio_rwtail_14347 ep_aio_rwtail 6 14347 NULL
 snd_pcm_lib_readv_14363 snd_pcm_lib_readv 3-0 14363 NULL
 ath6kl_regdump_read_14393 ath6kl_regdump_read 3 14393 NULL
 smk_write_onlycap_14400 smk_write_onlycap 3 14400 NULL
@@ -2341,6 +2343,7 @@ dbAlloc_29794 dbAlloc 0 29794 NULL
 tcp_sendpage_29829 tcp_sendpage 4-3 29829 NULL
 __probe_kernel_write_29842 __probe_kernel_write 3 29842 NULL
 count_partial_29850 count_partial 0 29850 NULL
+extract_icmp6_fields_29870 extract_icmp6_fields 2 29870 NULL
 ipv6_setsockopt_29871 ipv6_setsockopt 5 29871 NULL
 scsi_end_request_29876 scsi_end_request 3 29876 NULL
 crypto_aead_alignmask_29885 crypto_aead_alignmask 0 29885 NULL
@@ -3569,6 +3572,7 @@ bscnl_emit_45699 bscnl_emit 2-5-0 45699 NULL nohasharray
 unix_dgram_sendmsg_45699 unix_dgram_sendmsg 4 45699 &bscnl_emit_45699
 sg_proc_write_adio_45704 sg_proc_write_adio 3 45704 NULL
 dvb_ca_en50221_init_45718 dvb_ca_en50221_init 4 45718 NULL
+handle_response_icmp_45733 handle_response_icmp 7 45733 NULL
 snd_cs46xx_io_read_45734 snd_cs46xx_io_read 5 45734 NULL
 v4l2_ctrl_new_std_45748 v4l2_ctrl_new_std 5 45748 NULL
 lkdtm_debugfs_read_45752 lkdtm_debugfs_read 3 45752 NULL
@@ -3845,6 +3849,7 @@ dvb_dvr_ioctl_49182 dvb_dvr_ioctl 2 49182 NULL
 root_nfs_cat_49192 root_nfs_cat 3 49192 NULL
 iwl_dbgfs_ucode_general_stats_read_49199 iwl_dbgfs_ucode_general_stats_read 3 49199 NULL
 do_jffs2_getxattr_49210 do_jffs2_getxattr 0 49210 NULL
+handle_response_49269 handle_response 5 49269 NULL
 osd_req_add_get_attr_list_49278 osd_req_add_get_attr_list 3 49278 NULL
 __ext4_ext_dirty_49284 __ext4_ext_dirty 0 49284 NULL
 viafb_dfph_proc_write_49288 viafb_dfph_proc_write 3 49288 NULL
