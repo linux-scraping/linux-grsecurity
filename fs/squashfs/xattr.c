@@ -46,8 +46,8 @@ ssize_t squashfs_listxattr(struct dentry *d, char *buffer,
 						 + msblk->xattr_table;
 	int offset = SQUASHFS_XATTR_OFFSET(squashfs_i(inode)->xattr);
 	int count = squashfs_i(inode)->xattr_count;
-	size_t rest = buffer_size;
-	int err;
+	size_t used = 0;
+	ssize_t err;
 
 	/* check that the file system has xattrs */
 	if (msblk->xattr_id_table == NULL)
@@ -68,11 +68,11 @@ ssize_t squashfs_listxattr(struct dentry *d, char *buffer,
 		name_size = le16_to_cpu(entry.size);
 		handler = squashfs_xattr_handler(le16_to_cpu(entry.type));
 		if (handler)
-			prefix_size = handler->list(d, buffer, rest, NULL,
+			prefix_size = handler->list(d, buffer, buffer ? buffer_size - used : 0, NULL,
 				name_size, handler->flags);
 		if (prefix_size) {
 			if (buffer) {
-				if (prefix_size + name_size + 1 > rest) {
+				if (prefix_size + name_size + 1 > buffer_size - used) {
 					err = -ERANGE;
 					goto failed;
 				}
@@ -86,7 +86,7 @@ ssize_t squashfs_listxattr(struct dentry *d, char *buffer,
 				buffer[name_size] = '\0';
 				buffer += name_size + 1;
 			}
-			rest -= prefix_size + name_size + 1;
+			used += prefix_size + name_size + 1;
 		} else  {
 			/* no handler or insuffficient privileges, so skip */
 			err = squashfs_read_metadata(sb, NULL, &start,
@@ -107,7 +107,7 @@ ssize_t squashfs_listxattr(struct dentry *d, char *buffer,
 		if (err < 0)
 			goto failed;
 	}
-	err = buffer_size - rest;
+	err = used;
 
 failed:
 	return err;

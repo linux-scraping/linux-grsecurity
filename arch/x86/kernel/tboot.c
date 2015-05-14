@@ -44,6 +44,7 @@
 #include <asm/setup.h>
 #include <asm/e820.h>
 #include <asm/io.h>
+#include <asm/tlbflush.h>
 
 #include "../realmode/rm/wakeup.h"
 
@@ -242,6 +243,7 @@ void tboot_shutdown(u32 shutdown_type)
 	tboot->shutdown_type = shutdown_type;
 
 	switch_to_tboot_pt();
+	write_cr4(read_cr4() & ~X86_CR4_PCIDE);
 
 	shutdown = (void *)(unsigned long)tboot->shutdown_entry;
 	shutdown();
