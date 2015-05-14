@@ -515,23 +515,21 @@ read_kcore(struct file *file, char __user *buffer, size_t buflen, loff_t *fpos)
 			kfree(elf_buf);
 		} else {
 			if (kern_addr_valid(start)) {
+				unsigned long n;
 				char *elf_buf;
 				mm_segment_t oldfs;
 
-				elf_buf = kmalloc(tsz, GFP_KERNEL);
+				elf_buf = kzalloc(tsz, GFP_KERNEL);
 				if (!elf_buf)
 					return -ENOMEM;
 				oldfs = get_fs();
 				set_fs(KERNEL_DS);
-				if (!__copy_from_user(elf_buf, (const void __user *)start, tsz)) {
-					set_fs(oldfs);
-					if (copy_to_user(buffer, elf_buf, tsz)) {
-						kfree(elf_buf);
-						return -EFAULT;
-					}
-				}
+				n = __copy_from_user(elf_buf, (const void __user *)start, tsz);
 				set_fs(oldfs);
+				n = copy_to_user(buffer, elf_buf, tsz);
 				kfree(elf_buf);
+				if (n)
+					return -EFAULT;
 			} else {
 				if (clear_user(buffer, tsz))
 					return -EFAULT;

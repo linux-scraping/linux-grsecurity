@@ -751,6 +751,24 @@ static bool is_ptr_diff(gassign *stmt)
 	return true;
 }
 
+static tree handle_comparison_code_class(struct visited *visited, gassign *stmt, tree new_rhs1, tree new_rhs2)
+{
+	tree rhs1, rhs2, lhs;
+
+	rhs1 = gimple_assign_rhs1(stmt);
+	if (!is_gimple_constant(rhs1) && new_rhs1 != NULL_TREE)
+		check_size_overflow(stmt, TREE_TYPE(new_rhs1), new_rhs1, rhs1, BEFORE_STMT);
+
+	lhs = gimple_assign_lhs(stmt);
+	if (new_rhs2 == NULL_TREE)
+		return create_assign(visited, stmt, lhs, AFTER_STMT);
+
+	rhs2 = gimple_assign_rhs2(stmt);
+	if (!is_gimple_constant(rhs2))
+		check_size_overflow(stmt, TREE_TYPE(new_rhs2), new_rhs2, rhs2, BEFORE_STMT);
+	return create_assign(visited, stmt, lhs, AFTER_STMT);
+}
+
 static tree handle_binary_ops(struct visited *visited, tree lhs)
 {
 	enum intentional_overflow_type res;
@@ -822,6 +840,9 @@ static tree handle_binary_ops(struct visited *visited, tree lhs)
 		new_rhs1 = create_assign(visited, def_stmt, rhs1, BEFORE_STMT);
 	if (is_gimple_constant(rhs2))
 		new_rhs2 = create_assign(visited, def_stmt, rhs2, BEFORE_STMT);
+
+	if (TREE_CODE_CLASS(gimple_assign_rhs_code(def_stmt)) == tcc_comparison)
+		return handle_comparison_code_class(visited, def_stmt, new_rhs1, new_rhs2);
 
 	return dup_assign(visited, def_stmt, lhs, new_rhs1, new_rhs2, NULL_TREE);
 }

@@ -556,7 +556,9 @@ NEXT_PAGE(level2_kernel_pgt)
 
 NEXT_PAGE(level2_fixmap_pgt)
 	.fill	504,8,0
-	PMDS(level1_fixmap_pgt - __START_KERNEL_map, _PAGE_TABLE, 3)
+	.quad	level1_fixmap_pgt - __START_KERNEL_map + 0 * PAGE_SIZE + _PAGE_TABLE
+	.quad	level1_fixmap_pgt - __START_KERNEL_map + 1 * PAGE_SIZE + _PAGE_TABLE
+	.quad	level1_fixmap_pgt - __START_KERNEL_map + 2 * PAGE_SIZE + _PAGE_TABLE
 	.quad	level1_vsyscall_pgt - __START_KERNEL_map + _PAGE_TABLE
 	/* 6MB reserved for vsyscalls + a 2MB hole = 3 + 1 entries */
 	.fill	4,8,0

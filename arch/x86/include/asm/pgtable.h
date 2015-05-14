@@ -755,6 +755,8 @@ static inline int pgd_none(pgd_t pgd)
 extern unsigned long pax_user_shadow_base;
 extern pgdval_t clone_pgd_mask;
 #endif
+#else
+#define pax_user_shadow_base	(0UL)
 #endif
 
 #endif

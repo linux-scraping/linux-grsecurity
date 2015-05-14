@@ -198,11 +198,12 @@ tree handle_fnptr_assign(const_gimple stmt)
 	// TODO skip ssa_name because it can lead to parm_decl
 	case SSA_NAME:
 		return NULL_TREE;
+	// TODO skip mem_ref and indirect_ref for now
 #if BUILDING_GCC_VERSION >= 4006
-	// TODO skip mem_ref for now
 	case MEM_REF:
-		return NULL_TREE;
 #endif
+	case INDIRECT_REF:
+		return NULL_TREE;
 	default:
 		debug_tree(rhs);
 		debug_gimple_stmt((gimple)stmt);
@@ -219,6 +220,7 @@ tree handle_fnptr_assign(const_gimple stmt)
 #if BUILDING_GCC_VERSION >= 4006
 	case MEM_REF:
 #endif
+	case INDIRECT_REF:
 	case VAR_DECL:
 		break;
 	default:

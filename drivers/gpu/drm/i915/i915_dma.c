@@ -149,6 +149,9 @@ static int i915_getparam(struct drm_device *dev, void *data,
 	case I915_PARAM_MMAP_VERSION:
 		value = 1;
 		break;
+	case I915_PARAM_HAS_LEGACY_CONTEXT:
+		value = drm_core_check_feature(dev, DRIVER_KMS_LEGACY_CONTEXT);
+		break;
 	default:
 		DRM_DEBUG("Unknown parameter %d\n", param->param);
 		return -EINVAL;

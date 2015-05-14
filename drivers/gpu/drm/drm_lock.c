@@ -61,9 +61,12 @@ int drm_legacy_lock(struct drm_device *dev, void *data,
 	struct drm_master *master = file_priv->master;
 	int ret = 0;
 
+	if (!drm_core_check_feature(dev, DRIVER_KMS_LEGACY_CONTEXT))
+		return -EINVAL;
+
 	++file_priv->lock_count;
 
-	if (lock->context == DRM_KERNEL_CONTEXT) {
+	if (_DRM_LOCKING_CONTEXT(lock->context) == DRM_KERNEL_CONTEXT) {
 		DRM_ERROR("Process %d using kernel context %d\n",
 			  task_pid_nr(current), lock->context);
 		return -EINVAL;
@@ -153,10 +156,21 @@ int drm_legacy_unlock(struct drm_device *dev, void *data, struct drm_file *file_
 	struct drm_lock *lock = data;
 	struct drm_master *master = file_priv->master;
 
-	if (lock->context == DRM_KERNEL_CONTEXT) {
+	if (!drm_core_check_feature(dev, DRIVER_KMS_LEGACY_CONTEXT))
+		return -EINVAL;
+
+	if (_DRM_LOCKING_CONTEXT(lock->context) == DRM_KERNEL_CONTEXT) {
 		DRM_ERROR("Process %d using kernel context %d\n",
 			  task_pid_nr(current), lock->context);
 		return -EINVAL;
+	}
+
+	if (!master->lock.hw_lock) {
+		DRM_ERROR(
+			"Device has been unregistered. Hard exit. Process %d\n",
+			task_pid_nr(current));
+		send_sig(SIGTERM, current, 0);
+		return -EPERM;
 	}
 
 	if (drm_legacy_lock_free(&master->lock, lock->context)) {
