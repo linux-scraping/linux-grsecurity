@@ -18325,7 +18325,8 @@ usblp_rtest_42761 usblp_rtest 0 42761 NULL
 sysfs_show_available_clocksources_42763 sysfs_show_available_clocksources 0 42763 NULL
 vmxnet3_rq_create_42771 vmxnet3_rq_create 0 42771 NULL
 ath10k_htt_verify_version_42776 ath10k_htt_verify_version 0 42776 NULL
-x25_recvmsg_42777 x25_recvmsg 4-0 42777 NULL
+x25_recvmsg_42777 x25_recvmsg 4-0 42777 NULL nohasharray
+pinctrl_register_map_42777 pinctrl_register_map 2 42777 &x25_recvmsg_42777
 lp3943_gpio_direction_output_42778 lp3943_gpio_direction_output 0 42778 NULL
 snd_midi_event_decode_42780 snd_midi_event_decode 0 42780 NULL
 cryptd_hash_setkey_42781 cryptd_hash_setkey 3 42781 NULL nohasharray

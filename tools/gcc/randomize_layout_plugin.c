@@ -355,6 +355,7 @@ static int relayout_struct(tree type)
 	DECL_FIELD_BIT_OFFSET(list) = bitsize_zero_node;
 	DECL_SIZE_UNIT(list) = size_zero_node;
 	DECL_FIELD_OFFSET(list) = size_zero_node;
+	DECL_CONTEXT(list) = type;
 	// to satisfy the constify plugin
 	TREE_READONLY(list) = 1;
 
