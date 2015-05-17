@@ -88,11 +88,11 @@ void gr_enable_rbac_system(void)
 
 int gr_rbac_disable(void *unused)
 {
-        pax_open_kernel();
-        gr_status &= ~GR_READY;
-        pax_close_kernel();
+	pax_open_kernel();
+	gr_status &= ~GR_READY;
+	pax_close_kernel();
 
-        return 0;
+	return 0;
 }
 
 static inline dev_t __get_dev(const struct dentry *dentry)
