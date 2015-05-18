@@ -99,7 +99,7 @@ gr_find_uid(const uid_t uid)
 	return -1;
 }
 
-static __inline__ void
+static void
 gr_insertsort(void)
 {
 	unsigned short i, j;
@@ -118,7 +118,7 @@ gr_insertsort(void)
 	return;
 }
 
-static __inline__ void
+static void
 gr_insert_uid(const uid_t uid, const unsigned long expires)
 {
 	int loc;
@@ -180,7 +180,7 @@ out_unlock:
 	return ret;
 }
 
-static __inline__ int
+static int
 proc_is_setxid(const struct cred *cred)
 {
 	if (cred->uid != cred->euid || cred->uid != cred->suid ||

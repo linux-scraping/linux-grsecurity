@@ -38,13 +38,13 @@ extern const char * gr_socktype_to_name(unsigned char type);
 extern const char * gr_proto_to_name(unsigned char proto);
 extern const char * gr_sockfamily_to_name(unsigned char family);
 
-static __inline__ int 
+static int 
 conn_hash(__u32 saddr, __u32 daddr, __u16 sport, __u16 dport, unsigned int size)
 {
 	return ((daddr + saddr + (sport << 8) + (dport << 16)) % size);
 }
 
-static __inline__ int
+static int
 conn_match(const struct signal_struct *sig, __u32 saddr, __u32 daddr, 
 	   __u16 sport, __u16 dport)
 {
