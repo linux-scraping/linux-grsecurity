@@ -33,6 +33,11 @@
 #define __bos0(ptr)		__bos((ptr), 0)
 #define __bos1(ptr)		__bos((ptr), 1)
 
+#ifdef RANDSTRUCT_PLUGIN
+#define __randomize_layout __attribute__((randomize_layout))
+#define __no_randomize_layout __attribute__((no_randomize_layout))
+#endif
+
 #ifdef CONSTIFY_PLUGIN
 #define __no_const __attribute__((no_const))
 #define __do_const __attribute__((do_const))

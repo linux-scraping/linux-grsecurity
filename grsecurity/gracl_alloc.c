@@ -8,7 +8,7 @@
 static struct gr_alloc_state __current_alloc_state = { 1, 1, NULL };
 struct gr_alloc_state *current_alloc_state = &__current_alloc_state;
 
-static __inline__ int
+static int
 alloc_pop(void)
 {
 	if (current_alloc_state->alloc_stack_next == 1)
@@ -21,7 +21,7 @@ alloc_pop(void)
 	return 1;
 }
 
-static __inline__ int
+static int
 alloc_push(void *buf)
 {
 	if (current_alloc_state->alloc_stack_next >= current_alloc_state->alloc_stack_size)

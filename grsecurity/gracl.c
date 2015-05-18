@@ -148,7 +148,7 @@ char gr_roletype_to_char(void)
 	return gr_task_roletype_to_char(current);
 }
 
-__inline__ int
+int
 gr_acl_tpe_check(void)
 {
 	if (unlikely(!(gr_status & GR_READY)))
@@ -379,7 +379,7 @@ gr_to_filename3(const struct dentry *dentry, const struct vfsmount *mnt)
 			   PAGE_SIZE);
 }
 
-__inline__ __u32
+__u32
 to_gr_audit(const __u32 reqmode)
 {
 	/* masks off auditable permission flags, then shifts them to create
@@ -854,7 +854,7 @@ __full_lookup(const struct dentry *orig_dentry, const struct vfsmount *orig_mnt,
 	return retval;
 }
 
-static __inline__ struct acl_object_label *
+static struct acl_object_label *
 full_lookup(const struct dentry *orig_dentry, const struct vfsmount *orig_mnt,
 	    struct dentry *curr_dentry,
 	    const struct acl_subject_label *subj, char **path, const int checkglob)
@@ -959,7 +959,7 @@ out:
 	return retval;
 }
 
-static __inline__ struct acl_object_label *
+static struct acl_object_label *
 chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	      const struct acl_subject_label *subj)
 {
@@ -967,7 +967,7 @@ chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	return __chk_obj_label(l_dentry, l_mnt, subj, path, GR_REG_GLOB);
 }
 
-static __inline__ struct acl_object_label *
+static struct acl_object_label *
 chk_obj_label_noglob(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	      const struct acl_subject_label *subj)
 {
@@ -975,7 +975,7 @@ chk_obj_label_noglob(const struct dentry *l_dentry, const struct vfsmount *l_mnt
 	return __chk_obj_label(l_dentry, l_mnt, subj, path, GR_NO_GLOB);
 }
 
-static __inline__ struct acl_object_label *
+static struct acl_object_label *
 chk_obj_create_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 		     const struct acl_subject_label *subj, char *path)
 {
