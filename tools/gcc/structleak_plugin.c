@@ -263,7 +263,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 		return 1;
 	}
 
-	if (strncmp(lang_hooks.name, "GNU C", 5) || !strncmp(lang_hooks.name, "GNU C+", 6)) {
+	if (strncmp(lang_hooks.name, "GNU C", 5) && !strncmp(lang_hooks.name, "GNU C+", 6)) {
 		inform(UNKNOWN_LOCATION, G_("%s supports C only"), plugin_name);
 		enable = false;
 	}
