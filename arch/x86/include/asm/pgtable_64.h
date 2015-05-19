@@ -22,8 +22,8 @@ extern pud_t level3_vmemmap_pgt[512];
 extern pud_t level2_vmemmap_pgt[512];
 extern pmd_t level2_kernel_pgt[512];
 extern pmd_t level2_fixmap_pgt[512];
-extern pmd_t level2_ident_pgt[512*2];
-extern pte_t level1_fixmap_pgt[512];
+extern pmd_t level2_ident_pgt[2][512];
+extern pte_t level1_fixmap_pgt[3][512];
 extern pte_t level1_vsyscall_pgt[512];
 extern pgd_t init_level4_pgt[512];
 

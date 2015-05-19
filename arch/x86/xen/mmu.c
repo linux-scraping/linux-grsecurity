@@ -1941,7 +1941,9 @@ void __init xen_setup_kernel_pagetable(pgd_t *pgd, unsigned long max_pfn)
 		set_page_prot(level2_vmemmap_pgt, PAGE_KERNEL_RO);
 		set_page_prot(level2_kernel_pgt, PAGE_KERNEL_RO);
 		set_page_prot(level2_fixmap_pgt, PAGE_KERNEL_RO);
-		set_page_prot(level1_fixmap_pgt, PAGE_KERNEL_RO);
+		set_page_prot(level1_fixmap_pgt[0], PAGE_KERNEL_RO);
+		set_page_prot(level1_fixmap_pgt[1], PAGE_KERNEL_RO);
+		set_page_prot(level1_fixmap_pgt[2], PAGE_KERNEL_RO);
 		set_page_prot(level1_vsyscall_pgt, PAGE_KERNEL_RO);
 
 		/* Pin down new L4 */
