@@ -54,7 +54,7 @@ struct drm_ctx_list {
 void drm_legacy_ctxbitmap_free(struct drm_device * dev, int ctx_handle)
 {
 	if (!drm_core_check_feature(dev, DRIVER_KMS_LEGACY_CONTEXT))
-		return -EINVAL;
+		return;
 
 	mutex_lock(&dev->struct_mutex);
 	idr_remove(&dev->ctx_idr, ctx_handle);
@@ -108,7 +108,7 @@ int drm_legacy_ctxbitmap_init(struct drm_device * dev)
 void drm_legacy_ctxbitmap_cleanup(struct drm_device * dev)
 {
 	if (!drm_core_check_feature(dev, DRIVER_KMS_LEGACY_CONTEXT))
-		return -EINVAL;
+		return;
 
 	mutex_lock(&dev->struct_mutex);
 	idr_destroy(&dev->ctx_idr);
@@ -129,7 +129,7 @@ void drm_legacy_ctxbitmap_flush(struct drm_device *dev, struct drm_file *file)
 	struct drm_ctx_list *pos, *tmp;
 
 	if (!drm_core_check_feature(dev, DRIVER_KMS_LEGACY_CONTEXT))
-		return -EINVAL;
+		return;
 
 	mutex_lock(&dev->ctxlist_mutex);
 
