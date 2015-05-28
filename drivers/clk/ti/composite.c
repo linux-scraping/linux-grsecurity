@@ -69,7 +69,7 @@ struct component_clk {
 	struct list_head link;
 };
 
-static const char * __initconst component_clk_types[] = {
+static const char *  const __initconst component_clk_types[] = {
 	"gate", "divider", "mux"
 };
 

@@ -24,6 +24,7 @@ $(HOSTLIBS)-$(CONFIG_CHECKER_PLUGIN) += checker_plugin.so
 $(HOSTLIBS)-y += colorize_plugin.so
 $(HOSTLIBS)-$(CONFIG_PAX_LATENT_ENTROPY) += latent_entropy_plugin.so
 $(HOSTLIBS)-$(CONFIG_PAX_MEMORY_STRUCTLEAK) += structleak_plugin.so
+$(HOSTLIBS)-y += initify_plugin.so
 $(HOSTLIBS)-$(CONFIG_GRKERNSEC_RANDSTRUCT) += randomize_layout_plugin.so
 
 subdir-$(CONFIG_PAX_SIZE_OVERFLOW) := size_overflow_plugin
@@ -39,6 +40,7 @@ checker_plugin-objs := checker_plugin.o
 colorize_plugin-objs := colorize_plugin.o
 latent_entropy_plugin-objs := latent_entropy_plugin.o
 structleak_plugin-objs := structleak_plugin.o
+initify_plugin-objs := initify_plugin.o
 randomize_layout_plugin-objs := randomize_layout_plugin.o
 
 $(obj)/randomize_layout_plugin.o: $(objtree)/$(obj)/randomize_layout_seed.h

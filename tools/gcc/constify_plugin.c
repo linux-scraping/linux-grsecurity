@@ -236,7 +236,8 @@ static tree handle_no_const_attribute(tree *node, tree name, tree args, int flag
 		return NULL_TREE;
 	}
 
-	error("%qE attribute used on type %qT that is not constified", name, type);
+	if (TYPE_FIELDS(type))
+		error("%qE attribute used on type %qT that is not constified", name, type);
 	return NULL_TREE;
 }
 

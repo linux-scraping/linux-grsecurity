@@ -67,6 +67,10 @@
 #define __latent_entropy __attribute__((latent_entropy))
 #endif
 
+#ifdef INITIFY_PLUGIN
+#define __nocapture(...) __attribute__((nocapture(__VA_ARGS__)))
+#endif
+
 /*
  * Mark a position in code as unreachable.  This can be used to
  * suppress control flow warnings after asm blocks that transfer

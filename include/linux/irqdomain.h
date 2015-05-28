@@ -40,7 +40,7 @@ struct device_node;
 struct irq_domain;
 struct of_device_id;
 struct irq_chip;
-struct irq_chip_no_const;
+typedef struct irq_chip __no_const irq_chip_no_const;
 struct irq_data;
 
 /* Number of irqs reserved for a legacy isa controller */

@@ -212,6 +212,12 @@ static inline bool is_simple_builtin(tree decl)
 	return false;
 	}
 }
+
+static inline void add_local_decl(struct function *fun, tree d)
+{
+	gcc_assert(TREE_CODE(d) == VAR_DECL);
+	fun->local_decls = tree_cons(NULL_TREE, d, fun->local_decls);
+}
 #endif
 
 #if BUILDING_GCC_VERSION <= 4006
@@ -289,6 +295,11 @@ static inline struct cgraph_node *cgraph_next_function_with_gimple_body(struct c
 #define FOR_EACH_FUNCTION_WITH_GIMPLE_BODY(node) \
 	for ((node) = cgraph_first_function_with_gimple_body(); (node); \
 		(node) = cgraph_next_function_with_gimple_body(node))
+
+static inline void varpool_add_new_variable(tree decl)
+{
+	varpool_finalize_decl(decl);
+}
 #endif
 
 #if BUILDING_GCC_VERSION == 4006
@@ -405,8 +416,10 @@ typedef union gimple_statement_d greturn;
 #define add_referenced_var(var)
 #define mark_sym_for_renaming(var)
 #define varpool_mark_needed_node(node)
+#define create_var_ann(var)
 #define TODO_dump_func 0
 #define TODO_dump_cgraph 0
+
 #endif
 
 #if BUILDING_GCC_VERSION <= 4009
@@ -426,6 +439,11 @@ typedef struct gimple_statement_base greturn;
 
 #if BUILDING_GCC_VERSION <= 4009
 typedef struct rtx_def rtx_insn;
+
+static inline void set_decl_section_name(tree node, const char *value)
+{
+	DECL_SECTION_NAME(node) = build_string(strlen(value) + 1, value);
+}
 
 static inline gasm *as_a_gasm(gimple stmt)
 {
@@ -521,6 +539,11 @@ static inline void change_decl_assembler_name(tree decl, tree name)
 static inline void varpool_finalize_decl(tree decl)
 {
 	varpool_node::finalize_decl(decl);
+}
+
+static inline void varpool_add_new_variable(tree decl)
+{
+	varpool_node::add(decl);
 }
 
 static inline cgraph_node_ptr cgraph_function_node(cgraph_node_ptr node, enum availability *availability)

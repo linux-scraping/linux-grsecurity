@@ -493,6 +493,7 @@
 	KERNEL_CTORS()							\
 	MCOUNT_REC()							\
 	*(.init.rodata)							\
+	*(.init.rodata.*)						\
 	FTRACE_EVENTS()							\
 	TRACE_SYSCALLS()						\
 	KPROBE_BLACKLIST()						\
@@ -512,6 +513,8 @@
 
 #define EXIT_DATA							\
 	*(.exit.data)							\
+	*(.exit.rodata)							\
+	*(.exit.rodata.*)						\
 	MEM_DISCARD(exit.data)						\
 	MEM_DISCARD(exit.rodata)
 

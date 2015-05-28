@@ -182,7 +182,7 @@ struct clk *rockchip_clk_register_mmc(const char *name,
 				const char **parent_names, u8 num_parents,
 				void __iomem *reg, int shift);
 
-#define PNAME(x) static const char *x[] __initconst
+#define PNAME(x) static const char * const x[] __initconst
 
 enum rockchip_clk_branch_type {
 	branch_composite,
