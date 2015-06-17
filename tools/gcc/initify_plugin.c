@@ -17,6 +17,8 @@
 
 int plugin_is_GPL_compatible;
 
+static bool verbose = false;
+
 static struct plugin_info initify_plugin_info = {
 	.version	= "20150524a",
 	.help		= "initify_plugin\n",
@@ -170,8 +172,8 @@ static void search_local_strs(bool initexit)
 		str = get_string_cst(init_val);
 		gcc_assert(str);
 
-		if (set_init_exit_section(var, initexit))
-			;//inform(DECL_SOURCE_LOCATION(var), "initified local var: %s: %s", DECL_NAME_POINTER(current_function_decl), TREE_STRING_POINTER(str));
+		if (set_init_exit_section(var, initexit) && verbose)
+			inform(DECL_SOURCE_LOCATION(var), "initified local var: %s: %s", DECL_NAME_POINTER(current_function_decl), TREE_STRING_POINTER(str));
 	}
 }
 
@@ -183,6 +185,7 @@ static tree create_tmp_assign(gcall *stmt, unsigned int num)
 	decl = build_decl(DECL_SOURCE_LOCATION(current_function_decl), VAR_DECL, create_tmp_var_name("cicus"), TREE_TYPE(str));
 
 	type = TREE_TYPE(TREE_TYPE(decl));
+	type = build_qualified_type(type, TYPE_QUALS(type) | TYPE_QUAL_CONST);
 	TYPE_READONLY(type) = 1;
 	TREE_PUBLIC(type) = 0;
 
@@ -204,11 +207,25 @@ static tree create_tmp_assign(gcall *stmt, unsigned int num)
 	DECL_CHAIN(decl) = BLOCK_VARS(DECL_INITIAL(current_function_decl));
 	BLOCK_VARS(DECL_INITIAL (current_function_decl)) = decl;
 
-	decl = build_unary_op(DECL_SOURCE_LOCATION(current_function_decl), ADDR_EXPR, decl, 0);
+	decl = build_fold_addr_expr_loc(DECL_SOURCE_LOCATION(current_function_decl), decl);
 	gimple_call_set_arg(stmt, num, decl);
 	update_stmt(stmt);
 
 	return TREE_OPERAND(decl, 0);
+}
+
+static bool is_syscall(const_tree fn)
+{
+	if (!strncmp(DECL_NAME_POINTER(fn), "sys_", 4))
+		return true;
+
+	if (!strncmp(DECL_NAME_POINTER(fn), "sys32_", 6))
+		return true;
+
+	if (!strncmp(DECL_NAME_POINTER(fn), "compat_sys_", 11))
+		return true;
+
+	return false;
 }
 
 static bool is_vararg(const_tree fn)
@@ -234,7 +251,7 @@ static bool check_varargs(const_tree attr)
 	return true;
 }
 
-static bool is_in_nocapture_attr_value(const_gimple stmt, unsigned int num)
+static bool is_nocapture_param(const_gimple stmt, unsigned int num)
 {
 	unsigned int attr_arg_val = 0;
 	tree attr_val;
@@ -242,6 +259,9 @@ static bool is_in_nocapture_attr_value(const_gimple stmt, unsigned int num)
 	const_tree fndecl = gimple_call_fndecl(stmt);
 
 	gcc_assert(DECL_ABSTRACT_ORIGIN(fndecl) == NULL_TREE);
+
+	if (is_syscall(fndecl))
+		return true;
 
 	attr = lookup_attribute("nocapture", DECL_ATTRIBUTES(fndecl));
 	for (attr_val = TREE_VALUE(attr); attr_val; attr_val = TREE_CHAIN(attr_val)) {
@@ -269,21 +289,24 @@ static void search_str_param(gcall *stmt, bool initexit)
 		if (str == NULL_TREE)
 			continue;
 
-		if (!is_in_nocapture_attr_value(stmt, num))
+		if (!is_nocapture_param(stmt, num))
 			continue;
 
 		var = create_tmp_assign(stmt, num);
-		if (set_init_exit_section(var, initexit))
-			;//inform(gimple_location(stmt), "initified function arg: %s: [%s]", DECL_NAME_POINTER(current_function_decl), TREE_STRING_POINTER(str));
+		if (set_init_exit_section(var, initexit) && verbose)
+			inform(gimple_location(stmt), "initified function arg: %s: [%s]", DECL_NAME_POINTER(current_function_decl), TREE_STRING_POINTER(str));
 	}
 }
 
-static bool has_nocapture_attr(const gcall *stmt)
+static bool has_nocapture_param(const gcall *stmt)
 {
 	const_tree attr, fndecl = gimple_call_fndecl(stmt);
 
 	if (fndecl == NULL_TREE)
 		return false;
+
+	if (is_syscall(fndecl))
+		return true;
 
 	attr = lookup_attribute("nocapture", DECL_ATTRIBUTES(fndecl));
 	return attr != NULL_TREE;
@@ -304,7 +327,7 @@ static void search_const_strs(bool initexit)
 				continue;
 
 			call_stmt = as_a_gcall(stmt);
-			if (has_nocapture_attr(call_stmt))
+			if (has_nocapture_param(call_stmt))
 				search_str_param(call_stmt, initexit);
 		}
 	}

@@ -867,6 +867,9 @@ static gassign *get_dup_stmt(struct visited *visited, gassign *stmt)
 	my_stmt = as_a_gassign(gsi_stmt(gsi));
 
 	gcc_assert(pointer_set_contains(visited->my_stmts, my_stmt));
+	if (gimple_assign_cast_p(stmt) && gimple_assign_cast_p(my_stmt))
+		return my_stmt;
+
 	if (gimple_assign_rhs_code(stmt) != gimple_assign_rhs_code(my_stmt)) {
 		fprintf(stderr, "%s != %s\n", get_tree_code_name(gimple_assign_rhs_code(stmt)), get_tree_code_name(gimple_assign_rhs_code(my_stmt)));
 		debug_gimple_stmt(stmt);

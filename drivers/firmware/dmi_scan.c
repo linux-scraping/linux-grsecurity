@@ -894,7 +894,7 @@ int dmi_walk(void (*decode)(const struct dmi_header *, void *),
 	if (buf == NULL)
 		return -1;
 
-	dmi_table((char __force_kernel *)buf, dmi_len, dmi_num, decode, private_data);
+	dmi_table(buf, dmi_len, dmi_num, decode, private_data);
 
 	dmi_unmap(buf);
 	return 0;

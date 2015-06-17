@@ -62,6 +62,12 @@ static inline int mmap_is_legacy(void)
 
 static unsigned long mmap_rnd(void)
 {
+
+#ifdef CONFIG_PAX_RANDMMAP
+	if (current->mm->pax_flags & MF_PAX_RANDMMAP)
+		return 0;
+#endif
+
 	if (!(current->flags & PF_RANDOMIZE))
 		return 0;
 	if (is_32bit_task())
