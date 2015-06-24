@@ -3389,7 +3389,8 @@ fat_ioctl_filldir_36621 fat_ioctl_filldir 3 36621 NULL
 vxge_config_vpaths_36636 vxge_config_vpaths 0 36636 NULL
 convert_extent_item_v0_36645 convert_extent_item_v0 4 36645 NULL
 ced_ioctl_36647 ced_ioctl 2 36647 NULL
-lpfc_idiag_extacc_alloc_get_36648 lpfc_idiag_extacc_alloc_get 0-3 36648 NULL
+lpfc_idiag_extacc_alloc_get_36648 lpfc_idiag_extacc_alloc_get 0-3 36648 NULL nohasharray
+tty_copy_to_user_36648 tty_copy_to_user 4 36648 &lpfc_idiag_extacc_alloc_get_36648
 osd_req_list_collection_objects_36664 osd_req_list_collection_objects 5 36664 NULL
 iscsi_host_alloc_36671 iscsi_host_alloc 2 36671 NULL
 xillybus_read_36678 xillybus_read 3 36678 NULL
@@ -3456,7 +3457,8 @@ rxrpc_server_sendmsg_37331 rxrpc_server_sendmsg 4 37331 NULL
 xfs_iomap_write_allocate_37336 xfs_iomap_write_allocate 0 37336 NULL
 security_inode_getsecurity_37354 security_inode_getsecurity 0 37354 NULL
 hci_sock_sendmsg_37420 hci_sock_sendmsg 4 37420 NULL
-acpi_os_allocate_zeroed_37422 acpi_os_allocate_zeroed 1 37422 NULL
+acpi_os_allocate_zeroed_37422 acpi_os_allocate_zeroed 1 37422 NULL nohasharray
+find_next_bit_37422 find_next_bit 0 37422 &acpi_os_allocate_zeroed_37422
 tty_insert_flip_string_fixed_flag_37428 tty_insert_flip_string_fixed_flag 4-0 37428 NULL
 iwl_print_last_event_logs_37433 iwl_print_last_event_logs 0-7-9 37433 NULL
 fru_alloc_37442 fru_alloc 1 37442 NULL
