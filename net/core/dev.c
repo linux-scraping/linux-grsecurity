@@ -1965,13 +1965,13 @@ struct sk_buff *skb_gso_segment(struct sk_buff *skb, u32 features)
 
 	if (unlikely(skb->ip_summed != CHECKSUM_PARTIAL)) {
 		struct net_device *dev = skb->dev;
-		struct ethtool_drvinfo info = {};
+		const char *driver = "";
 
-		if (dev && dev->ethtool_ops && dev->ethtool_ops->get_drvinfo)
-			dev->ethtool_ops->get_drvinfo(dev, &info);
+		if (dev && dev->dev.parent)
+			driver = dev_driver_string(dev->dev.parent);
 
 		WARN(1, "%s: caps=(0x%lx, 0x%lx) len=%d data_len=%d ip_summed=%d\n",
-		     info.driver, dev ? dev->features : 0L,
+		     driver, dev ? dev->features : 0L,
 		     skb->sk ? skb->sk->sk_route_caps : 0L,
 		     skb->len, skb->data_len, skb->ip_summed);
 
