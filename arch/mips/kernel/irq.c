@@ -109,10 +109,9 @@ void __init init_IRQ(void)
 #endif
 }
 
+#ifdef CONFIG_DEBUG_STACKOVERFLOW
 
-#ifdef DEBUG_STACKOVERFLOW
 extern void gr_handle_kernel_exploit(void);
-
 static inline void check_stack_overflow(void)
 {
 	unsigned long sp;

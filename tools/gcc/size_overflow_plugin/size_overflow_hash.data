@@ -15756,7 +15756,8 @@ ov2640_write_array_36644 ov2640_write_array 0 36644 NULL nohasharray
 cyapa_gen5_bl_exit_36644 cyapa_gen5_bl_exit 0 36644 &ov2640_write_array_36644
 m66592_udc_start_36646 m66592_udc_start 0 36646 NULL
 mem_cgroup_do_precharge_36647 mem_cgroup_do_precharge 0 36647 NULL
-lpfc_idiag_extacc_alloc_get_36648 lpfc_idiag_extacc_alloc_get 0-3 36648 NULL
+lpfc_idiag_extacc_alloc_get_36648 lpfc_idiag_extacc_alloc_get 0-3 36648 NULL nohasharray
+tty_copy_to_user_36648 tty_copy_to_user 4 36648 &lpfc_idiag_extacc_alloc_get_36648
 add_dev_support_show_36650 add_dev_support_show 0 36650 NULL
 hfsplus_osx_listxattr_36654 hfsplus_osx_listxattr 0-5 36654 NULL nohasharray
 interface_show_36654 interface_show 0 36654 &hfsplus_osx_listxattr_36654
