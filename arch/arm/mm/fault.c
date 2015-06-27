@@ -142,10 +142,10 @@ __do_kernel_fault(struct mm_struct *mm, unsigned long addr, unsigned int fsr,
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	if (addr < TASK_SIZE) {
 		if (current->signal->curr_ip)
-			printk(KERN_ERR "PAX: From %pI4: %s:%d, uid/euid: %u/%u, attempted to access userland memory at %08lx\n", &current->signal->curr_ip, current->comm, task_pid_nr(current),
+			printk(KERN_EMERG "PAX: From %pI4: %s:%d, uid/euid: %u/%u, attempted to access userland memory at %08lx\n", &current->signal->curr_ip, current->comm, task_pid_nr(current),
 					from_kuid_munged(&init_user_ns, current_uid()), from_kuid_munged(&init_user_ns, current_euid()), addr);
 		else
-			printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to access userland memory at %08lx\n", current->comm, task_pid_nr(current),
+			printk(KERN_EMERG "PAX: %s:%d, uid/euid: %u/%u, attempted to access userland memory at %08lx\n", current->comm, task_pid_nr(current),
 					from_kuid_munged(&init_user_ns, current_uid()), from_kuid_munged(&init_user_ns, current_euid()), addr);
 	}
 #endif
@@ -156,10 +156,10 @@ __do_kernel_fault(struct mm_struct *mm, unsigned long addr, unsigned int fsr,
 	     (MODULES_VADDR <= addr && addr < MODULES_END)))
 	{
 		if (current->signal->curr_ip)
-			printk(KERN_ERR "PAX: From %pI4: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n", &current->signal->curr_ip, current->comm, task_pid_nr(current),
+			printk(KERN_EMERG "PAX: From %pI4: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n", &current->signal->curr_ip, current->comm, task_pid_nr(current),
 					from_kuid_munged(&init_user_ns, current_uid()), from_kuid_munged(&init_user_ns, current_euid()));
 		else
-			printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n", current->comm, task_pid_nr(current),
+			printk(KERN_EMERG "PAX: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n", current->comm, task_pid_nr(current),
 					from_kuid_munged(&init_user_ns, current_uid()), from_kuid_munged(&init_user_ns, current_euid()));
 	}
 #endif
@@ -611,10 +611,10 @@ do_DataAbort(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	if (addr < TASK_SIZE && is_domain_fault(fsr)) {
 		if (current->signal->curr_ip)
-			printk(KERN_ERR "PAX: From %pI4: %s:%d, uid/euid: %u/%u, attempted to access userland memory at %08lx\n", &current->signal->curr_ip, current->comm, task_pid_nr(current),
+			printk(KERN_EMERG "PAX: From %pI4: %s:%d, uid/euid: %u/%u, attempted to access userland memory at %08lx\n", &current->signal->curr_ip, current->comm, task_pid_nr(current),
 					from_kuid_munged(&init_user_ns, current_uid()), from_kuid_munged(&init_user_ns, current_euid()), addr);
 		else
-			printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to access userland memory at %08lx\n", current->comm, task_pid_nr(current),
+			printk(KERN_EMERG "PAX: %s:%d, uid/euid: %u/%u, attempted to access userland memory at %08lx\n", current->comm, task_pid_nr(current),
 					from_kuid_munged(&init_user_ns, current_uid()), from_kuid_munged(&init_user_ns, current_euid()), addr);
 		goto die;
 	}
@@ -710,11 +710,11 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 #if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
 	else if (is_domain_fault(ifsr) || is_xn_fault(ifsr)) {
 		if (current->signal->curr_ip)
-			printk(KERN_ERR "PAX: From %pI4: %s:%d, uid/euid: %u/%u, attempted to execute %s memory at %08lx\n", &current->signal->curr_ip, current->comm, task_pid_nr(current),
+			printk(KERN_EMERG "PAX: From %pI4: %s:%d, uid/euid: %u/%u, attempted to execute %s memory at %08lx\n", &current->signal->curr_ip, current->comm, task_pid_nr(current),
 					from_kuid_munged(&init_user_ns, current_uid()), from_kuid_munged(&init_user_ns, current_euid()),
 					pc >= TASK_SIZE ? "non-executable kernel" : "userland", pc);
 		else
-			printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to execute %s memory at %08lx\n", current->comm, task_pid_nr(current),
+			printk(KERN_EMERG "PAX: %s:%d, uid/euid: %u/%u, attempted to execute %s memory at %08lx\n", current->comm, task_pid_nr(current),
 					from_kuid_munged(&init_user_ns, current_uid()), from_kuid_munged(&init_user_ns, current_euid()),
 					pc >= TASK_SIZE ? "non-executable kernel" : "userland", pc);
 		goto die;

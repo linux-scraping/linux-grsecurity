@@ -158,7 +158,7 @@ static inline void debug_tree(const_tree t)
 #define C_TYPE_FIELDS_READONLY(TYPE) TREE_LANG_FLAG_1(TYPE)
 
 #if BUILDING_GCC_VERSION == 4005
-#define FOR_EACH_LOCAL_DECL(FUN, I, D) for (tree vars = (FUN)->local_decls; vars && (D = TREE_VALUE(vars)); vars = TREE_CHAIN(vars), I)
+#define FOR_EACH_LOCAL_DECL(FUN, I, D) for (tree vars = (FUN)->local_decls, (I) = 0; vars && ((D) = TREE_VALUE(vars)); vars = TREE_CHAIN(vars), (I)++)
 #define DECL_CHAIN(NODE) (TREE_CHAIN(DECL_MINIMAL_CHECK(NODE)))
 #define FOR_EACH_VEC_ELT(T, V, I, P) for (I = 0; VEC_iterate(T, (V), (I), (P)); ++(I))
 #define TODO_rebuild_cgraph_edges 0
@@ -398,6 +398,7 @@ static inline const char *get_tree_code_name(enum tree_code code)
 }
 
 #define ipa_remove_stmt_references(cnode, stmt)
+
 typedef union gimple_statement_d gasm;
 typedef union gimple_statement_d gassign;
 typedef union gimple_statement_d gcall;
@@ -419,7 +420,6 @@ typedef union gimple_statement_d greturn;
 #define create_var_ann(var)
 #define TODO_dump_func 0
 #define TODO_dump_cgraph 0
-
 #endif
 
 #if BUILDING_GCC_VERSION <= 4009

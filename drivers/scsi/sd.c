@@ -109,7 +109,7 @@ static int sd_suspend_system(struct device *);
 static int sd_suspend_runtime(struct device *);
 static int sd_resume(struct device *);
 static void sd_rescan(struct device *);
-static int sd_done(struct scsi_cmnd *);
+static unsigned int sd_done(struct scsi_cmnd *);
 static int sd_eh_action(struct scsi_cmnd *, int);
 static void sd_read_capacity(struct scsi_disk *sdkp, unsigned char *buffer);
 static void scsi_disk_release(struct device *cdev);
@@ -1645,7 +1645,7 @@ static unsigned int sd_completed_bytes(struct scsi_cmnd *scmd)
  *
  *	Note: potentially run from within an ISR. Must not block.
  **/
-static int sd_done(struct scsi_cmnd *SCpnt)
+static unsigned int sd_done(struct scsi_cmnd *SCpnt)
 {
 	int result = SCpnt->result;
 	unsigned int good_bytes = result ? 0 : scsi_bufflen(SCpnt);

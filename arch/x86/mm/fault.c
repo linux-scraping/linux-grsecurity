@@ -678,11 +678,11 @@ show_fault_oops(struct pt_regs *regs, unsigned long error_code,
 #ifdef CONFIG_PAX_KERNEXEC
 	if (init_mm.start_code <= address && address < init_mm.end_code) {
 		if (current->signal->curr_ip)
-			printk(KERN_ERR "PAX: From %pI4: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n",
+			printk(KERN_EMERG "PAX: From %pI4: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n",
 					&current->signal->curr_ip, current->comm, task_pid_nr(current),
 					from_kuid_munged(&init_user_ns, current_uid()), from_kuid_munged(&init_user_ns, current_euid()));
 		else
-			printk(KERN_ERR "PAX: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n", current->comm, task_pid_nr(current),
+			printk(KERN_EMERG "PAX: %s:%d, uid/euid: %u/%u, attempted to modify kernel code\n", current->comm, task_pid_nr(current),
 					from_kuid_munged(&init_user_ns, current_uid()), from_kuid_munged(&init_user_ns, current_euid()));
 	}
 #endif
@@ -1244,13 +1244,13 @@ __do_page_fault(struct pt_regs *regs, unsigned long error_code,
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	if (!user_mode(regs) && address < 2 * pax_user_shadow_base) {
 		if (!search_exception_tables(regs->ip)) {
-			printk(KERN_ERR "PAX: please report this to pageexec@freemail.hu\n");
+			printk(KERN_EMERG "PAX: please report this to pageexec@freemail.hu\n");
 			bad_area_nosemaphore(regs, error_code, address);
 			return;
 		}
 		if (address < pax_user_shadow_base) {
-			printk(KERN_ERR "PAX: please report this to pageexec@freemail.hu\n");
-			printk(KERN_ERR "PAX: faulting IP: %pS\n", (void *)regs->ip);
+			printk(KERN_EMERG "PAX: please report this to pageexec@freemail.hu\n");
+			printk(KERN_EMERG "PAX: faulting IP: %pS\n", (void *)regs->ip);
 			show_trace_log_lvl(NULL, NULL, (void *)regs->sp, regs->bp, KERN_ERR);
 		} else
 			address -= pax_user_shadow_base;
