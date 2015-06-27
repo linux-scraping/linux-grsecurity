@@ -2168,12 +2168,12 @@ void pax_report_fault(struct pt_regs *regs, void *pc, void *sp)
 void pax_report_refcount_overflow(struct pt_regs *regs)
 {
 	if (current->signal->curr_ip)
-		printk(KERN_ERR "PAX: From %pI4: refcount overflow detected in: %s:%d, uid/euid: %u/%u\n",
+		printk(KERN_EMERG "PAX: From %pI4: refcount overflow detected in: %s:%d, uid/euid: %u/%u\n",
 				 &current->signal->curr_ip, current->comm, task_pid_nr(current), current_uid(), current_euid());
 	else
-		printk(KERN_ERR "PAX: refcount overflow detected in: %s:%d, uid/euid: %u/%u\n",
+		printk(KERN_EMERG "PAX: refcount overflow detected in: %s:%d, uid/euid: %u/%u\n",
 				 current->comm, task_pid_nr(current), current_uid(), current_euid());
-	print_symbol(KERN_ERR "PAX: refcount overflow occured at: %s\n", instruction_pointer(regs));
+	print_symbol(KERN_EMERG "PAX: refcount overflow occured at: %s\n", instruction_pointer(regs));
 	preempt_disable();
 	show_regs(regs);
 	preempt_enable();
@@ -2232,10 +2232,10 @@ static noinline int check_stack_object(const void *obj, unsigned long len)
 static __noreturn void pax_report_usercopy(const void *ptr, unsigned long len, bool to, const char *type)
 {
 	if (current->signal->curr_ip)
-		printk(KERN_ERR "PAX: From %pI4: kernel memory %s attempt detected %s %p (%s) (%lu bytes)\n",
+		printk(KERN_EMERG "PAX: From %pI4: kernel memory %s attempt detected %s %p (%s) (%lu bytes)\n",
 			&current->signal->curr_ip, to ? "leak" : "overwrite", to ? "from" : "to", ptr, type ? : "unknown", len);
 	else
-		printk(KERN_ERR "PAX: kernel memory %s attempt detected %s %p (%s) (%lu bytes)\n",
+		printk(KERN_EMERG "PAX: kernel memory %s attempt detected %s %p (%s) (%lu bytes)\n",
 			to ? "leak" : "overwrite", to ? "from" : "to", ptr, type ? : "unknown", len);
 	dump_stack();
 	gr_handle_kernel_exploit();
@@ -2334,7 +2334,7 @@ EXPORT_SYMBOL(pax_track_stack);
 #ifdef CONFIG_PAX_SIZE_OVERFLOW
 void report_size_overflow(const char *file, unsigned int line, const char *func, const char *ssa_name)
 {
-	printk(KERN_ERR "PAX: size overflow detected in function %s %s:%u %s", func, file, line, ssa_name);
+	printk(KERN_EMERG "PAX: size overflow detected in function %s %s:%u %s", func, file, line, ssa_name);
 	dump_stack();
 	do_group_exit(SIGKILL);
 }

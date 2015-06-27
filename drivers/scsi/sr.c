@@ -78,7 +78,7 @@ MODULE_ALIAS_SCSI_DEVICE(TYPE_WORM);
 static DEFINE_MUTEX(sr_mutex);
 static int sr_probe(struct device *);
 static int sr_remove(struct device *);
-static int sr_done(struct scsi_cmnd *);
+static unsigned int sr_done(struct scsi_cmnd *);
 
 static struct scsi_driver sr_template = {
 	.owner			= THIS_MODULE,
@@ -296,11 +296,11 @@ do_tur:
  * It will be notified on the end of a SCSI read / write, and will take one
  * of several actions based on success or failure.
  */
-static int sr_done(struct scsi_cmnd *SCpnt)
+static unsigned int sr_done(struct scsi_cmnd *SCpnt)
 {
 	int result = SCpnt->result;
-	int this_count = scsi_bufflen(SCpnt);
-	int good_bytes = (result == 0 ? this_count : 0);
+	unsigned int this_count = scsi_bufflen(SCpnt);
+	unsigned int good_bytes = (result == 0 ? this_count : 0);
 	int block_sectors = 0;
 	long error_sector;
 	struct scsi_cd *cd = scsi_cd(SCpnt->request->rq_disk);
