@@ -145,9 +145,9 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_SMP)
 		if (!(__supported_pte_mask & _PAGE_NX)) {
 			smp_mb__before_atomic();
-			cpu_clear(cpu, prev->context.cpu_user_cs_mask);
+			cpumask_clear_cpu(cpu, &prev->context.cpu_user_cs_mask);
 			smp_mb__after_atomic();
-			cpu_set(cpu, next->context.cpu_user_cs_mask);
+			cpumask_set_cpu(cpu, &next->context.cpu_user_cs_mask);
 		}
 #endif
 
@@ -229,7 +229,7 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_PAGEEXEC)
 			if (!(__supported_pte_mask & _PAGE_NX))
-				cpu_set(cpu, next->context.cpu_user_cs_mask);
+				cpumask_set_cpu(cpu, &next->context.cpu_user_cs_mask);
 #endif
 
 #if defined(CONFIG_X86_32) && (defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC))

@@ -2200,7 +2200,7 @@ void __check_object_size(const void *ptr, unsigned long n, bool to_user, bool co
 EXPORT_SYMBOL(__check_object_size);
 
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
-void pax_track_stack(void)
+void __used pax_track_stack(void)
 {
 	unsigned long sp = (unsigned long)&sp;
 	if (sp < current_thread_info()->lowest_stack &&
@@ -2213,7 +2213,7 @@ EXPORT_SYMBOL(pax_track_stack);
 #endif
 
 #ifdef CONFIG_PAX_SIZE_OVERFLOW
-void __nocapture(1, 3, 4) report_size_overflow(const char *file, unsigned int line, const char *func, const char *ssa_name)
+void __nocapture(1, 3, 4) __used report_size_overflow(const char *file, unsigned int line, const char *func, const char *ssa_name)
 {
 	printk(KERN_EMERG "PAX: size overflow detected in function %s %s:%u %s", func, file, line, ssa_name);
 	dump_stack();

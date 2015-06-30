@@ -354,7 +354,7 @@ int is_valid_bugaddr(unsigned long ip)
 }
 
 #if defined(CONFIG_PAX_MEMORY_STACKLEAK) || defined(CONFIG_PAX_USERCOPY)
-void pax_check_alloca(unsigned long size)
+void __used pax_check_alloca(unsigned long size)
 {
 	unsigned long sp = (unsigned long)&sp, stack_start, stack_end;
 	unsigned cpu, used;
