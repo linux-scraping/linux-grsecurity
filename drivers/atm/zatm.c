@@ -766,7 +766,125 @@ NO !
 		chan = (zatm_dev->mbx_start[mbx][pos >> 2] & uPD98401_TXI_CONN)
 		>> uPD98401_TXI_CONN_SHIFT;
 #endif
-		if (chan < zatm_dev->chans && zatm_dev->tx_                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 to drain ...\n");
+		if (chan < zatm_dev->chans && zatm_dev->tx_map[chan])
+			dequeue_tx(zatm_dev->tx_map[chan]);
+		else {
+			printk(KERN_CRIT DEV_LABEL "(itf %d): TX indication "
+			    "for non-existing channel %d\n",dev->number,chan);
+			event_dump();
+		}
+		if (((pos += 4) & 0xffff) == zatm_dev->mbx_end[mbx])
+			pos = zatm_dev->mbx_start[mbx];
+	}
+	zout(pos & 0xffff,MTA(mbx));
+}
+
+
+/*
+ * BUG BUG BUG: Doesn't handle "new-style" rate specification yet.
+ */
+
+static int alloc_shaper(struct atm_dev *dev,int *pcr,int min,int max,int ubr)
+{
+	struct zatm_dev *zatm_dev;
+	unsigned long flags;
+	unsigned long i,m,c;
+	int shaper;
+
+	DPRINTK("alloc_shaper (min = %d, max = %d)\n",min,max);
+	zatm_dev = ZATM_DEV(dev);
+	if (!zatm_dev->free_shapers) return -EAGAIN;
+	for (shaper = 0; !((zatm_dev->free_shapers >> shaper) & 1); shaper++);
+	zatm_dev->free_shapers &= ~1 << shaper;
+	if (ubr) {
+		c = 5;
+		i = m = 1;
+		zatm_dev->ubr_ref_cnt++;
+		zatm_dev->ubr = shaper;
+		*pcr = 0;
+	}
+	else {
+		if (min) {
+			if (min <= 255) {
+				i = min;
+				m = ATM_OC3_PCR;
+			}
+			else {
+				i = 255;
+				m = ATM_OC3_PCR*255/min;
+			}
+		}
+		else {
+			if (max > zatm_dev->tx_bw) max = zatm_dev->tx_bw;
+			if (max <= 255) {
+				i = max;
+				m = ATM_OC3_PCR;
+			}
+			else {
+				i = 255;
+				m = DIV_ROUND_UP(ATM_OC3_PCR*255, max);
+			}
+		}
+		if (i > m) {
+			printk(KERN_CRIT DEV_LABEL "shaper algorithm botched "
+			    "[%d,%d] -> i=%ld,m=%ld\n",min,max,i,m);
+			m = i;
+		}
+		*pcr = i*ATM_OC3_PCR/m;
+		c = 20; /* @@@ should use max_cdv ! */
+		if ((min && *pcr < min) || (max && *pcr > max)) return -EINVAL;
+		if (zatm_dev->tx_bw < *pcr) return -EAGAIN;
+		zatm_dev->tx_bw -= *pcr;
+	}
+	spin_lock_irqsave(&zatm_dev->lock, flags);
+	DPRINTK("i = %d, m = %d, PCR = %d\n",i,m,*pcr);
+	zpokel(zatm_dev,(i << uPD98401_IM_I_SHIFT) | m,uPD98401_IM(shaper));
+	zpokel(zatm_dev,c << uPD98401_PC_C_SHIFT,uPD98401_PC(shaper));
+	zpokel(zatm_dev,0,uPD98401_X(shaper));
+	zpokel(zatm_dev,0,uPD98401_Y(shaper));
+	zpokel(zatm_dev,uPD98401_PS_E,uPD98401_PS(shaper));
+	spin_unlock_irqrestore(&zatm_dev->lock, flags);
+	return shaper;
+}
+
+
+static void dealloc_shaper(struct atm_dev *dev,int shaper)
+{
+	struct zatm_dev *zatm_dev;
+	unsigned long flags;
+
+	zatm_dev = ZATM_DEV(dev);
+	if (shaper == zatm_dev->ubr) {
+		if (--zatm_dev->ubr_ref_cnt) return;
+		zatm_dev->ubr = -1;
+	}
+	spin_lock_irqsave(&zatm_dev->lock, flags);
+	zpokel(zatm_dev,zpeekl(zatm_dev,uPD98401_PS(shaper)) & ~uPD98401_PS_E,
+	    uPD98401_PS(shaper));
+	spin_unlock_irqrestore(&zatm_dev->lock, flags);
+	zatm_dev->free_shapers |= 1 << shaper;
+}
+
+
+static void close_tx(struct atm_vcc *vcc)
+{
+	struct zatm_dev *zatm_dev;
+	struct zatm_vcc *zatm_vcc;
+	unsigned long flags;
+	int chan;
+
+	zatm_vcc = ZATM_VCC(vcc);
+	zatm_dev = ZATM_DEV(vcc->dev);
+	chan = zatm_vcc->tx_chan;
+	if (!chan) return;
+	DPRINTK("close_tx\n");
+	if (skb_peek(&zatm_vcc->backlog)) {
+		printk("waiting for backlog to drain ...\n");
+		event_dump();
+		wait_event(zatm_vcc->tx_wait, !skb_peek(&zatm_vcc->backlog));
+	}
+	if (skb_peek(&zatm_vcc->tx_queue)) {
+		printk("waiting for TX queue to drain ...\n");
 		event_dump();
 		wait_event(zatm_vcc->tx_wait, !skb_peek(&zatm_vcc->tx_queue));
 	}

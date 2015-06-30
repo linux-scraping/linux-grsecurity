@@ -427,7 +427,7 @@ phys_pmd_init(pmd_t *pmd_page, unsigned long address, unsigned long end,
 
 	int i = pmd_index(address);
 
-	for (; i < PTRS_PER_PMD; i++, address += PMD_SIZE) {
+	for (; i < PTRS_PER_PMD; i++, address = (address & PMD_MASK) + PMD_SIZE) {
 		unsigned long pte_phys;
 		pmd_t *pmd = pmd_page + pmd_index(address);
 		pte_t *pte;
