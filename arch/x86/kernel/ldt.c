@@ -125,7 +125,7 @@ int init_new_context(struct task_struct *tsk, struct mm_struct *mm)
 		mm->context.user_cs_limit = ~0UL;
 
 #if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_SMP)
-		cpus_clear(mm->context.cpu_user_cs_mask);
+		cpumask_clear(&mm->context.cpu_user_cs_mask);
 #endif
 
 #endif

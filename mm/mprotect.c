@@ -245,8 +245,8 @@ void track_exec_limit(struct mm_struct *mm, unsigned long start, unsigned long e
 
 #ifdef CONFIG_SMP
 		wmb();
-		cpus_clear(mm->context.cpu_user_cs_mask);
-		cpu_set(smp_processor_id(), mm->context.cpu_user_cs_mask);
+		cpumask_clear(&mm->context.cpu_user_cs_mask);
+		cpumask_set_cpu(smp_processor_id(), &mm->context.cpu_user_cs_mask);
 #endif
 
 		set_user_cs(mm->context.user_cs_base, mm->context.user_cs_limit, smp_processor_id());

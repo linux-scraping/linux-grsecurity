@@ -1064,7 +1064,7 @@ static int pax_handle_pageexec_fault(struct pt_regs *regs, struct mm_struct *mm,
 	}
 
 #ifdef CONFIG_SMP
-	if (likely(address > get_limit(regs->cs) && cpu_isset(smp_processor_id(), mm->context.cpu_user_cs_mask)))
+	if (likely(address > get_limit(regs->cs) && cpumask_test_cpu(smp_processor_id(), &mm->context.cpu_user_cs_mask)))
 #else
 	if (likely(address > get_limit(regs->cs)))
 #endif
