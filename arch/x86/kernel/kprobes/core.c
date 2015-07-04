@@ -329,14 +329,17 @@ int __kprobes __copy_instruction(u8 *dest, u8 *src)
 {
 	struct insn insn;
 	kprobe_opcode_t buf[MAX_INSN_SIZE];
+	int length;
 
 	kernel_insn_init(&insn, (void *)recover_probed_instruction(buf, (unsigned long)src));
 	insn_get_length(&insn);
+	length = insn.length;
+
 	/* Another subsystem puts a breakpoint, failed to recover */
 	if (insn.opcode.bytes[0] == BREAKPOINT_INSTRUCTION)
 		return 0;
 	pax_open_kernel();
-	memcpy(dest, insn.kaddr, insn.length);
+	memcpy(dest, insn.kaddr, length);
 	pax_close_kernel();
 
 #ifdef CONFIG_X86_64
@@ -369,7 +372,7 @@ int __kprobes __copy_instruction(u8 *dest, u8 *src)
 		pax_close_kernel();
 	}
 #endif
-	return insn.length;
+	return length;
 }
 
 static int __kprobes arch_copy_kprobe(struct kprobe *p)
