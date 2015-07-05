@@ -116,7 +116,7 @@ void config_item_init_type_name(struct config_item *item,
 				const char *name,
 				struct config_item_type *type)
 {
-	config_item_set_name(item, name);
+	config_item_set_name(item, "%s", name);
 	item->ci_type = type;
 	config_item_init(item);
 }
@@ -125,7 +125,7 @@ EXPORT_SYMBOL(config_item_init_type_name);
 void config_group_init_type_name(struct config_group *group, const char *name,
 			 struct config_item_type *type)
 {
-	config_item_set_name(&group->cg_item, name);
+	config_item_set_name(&group->cg_item, "%s", name);
 	group->cg_item.ci_type = type;
 	config_group_init(group);
 }
