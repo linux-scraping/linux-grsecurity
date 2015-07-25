@@ -52,7 +52,7 @@ int
 gr_handle_rofs_blockwrite(struct dentry *dentry, struct vfsmount *mnt, int acc_mode)
 {
 #ifdef CONFIG_GRKERNSEC_ROFS
-	struct inode *inode = dentry->d_inode;
+	struct inode *inode = d_backing_inode(dentry);
 
 	if (grsec_enable_rofs && (acc_mode & MAY_WRITE) &&
 	    inode && (S_ISBLK(inode->i_mode) || (S_ISCHR(inode->i_mode) && imajor(inode) == RAW_MAJOR))) {

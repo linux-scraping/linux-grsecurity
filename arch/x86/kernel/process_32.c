@@ -207,11 +207,7 @@ start_thread(struct pt_regs *regs, unsigned long new_ip, unsigned long new_sp)
 	regs->ip		= new_ip;
 	regs->sp		= new_sp;
 	regs->flags		= X86_EFLAGS_IF;
-	/*
-	 * force it to the iret return path by making it look as if there was
-	 * some work pending.
-	 */
-	set_thread_flag(TIF_NOTIFY_RESUME);
+	force_iret();
 }
 EXPORT_SYMBOL_GPL(start_thread);
 
@@ -249,17 +245,12 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 	struct thread_struct *prev = &prev_p->thread,
 				 *next = &next_p->thread;
 	int cpu = smp_processor_id();
-	struct tss_struct *tss = init_tss + cpu;
+	struct tss_struct *tss = cpu_tss + cpu;
 	fpu_switch_t fpu;
 
 	/* never put a printk in __switch_to... printk() calls wake_up*() indirectly */
 
 	fpu = switch_fpu_prepare(prev_p, next_p, cpu);
-
-	/*
-	 * Reload esp0.
-	 */
-	load_sp0(tss, next);
 
 	/*
 	 * Save away %gs. No need to save %fs, as it was saved on the
@@ -315,9 +306,15 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 	 */
 	arch_end_context_switch(next_p);
 
+	/*
+	 * Reload esp0, kernel_stack, and current_top_of_stack.  This changes
+	 * current_thread_info().
+	 */
+	load_sp0(tss, next);
 	this_cpu_write(current_task, next_p);
 	this_cpu_write(current_tinfo, &next_p->tinfo);
 	this_cpu_write(kernel_stack, next->sp0);
+	this_cpu_write(cpu_current_top_of_stack, next->sp0);
 
 	/*
 	 * Restore %gs if needed (which is common)

@@ -10,8 +10,8 @@ int
 gr_tpe_allow(const struct file *file)
 {
 #ifdef CONFIG_GRKERNSEC
-	struct inode *inode = file->f_path.dentry->d_parent->d_inode;
-	struct inode *file_inode = file->f_path.dentry->d_inode;
+	struct inode *inode = d_backing_inode(file->f_path.dentry->d_parent);
+	struct inode *file_inode = d_backing_inode(file->f_path.dentry);
 	const struct cred *cred = current_cred();
 	char *msg = NULL;
 	char *msg2 = NULL;

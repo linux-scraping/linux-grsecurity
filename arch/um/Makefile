@@ -43,8 +43,8 @@ endif
 
 HOST_DIR := arch/$(HEADER_ARCH)
 
-include $(srctree)/$(ARCH_DIR)/Makefile-skas
-include $(srctree)/$(HOST_DIR)/Makefile.um
+include $(ARCH_DIR)/Makefile-skas
+include $(HOST_DIR)/Makefile.um
 
 core-y += $(HOST_DIR)/um/
 
@@ -77,7 +77,7 @@ USER_CFLAGS	+= -fplugin-arg-constify_plugin-no-constify
 endif
 
 #This will adjust *FLAGS accordingly to the platform.
-include $(srctree)/$(ARCH_DIR)/Makefile-os-$(OS)
+include $(ARCH_DIR)/Makefile-os-$(OS)
 
 KBUILD_CPPFLAGS += -I$(srctree)/$(HOST_DIR)/include \
 		   -I$(srctree)/$(HOST_DIR)/include/uapi \

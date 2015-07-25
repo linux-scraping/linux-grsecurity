@@ -67,8 +67,13 @@ static int __ioremap_check_ram(unsigned long start_pfn, unsigned long nr_pages,
 
 /*
  * Remap an arbitrary physical address space into the kernel virtual
- * address space. Needed when the kernel wants to access high addresses
- * directly.
+ * address space. It transparently creates kernel huge I/O mapping when
+ * the physical address is aligned by a huge page size (1GB or 2MB) and
+ * the requested size is at least the huge page size.
+ *
+ * NOTE: MTRRs can override PAT memory types with a 4KB granularity.
+ * Therefore, the mapping code falls back to use a smaller page toward 4KB
+ * when a mapping range is covered by non-WB type of MTRRs.
  *
  * NOTE! We need to allow non-page-aligned mappings too: we will obviously
  * have to convert them into an offset in a page-aligned mapping, but the
@@ -326,32 +331,53 @@ void iounmap(const volatile void __iomem *addr)
 }
 EXPORT_SYMBOL(iounmap);
 
+int arch_ioremap_pud_supported(void)
+{
+#ifdef CONFIG_X86_64
+	return cpu_has_gbpages;
+#else
+	return 0;
+#endif
+}
+
+int arch_ioremap_pmd_supported(void)
+{
+	return cpu_has_pse;
+}
+
 /*
  * Convert a physical pointer to a virtual kernel pointer for /dev/mem
  * access
  */
 void *xlate_dev_mem_ptr(phys_addr_t phys)
 {
-	/* If page is RAM, we can use __va. Otherwise ioremap and unmap. */
-	if (page_is_ram(phys >> PAGE_SHIFT))
-#ifdef CONFIG_HIGHMEM
-	if ((phys >> PAGE_SHIFT) < max_low_pfn)
-#endif
-		return __va(phys);
+	phys_addr_t pfn = phys >> PAGE_SHIFT;
 
-	return (void __force *)ioremap_cache(phys, PAGE_SIZE);
+	if (page_is_ram(pfn)) {
+#ifdef CONFIG_HIGHMEM
+		if (pfn >= max_low_pfn)
+			return kmap_high(pfn_to_page(pfn));
+		else
+#endif
+			return __va(phys);
+	}
+
+	return (void __force *)ioremap_cache(phys, 1);
 }
 
 void unxlate_dev_mem_ptr(phys_addr_t phys, void *addr)
 {
-	if (page_is_ram(phys >> PAGE_SHIFT))
+	phys_addr_t pfn = phys >> PAGE_SHIFT;
+
+	if (page_is_ram(pfn)) {
 #ifdef CONFIG_HIGHMEM
-	if ((phys >> PAGE_SHIFT) < max_low_pfn)
+		if (pfn >= max_low_pfn)
+			kunmap_high(pfn_to_page(pfn));
 #endif
 		return;
+	}
 
-	iounmap((void __iomem *)((unsigned long)addr & PAGE_MASK));
-	return;
+	iounmap((void __iomem __force *)addr);
 }
 
 static pte_t bm_pte[PAGE_SIZE/sizeof(pte_t)] __read_only __aligned(PAGE_SIZE);

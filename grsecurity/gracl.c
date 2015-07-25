@@ -97,22 +97,26 @@ int gr_rbac_disable(void *unused)
 
 static inline dev_t __get_dev(const struct dentry *dentry)
 {
+	struct dentry *ldentry = d_backing_dentry((struct dentry *)dentry);
+
 #if defined(CONFIG_BTRFS_FS) || defined(CONFIG_BTRFS_FS_MODULE)
-	if (dentry->d_sb->s_magic == BTRFS_SUPER_MAGIC)
-		return BTRFS_I(dentry->d_inode)->root->anon_dev;
+	if (ldentry->d_sb->s_magic == BTRFS_SUPER_MAGIC)
+		return BTRFS_I(d_inode(ldentry))->root->anon_dev;
 	else
 #endif
-		return dentry->d_sb->s_dev;
+		return d_inode(ldentry)->i_sb->s_dev;
 }
 
 static inline u64 __get_ino(const struct dentry *dentry)
 {
+	struct dentry *ldentry = d_backing_dentry((struct dentry *)dentry);
+
 #if defined(CONFIG_BTRFS_FS) || defined(CONFIG_BTRFS_FS_MODULE)
-	if (dentry->d_sb->s_magic == BTRFS_SUPER_MAGIC)
-		return btrfs_ino(dentry->d_inode);
+	if (ldentry->d_sb->s_magic == BTRFS_SUPER_MAGIC)
+		return btrfs_ino(d_inode(dentry));
 	else
 #endif
-		return dentry->d_inode->i_ino;
+		return d_inode(ldentry)->i_ino;
 }
 
 dev_t gr_get_dev_from_dentry(struct dentry *dentry)
@@ -899,6 +903,7 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 {
 	struct dentry *dentry = (struct dentry *) l_dentry;
 	struct vfsmount *mnt = (struct vfsmount *) l_mnt;
+	struct inode * inode = d_backing_inode(dentry);
 	struct mount *real_mnt = real_mount(mnt);
 	struct acl_object_label *retval;
 	struct dentry *parent;
@@ -906,15 +911,15 @@ __chk_obj_label(const struct dentry *l_dentry, const struct vfsmount *l_mnt,
 	read_seqlock_excl(&mount_lock);
 	write_seqlock(&rename_lock);
 
-	if (unlikely((mnt == shm_mnt && dentry->d_inode->i_nlink == 0) || mnt == pipe_mnt ||
+	if (unlikely((mnt == shm_mnt && inode->i_nlink == 0) || mnt == pipe_mnt ||
 #ifdef CONFIG_NET
 	    mnt == sock_mnt ||
 #endif
 #ifdef CONFIG_HUGETLBFS
-	    (is_hugetlbfs_mnt(mnt) && dentry->d_inode->i_nlink == 0) ||
+	    (is_hugetlbfs_mnt(mnt) && inode->i_nlink == 0) ||
 #endif
 		/* ignore Eric Biederman */
-	    IS_PRIVATE(l_dentry->d_inode))) {
+	    IS_PRIVATE(inode))) {
 		retval = (subj->mode & GR_SHMEXEC) ? fakefs_obj_rwx : fakefs_obj_rw;
 		goto out;
 	}
@@ -2144,7 +2149,8 @@ gr_handle_rename(struct inode *old_dir, struct inode *new_dir,
 	struct name_entry *matchn;
 	struct name_entry *matchn2 = NULL;
 	struct inodev_entry *inodev;
-	struct inode *inode = new_dentry->d_inode;
+	struct inode *inode = d_backing_inode(new_dentry);
+	struct inode *old_inode = d_backing_inode(old_dentry);
 	u64 old_ino = __get_ino(old_dentry);
 	dev_t old_dev = __get_dev(old_dentry);
 	unsigned int exchange = flags & RENAME_EXCHANGE;
@@ -2191,12 +2197,12 @@ gr_handle_rename(struct inode *old_dir, struct inode *new_dir,
 		dev_t new_dev = __get_dev(new_dentry);
 
 		inodev = lookup_inodev_entry(new_ino, new_dev);
-		if (inodev != NULL && ((inode->i_nlink <= 1) || S_ISDIR(inode->i_mode)))
+		if (inodev != NULL && ((inode->i_nlink <= 1) || d_is_dir(new_dentry)))
 			do_handle_delete(inodev, new_ino, new_dev);
 	}
 
 	inodev = lookup_inodev_entry(old_ino, old_dev);
-	if (inodev != NULL && ((old_dentry->d_inode->i_nlink <= 1) || S_ISDIR(old_dentry->d_inode->i_mode)))
+	if (inodev != NULL && ((old_inode->i_nlink <= 1) || d_is_dir(old_dentry)))
 		do_handle_delete(inodev, old_ino, old_dev);
 
 	if (unlikely(matchn != NULL))
@@ -2470,14 +2476,16 @@ static int is_writable_mmap(const struct file *filp)
 {
 	struct task_struct *task = current;
 	struct acl_object_label *obj, *obj2;
+	struct dentry *dentry = filp->f_path.dentry;
+	struct vfsmount *mnt = filp->f_path.mnt;
+	struct inode *inode = d_backing_inode(dentry);
 
 	if (gr_status & GR_READY && !(task->acl->mode & GR_OVERRIDE) &&
-	    !task->is_writable && S_ISREG(filp->f_path.dentry->d_inode->i_mode) && (filp->f_path.mnt != shm_mnt || (filp->f_path.dentry->d_inode->i_nlink > 0))) {
-		obj = chk_obj_label(filp->f_path.dentry, filp->f_path.mnt, running_polstate.default_role->root_label);
-		obj2 = chk_obj_label(filp->f_path.dentry, filp->f_path.mnt,
-				     task->role->root_label);
+	    !task->is_writable && d_is_reg(dentry) && (mnt != shm_mnt || (inode->i_nlink > 0))) {
+		obj = chk_obj_label(dentry, mnt, running_polstate.default_role->root_label);
+		obj2 = chk_obj_label(dentry, mnt, task->role->root_label);
 		if (unlikely((obj->mode & GR_WRITE) || (obj2->mode & GR_WRITE))) {
-			gr_log_fs_generic(GR_DONT_AUDIT, GR_WRITLIB_ACL_MSG, filp->f_path.dentry, filp->f_path.mnt);
+			gr_log_fs_generic(GR_DONT_AUDIT, GR_WRITLIB_ACL_MSG, dentry, mnt);
 			return 1;
 		}
 	}
@@ -2667,7 +2675,7 @@ int gr_acl_handle_filldir(const struct file *file, const char *name, const unsig
 		return 1;
 
 	/* ignore Eric Biederman */
-	if (IS_PRIVATE(dentry->d_inode))
+	if (IS_PRIVATE(d_backing_inode(dentry)))
 		return 1;
 
 	subj = task->acl;

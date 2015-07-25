@@ -13,16 +13,6 @@
 #include <asm/alternative-asm.h>
 #include <asm/dwarf2.h>
 
-.macro SAVE reg
-	pushl_cfi %\reg
-	CFI_REL_OFFSET \reg, 0
-.endm
-
-.macro RESTORE reg
-	popl_cfi %\reg
-	CFI_RESTORE \reg
-.endm
-
 .macro read64 reg
 	movl %ebx, %eax
 	movl %ecx, %edx
@@ -93,10 +83,10 @@ ENDPROC(atomic64_xchg_cx8)
 .macro addsub_return func ins insc unchecked=""
 ENTRY(atomic64_\func\()_return\unchecked\()_cx8)
 	CFI_STARTPROC
-	SAVE ebp
-	SAVE ebx
-	SAVE esi
-	SAVE edi
+	pushl_cfi_reg ebp
+	pushl_cfi_reg ebx
+	pushl_cfi_reg esi
+	pushl_cfi_reg edi
 
 	movl %eax, %esi
 	movl %edx, %edi
@@ -129,10 +119,10 @@ ENTRY(atomic64_\func\()_return\unchecked\()_cx8)
 #endif
 .endif
 
-	RESTORE edi
-	RESTORE esi
-	RESTORE ebx
-	RESTORE ebp
+	popl_cfi_reg edi
+	popl_cfi_reg esi
+	popl_cfi_reg ebx
+	popl_cfi_reg ebp
 	pax_force_retaddr
 	ret
 	CFI_ENDPROC
@@ -147,7 +137,7 @@ addsub_return sub sub sbb _unchecked
 .macro incdec_return func ins insc unchecked=""
 ENTRY(atomic64_\func\()_return\unchecked\()_cx8)
 	CFI_STARTPROC
-	SAVE ebx
+	pushl_cfi_reg ebx
 
 	read64 %esi
 1:
@@ -167,7 +157,6 @@ ENTRY(atomic64_\func\()_return\unchecked\()_cx8)
 	LOCK_PREFIX
 	cmpxchg8b (%esi)
 	jne 1b
-
 	movl %ebx, %eax
 	movl %ecx, %edx
 
@@ -177,7 +166,7 @@ ENTRY(atomic64_\func\()_return\unchecked\()_cx8)
 #endif
 .endif
 
-	RESTORE ebx
+	popl_cfi_reg ebx
 	pax_force_retaddr
 	ret
 	CFI_ENDPROC
@@ -191,7 +180,7 @@ incdec_return dec sub sbb _unchecked
 
 ENTRY(atomic64_dec_if_positive_cx8)
 	CFI_STARTPROC
-	SAVE ebx
+	pushl_cfi_reg ebx
 
 	read64 %esi
 1:
@@ -214,7 +203,7 @@ ENTRY(atomic64_dec_if_positive_cx8)
 2:
 	movl %ebx, %eax
 	movl %ecx, %edx
-	RESTORE ebx
+	popl_cfi_reg ebx
 	pax_force_retaddr
 	ret
 	CFI_ENDPROC
@@ -222,11 +211,11 @@ ENDPROC(atomic64_dec_if_positive_cx8)
 
 ENTRY(atomic64_add_unless_cx8)
 	CFI_STARTPROC
-	SAVE ebp
-	SAVE ebx
+	pushl_cfi_reg ebp
+	pushl_cfi_reg ebx
 /* these just push these two parameters on the stack */
-	SAVE edi
-	SAVE ecx
+	pushl_cfi_reg edi
+	pushl_cfi_reg ecx
 
 	movl %eax, %ebp
 	movl %edx, %edi
@@ -255,8 +244,8 @@ ENTRY(atomic64_add_unless_cx8)
 3:
 	addl $8, %esp
 	CFI_ADJUST_CFA_OFFSET -8
-	RESTORE ebx
-	RESTORE ebp
+	popl_cfi_reg ebx
+	popl_cfi_reg ebp
 	pax_force_retaddr
 	ret
 4:
@@ -269,7 +258,7 @@ ENDPROC(atomic64_add_unless_cx8)
 
 ENTRY(atomic64_inc_not_zero_cx8)
 	CFI_STARTPROC
-	SAVE ebx
+	pushl_cfi_reg ebx
 
 	read64 %esi
 1:
@@ -293,7 +282,7 @@ ENTRY(atomic64_inc_not_zero_cx8)
 
 	movl $1, %eax
 3:
-	RESTORE ebx
+	popl_cfi_reg ebx
 	pax_force_retaddr
 	ret
 	CFI_ENDPROC

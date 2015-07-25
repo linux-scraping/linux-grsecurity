@@ -342,7 +342,7 @@ static int ipvlan_process_v4_outbound(struct sk_buff *skb)
 	struct rtable *rt;
 	int err, ret = NET_XMIT_DROP;
 	struct flowi4 fl4 = {
-		.flowi4_oif = dev->iflink,
+		.flowi4_oif = dev_get_iflink(dev),
 		.flowi4_tos = RT_TOS(ip4h->tos),
 		.flowi4_flags = FLOWI_FLAG_ANYSRC,
 		.daddr = ip4h->daddr,
@@ -507,7 +507,7 @@ static int ipvlan_xmit_mode_l2(struct sk_buff *skb, struct net_device *dev)
 int ipvlan_queue_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct ipvl_dev *ipvlan = netdev_priv(dev);
-	struct ipvl_port *port = ipvlan_port_get_rcu(ipvlan->phy_dev);
+	struct ipvl_port *port = ipvlan_port_get_rcu_bh(ipvlan->phy_dev);
 
 	if (!port)
 		goto out;

@@ -90,9 +90,7 @@ void gr_log_ptgnustack(struct file *file);
 void gr_log_rwxmmap(struct file *file);
 void gr_log_rwxmprotect(struct vm_area_struct *vma);
 
-int gr_handle_follow_link(const struct inode *parent,
-				 const struct inode *inode,
-				 const struct dentry *dentry,
+int gr_handle_follow_link(const struct dentry *dentry,
 				 const struct vfsmount *mnt);
 int gr_handle_fifo(const struct dentry *dentry,
 			  const struct vfsmount *mnt,
@@ -100,8 +98,7 @@ int gr_handle_fifo(const struct dentry *dentry,
 			  const int acc_mode);
 int gr_handle_hardlink(const struct dentry *dentry,
 			      const struct vfsmount *mnt,
-			      struct inode *inode,
-			      const int mode, const struct filename *to);
+			      const struct filename *to);
 
 int gr_is_capable(const int cap);
 int gr_is_capable_nolog(const int cap);

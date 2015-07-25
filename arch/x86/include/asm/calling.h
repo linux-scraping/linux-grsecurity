@@ -55,154 +55,171 @@ For 32-bit we have the following conventions - kernel is built with
  * for assembly code:
  */
 
-#define R15		  0
-#define R14		  8
-#define R13		 16
-#define R12		 24
-#define RBP		 32
-#define RBX		 40
+/* The layout forms the "struct pt_regs" on the stack: */
+/*
+ * C ABI says these regs are callee-preserved. They aren't saved on kernel entry
+ * unless syscall needs a complete, fully filled "struct pt_regs".
+ */
+#define R15		0*8
+#define R14		1*8
+#define R13		2*8
+#define R12		3*8
+#define RBP		4*8
+#define RBX		5*8
+/* These regs are callee-clobbered. Always saved on kernel entry. */
+#define R11		6*8
+#define R10		7*8
+#define R9		8*8
+#define R8		9*8
+#define RAX		10*8
+#define RCX		11*8
+#define RDX		12*8
+#define RSI		13*8
+#define RDI		14*8
+/*
+ * On syscall entry, this is syscall#. On CPU exception, this is error code.
+ * On hw interrupt, it's IRQ number:
+ */
+#define ORIG_RAX	15*8
+/* Return frame for iretq */
+#define RIP		16*8
+#define CS		17*8
+#define EFLAGS		18*8
+#define RSP		19*8
+#define SS		20*8
 
-/* arguments: interrupts/non tracing syscalls only save up to here: */
-#define R11		 48
-#define R10		 56
-#define R9		 64
-#define R8		 72
-#define RAX		 80
-#define RCX		 88
-#define RDX		 96
-#define RSI		104
-#define RDI		112
-#define ORIG_RAX	120       /* + error_code */
-/* end of arguments */
+#define SIZEOF_PTREGS	21*8
 
-/* cpu exception frame or undefined in case of fast syscall: */
-#define RIP		128
-#define CS		136
-#define EFLAGS		144
-#define RSP		152
-#define SS		160
-
-#define ARGOFFSET	R15
-
-	.macro SAVE_ARGS addskip=0, save_rcx=1, save_r891011=1, rax_enosys=0
-	subq  $ORIG_RAX-ARGOFFSET+\addskip, %rsp
-	CFI_ADJUST_CFA_OFFSET	ORIG_RAX-ARGOFFSET+\addskip
-	movq_cfi rdi, RDI
-	movq_cfi rsi, RSI
-	movq_cfi rdx, RDX
-
-	.if \save_rcx
-	movq_cfi rcx, RCX
-	.endif
-
-	.if \rax_enosys
-	movq $-ENOSYS, RAX(%rsp)
-	.else
-	movq_cfi rax, RAX
-	.endif
-
-	.if \save_r891011
-	movq_cfi r8,  R8
-	movq_cfi r9,  R9
-	movq_cfi r10, R10
-	movq_cfi r11, R11
-	.endif
-
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
-	movq_cfi r12, R12
-#endif
-
+	.macro ALLOC_PT_GPREGS_ON_STACK addskip=0
+	subq	$15*8+\addskip, %rsp
+	CFI_ADJUST_CFA_OFFSET 15*8+\addskip
 	.endm
 
-#define ARG_SKIP	ORIG_RAX
-
-	.macro RESTORE_ARGS rstor_rax=1, addskip=0, rstor_rcx=1, rstor_r11=1, \
-			    rstor_r8910=1, rstor_rdx=1
-
+	.macro SAVE_C_REGS_HELPER offset=0 rax=1 rcx=1 r8910=1 r11=1
 #ifdef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
-	movq_cfi_restore R12, r12
+	movq_cfi r12, R12+\offset
 #endif
+	.if \r11
+	movq_cfi r11, R11+\offset
+	.endif
+	.if \r8910
+	movq_cfi r10, R10+\offset
+	movq_cfi r9,  R9+\offset
+	movq_cfi r8,  R8+\offset
+	.endif
+	.if \rax
+	movq_cfi rax, RAX+\offset
+	.endif
+	.if \rcx
+	movq_cfi rcx, RCX+\offset
+	.endif
+	movq_cfi rdx, RDX+\offset
+	movq_cfi rsi, RSI+\offset
+	movq_cfi rdi, RDI+\offset
+	.endm
+	.macro SAVE_C_REGS offset=0
+	SAVE_C_REGS_HELPER \offset, 1, 1, 1, 1
+	.endm
+	.macro SAVE_C_REGS_EXCEPT_RAX_RCX offset=0
+	SAVE_C_REGS_HELPER \offset, 0, 0, 1, 1
+	.endm
+	.macro SAVE_C_REGS_EXCEPT_R891011
+	SAVE_C_REGS_HELPER 0, 1, 1, 0, 0
+	.endm
+	.macro SAVE_C_REGS_EXCEPT_RCX_R891011
+	SAVE_C_REGS_HELPER 0, 1, 0, 0, 0
+	.endm
+	.macro SAVE_C_REGS_EXCEPT_RAX_RCX_R11
+	SAVE_C_REGS_HELPER 0, 0, 0, 1, 0
+	.endm
 
+	.macro SAVE_EXTRA_REGS offset=0
+	movq_cfi r15, R15+\offset
+	movq_cfi r14, R14+\offset
+	movq_cfi r13, R13+\offset
+#ifndef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
+	movq_cfi r12, R12+\offset
+#endif
+	movq_cfi rbp, RBP+\offset
+	movq_cfi rbx, RBX+\offset
+	.endm
+	.macro SAVE_EXTRA_REGS_RBP offset=0
+	movq_cfi rbp, RBP+\offset
+	.endm
+
+	.macro RESTORE_EXTRA_REGS offset=0
+	movq_cfi_restore R15+\offset, r15
+	movq_cfi_restore R14+\offset, r14
+	movq_cfi_restore R13+\offset, r13
+#ifndef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
+	movq_cfi_restore R12+\offset, r12
+#endif
+	movq_cfi_restore RBP+\offset, rbp
+	movq_cfi_restore RBX+\offset, rbx
+	.endm
+
+	.macro ZERO_EXTRA_REGS
+	xorl	%r15d, %r15d
+	xorl	%r14d, %r14d
+	xorl	%r13d, %r13d
+#ifndef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
+	xorl	%r12d, %r12d
+#endif
+	xorl	%ebp, %ebp
+	xorl	%ebx, %ebx
+	.endm
+
+	.macro RESTORE_C_REGS_HELPER rstor_rax=1, rstor_rcx=1, rstor_r11=1, rstor_r8910=1, rstor_rdx=1, rstor_r12=1
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
+	.if \rstor_r12
+	movq_cfi_restore R12, r12
+	.endif
+#endif
 	.if \rstor_r11
 	movq_cfi_restore R11, r11
 	.endif
-
 	.if \rstor_r8910
 	movq_cfi_restore R10, r10
 	movq_cfi_restore R9, r9
 	movq_cfi_restore R8, r8
 	.endif
-
 	.if \rstor_rax
 	movq_cfi_restore RAX, rax
 	.endif
-
 	.if \rstor_rcx
 	movq_cfi_restore RCX, rcx
 	.endif
-
 	.if \rstor_rdx
 	movq_cfi_restore RDX, rdx
 	.endif
-
 	movq_cfi_restore RSI, rsi
 	movq_cfi_restore RDI, rdi
-
-	.if ORIG_RAX+\addskip > 0
-	addq $ORIG_RAX+\addskip, %rsp
-	CFI_ADJUST_CFA_OFFSET	-(ORIG_RAX+\addskip)
-	.endif
+	.endm
+	.macro RESTORE_C_REGS
+	RESTORE_C_REGS_HELPER 1,1,1,1,1,1
+	.endm
+	.macro RESTORE_C_REGS_EXCEPT_RAX
+	RESTORE_C_REGS_HELPER 0,1,1,1,1,0
+	.endm
+	.macro RESTORE_C_REGS_EXCEPT_RCX
+	RESTORE_C_REGS_HELPER 1,0,1,1,1,0
+	.endm
+	.macro RESTORE_C_REGS_EXCEPT_R11
+	RESTORE_C_REGS_HELPER 1,1,0,1,1,1
+	.endm
+	.macro RESTORE_C_REGS_EXCEPT_RCX_R11
+	RESTORE_C_REGS_HELPER 1,0,0,1,1,1
+	.endm
+	.macro RESTORE_RSI_RDI
+	RESTORE_C_REGS_HELPER 0,0,0,0,0,1
+	.endm
+	.macro RESTORE_RSI_RDI_RDX
+	RESTORE_C_REGS_HELPER 0,0,0,0,1,1
 	.endm
 
-	.macro LOAD_ARGS skiprax=0
-	movq R11(%rsp),    %r11
-	movq R10(%rsp),  %r10
-	movq R9(%rsp), %r9
-	movq R8(%rsp), %r8
-	movq RCX(%rsp), %rcx
-	movq RDX(%rsp), %rdx
-	movq RSI(%rsp), %rsi
-	movq RDI(%rsp), %rdi
-	.if \skiprax
-	.else
-	movq ORIG_RAX(%rsp), %rax
-	.endif
-	.endm
-
-	.macro SAVE_REST
-	movq_cfi rbx, RBX
-	movq_cfi rbp, RBP
-
-#ifndef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
-	movq_cfi r12, R12
-#endif
-
-	movq_cfi r13, R13
-	movq_cfi r14, R14
-	movq_cfi r15, R15
-	.endm
-
-	.macro RESTORE_REST
-	movq_cfi_restore R15, r15
-	movq_cfi_restore R14, r14
-	movq_cfi_restore R13, r13
-
-#ifndef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
-	movq_cfi_restore R12, r12
-#endif
-
-	movq_cfi_restore RBP, rbp
-	movq_cfi_restore RBX, rbx
-	.endm
-
-	.macro SAVE_ALL
-	SAVE_ARGS
-	SAVE_REST
-	.endm
-
-	.macro RESTORE_ALL addskip=0
-	RESTORE_REST
-	RESTORE_ARGS 1, \addskip
+	.macro REMOVE_PT_GPREGS_FROM_STACK addskip=0
+	addq $15*8+\addskip, %rsp
+	CFI_ADJUST_CFA_OFFSET -(15*8+\addskip)
 	.endm
 
 	.macro icebp
@@ -221,37 +238,23 @@ For 32-bit we have the following conventions - kernel is built with
  */
 
 	.macro SAVE_ALL
-	pushl_cfi %eax
-	CFI_REL_OFFSET eax, 0
-	pushl_cfi %ebp
-	CFI_REL_OFFSET ebp, 0
-	pushl_cfi %edi
-	CFI_REL_OFFSET edi, 0
-	pushl_cfi %esi
-	CFI_REL_OFFSET esi, 0
-	pushl_cfi %edx
-	CFI_REL_OFFSET edx, 0
-	pushl_cfi %ecx
-	CFI_REL_OFFSET ecx, 0
-	pushl_cfi %ebx
-	CFI_REL_OFFSET ebx, 0
+	pushl_cfi_reg eax
+	pushl_cfi_reg ebp
+	pushl_cfi_reg edi
+	pushl_cfi_reg esi
+	pushl_cfi_reg edx
+	pushl_cfi_reg ecx
+	pushl_cfi_reg ebx
 	.endm
 
 	.macro RESTORE_ALL
-	popl_cfi %ebx
-	CFI_RESTORE ebx
-	popl_cfi %ecx
-	CFI_RESTORE ecx
-	popl_cfi %edx
-	CFI_RESTORE edx
-	popl_cfi %esi
-	CFI_RESTORE esi
-	popl_cfi %edi
-	CFI_RESTORE edi
-	popl_cfi %ebp
-	CFI_RESTORE ebp
-	popl_cfi %eax
-	CFI_RESTORE eax
+	popl_cfi_reg ebx
+	popl_cfi_reg ecx
+	popl_cfi_reg edx
+	popl_cfi_reg esi
+	popl_cfi_reg edi
+	popl_cfi_reg ebp
+	popl_cfi_reg eax
 	.endm
 
 #endif /* CONFIG_X86_64 */

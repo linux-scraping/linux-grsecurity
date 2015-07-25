@@ -11,6 +11,7 @@
 #include <linux/sched.h>
 #include <linux/string.h>
 #include <linux/mm.h>
+#include <linux/ratelimit.h>
 #include <linux/smp.h>
 #include <linux/vmalloc.h>
 #include <linux/uaccess.h>
@@ -19,6 +20,14 @@
 #include <asm/desc.h>
 #include <asm/mmu_context.h>
 #include <asm/syscalls.h>
+
+#ifdef CONFIG_GRKERNSEC
+int sysctl_modify_ldt __read_only = 0;
+#elif defined(CONFIG_DEFAULT_MODIFY_LDT_SYSCALL)
+int sysctl_modify_ldt __read_only = 1;
+#else
+int sysctl_modify_ldt __read_only = 0;
+#endif
 
 #ifdef CONFIG_SMP
 static void flush_ldt(void *current_mm)
@@ -278,6 +287,15 @@ asmlinkage int sys_modify_ldt(int func, void __user *ptr,
 			      unsigned long bytecount)
 {
 	int ret = -ENOSYS;
+
+	if (!sysctl_modify_ldt) {
+		printk_ratelimited(KERN_INFO
+			"Denied a call to modify_ldt() from %s[%d] (uid: %d)."
+			" Adjust sysctl if this was not an exploit attempt.\n",
+			current->comm, task_pid_nr(current),
+			from_kuid_munged(current_user_ns(), current_uid()));
+		return ret;
+	}
 
 	switch (func) {
 	case 0:

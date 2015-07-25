@@ -338,6 +338,8 @@ struct module {
 #ifdef CONFIG_EVENT_TRACING
 	struct ftrace_event_call **trace_events;
 	unsigned int num_trace_events;
+	struct trace_enum_map **trace_enums;
+	unsigned int num_trace_enums;
 	struct file_operations trace_id;
 	struct file_operations trace_enable;
 	struct file_operations trace_format;

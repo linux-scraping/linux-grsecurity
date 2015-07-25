@@ -7,7 +7,7 @@
 int gr_handle_symlink_owner(const struct path *link, const struct inode *target)
 {
 #ifdef CONFIG_GRKERNSEC_SYMLINKOWN
-	const struct inode *link_inode = link->dentry->d_inode;
+	const struct inode *link_inode = d_backing_inode(link->dentry);
 
 	if (grsec_enable_symlinkown && in_group_p(grsec_symlinkown_gid) &&
 	   /* ignore root-owned links, e.g. /proc/self */
@@ -21,14 +21,14 @@ int gr_handle_symlink_owner(const struct path *link, const struct inode *target)
 }
 
 int
-gr_handle_follow_link(const struct inode *parent,
-		      const struct inode *inode,
-		      const struct dentry *dentry, const struct vfsmount *mnt)
+gr_handle_follow_link(const struct dentry *dentry, const struct vfsmount *mnt)
 {
 #ifdef CONFIG_GRKERNSEC_LINK
+	struct inode *inode = d_backing_inode(dentry);
+	struct inode *parent = d_backing_inode(dentry->d_parent);
 	const struct cred *cred = current_cred();
 
-	if (grsec_enable_link && S_ISLNK(inode->i_mode) &&
+	if (grsec_enable_link && d_is_symlink(dentry) &&
 	    (parent->i_mode & S_ISVTX) && !uid_eq(parent->i_uid, inode->i_uid) &&
 	    (parent->i_mode & S_IWOTH) && !uid_eq(cred->fsuid, inode->i_uid)) {
 		gr_log_fs_int2(GR_DONT_AUDIT, GR_SYMLINK_MSG, dentry, mnt, inode->i_uid, inode->i_gid);
@@ -41,13 +41,14 @@ gr_handle_follow_link(const struct inode *parent,
 int
 gr_handle_hardlink(const struct dentry *dentry,
 		   const struct vfsmount *mnt,
-		   struct inode *inode, const int mode, const struct filename *to)
+		   const struct filename *to)
 {
 #ifdef CONFIG_GRKERNSEC_LINK
+	struct inode *inode = d_backing_inode(dentry);
 	const struct cred *cred = current_cred();
 
 	if (grsec_enable_link && !uid_eq(cred->fsuid, inode->i_uid) &&
-	    (!S_ISREG(mode) || is_privileged_binary(dentry) || 
+	    (!d_is_reg(dentry) || is_privileged_binary(dentry) || 
 	     (inode_permission(inode, MAY_READ | MAY_WRITE))) &&
 	    !capable(CAP_FOWNER) && gr_is_global_nonroot(cred->uid)) {
 		gr_log_fs_int2_str(GR_DONT_AUDIT, GR_HARDLINK_MSG, dentry, mnt, inode->i_uid, inode->i_gid, to->name);

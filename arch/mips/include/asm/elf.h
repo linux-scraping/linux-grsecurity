@@ -11,6 +11,9 @@
 #include <linux/fs.h>
 #include <uapi/linux/elf.h>
 
+#include <asm/cpu-info.h>
+#include <asm/current.h>
+
 /* ELF header e_flags defines. */
 /* MIPS architecture level. */
 #define EF_MIPS_ARCH_1		0x00000000	/* -mips1 code.	 */
@@ -300,6 +303,8 @@ do {									\
 	mips_set_personality_fp(state);					\
 									\
 	current->thread.abi = &mips_abi;				\
+									\
+	current->thread.fpu.fcr31 = boot_cpu_data.fpu_csr31;		\
 } while (0)
 
 #endif /* CONFIG_32BIT */
@@ -360,6 +365,8 @@ do {									\
 		__SET_PERSONALITY32(ex, state);				\
 	else								\
 		current->thread.abi = &mips_abi;			\
+									\
+	current->thread.fpu.fcr31 = boot_cpu_data.fpu_csr31;		\
 									\
 	p = personality(current->personality);				\
 	if (p != PER_LINUX32 && p != PER_LINUX)				\

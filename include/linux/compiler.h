@@ -191,6 +191,10 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
 # define barrier() __memory_barrier()
 #endif
 
+#ifndef barrier_data
+# define barrier_data(ptr) barrier()
+#endif
+
 /* Unreachable code */
 #ifndef unreachable
 # define unreachable() do { } while (1)
@@ -214,29 +218,16 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
 
 #include <uapi/linux/types.h>
 
-static __always_inline void data_access_exceeds_word_size(void)
-#ifdef __compiletime_warning
-__compiletime_warning("data access exceeds word size and won't be atomic")
-#endif
-;
-
-static __always_inline void data_access_exceeds_word_size(void)
-{
-}
-
 static __always_inline void __read_once_size(const volatile void *p, void *res, int size)
 {
 	switch (size) {
 	case 1: *(__u8 *)res = *(const volatile __u8 *)p; break;
 	case 2: *(__u16 *)res = *(const volatile __u16 *)p; break;
 	case 4: *(__u32 *)res = *(const volatile __u32 *)p; break;
-#ifdef CONFIG_64BIT
 	case 8: *(__u64 *)res = *(const volatile __u64 *)p; break;
-#endif
 	default:
 		barrier();
 		__builtin_memcpy(res, (const void *)p, size);
-		data_access_exceeds_word_size();
 		barrier();
 	}
 }
@@ -247,13 +238,10 @@ static __always_inline void __write_once_size(volatile void *p, const void *res,
 	case 1: *(volatile __u8 *)p = *(const __u8 *)res; break;
 	case 2: *(volatile __u16 *)p = *(const __u16 *)res; break;
 	case 4: *(volatile __u32 *)p = *(const __u32 *)res; break;
-#ifdef CONFIG_64BIT
 	case 8: *(volatile __u64 *)p = *(const __u64 *)res; break;
-#endif
 	default:
 		barrier();
 		__builtin_memcpy((void *)p, res, size);
-		data_access_exceeds_word_size();
 		barrier();
 	}
 }

@@ -291,6 +291,7 @@ static tree create_new_phi_arg(struct visited *visited, tree ssa_name_var, tree 
 static gphi *overflow_create_phi_node(struct visited *visited, gphi *oldstmt, tree result)
 {
 	basic_block bb;
+	gimple stmt;
 	gphi *phi;
 	gimple_seq seq;
 	gimple_stmt_iterator gsi = gsi_for_stmt(oldstmt);
@@ -304,7 +305,8 @@ static gphi *overflow_create_phi_node(struct visited *visited, gphi *oldstmt, tr
 		result = create_new_var(size_overflow_type);
 	}
 
-	phi = create_phi_node(result, bb);
+	stmt = create_phi_node(result, bb);
+	phi = as_a_gphi(stmt);
 	gimple_phi_set_result(phi, make_ssa_name(result, phi));
 	seq = phi_nodes(bb);
 	gsi = gsi_last(seq);
@@ -454,6 +456,7 @@ static void insert_cond(basic_block cond_bb, tree arg, enum tree_code cond_code,
 
 static void insert_cond_result(basic_block bb_true, const_gimple stmt, const_tree arg, bool min)
 {
+	gimple call_stmt;
 	gcall *func_stmt;
 	const_gimple def_stmt;
 	const_tree loc_line;
@@ -492,7 +495,8 @@ static void insert_cond_result(basic_block bb_true, const_gimple stmt, const_tre
 	ssa_name = create_string_param(ssa_name);
 
 	// void report_size_overflow(const char *file, unsigned int line, const char *func, const char *ssa_name)
-	func_stmt = gimple_build_call(report_size_overflow_decl, 4, loc_file, loc_line, current_func, ssa_name);
+	call_stmt = gimple_build_call(report_size_overflow_decl, 4, loc_file, loc_line, current_func, ssa_name);
+	func_stmt = as_a_gcall(call_stmt);
 	gsi_insert_after(&gsi, func_stmt, GSI_CONTINUE_LINKING);
 
 	report_node = cgraph_get_create_node(report_size_overflow_decl);

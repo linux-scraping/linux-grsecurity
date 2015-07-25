@@ -65,24 +65,23 @@ static int mmap_is_legacy(void)
 	return sysctl_legacy_va_layout;
 }
 
-static unsigned long mmap_rnd(void)
+unsigned long arch_mmap_rnd(void)
 {
-	unsigned long rnd = 0;
+	unsigned long rnd;
 
 	/*
-	*  8 bits of randomness in 32bit mmaps, 20 address space bits
-	* 28 bits of randomness in 64bit mmaps, 40 address space bits
-	*/
-	if (current->flags & PF_RANDOMIZE) {
-		if (mmap_is_ia32())
-			rnd = get_random_int() % (1<<8);
-		else
-			rnd = get_random_int() % (1<<28);
-	}
+	 *  8 bits of randomness in 32bit mmaps, 20 address space bits
+	 * 28 bits of randomness in 64bit mmaps, 40 address space bits
+	 */
+	if (mmap_is_ia32())
+		rnd = (unsigned long)get_random_int() % (1<<8);
+	else
+		rnd = (unsigned long)get_random_int() % (1<<28);
+
 	return rnd << PAGE_SHIFT;
 }
 
-static unsigned long mmap_base(struct mm_struct *mm)
+static unsigned long mmap_base(struct mm_struct *mm, unsigned long rnd)
 {
 	unsigned long gap = rlimit(RLIMIT_STACK);
 	unsigned long pax_task_size = TASK_SIZE;
@@ -97,14 +96,14 @@ static unsigned long mmap_base(struct mm_struct *mm)
 	else if (gap > MAX_GAP)
 		gap = MAX_GAP;
 
-	return PAGE_ALIGN(pax_task_size - gap - mmap_rnd());
+	return PAGE_ALIGN(pax_task_size - gap - rnd);
 }
 
 /*
  * Bottom-up (legacy) layout on X86_32 did not support randomization, X86_64
  * does, but not when emulating X86_32
  */
-static unsigned long mmap_legacy_base(struct mm_struct *mm)
+static unsigned long mmap_legacy_base(struct mm_struct *mm, unsigned long rnd)
 {
 	if (mmap_is_ia32()) {
 
@@ -116,7 +115,7 @@ static unsigned long mmap_legacy_base(struct mm_struct *mm)
 
 		return TASK_UNMAPPED_BASE;
 	} else
-		return TASK_UNMAPPED_BASE + mmap_rnd();
+		return TASK_UNMAPPED_BASE + rnd;
 }
 
 /*
@@ -125,8 +124,23 @@ static unsigned long mmap_legacy_base(struct mm_struct *mm)
  */
 void arch_pick_mmap_layout(struct mm_struct *mm)
 {
-	mm->mmap_legacy_base = mmap_legacy_base(mm);
-	mm->mmap_base = mmap_base(mm);
+	unsigned long random_factor = 0UL;
+
+#ifdef CONFIG_PAX_RANDMMAP
+	if (!(mm->pax_flags & MF_PAX_RANDMMAP))
+#endif
+	if (current->flags & PF_RANDOMIZE)
+		random_factor = arch_mmap_rnd();
+
+	mm->mmap_legacy_base = mmap_legacy_base(mm, random_factor);
+
+	if (mmap_is_legacy()) {
+		mm->mmap_base = mm->mmap_legacy_base;
+		mm->get_unmapped_area = arch_get_unmapped_area;
+	} else {
+		mm->mmap_base = mmap_base(mm, random_factor);
+		mm->get_unmapped_area = arch_get_unmapped_area_topdown;
+	}
 
 #ifdef CONFIG_PAX_RANDMMAP
 	if (mm->pax_flags & MF_PAX_RANDMMAP) {
@@ -135,10 +149,4 @@ void arch_pick_mmap_layout(struct mm_struct *mm)
 	}
 #endif
 
-	if (mmap_is_legacy()) {
-		mm->mmap_base = mm->mmap_legacy_base;
-		mm->get_unmapped_area = arch_get_unmapped_area;
-	} else {
-		mm->get_unmapped_area = arch_get_unmapped_area_topdown;
-	}
 }

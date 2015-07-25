@@ -55,7 +55,7 @@ gr_acl_handle_open(const struct dentry * dentry, const struct vfsmount * mnt,
 		reqmode |= GR_APPEND;
 	else if (acc_mode & MAY_WRITE)
 		reqmode |= GR_WRITE;
-	if ((acc_mode & MAY_READ) && !S_ISDIR(dentry->d_inode->i_mode))
+	if ((acc_mode & MAY_READ) && !d_is_dir(dentry))
 		reqmode |= GR_READ;
 
 	mode =
@@ -96,7 +96,7 @@ gr_acl_handle_creat(const struct dentry * dentry,
 	// if a directory was required or the directory already exists, then
 	// don't count this open as a read
 	if ((acc_mode & MAY_READ) &&
-	    !((open_flags & O_DIRECTORY) || (dentry->d_inode && S_ISDIR(dentry->d_inode->i_mode))))
+	    !((open_flags & O_DIRECTORY) || d_is_dir(dentry)))
 		reqmode |= GR_READ;
 	if ((open_flags & O_CREAT) &&
 	    ((imode & S_ISUID) || ((imode & (S_ISGID | S_IXGRP)) == (S_ISGID | S_IXGRP))))
@@ -132,7 +132,7 @@ gr_acl_handle_access(const struct dentry * dentry, const struct vfsmount * mnt,
 {
 	__u32 mode, reqmode = GR_FIND;
 
-	if ((fmode & S_IXOTH) && !S_ISDIR(dentry->d_inode->i_mode))
+	if ((fmode & S_IXOTH) && !d_is_dir(dentry))
 		reqmode |= GR_EXEC;
 	if (fmode & S_IWOTH)
 		reqmode |= GR_WRITE;
@@ -210,14 +210,15 @@ gr_acl_handle_chmod(const struct dentry *dentry, const struct vfsmount *mnt,
 		     umode_t *modeptr)
 {
 	umode_t mode;
+	struct inode *inode = d_backing_inode(dentry);
 
 	*modeptr &= ~gr_acl_umask();
 	mode = *modeptr;
 
-	if (unlikely(dentry->d_inode && S_ISSOCK(dentry->d_inode->i_mode)))
+	if (unlikely(inode && S_ISSOCK(inode->i_mode)))
 		return 1;
 
-	if (unlikely(dentry->d_inode && !S_ISDIR(dentry->d_inode->i_mode) &&
+	if (unlikely(!d_is_dir(dentry) &&
 		     ((mode & S_ISUID) || ((mode & (S_ISGID | S_IXGRP)) == (S_ISGID | S_IXGRP))))) {
 		return generic_fs_handler(dentry, mnt, GR_WRITE | GR_SETID,
 				   GR_CHMOD_ACL_MSG);

@@ -620,7 +620,7 @@ err_out:
 	return 0;
 }
 
-const struct xgbe_desc_if default_xgbe_desc_if = {
+struct xgbe_desc_if default_xgbe_desc_if = {
 	.alloc_ring_resources = xgbe_alloc_ring_resources,
 	.free_ring_resources = xgbe_free_ring_resources,
 	.map_tx_skb = xgbe_map_tx_skb,

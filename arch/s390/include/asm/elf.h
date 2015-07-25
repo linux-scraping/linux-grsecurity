@@ -107,11 +107,7 @@
 /*
  * These are used to set parameters in the core dumps.
  */
-#ifndef CONFIG_64BIT
-#define ELF_CLASS	ELFCLASS32
-#else /* CONFIG_64BIT */
 #define ELF_CLASS	ELFCLASS64
-#endif /* CONFIG_64BIT */
 #define ELF_DATA	ELFDATA2MSB
 #define ELF_ARCH	EM_S390
 
@@ -161,9 +157,11 @@ extern unsigned int vdso_enabled;
 /* This is the location that an ET_DYN program is loaded if exec'ed.  Typical
    use of this is to invoke "./ld.so someprog" to test out a new version of
    the loader.  We need to make sure that it is out of the way of the program
-   that it will "exec", and that there is sufficient room for the brk.  */
-
-#define ELF_ET_DYN_BASE		(STACK_TOP / 3 * 2)
+   that it will "exec", and that there is sufficient room for the brk. 64-bit
+   tasks are aligned to 4GB. */
+#define ELF_ET_DYN_BASE (is_32bit_task() ? \
+				(STACK_TOP / 3 * 2) : \
+				(STACK_TOP / 3 * 2) & ~((1UL << 32) - 1))
 
 #ifdef CONFIG_PAX_ASLR
 #define PAX_ELF_ET_DYN_BASE	(test_thread_flag(TIF_31BIT) ? 0x10000UL : 0x80000000UL)

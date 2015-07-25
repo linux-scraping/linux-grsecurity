@@ -27,28 +27,11 @@
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 #define ASM_PAX_OPEN_USERLAND					\
-	661: jmp 663f;						\
-	.pushsection .altinstr_replacement, "a" ;		\
-	662: pushq %rax; nop;					\
-	.popsection ;						\
-	.pushsection .altinstructions, "a" ;			\
-	altinstruction_entry 661b, 662b, X86_FEATURE_STRONGUDEREF, 2, 2;\
-	.popsection ;						\
-	call __pax_open_userland;				\
-	popq %rax;						\
-	663:
+	ALTERNATIVE "", "call __pax_open_userland", X86_FEATURE_STRONGUDEREF
 
 #define ASM_PAX_CLOSE_USERLAND					\
-	661: jmp 663f;						\
-	.pushsection .altinstr_replacement, "a" ;		\
-	662: pushq %rax; nop;					\
-	.popsection;						\
-	.pushsection .altinstructions, "a" ;			\
-	altinstruction_entry 661b, 662b, X86_FEATURE_STRONGUDEREF, 2, 2;\
-	.popsection;						\
-	call __pax_close_userland;				\
-	popq %rax;						\
-	663:
+	ALTERNATIVE "", "call __pax_close_userland", X86_FEATURE_STRONGUDEREF
+
 #else
 #define ASM_PAX_OPEN_USERLAND
 #define ASM_PAX_CLOSE_USERLAND
@@ -56,23 +39,11 @@
 
 #ifdef CONFIG_X86_SMAP
 
-#define ASM_CLAC							\
-	661: ASM_NOP3 ;							\
-	.pushsection .altinstr_replacement, "a" ;			\
-	662: __ASM_CLAC ;						\
-	.popsection ;							\
-	.pushsection .altinstructions, "a" ;				\
-	altinstruction_entry 661b, 662b, X86_FEATURE_SMAP, 3, 3 ;	\
-	.popsection
+#define ASM_CLAC \
+	ALTERNATIVE "", __stringify(__ASM_CLAC), X86_FEATURE_SMAP
 
-#define ASM_STAC							\
-	661: ASM_NOP3 ;							\
-	.pushsection .altinstr_replacement, "a" ;			\
-	662: __ASM_STAC ;						\
-	.popsection ;							\
-	.pushsection .altinstructions, "a" ;				\
-	altinstruction_entry 661b, 662b, X86_FEATURE_SMAP, 3, 3 ;	\
-	.popsection
+#define ASM_STAC \
+	ALTERNATIVE "", __stringify(__ASM_STAC), X86_FEATURE_SMAP
 
 #else /* CONFIG_X86_SMAP */
 
@@ -93,7 +64,7 @@ static __always_inline unsigned long pax_open_userland(void)
 {
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	asm volatile(ALTERNATIVE(ASM_NOP5, "call %P[open]", X86_FEATURE_STRONGUDEREF)
+	asm volatile(ALTERNATIVE("", "call %P[open]", X86_FEATURE_STRONGUDEREF)
 		:
 		: [open] "i" (__pax_open_userland)
 		: "memory", "rax");
@@ -107,7 +78,7 @@ static __always_inline unsigned long pax_close_userland(void)
 {
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	asm volatile(ALTERNATIVE(ASM_NOP5, "call %P[close]", X86_FEATURE_STRONGUDEREF)
+	asm volatile(ALTERNATIVE("", "call %P[close]", X86_FEATURE_STRONGUDEREF)
 		:
 		: [close] "i" (__pax_close_userland)
 		: "memory", "rax");
@@ -121,20 +92,20 @@ static __always_inline unsigned long pax_close_userland(void)
 static __always_inline void clac(void)
 {
 	/* Note: a barrier is implicit in alternative() */
-	alternative(ASM_NOP3, __stringify(__ASM_CLAC), X86_FEATURE_SMAP);
+	alternative("", __stringify(__ASM_CLAC), X86_FEATURE_SMAP);
 }
 
 static __always_inline void stac(void)
 {
 	/* Note: a barrier is implicit in alternative() */
-	alternative(ASM_NOP3, __stringify(__ASM_STAC), X86_FEATURE_SMAP);
+	alternative("", __stringify(__ASM_STAC), X86_FEATURE_SMAP);
 }
 
 /* These macros can be used in asm() statements */
 #define ASM_CLAC \
-	ALTERNATIVE(ASM_NOP3, __stringify(__ASM_CLAC), X86_FEATURE_SMAP)
+	ALTERNATIVE("", __stringify(__ASM_CLAC), X86_FEATURE_SMAP)
 #define ASM_STAC \
-	ALTERNATIVE(ASM_NOP3, __stringify(__ASM_STAC), X86_FEATURE_SMAP)
+	ALTERNATIVE("", __stringify(__ASM_STAC), X86_FEATURE_SMAP)
 
 #else /* CONFIG_X86_SMAP */
 

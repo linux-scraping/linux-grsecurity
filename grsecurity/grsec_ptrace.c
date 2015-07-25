@@ -21,7 +21,7 @@ gr_ptrace_readexec(struct file *file, int unsafe_flags)
 	const struct vfsmount *mnt = file->f_path.mnt;
 
 	if (grsec_enable_ptrace_readexec && (unsafe_flags & LSM_UNSAFE_PTRACE) && 
-	    (inode_permission(dentry->d_inode, MAY_READ) || !gr_acl_handle_open(dentry, mnt, MAY_READ))) {
+	    (inode_permission(d_backing_inode(dentry), MAY_READ) || !gr_acl_handle_open(dentry, mnt, MAY_READ))) {
 		gr_log_fs_generic(GR_DONT_AUDIT, GR_PTRACE_READEXEC_MSG, dentry, mnt);
 		return -EACCES;
 	}

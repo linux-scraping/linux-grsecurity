@@ -108,6 +108,7 @@ static void create_so_asm_stmt(struct asm_data *asm_data)
 {
 	char *asm_comment;
 	const char *mark_str;
+	gimple stmt;
 	gasm *asm_stmt;
 	gimple_stmt_iterator gsi;
 	tree str_input, str_output;
@@ -125,7 +126,8 @@ static void create_so_asm_stmt(struct asm_data *asm_data)
 	str_output = build_string(4, "=rm");
 	output = create_asm_io_list(str_output, asm_data->output);
 
-	asm_stmt = gimple_build_asm_vec(asm_comment, input, output, NULL, NULL);
+	stmt = gimple_build_asm_vec(asm_comment, input, output, NULL, NULL);
+	asm_stmt = as_a_gasm(stmt);
 	gimple_asm_set_volatile(asm_stmt, true);
 
 	gsi = gsi_for_stmt(asm_data->def_stmt);

@@ -648,7 +648,7 @@ ENDPROC(__und_usr)
 /*
  * The out of line fixup for the ldrt instructions above.
  */
-	.pushsection .fixup, "ax"
+	.pushsection .text.fixup, "ax"
 	.align	2
 4:	pax_close_userland
 	str     r4, [sp, #S_PC]			@ retry current instruction

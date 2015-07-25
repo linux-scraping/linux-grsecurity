@@ -426,12 +426,12 @@ int gr_acl_enable_at_secure(void)
 
 dev_t gr_get_dev_from_dentry(struct dentry *dentry)
 {
-	return dentry->d_sb->s_dev;
+	return d_backing_inode(dentry)->i_sb->s_dev;
 }
 
 u64 gr_get_ino_from_dentry(struct dentry *dentry)
 {
-	return dentry->d_inode->i_ino;
+	return d_backing_inode(dentry)->i_ino;
 }
 
 void gr_put_exec_file(struct task_struct *task)

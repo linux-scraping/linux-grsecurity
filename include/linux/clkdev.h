@@ -32,7 +32,7 @@ struct clk_lookup {
 	}
 
 struct clk_lookup *clkdev_alloc(struct clk *clk, const char *con_id,
-	const char *dev_fmt, ...);
+	const char *dev_fmt, ...) __printf(3, 4);
 
 void clkdev_add(struct clk_lookup *cl);
 void clkdev_drop(struct clk_lookup *cl);
@@ -40,7 +40,8 @@ void clkdev_drop(struct clk_lookup *cl);
 void clkdev_add_table(struct clk_lookup *, size_t);
 int clk_add_alias(const char *, const char *, char *, struct device *);
 
-int clk_register_clkdev(struct clk *, const char *, const char *, ...);
+int clk_register_clkdev(struct clk *, const char *, const char *, ...)
+	__printf(3, 4);
 int clk_register_clkdevs(struct clk *, struct clk_lookup *, size_t);
 
 #ifdef CONFIG_COMMON_CLK

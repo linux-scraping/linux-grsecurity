@@ -32,10 +32,8 @@ obj-$(CONFIG_AMD_NUMA)		+= amdtopology.o
 obj-$(CONFIG_ACPI_NUMA)		+= srat.o
 obj-$(CONFIG_NUMA_EMU)		+= numa_emulation.o
 
-obj-$(CONFIG_MEMTEST)		+= memtest.o
-
 obj-$(CONFIG_X86_INTEL_MPX)	+= mpx.o
 
 quote:="
 obj-$(CONFIG_X86_64)		+= uderef_64.o
-CFLAGS_uderef_64.o		:= $(subst $(quote),,$(CONFIG_ARCH_HWEIGHT_CFLAGS))
+CFLAGS_uderef_64.o		:= $(subst $(quote),,$(CONFIG_ARCH_HWEIGHT_CFLAGS)) -fcall-saved-rax

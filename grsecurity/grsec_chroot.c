@@ -456,7 +456,7 @@ gr_handle_chroot_chmod(const struct dentry *dentry,
 {
 #ifdef CONFIG_GRKERNSEC_CHROOT_CHMOD
 	/* allow chmod +s on directories, but not files */
-	if (grsec_enable_chroot_chmod && !S_ISDIR(dentry->d_inode->i_mode) &&
+	if (grsec_enable_chroot_chmod && !d_is_dir(dentry) &&
 	    ((mode & S_ISUID) || ((mode & (S_ISGID | S_IXGRP)) == (S_ISGID | S_IXGRP))) &&
 	    proc_is_chrooted(current)) {
 		gr_log_fs_generic(GR_DONT_AUDIT, GR_CHMOD_CHROOT_MSG, dentry, mnt);

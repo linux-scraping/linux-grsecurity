@@ -35,6 +35,7 @@ static int __init file_caps_disable(char *str)
 }
 __setup("no_file_caps", file_caps_disable);
 
+#ifdef CONFIG_MULTIUSER
 /*
  * More recent versions of libcap are available from:
  *
@@ -393,7 +394,7 @@ EXPORT_SYMBOL(ns_capable);
 bool ns_capable_nolog(struct user_namespace *ns, int cap)
 {
 	if (unlikely(!cap_valid(cap))) {
-		printk(KERN_CRIT "capable_nolog() called with invalid cap=%u\n", cap);
+		pr_crit("capable_nolog() called with invalid cap=%u\n", cap);
 		BUG();
 	}
 
@@ -404,6 +405,30 @@ bool ns_capable_nolog(struct user_namespace *ns, int cap)
 	return false;
 }
 EXPORT_SYMBOL(ns_capable_nolog);
+
+/**
+ * capable - Determine if the current task has a superior capability in effect
+ * @cap: The capability to be tested for
+ *
+ * Return true if the current task has the given superior capability currently
+ * available for use, false if not.
+ *
+ * This sets PF_SUPERPRIV on the task if the capability is available on the
+ * assumption that it's about to be used.
+ */
+bool capable(int cap)
+{
+	return ns_capable(&init_user_ns, cap);
+}
+EXPORT_SYMBOL(capable);
+
+bool capable_nolog(int cap)
+{
+	return ns_capable_nolog(&init_user_ns, cap);
+}
+EXPORT_SYMBOL(capable_nolog);
+
+#endif /* CONFIG_MULTIUSER */
 
 /**
  * file_ns_capable - Determine if the file's opener had a capability in effect
@@ -429,28 +454,6 @@ bool file_ns_capable(const struct file *file, struct user_namespace *ns,
 	return false;
 }
 EXPORT_SYMBOL(file_ns_capable);
-
-/**
- * capable - Determine if the current task has a superior capability in effect
- * @cap: The capability to be tested for
- *
- * Return true if the current task has the given superior capability currently
- * available for use, false if not.
- *
- * This sets PF_SUPERPRIV on the task if the capability is available on the
- * assumption that it's about to be used.
- */
-bool capable(int cap)
-{
-	return ns_capable(&init_user_ns, cap);
-}
-EXPORT_SYMBOL(capable);
-
-bool capable_nolog(int cap)
-{
-	return ns_capable_nolog(&init_user_ns, cap);
-}
-EXPORT_SYMBOL(capable_nolog);
 
 /**
  * capable_wrt_inode_uidgid - Check nsown_capable and uid and gid mapped

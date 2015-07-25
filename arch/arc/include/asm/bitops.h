@@ -32,6 +32,20 @@ static inline void set_bit(unsigned long nr, volatile unsigned long *m)
 
 	m += nr >> 5;
 
+	/*
+	 * ARC ISA micro-optimization:
+	 *
+	 * Instructions dealing with bitpos only consider lower 5 bits (0-31)
+	 * e.g (x << 33) is handled like (x << 1) by ASL instruction
+	 *  (mem pointer still needs adjustment to point to next word)
+	 *
+	 * Hence the masking to clamp @nr arg can be elided in general.
+	 *
+	 * However if @nr is a constant (above assumed it in a register),
+	 * and greater than 31, gcc can optimize away (x << 33) to 0,
+	 * as overflow, given the 32-bit ISA. Thus masking needs to be done
+	 * for constant @nr, but no code is generated due to const prop.
+	 */
 	if (__builtin_constant_p(nr))
 		nr &= 0x1f;
 
@@ -103,6 +117,12 @@ static inline int test_and_set_bit(unsigned long nr, volatile unsigned long *m)
 	if (__builtin_constant_p(nr))
 		nr &= 0x1f;
 
+	/*
+	 * Explicit full memory barrier needed before/after as
+	 * LLOCK/SCOND themselves don't provide any such semantics
+	 */
+	smp_mb();
+
 	__asm__ __volatile__(
 	"1:	llock   %0, [%2]	\n"
 	"	bset    %1, %0, %3	\n"
@@ -111,6 +131,8 @@ static inline int test_and_set_bit(unsigned long nr, volatile unsigned long *m)
 	: "=&r"(old), "=&r"(temp)
 	: "r"(m), "ir"(nr)
 	: "cc");
+
+	smp_mb();
 
 	return (old & (1 << nr)) != 0;
 }
@@ -125,6 +147,8 @@ test_and_clear_bit(unsigned long nr, volatile unsigned long *m)
 	if (__builtin_constant_p(nr))
 		nr &= 0x1f;
 
+	smp_mb();
+
 	__asm__ __volatile__(
 	"1:	llock   %0, [%2]	\n"
 	"	bclr    %1, %0, %3	\n"
@@ -133,6 +157,8 @@ test_and_clear_bit(unsigned long nr, volatile unsigned long *m)
 	: "=&r"(old), "=&r"(temp)
 	: "r"(m), "ir"(nr)
 	: "cc");
+
+	smp_mb();
 
 	return (old & (1 << nr)) != 0;
 }
@@ -147,6 +173,8 @@ test_and_change_bit(unsigned long nr, volatile unsigned long *m)
 	if (__builtin_constant_p(nr))
 		nr &= 0x1f;
 
+	smp_mb();
+
 	__asm__ __volatile__(
 	"1:	llock   %0, [%2]	\n"
 	"	bxor    %1, %0, %3	\n"
@@ -155,6 +183,8 @@ test_and_change_bit(unsigned long nr, volatile unsigned long *m)
 	: "=&r"(old), "=&r"(temp)
 	: "r"(m), "ir"(nr)
 	: "cc");
+
+	smp_mb();
 
 	return (old & (1 << nr)) != 0;
 }
@@ -235,6 +265,9 @@ static inline int test_and_set_bit(unsigned long nr, volatile unsigned long *m)
 	if (__builtin_constant_p(nr))
 		nr &= 0x1f;
 
+	/*
+	 * spin lock/unlock provide the needed smp_mb() before/after
+	 */
 	bitops_lock(flags);
 
 	old = *m;
@@ -374,28 +407,19 @@ __test_and_change_bit(unsigned long nr, volatile unsigned long *m)
  * This routine doesn't need to be atomic.
  */
 static inline int
-__constant_test_bit(unsigned int nr, const volatile unsigned long *addr)
-{
-	return ((1UL << (nr & 31)) &
-		(((const volatile unsigned int *)addr)[nr >> 5])) != 0;
-}
-
-static inline int
-__test_bit(unsigned int nr, const volatile unsigned long *addr)
+test_bit(unsigned int nr, const volatile unsigned long *addr)
 {
 	unsigned long mask;
 
 	addr += nr >> 5;
 
-	/* ARC700 only considers 5 bits in bit-fiddling insn */
+	if (__builtin_constant_p(nr))
+		nr &= 0x1f;
+
 	mask = 1 << nr;
 
 	return ((mask & *addr) != 0);
 }
-
-#define test_bit(nr, addr)	(__builtin_constant_p(nr) ? \
-					__constant_test_bit((nr), (addr)) : \
-					__test_bit((nr), (addr)))
 
 /*
  * Count the number of zeros, starting from MSB

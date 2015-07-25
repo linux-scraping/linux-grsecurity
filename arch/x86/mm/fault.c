@@ -158,7 +158,7 @@ is_prefetch(struct pt_regs *regs, unsigned long error_code, unsigned long addr)
 	instr = (void *)convert_ip_to_linear(current, regs);
 	max_instr = instr + 15;
 
-	if (user_mode(regs) && instr >= (unsigned char *)TASK_SIZE)
+	if (user_mode(regs) && instr >= (unsigned char *)TASK_SIZE_MAX)
 		return 0;
 
 	while (instr < max_instr) {
@@ -1029,6 +1029,14 @@ static int spurious_fault_check(unsigned long error_code, pte_t *pte)
 }
 
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_PAGEEXEC)
+static inline unsigned long get_limit(unsigned long segment)
+{
+	unsigned long __limit;
+
+	asm("lsll %1,%0" : "=r" (__limit) : "r" (segment));
+	return __limit + 1;
+}
+
 static int pax_handle_pageexec_fault(struct pt_regs *regs, struct mm_struct *mm, unsigned long address, unsigned long error_code)
 {
 	pte_t *pte;

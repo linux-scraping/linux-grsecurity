@@ -37,6 +37,7 @@ config GRKERNSEC
 	select TTY
 	select DEBUG_KERNEL
 	select DEBUG_LIST
+	select MULTIUSER
 	help
 	  If you say Y here, you will be able to configure many features
 	  that will enhance the security of your system.  It is highly
@@ -995,6 +996,7 @@ config SECURITY_DMESG_RESTRICT
 config SECURITY
 	bool "Enable different security models"
 	depends on SYSFS
+	depends on MULTIUSER
 	help
 	  This allows you to choose different security modules to be
 	  configured into your kernel.

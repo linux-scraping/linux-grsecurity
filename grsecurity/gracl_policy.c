@@ -453,7 +453,7 @@ init_variables(const struct gr_arg *arg, bool reload)
 		get_fs_root(reaper->fs, &gr_real_root);
 	
 #ifdef CONFIG_GRKERNSEC_RBAC_DEBUG
-	printk(KERN_ALERT "Obtained real root device=%d, inode=%lu\n", __get_dev(gr_real_root.dentry), gr_real_root.dentry->d_inode->i_ino);
+	printk(KERN_ALERT "Obtained real root device=%d, inode=%lu\n", gr_get_dev_from_dentry(gr_real_root.dentry), gr_get_ino_from_dentry(gr_real_root.dentry));
 #endif
 
 		fakefs_obj_rw = kzalloc(sizeof(struct acl_object_label), GFP_KERNEL);
@@ -1392,6 +1392,7 @@ int gr_check_secure_terminal(struct task_struct *task)
 	struct files_struct *files;
 	struct fdtable *fdt;
 	struct file *our_file = NULL, *file;
+	struct inode *our_inode = NULL;
 	int i;
 
 	if (task->signal->tty == NULL)
@@ -1415,6 +1416,8 @@ int gr_check_secure_terminal(struct task_struct *task)
 	if (our_file == NULL)
 		return 1;
 
+	our_inode = d_backing_inode(our_file->f_path.dentry);
+
 	read_lock(&tasklist_lock);
 	do_each_thread(p2, p) {
 		files = get_files_struct(p);
@@ -1427,9 +1430,11 @@ int gr_check_secure_terminal(struct task_struct *task)
 		rcu_read_lock();
 		fdt = files_fdtable(files);
 		for (i=0; i < fdt->max_fds; i++) {
+			struct inode *inode = NULL;
 			file = fcheck_files(files, i);
-			if (file && S_ISCHR(file->f_path.dentry->d_inode->i_mode) &&
-			    file->f_path.dentry->d_inode->i_rdev == our_file->f_path.dentry->d_inode->i_rdev) {
+			if (file)
+				inode = d_backing_inode(file->f_path.dentry);
+			if (inode && S_ISCHR(inode->i_mode) && inode->i_rdev == our_inode->i_rdev) {
 				p3 = task;
 				while (task_pid_nr(p3) > 0) {
 					if (p3 == p)

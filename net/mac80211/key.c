@@ -58,6 +58,25 @@ static void assert_key_lock(struct ieee80211_local *local)
 	lockdep_assert_held(&local->key_mtx);
 }
 
+static void
+update_vlan_tailroom_need_count(struct ieee80211_sub_if_data *sdata, int delta)
+{
+	struct ieee80211_sub_if_data *vlan;
+
+	if (sdata->vif.type != NL80211_IFTYPE_AP)
+		return;
+
+	/* crypto_tx_tailroom_needed_cnt is protected by this */
+	assert_key_lock(sdata->local);
+
+	rcu_read_lock();
+
+	list_for_each_entry_rcu(vlan, &sdata->u.ap.vlans, u.vlan.list)
+		vlan->crypto_tx_tailroom_needed_cnt += delta;
+
+	rcu_read_unlock();
+}
+
 static void increment_tailroom_need_count(struct ieee80211_sub_if_data *sdata)
 {
 	/*
@@ -79,6 +98,10 @@ static void increment_tailroom_need_count(struct ieee80211_sub_if_data *sdata)
 	 * http://mid.gmane.org/1308590980.4322.19.camel@jlt3.sipsolutions.net
 	 */
 
+	assert_key_lock(sdata->local);
+
+	update_vlan_tailroom_need_count(sdata, 1);
+
 	if (!sdata->crypto_tx_tailroom_needed_cnt++) {
 		/*
 		 * Flush all XMIT packets currently using HW encryption or no
@@ -86,6 +109,17 @@ static void increment_tailroom_need_count(struct ieee80211_sub_if_data *sdata)
 		 */
 		synchronize_net();
 	}
+}
+
+static void decrease_tailroom_need_count(struct ieee80211_sub_if_data *sdata,
+					 int delta)
+{
+	assert_key_lock(sdata->local);
+
+	WARN_ON_ONCE(sdata->crypto_tx_tailroom_needed_cnt < delta);
+
+	update_vlan_tailroom_need_count(sdata, -delta);
+	sdata->crypto_tx_tailroom_needed_cnt -= delta;
 }
 
 static int ieee80211_key_enable_hw_accel(struct ieee80211_key *key)
@@ -144,7 +178,7 @@ static int ieee80211_key_enable_hw_accel(struct ieee80211_key *key)
 
 		if (!((key->conf.flags & IEEE80211_KEY_FLAG_GENERATE_MMIC) ||
 		      (key->conf.flags & IEEE80211_KEY_FLAG_RESERVE_TAILROOM)))
-			sdata->crypto_tx_tailroom_needed_cnt--;
+			decrease_tailroom_need_count(sdata, 1);
 
 		WARN_ON((key->conf.flags & IEEE80211_KEY_FLAG_PUT_IV_SPACE) &&
 			(key->conf.flags & IEEE80211_KEY_FLAG_GENERATE_IV));
@@ -492,6 +526,7 @@ ieee80211_key_alloc(u32 cipher, int idx, size_t key_len,
 				for (j = 0; j < len; j++)
 					key->u.gen.rx_pn[i][j] =
 							seq[len - j - 1];
+			key->flags |= KEY_FLAG_CIPHER_SCHEME;
 		}
 	}
 	memcpy(key->conf.key, key_data, key_len);
@@ -540,7 +575,7 @@ static void __ieee80211_key_destroy(struct ieee80211_key *key,
 			schedule_delayed_work(&sdata->dec_tailroom_needed_wk,
 					      HZ/2);
 		} else {
-			sdata->crypto_tx_tailroom_needed_cnt--;
+			decrease_tailroom_need_count(sdata, 1);
 		}
 	}
 
@@ -630,6 +665,7 @@ void ieee80211_key_free(struct ieee80211_key *key, bool delay_tailroom)
 void ieee80211_enable_keys(struct ieee80211_sub_if_data *sdata)
 {
 	struct ieee80211_key *key;
+	struct ieee80211_sub_if_data *vlan;
 
 	ASSERT_RTNL();
 
@@ -638,11 +674,34 @@ void ieee80211_enable_keys(struct ieee80211_sub_if_data *sdata)
 
 	mutex_lock(&sdata->local->key_mtx);
 
-	sdata->crypto_tx_tailroom_needed_cnt = 0;
+	WARN_ON_ONCE(sdata->crypto_tx_tailroom_needed_cnt ||
+		     sdata->crypto_tx_tailroom_pending_dec);
+
+	if (sdata->vif.type == NL80211_IFTYPE_AP) {
+		list_for_each_entry(vlan, &sdata->u.ap.vlans, u.vlan.list)
+			WARN_ON_ONCE(vlan->crypto_tx_tailroom_needed_cnt ||
+				     vlan->crypto_tx_tailroom_pending_dec);
+	}
 
 	list_for_each_entry(key, &sdata->key_list, list) {
 		increment_tailroom_need_count(sdata);
 		ieee80211_key_enable_hw_accel(key);
+	}
+
+	mutex_unlock(&sdata->local->key_mtx);
+}
+
+void ieee80211_reset_crypto_tx_tailroom(struct ieee80211_sub_if_data *sdata)
+{
+	struct ieee80211_sub_if_data *vlan;
+
+	mutex_lock(&sdata->local->key_mtx);
+
+	sdata->crypto_tx_tailroom_needed_cnt = 0;
+
+	if (sdata->vif.type == NL80211_IFTYPE_AP) {
+		list_for_each_entry(vlan, &sdata->u.ap.vlans, u.vlan.list)
+			vlan->crypto_tx_tailroom_needed_cnt = 0;
 	}
 
 	mutex_unlock(&sdata->local->key_mtx);
@@ -687,8 +746,8 @@ static void ieee80211_free_keys_iface(struct ieee80211_sub_if_data *sdata,
 {
 	struct ieee80211_key *key, *tmp;
 
-	sdata->crypto_tx_tailroom_needed_cnt -=
-		sdata->crypto_tx_tailroom_pending_dec;
+	decrease_tailroom_need_count(sdata,
+				     sdata->crypto_tx_tailroom_pending_dec);
 	sdata->crypto_tx_tailroom_pending_dec = 0;
 
 	ieee80211_debugfs_key_remove_mgmt_default(sdata);
@@ -708,6 +767,7 @@ void ieee80211_free_keys(struct ieee80211_sub_if_data *sdata,
 {
 	struct ieee80211_local *local = sdata->local;
 	struct ieee80211_sub_if_data *vlan;
+	struct ieee80211_sub_if_data *master;
 	struct ieee80211_key *key, *tmp;
 	LIST_HEAD(keys);
 
@@ -727,8 +787,20 @@ void ieee80211_free_keys(struct ieee80211_sub_if_data *sdata,
 	list_for_each_entry_safe(key, tmp, &keys, list)
 		__ieee80211_key_destroy(key, false);
 
-	WARN_ON_ONCE(sdata->crypto_tx_tailroom_needed_cnt ||
-		     sdata->crypto_tx_tailroom_pending_dec);
+	if (sdata->vif.type == NL80211_IFTYPE_AP_VLAN) {
+		if (sdata->bss) {
+			master = container_of(sdata->bss,
+					      struct ieee80211_sub_if_data,
+					      u.ap);
+
+			WARN_ON_ONCE(sdata->crypto_tx_tailroom_needed_cnt !=
+				     master->crypto_tx_tailroom_needed_cnt);
+		}
+	} else {
+		WARN_ON_ONCE(sdata->crypto_tx_tailroom_needed_cnt ||
+			     sdata->crypto_tx_tailroom_pending_dec);
+	}
+
 	if (sdata->vif.type == NL80211_IFTYPE_AP) {
 		list_for_each_entry(vlan, &sdata->u.ap.vlans, u.vlan.list)
 			WARN_ON_ONCE(vlan->crypto_tx_tailroom_needed_cnt ||
@@ -792,8 +864,8 @@ void ieee80211_delayed_tailroom_dec(struct work_struct *wk)
 	 */
 
 	mutex_lock(&sdata->local->key_mtx);
-	sdata->crypto_tx_tailroom_needed_cnt -=
-		sdata->crypto_tx_tailroom_pending_dec;
+	decrease_tailroom_need_count(sdata,
+				     sdata->crypto_tx_tailroom_pending_dec);
 	sdata->crypto_tx_tailroom_pending_dec = 0;
 	mutex_unlock(&sdata->local->key_mtx);
 }

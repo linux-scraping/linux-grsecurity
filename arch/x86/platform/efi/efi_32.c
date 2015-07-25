@@ -33,11 +33,10 @@
 
 /*
  * To make EFI call EFI runtime service in physical addressing mode we need
- * prolog/epilog before/after the invocation to disable interrupt, to
- * claim EFI runtime service handler exclusively and to duplicate a memory in
- * low memory space say 0 - 3G.
+ * prolog/epilog before/after the invocation to claim the EFI runtime service
+ * handler exclusively and to duplicate a memory mapping in low memory space,
+ * say 0 - 3G.
  */
-static unsigned long efi_rt_eflags;
 
 void efi_sync_low_kernel_mappings(void) {}
 void __init efi_dump_pagetable(void) {}
@@ -57,15 +56,21 @@ void __init efi_map_region(efi_memory_desc_t *md)
 void __init efi_map_region_fixed(efi_memory_desc_t *md) {}
 void __init parse_efi_setup(u64 phys_addr, u32 data_len) {}
 
-void __init efi_call_phys_prolog(void)
+pgd_t * __init efi_call_phys_prolog(void)
 {
 	struct desc_ptr gdt_descr;
+	pgd_t *save_pgd;
 
 #ifdef CONFIG_PAX_KERNEXEC
 	struct desc_struct d;
 #endif
 
-	local_irq_save(efi_rt_eflags);
+	/* Current pgd is swapper_pg_dir, we'll restore it later: */
+#ifdef CONFIG_PAX_PER_CPU_PGD
+	save_pgd = get_cpu_pgd(smp_processor_id(), kernel);
+#else
+	save_pgd = swapper_pg_dir;
+#endif
 
 	load_cr3(initial_page_table);
 	__flush_tlb_all();
@@ -80,9 +85,11 @@ void __init efi_call_phys_prolog(void)
 	gdt_descr.address = __pa(get_cpu_gdt_table(0));
 	gdt_descr.size = GDT_SIZE - 1;
 	load_gdt(&gdt_descr);
+
+	return save_pgd;
 }
 
-void __init efi_call_phys_epilog(void)
+void __init efi_call_phys_epilog(pgd_t *save_pgd)
 {
 	struct desc_ptr gdt_descr;
 
@@ -98,15 +105,8 @@ void __init efi_call_phys_epilog(void)
 	gdt_descr.size = GDT_SIZE - 1;
 	load_gdt(&gdt_descr);
 
-#ifdef CONFIG_PAX_PER_CPU_PGD
-	load_cr3(get_cpu_pgd(smp_processor_id(), kernel));
-#else
-	load_cr3(swapper_pg_dir);
-#endif
-
+	load_cr3(save_pgd);
 	__flush_tlb_all();
-
-	local_irq_restore(efi_rt_eflags);
 }
 
 void __init efi_runtime_mkexec(void)

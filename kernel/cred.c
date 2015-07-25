@@ -29,6 +29,9 @@
 
 static struct kmem_cache *cred_jar;
 
+/* init to 2 - one for init_task, one to ensure it is never freed */
+struct group_info init_groups = { .usage = ATOMIC_INIT(2) };
+
 /*
  * The initial credentials for the initial task
  */
@@ -170,7 +173,6 @@ void exit_creds(struct task_struct *tsk)
 	if (cred != NULL) {
 		tsk->delayed_cred = NULL;
 		validate_creds(cred);
-		alter_cred_subscribers(cred, -1);
 		put_cred(cred);
 	}
 #endif

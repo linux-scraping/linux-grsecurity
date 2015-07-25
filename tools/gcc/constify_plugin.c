@@ -439,7 +439,7 @@ static struct gimple_opt_pass check_local_variables_pass = {
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
 #if BUILDING_GCC_VERSION >= 5000
-#elif BUILDING_GCC_VERSION >= 4009
+#elif BUILDING_GCC_VERSION == 4009
 		.has_gate		= false,
 		.has_execute		= true,
 #else
@@ -464,7 +464,11 @@ static struct gimple_opt_pass check_local_variables_pass = {
 class check_local_variables_pass : public gimple_opt_pass {
 public:
 	check_local_variables_pass() : gimple_opt_pass(check_local_variables_pass_data, g) {}
+#if BUILDING_GCC_VERSION >= 5000
+	virtual unsigned int execute(function *) { return check_local_variables(); }
+#else
 	unsigned int execute() { return check_local_variables(); }
+#endif
 };
 }
 

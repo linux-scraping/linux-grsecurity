@@ -38,7 +38,7 @@ struct ipmmu_vmsa_device {
 
 struct ipmmu_vmsa_domain {
 	struct ipmmu_vmsa_device *mmu;
-	struct iommu_domain *io_domain;
+	struct iommu_domain io_domain;
 
 	struct io_pgtable_cfg cfg;
 	struct io_pgtable *iop;
@@ -55,6 +55,11 @@ struct ipmmu_vmsa_archdata {
 
 static DEFINE_SPINLOCK(ipmmu_devices_lock);
 static LIST_HEAD(ipmmu_devices);
+
+static struct ipmmu_vmsa_domain *to_vmsa_domain(struct iommu_domain *dom)
+{
+	return container_of(dom, struct ipmmu_vmsa_domain, io_domain);
+}
 
 #define TLB_LOOP_TIMEOUT		100	/* 100us */
 
@@ -427,7 +432,7 @@ static irqreturn_t ipmmu_domain_irq(struct ipmmu_vmsa_domain *domain)
 	 * TODO: We need to look up the faulty device based on the I/O VA. Use
 	 * the IOMMU device for now.
 	 */
-	if (!report_iommu_fault(domain->io_domain, mmu->dev, iova, 0))
+	if (!report_iommu_fault(&domain->io_domain, mmu->dev, iova, 0))
 		return IRQ_HANDLED;
 
 	dev_err_ratelimited(mmu->dev,
@@ -447,7 +452,7 @@ static irqreturn_t ipmmu_irq(int irq, void *dev)
 		return IRQ_NONE;
 
 	io_domain = mmu->mapping->domain;
-	domain = io_domain->priv;
+	domain = to_vmsa_domain(io_domain);
 
 	return ipmmu_domain_irq(domain);
 }
@@ -456,25 +461,25 @@ static irqreturn_t ipmmu_irq(int irq, void *dev)
  * IOMMU Operations
  */
 
-static int ipmmu_domain_init(struct iommu_domain *io_domain)
+static struct iommu_domain *ipmmu_domain_alloc(unsigned type)
 {
 	struct ipmmu_vmsa_domain *domain;
 
+	if (type != IOMMU_DOMAIN_UNMANAGED)
+		return NULL;
+
 	domain = kzalloc(sizeof(*domain), GFP_KERNEL);
 	if (!domain)
-		return -ENOMEM;
+		return NULL;
 
 	spin_lock_init(&domain->lock);
 
-	io_domain->priv = domain;
-	domain->io_domain = io_domain;
-
-	return 0;
+	return &domain->io_domain;
 }
 
-static void ipmmu_domain_destroy(struct iommu_domain *io_domain)
+static void ipmmu_domain_free(struct iommu_domain *io_domain)
 {
-	struct ipmmu_vmsa_domain *domain = io_domain->priv;
+	struct ipmmu_vmsa_domain *domain = to_vmsa_domain(io_domain);
 
 	/*
 	 * Free the domain resources. We assume that all devices have already
@@ -490,7 +495,7 @@ static int ipmmu_attach_device(struct iommu_domain *io_domain,
 {
 	struct ipmmu_vmsa_archdata *archdata = dev->archdata.iommu;
 	struct ipmmu_vmsa_device *mmu = archdata->mmu;
-	struct ipmmu_vmsa_domain *domain = io_domain->priv;
+	struct ipmmu_vmsa_domain *domain = to_vmsa_domain(io_domain);
 	unsigned long flags;
 	unsigned int i;
 	int ret = 0;
@@ -531,7 +536,7 @@ static void ipmmu_detach_device(struct iommu_domain *io_domain,
 				struct device *dev)
 {
 	struct ipmmu_vmsa_archdata *archdata = dev->archdata.iommu;
-	struct ipmmu_vmsa_domain *domain = io_domain->priv;
+	struct ipmmu_vmsa_domain *domain = to_vmsa_domain(io_domain);
 	unsigned int i;
 
 	for (i = 0; i < archdata->num_utlbs; ++i)
@@ -545,7 +550,7 @@ static void ipmmu_detach_device(struct iommu_domain *io_domain,
 static int ipmmu_map(struct iommu_domain *io_domain, unsigned long iova,
 		     phys_addr_t paddr, size_t size, int prot)
 {
-	struct ipmmu_vmsa_domain *domain = io_domain->priv;
+	struct ipmmu_vmsa_domain *domain = to_vmsa_domain(io_domain);
 
 	if (!domain)
 		return -ENODEV;
@@ -556,7 +561,7 @@ static int ipmmu_map(struct iommu_domain *io_domain, unsigned long iova,
 static size_t ipmmu_unmap(struct iommu_domain *io_domain, unsigned long iova,
 			  size_t size)
 {
-	struct ipmmu_vmsa_domain *domain = io_domain->priv;
+	struct ipmmu_vmsa_domain *domain = to_vmsa_domain(io_domain);
 
 	return domain->iop->ops->unmap(domain->iop, iova, size);
 }
@@ -564,7 +569,7 @@ static size_t ipmmu_unmap(struct iommu_domain *io_domain, unsigned long iova,
 static phys_addr_t ipmmu_iova_to_phys(struct iommu_domain *io_domain,
 				      dma_addr_t iova)
 {
-	struct ipmmu_vmsa_domain *domain = io_domain->priv;
+	struct ipmmu_vmsa_domain *domain = to_vmsa_domain(io_domain);
 
 	/* TODO: Is locking needed ? */
 
@@ -736,8 +741,8 @@ static void ipmmu_remove_device(struct device *dev)
 }
 
 static const struct iommu_ops ipmmu_ops = {
-	.domain_init = ipmmu_domain_init,
-	.domain_destroy = ipmmu_domain_destroy,
+	.domain_alloc = ipmmu_domain_alloc,
+	.domain_free = ipmmu_domain_free,
 	.attach_dev = ipmmu_attach_device,
 	.detach_dev = ipmmu_detach_device,
 	.map = ipmmu_map,

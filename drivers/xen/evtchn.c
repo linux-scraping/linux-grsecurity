@@ -201,8 +201,8 @@ static ssize_t evtchn_read(struct file *file, char __user *buf,
 
 	/* Byte lengths of two chunks. Chunk split (if any) is at ring wrap. */
 	if (((c ^ p) & EVTCHN_RING_SIZE) != 0) {
-		bytes1 = (EVTCHN_RING_SIZE - EVTCHN_RING_MASK(c)) *
-			sizeof(evtchn_port_t);
+		bytes1 = EVTCHN_RING_SIZE - EVTCHN_RING_MASK(c);
+		bytes1 *= sizeof(evtchn_port_t);
 		bytes2 = EVTCHN_RING_MASK(p) * sizeof(evtchn_port_t);
 	} else {
 		bytes1 = (p - c) * sizeof(evtchn_port_t);
