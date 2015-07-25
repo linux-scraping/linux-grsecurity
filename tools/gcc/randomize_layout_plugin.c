@@ -843,7 +843,11 @@ namespace {
 class randomize_layout_bad_cast : public gimple_opt_pass {
 public:
 	randomize_layout_bad_cast() : gimple_opt_pass(randomize_layout_bad_cast_data, g) {}
+#if BUILDING_GCC_VERSION >= 5000
+	virtual unsigned int execute(function *) { return find_bad_casts(); }
+#else
 	unsigned int execute() { return find_bad_casts(); }
+#endif
 };
 }
 #endif

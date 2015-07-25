@@ -1,8 +1,9 @@
 /*
- * Copyright 2011-2014 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011-2015 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2, or (at your option) v3
  *
  * Homepage:
+ * https://github.com/ephox-gcc-plugins
  * http://www.grsecurity.net/~ephox/overflow_plugin/
  *
  * Documentation:
@@ -30,7 +31,7 @@ tree size_overflow_type_DI;
 tree size_overflow_type_TI;
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20140725",
+	.version	= "20140725_01",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
@@ -84,7 +85,7 @@ static tree handle_intentional_overflow_attribute(tree *node, tree __unused name
 		return NULL_TREE;
 	}
 
-	if (TREE_INT_CST_HIGH(TREE_VALUE(args)) != 0)
+	if (tree_to_shwi(TREE_VALUE(args)) != 0)
 		return NULL_TREE;
 
 	for (; args; args = TREE_CHAIN(args)) {

@@ -453,7 +453,7 @@ init_variables(const struct gr_arg *arg, bool reload)
 		get_fs_root(reaper->fs, &gr_real_root);
 	
 #ifdef CONFIG_GRKERNSEC_RBAC_DEBUG
-	printk(KERN_ALERT "Obtained real root device=%d, inode=%lu\n", __get_dev(gr_real_root.dentry), gr_real_root.dentry->d_inode->i_ino);
+	printk(KERN_ALERT "Obtained real root device=%d, inode=%lu\n", gr_get_dev_from_dentry(gr_real_root.dentry), gr_get_ino_from_dentry(gr_real_root.dentry));
 #endif
 
 		fakefs_obj_rw = kzalloc(sizeof(struct acl_object_label), GFP_KERNEL);

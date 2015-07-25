@@ -148,7 +148,7 @@ module_param(sig_enforce, bool_enable_only, 0644);
 #endif /* CONFIG_MODULE_SIG */
 
 /* Block module loading/unloading? */
-int modules_disabled = 0;
+int modules_disabled __read_only = 0;
 core_param(nomodule, modules_disabled, bint, 0);
 
 /* Waiting for a module to finish initializing? */

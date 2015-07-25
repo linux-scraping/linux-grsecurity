@@ -33,7 +33,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_disable_privio,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #endif
@@ -43,7 +43,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_link,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_SYMLINKOWN
@@ -52,14 +52,14 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_symlinkown,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 	{
 		.procname	= "symlinkown_gid",
 		.data		= &grsec_symlinkown_gid,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_BRUTE
@@ -68,7 +68,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_brute,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_FIFO
@@ -77,7 +77,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_fifo,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_PTRACE_READEXEC
@@ -86,7 +86,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_ptrace_readexec,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_SETXID
@@ -95,7 +95,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_setxid,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_BLACKHOLE
@@ -104,14 +104,14 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_blackhole,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 	{
 		.procname	= "lastack_retries",
 		.data		= &grsec_lastack_retries,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_EXECLOG
@@ -120,7 +120,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_execlog,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_RWXMAP_LOG
@@ -129,7 +129,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_log_rwxmaps,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_SIGNAL
@@ -138,7 +138,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_signal,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_FORKFAIL
@@ -147,7 +147,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_forkfail,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_TIME
@@ -156,7 +156,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_time,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_SHMAT
@@ -165,7 +165,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_chroot_shmat,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_UNIX
@@ -174,7 +174,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_chroot_unix,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_MOUNT
@@ -183,7 +183,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_chroot_mount,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_FCHDIR
@@ -192,7 +192,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_chroot_fchdir,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_DOUBLE
@@ -201,7 +201,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_chroot_double,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_PIVOT
@@ -210,7 +210,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_chroot_pivot,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_CHDIR
@@ -219,7 +219,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_chroot_chdir,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_CHMOD
@@ -228,7 +228,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_chroot_chmod,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_MKNOD
@@ -237,7 +237,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_chroot_mknod,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_NICE
@@ -246,7 +246,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_chroot_nice,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_EXECLOG
@@ -255,7 +255,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_chroot_execlog,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_CAPS
@@ -264,7 +264,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_chroot_caps,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_RENAME
@@ -273,7 +273,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_chroot_rename,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_SYSCTL
@@ -282,7 +282,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_chroot_sysctl,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_TPE
@@ -291,14 +291,14 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_tpe,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 	{
 		.procname	= "tpe_gid",
 		.data		= &grsec_tpe_gid,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_TPE_INVERT
@@ -307,7 +307,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_tpe_invert,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_TPE_ALL
@@ -316,7 +316,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_tpe_all,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_SOCKET_ALL
@@ -325,14 +325,14 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_socket_all,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 	{
 		.procname	= "socket_all_gid",
 		.data		= &grsec_socket_all_gid,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_SOCKET_CLIENT
@@ -341,14 +341,14 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_socket_client,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 	{
 		.procname	= "socket_client_gid",
 		.data		= &grsec_socket_client_gid,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_SOCKET_SERVER
@@ -357,14 +357,14 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_socket_server,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 	{
 		.procname	= "socket_server_gid",
 		.data		= &grsec_socket_server_gid,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_AUDIT_GROUP
@@ -373,14 +373,14 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_group,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 	{
 		.procname	= "audit_gid",
 		.data		= &grsec_audit_gid,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_AUDIT_CHDIR
@@ -389,7 +389,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_chdir,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_AUDIT_MOUNT
@@ -398,7 +398,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_mount,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_DMESG
@@ -407,7 +407,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_dmesg,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_CHROOT_FINDTASK
@@ -416,7 +416,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_chroot_findtask,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_RESLOG
@@ -425,7 +425,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_resource_logging,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_AUDIT_PTRACE
@@ -434,7 +434,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_audit_ptrace,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_HARDEN_PTRACE
@@ -443,7 +443,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_harden_ptrace,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_HARDEN_IPC
@@ -452,7 +452,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_harden_ipc,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 	{
@@ -460,7 +460,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_lock,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 #ifdef CONFIG_GRKERNSEC_ROFS
@@ -469,7 +469,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_enable_rofs,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec_minmax,
+		.proc_handler	= &proc_dointvec_minmax_secure,
 		.extra1		= &one,
 		.extra2		= &one,
 	},
@@ -480,7 +480,7 @@ struct ctl_table grsecurity_table[] = {
 		.data		= &grsec_deny_new_usb,
 		.maxlen		= sizeof(int),
 		.mode		= 0600,
-		.proc_handler	= &proc_dointvec,
+		.proc_handler	= &proc_dointvec_secure,
 	},
 #endif
 	{ }

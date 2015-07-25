@@ -331,7 +331,8 @@ extern int d_validate(struct dentry *, struct dentry *);
 /*
  * helper function for dentry_operations.d_dname() members
  */
-extern char *dynamic_dname(struct dentry *, char *, int, const char *, ...);
+extern __printf(4, 5)
+char *dynamic_dname(struct dentry *, char *, int, const char *, ...);
 extern char *simple_dname(struct dentry *, char *, int);
 
 extern char *__d_path(const struct path *, const struct path *, char *, int);

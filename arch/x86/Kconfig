@@ -1921,6 +1921,22 @@ config CMDLINE_OVERRIDE
 	  This is used to work around broken boot loaders.  This should
 	  be set to 'N' under normal conditions.
 
+config DEFAULT_MODIFY_LDT_SYSCALL
+	bool "Allow userspace to modify the LDT by default"
+	default y
+
+	---help---
+	  Modifying the LDT (Local Descriptor Table) may be needed to run a
+	  16-bit or segmented code such as Dosemu or Wine. This is done via
+	  a system call which is not needed to run portable applications,
+	  and which can sometimes be abused to exploit some weaknesses of
+	  the architecture, opening new vulnerabilities.
+
+	  For this reason this option allows one to enable or disable the
+	  feature at runtime. It is recommended to say 'N' here to leave
+	  the system protected, and to enable it at runtime only if needed
+	  by setting the sys.kernel.modify_ldt sysctl.
+
 endmenu
 
 config ARCH_ENABLE_MEMORY_HOTPLUG

@@ -170,7 +170,6 @@ void exit_creds(struct task_struct *tsk)
 	if (cred != NULL) {
 		tsk->delayed_cred = NULL;
 		validate_creds(cred);
-		alter_cred_subscribers(cred, -1);
 		put_cred(cred);
 	}
 #endif

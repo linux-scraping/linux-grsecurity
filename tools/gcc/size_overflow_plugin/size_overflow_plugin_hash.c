@@ -1,8 +1,9 @@
 /*
- * Copyright 2011-2014 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011-2015 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2, or (at your option) v3
  *
  * Homepage:
+ * https://github.com/ephox-gcc-plugins
  * http://www.grsecurity.net/~ephox/overflow_plugin/
  *
  * Documentation:
@@ -230,43 +231,33 @@ unsigned int find_arg_number_tree(const_tree arg, const_tree func)
 	return CANNOT_FIND_ARG;
 }
 
-static const char *get_asm_string(const_gimple stmt)
-{
-	if (!stmt)
-		return NULL;
-	if (gimple_code(stmt) != GIMPLE_ASM)
-		return NULL;
-
-	return gimple_asm_string(stmt);
-}
-
-bool is_size_overflow_intentional_asm_turn_off(const_gimple stmt)
+bool is_size_overflow_intentional_asm_turn_off(const gasm *stmt)
 {
 	const char *str;
 
-	str = get_asm_string(stmt);
-	if (!str)
+	if (!stmt)
 		return false;
+	str = gimple_asm_string(stmt);
 	return !strncmp(str, TURN_OFF_ASM_STR, sizeof(TURN_OFF_ASM_STR) - 1);
 }
 
-bool is_size_overflow_intentional_asm_yes(const_gimple stmt)
+bool is_size_overflow_intentional_asm_yes(const gasm *stmt)
 {
 	const char *str;
 
-	str = get_asm_string(stmt);
-	if (!str)
+	if (!stmt)
 		return false;
+	str = gimple_asm_string(stmt);
 	return !strncmp(str, YES_ASM_STR, sizeof(YES_ASM_STR) - 1);
 }
 
-bool is_size_overflow_asm(const_gimple stmt)
+bool is_size_overflow_asm(const gasm *stmt)
 {
 	const char *str;
 
-	str = get_asm_string(stmt);
-	if (!str)
+	if (!stmt)
 		return false;
+	str = gimple_asm_string(stmt);
 	return !strncmp(str, OK_ASM_STR, sizeof(OK_ASM_STR) - 1);
 }
 

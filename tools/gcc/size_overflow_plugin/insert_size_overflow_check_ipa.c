@@ -1,9 +1,10 @@
 /*
- * Copyright 2011-2014 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011-2015 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2, or (at your option) v3
  *
  * Homepage:
  * http://www.grsecurity.net/~ephox/overflow_plugin/
+ * https://github.com/ephox-gcc-plugins
  *
  * Documentation:
  * http://forums.grsecurity.net/viewtopic.php?f=7&t=3043
@@ -27,8 +28,8 @@
 
 unsigned int call_count;
 
-static void set_conditions(struct pointer_set_t *visited, bool *interesting_conditions, const_tree lhs);
-static void walk_use_def(struct pointer_set_t *visited, struct interesting_node *cur_node, tree lhs);
+static void set_conditions(gimple_set *visited, bool *interesting_conditions, const_tree lhs);
+static void walk_use_def(gimple_set *visited, struct interesting_node *cur_node, tree lhs);
 
 struct visited_fns {
 	struct visited_fns *next;
@@ -198,9 +199,9 @@ static struct next_cgraph_node *search_overflow_attribute(struct next_cgraph_nod
 	return cnodes;
 }
 
-static void walk_phi_set_conditions(struct pointer_set_t *visited, bool *interesting_conditions, const_tree result)
+static void walk_phi_set_conditions(gimple_set *visited, bool *interesting_conditions, const_tree result)
 {
-	gimple phi = get_def_stmt(result);
+	gphi *phi = as_a_gphi(get_def_stmt(result));
 	unsigned int i, n = gimple_phi_num_args(phi);
 
 	pointer_set_insert(visited, phi);
@@ -216,7 +217,7 @@ enum conditions {
 };
 
 // Search for constants, cast assignments and binary/ternary assignments
-static void set_conditions(struct pointer_set_t *visited, bool *interesting_conditions, const_tree lhs)
+static void set_conditions(gimple_set *visited, bool *interesting_conditions, const_tree lhs)
 {
 	gimple def_stmt = get_def_stmt(lhs);
 
@@ -233,7 +234,7 @@ static void set_conditions(struct pointer_set_t *visited, bool *interesting_cond
 
 	switch (gimple_code(def_stmt)) {
 	case GIMPLE_CALL:
-		if (lhs == gimple_call_lhs(def_stmt))
+		if (lhs == gimple_call_lhs(as_a_const_gcall(def_stmt)))
 			interesting_conditions[RET] = true;
 		return;
 	case GIMPLE_NOP:
@@ -242,11 +243,13 @@ static void set_conditions(struct pointer_set_t *visited, bool *interesting_cond
 	case GIMPLE_PHI:
 		interesting_conditions[PHI] = true;
 		return walk_phi_set_conditions(visited, interesting_conditions, lhs);
-	case GIMPLE_ASSIGN:
-		if (gimple_num_ops(def_stmt) == 2) {
-			const_tree rhs = gimple_assign_rhs1(def_stmt);
+	case GIMPLE_ASSIGN: {
+		gassign *assign = as_a_gassign(def_stmt);
 
-			if (gimple_assign_cast_p(def_stmt))
+		if (gimple_num_ops(assign) == 2) {
+			const_tree rhs = gimple_assign_rhs1(assign);
+
+			if (gimple_assign_cast_p(assign))
 				interesting_conditions[CAST] = true;
 
 			return set_conditions(visited, interesting_conditions, rhs);
@@ -254,6 +257,7 @@ static void set_conditions(struct pointer_set_t *visited, bool *interesting_cond
 			interesting_conditions[NOT_UNARY] = true;
 			return;
 		}
+	}
 	default:
 		debug_gimple_stmt(def_stmt);
 		gcc_unreachable();
@@ -263,7 +267,7 @@ static void set_conditions(struct pointer_set_t *visited, bool *interesting_cond
 // determine whether duplication will be necessary or not.
 static void search_interesting_conditions(struct interesting_node *cur_node, bool *interesting_conditions)
 {
-	struct pointer_set_t *visited;
+	gimple_set *visited;
 
 	if (gimple_assign_cast_p(cur_node->first_stmt))
 		interesting_conditions[CAST] = true;
@@ -276,9 +280,9 @@ static void search_interesting_conditions(struct interesting_node *cur_node, boo
 }
 
 // Remove the size_overflow asm stmt and create an assignment from the input and output of the asm
-static void replace_size_overflow_asm_with_assign(gimple asm_stmt, tree lhs, tree rhs)
+static void replace_size_overflow_asm_with_assign(gasm *asm_stmt, tree lhs, tree rhs)
 {
-	gimple assign;
+	gassign *assign;
 	gimple_stmt_iterator gsi;
 
 	// already removed
@@ -319,13 +323,13 @@ static bool skip_asm(const_tree arg)
 	if (!def_stmt || !gimple_assign_cast_p(def_stmt))
 		return false;
 
-	def_stmt = get_def_stmt(gimple_assign_rhs1(def_stmt));
+	def_stmt = get_def_stmt(gimple_assign_rhs1(as_a_gassign(def_stmt)));
 	return def_stmt && gimple_code(def_stmt) == GIMPLE_ASM;
 }
 
-static void walk_use_def_phi(struct pointer_set_t *visited, struct interesting_node *cur_node, tree result)
+static void walk_use_def_phi(gimple_set *visited, struct interesting_node *cur_node, tree result)
 {
-	gimple phi = get_def_stmt(result);
+	gphi *phi = as_a_gphi(get_def_stmt(result));
 	unsigned int i, n = gimple_phi_num_args(phi);
 
 	pointer_set_insert(visited, phi);
@@ -336,9 +340,9 @@ static void walk_use_def_phi(struct pointer_set_t *visited, struct interesting_n
 	}
 }
 
-static void walk_use_def_binary(struct pointer_set_t *visited, struct interesting_node *cur_node, tree lhs)
+static void walk_use_def_binary(gimple_set *visited, struct interesting_node *cur_node, tree lhs)
 {
-	gimple def_stmt = get_def_stmt(lhs);
+	gassign *def_stmt = as_a_gassign(get_def_stmt(lhs));
 	tree rhs1, rhs2;
 
 	rhs1 = gimple_assign_rhs1(def_stmt);
@@ -387,16 +391,16 @@ static void insert_last_node(struct interesting_node *cur_node, tree node)
 }
 
 // a size_overflow asm stmt in the control flow doesn't stop the recursion
-static void handle_asm_stmt(struct pointer_set_t *visited, struct interesting_node *cur_node, tree lhs, const_gimple stmt)
+static void handle_asm_stmt(gimple_set *visited, struct interesting_node *cur_node, tree lhs, const gasm *stmt)
 {
-	if (!is_size_overflow_asm(stmt))
+	if (gimple_code(stmt) != GIMPLE_ASM || !is_size_overflow_asm(stmt))
 		walk_use_def(visited, cur_node, SSA_NAME_VAR(lhs));
 }
 
 /* collect the parm_decls and fndecls (for checking a missing size_overflow attribute (ret or arg) or intentional_overflow)
  * and component refs (for checking the intentional_overflow attribute).
  */
-static void walk_use_def(struct pointer_set_t *visited, struct interesting_node *cur_node, tree lhs)
+static void walk_use_def(gimple_set *visited, struct interesting_node *cur_node, tree lhs)
 {
 	const_gimple def_stmt;
 
@@ -416,9 +420,9 @@ static void walk_use_def(struct pointer_set_t *visited, struct interesting_node 
 	case GIMPLE_NOP:
 		return walk_use_def(visited, cur_node, SSA_NAME_VAR(lhs));
 	case GIMPLE_ASM:
-		return handle_asm_stmt(visited, cur_node, lhs, def_stmt);
+		return handle_asm_stmt(visited, cur_node, lhs, as_a_const_gasm(def_stmt));
 	case GIMPLE_CALL: {
-		tree fndecl = gimple_call_fndecl(def_stmt);
+		tree fndecl = gimple_call_fndecl(as_a_const_gcall(def_stmt));
 
 		if (fndecl == NULL_TREE)
 			return;
@@ -430,7 +434,7 @@ static void walk_use_def(struct pointer_set_t *visited, struct interesting_node 
 	case GIMPLE_ASSIGN:
 		switch (gimple_num_ops(def_stmt)) {
 		case 2:
-			return walk_use_def(visited, cur_node, gimple_assign_rhs1(def_stmt));
+			return walk_use_def(visited, cur_node, gimple_assign_rhs1(as_a_const_gassign(def_stmt)));
 		case 3:
 			return walk_use_def_binary(visited, cur_node, lhs);
 		}
@@ -444,7 +448,7 @@ static void walk_use_def(struct pointer_set_t *visited, struct interesting_node 
 // Collect all the last nodes for checking the intentional_overflow and size_overflow attributes
 static void set_last_nodes(struct interesting_node *cur_node)
 {
-	struct pointer_set_t *visited;
+	gimple_set *visited;
 
 	visited = pointer_set_create();
 	walk_use_def(visited, cur_node, cur_node->node);
@@ -497,7 +501,7 @@ static tree cast_to_orig_type(struct visited *visited, gimple stmt, const_tree o
 	gimple_stmt_iterator gsi = gsi_for_stmt(stmt);
 
 	assign = build_cast_stmt(visited, orig_type, new_node, CREATE_NEW_VAR, &gsi, BEFORE_STMT, false);
-	return gimple_assign_lhs(assign);
+	return get_lhs(assign);
 }
 
 static void change_orig_node(struct visited *visited, struct interesting_node *cur_node, tree new_node)
@@ -508,10 +512,10 @@ static void change_orig_node(struct visited *visited, struct interesting_node *c
 
 	switch (gimple_code(stmt)) {
 	case GIMPLE_RETURN:
-		gimple_return_set_retval(stmt, cast_to_orig_type(visited, stmt, orig_node, new_node));
+		gimple_return_set_retval(as_a_greturn(stmt), cast_to_orig_type(visited, stmt, orig_node, new_node));
 		break;
 	case GIMPLE_CALL:
-		gimple_call_set_arg(stmt, cur_node->num - 1, cast_to_orig_type(visited, stmt, orig_node, new_node));
+		gimple_call_set_arg(as_a_gcall(stmt), cur_node->num - 1, cast_to_orig_type(visited, stmt, orig_node, new_node));
 		break;
 	case GIMPLE_ASSIGN:
 		switch (cur_node->num) {
@@ -530,7 +534,7 @@ static void change_orig_node(struct visited *visited, struct interesting_node *c
 			gcc_unreachable();
 		}
 
-		set_rhs(stmt, cast_to_orig_type(visited, stmt, orig_node, new_node));
+		set_rhs(as_a_gassign(stmt), cast_to_orig_type(visited, stmt, orig_node, new_node));
 		break;
 	default:
 		debug_gimple_stmt(stmt);
@@ -617,7 +621,7 @@ static bool is_in_interesting_node(struct interesting_node *head, const_gimple f
    intentional_attr_cur_fndecl: intentional_overflow attribute of the caller function
    intentional_mark_from_gimple: the intentional overflow type of size_overflow asm stmt from gimple if it exists
  */
-static struct interesting_node *create_new_interesting_node(struct interesting_node *head, gimple first_stmt, tree node, unsigned int num, gimple asm_stmt)
+static struct interesting_node *create_new_interesting_node(struct interesting_node *head, gimple first_stmt, tree node, unsigned int num, gasm *asm_stmt)
 {
 	struct interesting_node *new_node;
 	tree fndecl;
@@ -637,7 +641,7 @@ static struct interesting_node *create_new_interesting_node(struct interesting_n
 		return head;
 
 	if (is_gimple_call(first_stmt))
-		fndecl = gimple_call_fndecl(first_stmt);
+		fndecl = gimple_call_fndecl(as_a_const_gcall(first_stmt));
 	else
 		fndecl = current_function_decl;
 
@@ -673,7 +677,7 @@ static struct interesting_node *create_new_interesting_node(struct interesting_n
 /* Check the ret stmts in the functions on the next cgraph node list (these functions will be in the hash table and they are reachable from ipa).
  * If the ret stmt is in the next cgraph node list then it's an interesting ret.
  */
-static struct interesting_node *handle_stmt_by_cgraph_nodes_ret(struct interesting_node *head, gimple stmt, struct next_cgraph_node *next_node)
+static struct interesting_node *handle_stmt_by_cgraph_nodes_ret(struct interesting_node *head, greturn *stmt, struct next_cgraph_node *next_node)
 {
 	struct next_cgraph_node *cur_node;
 	tree ret = gimple_return_retval(stmt);
@@ -694,7 +698,7 @@ static struct interesting_node *handle_stmt_by_cgraph_nodes_ret(struct interesti
 /* Check the call stmts in the functions on the next cgraph node list (these functions will be in the hash table and they are reachable from ipa).
  * If the call stmt is in the next cgraph node list then it's an interesting call.
  */
-static struct interesting_node *handle_stmt_by_cgraph_nodes_call(struct interesting_node *head, gimple stmt, struct next_cgraph_node *next_node)
+static struct interesting_node *handle_stmt_by_cgraph_nodes_call(struct interesting_node *head, gcall *stmt, struct next_cgraph_node *next_node)
 {
 	unsigned int argnum;
 	tree arg;
@@ -730,7 +734,7 @@ static unsigned int check_ops(const_tree orig_node, const_tree node, unsigned in
 }
 
 // Get the index of the rhs node in an assignment
-static unsigned int get_assign_ops_count(const_gimple stmt, tree node)
+static unsigned int get_assign_ops_count(const gassign *stmt, tree node)
 {
 	const_tree rhs1, rhs2;
 	unsigned int ret;
@@ -758,7 +762,7 @@ static unsigned int get_assign_ops_count(const_gimple stmt, tree node)
 }
 
 // Find the correct arg number of a call stmt. It is needed when the interesting function is a cloned function.
-static unsigned int find_arg_number_gimple(const_tree arg, const_gimple stmt)
+static unsigned int find_arg_number_gimple(const_tree arg, const gcall *stmt)
 {
 	unsigned int i;
 
@@ -781,7 +785,7 @@ static unsigned int find_arg_number_gimple(const_tree arg, const_gimple stmt)
 /* starting from the size_overflow asm stmt collect interesting stmts. They can be
  * any of return, call or assignment stmts (because of inlining).
  */
-static struct interesting_node *get_interesting_ret_or_call(struct pointer_set_t *visited, struct interesting_node *head, tree node, gimple intentional_asm)
+static struct interesting_node *get_interesting_ret_or_call(tree_set *visited, struct interesting_node *head, tree node, gasm *intentional_asm)
 {
 	use_operand_p use_p;
 	imm_use_iterator imm_iter;
@@ -802,28 +806,31 @@ static struct interesting_node *get_interesting_ret_or_call(struct pointer_set_t
 
 		switch (gimple_code(stmt)) {
 		case GIMPLE_CALL:
-			argnum = find_arg_number_gimple(node, stmt);
+			argnum = find_arg_number_gimple(node, as_a_gcall(stmt));
 			head = create_new_interesting_node(head, stmt, node, argnum, intentional_asm);
 			break;
 		case GIMPLE_RETURN:
 			head = create_new_interesting_node(head, stmt, node, 0, intentional_asm);
 			break;
 		case GIMPLE_ASSIGN:
-			argnum = get_assign_ops_count(stmt, node);
+			argnum = get_assign_ops_count(as_a_const_gassign(stmt), node);
 			head = create_new_interesting_node(head, stmt, node, argnum, intentional_asm);
 			break;
 		case GIMPLE_PHI: {
-			tree result = gimple_phi_result(stmt);
+			tree result = gimple_phi_result(as_a_gphi(stmt));
 			head = get_interesting_ret_or_call(visited, head, result, intentional_asm);
 			break;
 		}
-		case GIMPLE_ASM:
-			if (gimple_asm_noutputs(stmt) != 0)
+		case GIMPLE_ASM: {
+			gasm *asm_stmt = as_a_gasm(stmt);
+
+			if (gimple_asm_noutputs(asm_stmt) != 0)
 				break;
-			if (!is_size_overflow_asm(stmt))
+			if (!is_size_overflow_asm(asm_stmt))
 				break;
-			head = create_new_interesting_node(head, stmt, node, 1, intentional_asm);
+			head = create_new_interesting_node(head, asm_stmt, node, 1, intentional_asm);
 			break;
+		}
 		case GIMPLE_COND:
 		case GIMPLE_SWITCH:
 			break;
@@ -838,66 +845,71 @@ static struct interesting_node *get_interesting_ret_or_call(struct pointer_set_t
 
 static void remove_size_overflow_asm(gimple stmt)
 {
+	gasm *asm_stmt;
 	gimple_stmt_iterator gsi;
 	tree input, output;
 
-	if (!is_size_overflow_asm(stmt))
+	if (gimple_code(stmt) != GIMPLE_ASM)
 		return;
 
-	if (gimple_asm_noutputs(stmt) == 0) {
-		gsi = gsi_for_stmt(stmt);
-		ipa_remove_stmt_references(cgraph_get_create_node(current_function_decl), stmt);
+	asm_stmt = as_a_gasm(stmt);
+	if (!is_size_overflow_asm(asm_stmt))
+		return;
+
+	if (gimple_asm_noutputs(asm_stmt) == 0) {
+		gsi = gsi_for_stmt(asm_stmt);
+		ipa_remove_stmt_references(cgraph_get_create_node(current_function_decl), asm_stmt);
 		gsi_remove(&gsi, true);
 		return;
 	}
 
-	input = gimple_asm_input_op(stmt, 0);
-	output = gimple_asm_output_op(stmt, 0);
-	replace_size_overflow_asm_with_assign(stmt, TREE_VALUE(output), TREE_VALUE(input));
+	input = gimple_asm_input_op(asm_stmt, 0);
+	output = gimple_asm_output_op(asm_stmt, 0);
+	replace_size_overflow_asm_with_assign(asm_stmt, TREE_VALUE(output), TREE_VALUE(input));
 }
 
 /* handle the size_overflow asm stmts from the gimple pass and collect the interesting stmts.
  * If the asm stmt is a parm_decl kind (noutputs == 0) then remove it.
  * If it is a simple asm stmt then replace it with an assignment from the asm input to the asm output.
  */
-static struct interesting_node *handle_stmt_by_size_overflow_asm(gimple stmt, struct interesting_node *head)
+static struct interesting_node *handle_stmt_by_size_overflow_asm(gasm *asm_stmt, struct interesting_node *head)
 {
 	const_tree output;
-	struct pointer_set_t *visited;
-	gimple intentional_asm = NOT_INTENTIONAL_ASM;
+	tree_set *visited;
+	gasm *intentional_asm = NOT_INTENTIONAL_ASM;
 
-	if (!is_size_overflow_asm(stmt))
+	if (!is_size_overflow_asm(asm_stmt))
 		return head;
 
-	if (is_size_overflow_intentional_asm_yes(stmt) || is_size_overflow_intentional_asm_turn_off(stmt))
-		intentional_asm = stmt;
+	if (is_size_overflow_intentional_asm_yes(asm_stmt) || is_size_overflow_intentional_asm_turn_off(asm_stmt))
+		intentional_asm = asm_stmt;
 
-	gcc_assert(gimple_asm_ninputs(stmt) == 1);
+	gcc_assert(gimple_asm_ninputs(asm_stmt) == 1);
 
-	if (gimple_asm_noutputs(stmt) == 0 && is_size_overflow_intentional_asm_turn_off(stmt))
+	if (gimple_asm_noutputs(asm_stmt) == 0 && is_size_overflow_intentional_asm_turn_off(asm_stmt))
 		return head;
 
-	if (gimple_asm_noutputs(stmt) == 0) {
+	if (gimple_asm_noutputs(asm_stmt) == 0) {
 		const_tree input;
 
-		if (!is_size_overflow_intentional_asm_turn_off(stmt))
+		if (!is_size_overflow_intentional_asm_turn_off(asm_stmt))
 			return head;
 
-		input = gimple_asm_input_op(stmt, 0);
-		remove_size_overflow_asm(stmt);
+		input = gimple_asm_input_op(asm_stmt, 0);
+		remove_size_overflow_asm(asm_stmt);
 		if (is_gimple_constant(TREE_VALUE(input)))
 			return head;
-		visited = pointer_set_create();
+		visited = tree_pointer_set_create();
 		head = get_interesting_ret_or_call(visited, head, TREE_VALUE(input), intentional_asm);
 		pointer_set_destroy(visited);
 		return head;
 	}
 
-	if (!is_size_overflow_intentional_asm_yes(stmt) && !is_size_overflow_intentional_asm_turn_off(stmt))
-		remove_size_overflow_asm(stmt);
+	if (!is_size_overflow_intentional_asm_yes(asm_stmt) && !is_size_overflow_intentional_asm_turn_off(asm_stmt))
+		remove_size_overflow_asm(asm_stmt);
 
-	visited = pointer_set_create();
-	output = gimple_asm_output_op(stmt, 0);
+	visited = tree_pointer_set_create();
+	output = gimple_asm_output_op(asm_stmt, 0);
 	head = get_interesting_ret_or_call(visited, head, TREE_VALUE(output), intentional_asm);
 	pointer_set_destroy(visited);
 	return head;
@@ -921,14 +933,14 @@ static struct interesting_node *collect_interesting_stmts(struct next_cgraph_nod
 			code = gimple_code(stmt);
 
 			if (code == GIMPLE_ASM)
-				head = handle_stmt_by_size_overflow_asm(stmt, head);
+				head = handle_stmt_by_size_overflow_asm(as_a_gasm(stmt), head);
 
 			if (!next_node)
 				continue;
 			if (code == GIMPLE_CALL)
-				head = handle_stmt_by_cgraph_nodes_call(head, stmt, next_node);
+				head = handle_stmt_by_cgraph_nodes_call(head, as_a_gcall(stmt), next_node);
 			if (code == GIMPLE_RETURN)
-				head = handle_stmt_by_cgraph_nodes_ret(head, stmt, next_node);
+				head = handle_stmt_by_cgraph_nodes_ret(head, as_a_greturn(stmt), next_node);
 		}
 	}
 	return head;
@@ -1065,7 +1077,6 @@ unsigned int search_function(void)
 	struct visited_fns *visited_fns = NULL;
 
 	FOR_EACH_FUNCTION_WITH_GIMPLE_BODY(node) {
-		gcc_assert(cgraph_function_flags_ready);
 #if BUILDING_GCC_VERSION <= 4007
 		gcc_assert(node->reachable);
 #endif
@@ -1078,6 +1089,7 @@ unsigned int search_function(void)
 }
 
 #if BUILDING_GCC_VERSION >= 4009
+namespace {
 static const struct pass_data insert_size_overflow_check_data = {
 #else
 static struct ipa_opt_pass_d insert_size_overflow_check = {
@@ -1088,7 +1100,8 @@ static struct ipa_opt_pass_d insert_size_overflow_check = {
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
-#if BUILDING_GCC_VERSION >= 4009
+#if BUILDING_GCC_VERSION >= 5000
+#elif BUILDING_GCC_VERSION == 4009
 		.has_gate		= false,
 		.has_execute		= true,
 #else
@@ -1121,21 +1134,24 @@ static struct ipa_opt_pass_d insert_size_overflow_check = {
 };
 
 #if BUILDING_GCC_VERSION >= 4009
-namespace {
 class insert_size_overflow_check : public ipa_opt_pass_d {
 public:
 	insert_size_overflow_check() : ipa_opt_pass_d(insert_size_overflow_check_data, g, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, NULL) {}
+#if BUILDING_GCC_VERSION >= 5000
+	virtual unsigned int execute(function *) { return search_function(); }
+#else
 	unsigned int execute() { return search_function(); }
+#endif
 };
 }
-#endif
 
+opt_pass *make_insert_size_overflow_check(void)
+{
+	return new insert_size_overflow_check();
+}
+#else
 struct opt_pass *make_insert_size_overflow_check(void)
 {
-#if BUILDING_GCC_VERSION >= 4009
-	return new insert_size_overflow_check();
-#else
 	return &insert_size_overflow_check.pass;
-#endif
 }
-
+#endif
