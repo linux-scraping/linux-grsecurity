@@ -1,8 +1,9 @@
 /*
- * Copyright 2011-2014 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011-2015 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2, or (at your option) v3
  *
  * Homepage:
+ * https://github.com/ephox-gcc-plugins
  * http://www.grsecurity.net/~ephox/overflow_plugin/
  *
  * Documentation:
@@ -20,8 +21,8 @@
 #include "gcc-common.h"
 #include "size_overflow.h"
 
-static void search_size_overflow_attribute(struct pointer_set_t *visited, tree lhs);
-static enum mark search_intentional(struct pointer_set_t *visited, const_tree lhs);
+static void search_size_overflow_attribute(gimple_set *visited, tree lhs);
+static enum mark search_intentional(gimple_set *visited, const_tree lhs);
 
 // data for the size_overflow asm stmt
 struct asm_data {
@@ -55,7 +56,7 @@ static vec<tree, va_gc> *create_asm_io_list(tree string, tree io)
 
 static void create_asm_stmt(const char *str, tree str_input, tree str_output, struct asm_data *asm_data)
 {
-	gimple asm_stmt;
+	gasm *asm_stmt;
 	gimple_stmt_iterator gsi;
 #if BUILDING_GCC_VERSION <= 4007
 	VEC(tree, gc) *input, *output = NULL;
@@ -68,7 +69,7 @@ static void create_asm_stmt(const char *str, tree str_input, tree str_output, st
 	if (asm_data->output)
 		output = create_asm_io_list(str_output, asm_data->output);
 
-	asm_stmt = gimple_build_asm_vec(str, input, output, NULL, NULL);
+	asm_stmt = as_a_gasm(gimple_build_asm_vec(str, input, output, NULL, NULL));
 	gsi = gsi_for_stmt(asm_data->def_stmt);
 	gsi_insert_after(&gsi, asm_stmt, GSI_NEW_STMT);
 
@@ -83,13 +84,13 @@ static void replace_call_lhs(const struct asm_data *asm_data)
 	SSA_NAME_DEF_STMT(asm_data->input) = asm_data->def_stmt;
 }
 
-static enum mark search_intentional_phi(struct pointer_set_t *visited, const_tree result)
+static enum mark search_intentional_phi(gimple_set *visited, const_tree result)
 {
 	enum mark cur_fndecl_attr;
-	gimple phi = get_def_stmt(result);
+	gphi *phi = as_a_gphi(get_def_stmt(result));
 	unsigned int i, n = gimple_phi_num_args(phi);
 
-	pointer_set_insert(visited, phi);
+	pointer_set_insert(visited, (gimple)phi);
 	for (i = 0; i < n; i++) {
 		tree arg = gimple_phi_arg_def(phi, i);
 
@@ -100,11 +101,11 @@ static enum mark search_intentional_phi(struct pointer_set_t *visited, const_tre
 	return MARK_NO;
 }
 
-static enum mark search_intentional_binary(struct pointer_set_t *visited, const_tree lhs)
+static enum mark search_intentional_binary(gimple_set *visited, const_tree lhs)
 {
 	enum mark cur_fndecl_attr;
 	const_tree rhs1, rhs2;
-	gimple def_stmt = get_def_stmt(lhs);
+	gassign *def_stmt = as_a_gassign(get_def_stmt(lhs));
 
 	rhs1 = gimple_assign_rhs1(def_stmt);
 	rhs2 = gimple_assign_rhs2(def_stmt);
@@ -116,7 +117,7 @@ static enum mark search_intentional_binary(struct pointer_set_t *visited, const_
 }
 
 // Look up the intentional_overflow attribute on the caller and the callee functions.
-static enum mark search_intentional(struct pointer_set_t *visited, const_tree lhs)
+static enum mark search_intentional(gimple_set *visited, const_tree lhs)
 {
 	const_gimple def_stmt;
 
@@ -134,7 +135,7 @@ static enum mark search_intentional(struct pointer_set_t *visited, const_tree lh
 	case GIMPLE_NOP:
 		return search_intentional(visited, SSA_NAME_VAR(lhs));
 	case GIMPLE_ASM:
-		if (is_size_overflow_intentional_asm_turn_off(def_stmt))
+		if (is_size_overflow_intentional_asm_turn_off(as_a_const_gasm(def_stmt)))
 			return MARK_TURN_OFF;
 		return MARK_NO;
 	case GIMPLE_CALL:
@@ -144,7 +145,7 @@ static enum mark search_intentional(struct pointer_set_t *visited, const_tree lh
 	case GIMPLE_ASSIGN:
 		switch (gimple_num_ops(def_stmt)) {
 		case 2:
-			return search_intentional(visited, gimple_assign_rhs1(def_stmt));
+			return search_intentional(visited, gimple_assign_rhs1(as_a_const_gassign(def_stmt)));
 		case 3:
 			return search_intentional_binary(visited, lhs);
 		}
@@ -161,7 +162,7 @@ static enum mark search_intentional(struct pointer_set_t *visited, const_tree lh
 static enum mark check_intentional_attribute_gimple(const_tree arg, const_gimple stmt, unsigned int argnum)
 {
 	const_tree fndecl;
-	struct pointer_set_t *visited;
+	gimple_set *visited;
 	enum mark cur_fndecl_attr, decl_attr = MARK_NO;
 
 	fndecl = get_interesting_orig_fndecl(stmt, argnum);
@@ -204,7 +205,7 @@ static void check_missing_size_overflow_attribute(tree var)
 	is_missing_function(orig_fndecl, num);
 }
 
-static void search_size_overflow_attribute_phi(struct pointer_set_t *visited, const_tree result)
+static void search_size_overflow_attribute_phi(gimple_set *visited, const_tree result)
 {
 	gimple phi = get_def_stmt(result);
 	unsigned int i, n = gimple_phi_num_args(phi);
@@ -217,7 +218,7 @@ static void search_size_overflow_attribute_phi(struct pointer_set_t *visited, co
 	}
 }
 
-static void search_size_overflow_attribute_binary(struct pointer_set_t *visited, const_tree lhs)
+static void search_size_overflow_attribute_binary(gimple_set *visited, const_tree lhs)
 {
 	const_gimple def_stmt = get_def_stmt(lhs);
 	tree rhs1, rhs2;
@@ -229,7 +230,7 @@ static void search_size_overflow_attribute_binary(struct pointer_set_t *visited,
 	search_size_overflow_attribute(visited, rhs2);
 }
 
-static void search_size_overflow_attribute(struct pointer_set_t *visited, tree lhs)
+static void search_size_overflow_attribute(gimple_set *visited, tree lhs)
 {
 	const_gimple def_stmt;
 
@@ -279,18 +280,20 @@ static void search_missing_size_overflow_attribute_gimple(const_gimple stmt, uns
 {
 	tree fndecl = NULL_TREE;
 	tree lhs;
-	struct pointer_set_t *visited;
+	gimple_set *visited;
 
 	if (is_turn_off_intentional_attr(DECL_ORIGIN(current_function_decl)))
 		return;
 
 	if (num == 0) {
 		gcc_assert(gimple_code(stmt) == GIMPLE_RETURN);
-		lhs = gimple_return_retval(stmt);
+		lhs = gimple_return_retval(as_a_const_greturn(stmt));
 	} else {
-		gcc_assert(is_gimple_call(stmt));
-		lhs = gimple_call_arg(stmt, num - 1);
-		fndecl = gimple_call_fndecl(stmt);
+		const gcall *call = as_a_const_gcall(stmt);
+
+		gcc_assert(is_gimple_call(call));
+		lhs = gimple_call_arg(call, num - 1);
+		fndecl = gimple_call_fndecl(call);
 	}
 
 	if (fndecl != NULL_TREE && is_turn_off_intentional_attr(DECL_ORIGIN(fndecl)))
@@ -314,9 +317,9 @@ static void create_output_from_phi(gimple stmt, unsigned int argnum, struct asm_
 	asm_data->output = create_new_var(TREE_TYPE(asm_data->output));
 	asm_data->output = make_ssa_name(asm_data->output, stmt);
 	if (gimple_code(stmt) == GIMPLE_RETURN)
-		gimple_return_set_retval(stmt, asm_data->output);
+		gimple_return_set_retval(as_a_greturn(stmt), asm_data->output);
 	else
-		gimple_call_set_arg(stmt, argnum - 1, asm_data->output);
+		gimple_call_set_arg(as_a_gcall(stmt), argnum - 1, asm_data->output);
 	update_stmt(stmt);
 }
 
@@ -396,7 +399,7 @@ static void create_asm_input(gimple stmt, unsigned int argnum, struct asm_data *
 		break;
 	}
 	case GIMPLE_ASM:
-		if (is_size_overflow_asm(asm_data->def_stmt)) {
+		if (is_size_overflow_asm(as_a_const_gasm(asm_data->def_stmt))) {
 			asm_data->input = NULL_TREE;
 			break;
 		}
@@ -427,7 +430,7 @@ static void create_size_overflow_asm(gimple stmt, tree output_node, unsigned int
 		search_missing_size_overflow_attribute_gimple(stmt, argnum);
 
 	asm_data.def_stmt = get_def_stmt(asm_data.output);
-	if (is_size_overflow_intentional_asm_turn_off(asm_data.def_stmt))
+	if (gimple_code(asm_data.def_stmt) == GIMPLE_ASM && is_size_overflow_intentional_asm_turn_off(as_a_const_gasm(asm_data.def_stmt)))
 		return;
 
 	create_asm_input(stmt, argnum, &asm_data);
@@ -477,7 +480,7 @@ static bool create_mark_asm(gimple stmt, enum mark mark)
 	return true;
 }
 
-static void walk_use_def_ptr(struct pointer_set_t *visited, const_tree lhs)
+static void walk_use_def_ptr(gimple_set *visited, const_tree lhs)
 {
 	gimple def_stmt;
 
@@ -494,28 +497,33 @@ static void walk_use_def_ptr(struct pointer_set_t *visited, const_tree lhs)
 	case GIMPLE_CALL:
 		break;
 	case GIMPLE_PHI: {
-		unsigned int i, n = gimple_phi_num_args(def_stmt);
+		gphi *phi = as_a_gphi(def_stmt);
+		unsigned int i, n = gimple_phi_num_args(phi);
 
 		pointer_set_insert(visited, def_stmt);
 
 		for (i = 0; i < n; i++) {
-			tree arg = gimple_phi_arg_def(def_stmt, i);
+			tree arg = gimple_phi_arg_def(phi, i);
 
 			walk_use_def_ptr(visited, arg);
 		}
+		break;
 	}
-	case GIMPLE_ASSIGN:
-		switch (gimple_num_ops(def_stmt)) {
+	case GIMPLE_ASSIGN: {
+		gassign *assign = as_a_gassign(def_stmt);
+
+		switch (gimple_num_ops(assign)) {
 		case 2:
-			walk_use_def_ptr(visited, gimple_assign_rhs1(def_stmt));
+			walk_use_def_ptr(visited, gimple_assign_rhs1(assign));
 			return;
 		case 3:
-			walk_use_def_ptr(visited, gimple_assign_rhs1(def_stmt));
-			walk_use_def_ptr(visited, gimple_assign_rhs2(def_stmt));
+			walk_use_def_ptr(visited, gimple_assign_rhs1(assign));
+			walk_use_def_ptr(visited, gimple_assign_rhs2(assign));
 			return;
 		default:
 			return;
 		}
+	}
 	default:
 		debug_gimple_stmt((gimple)def_stmt);
 		error("%s: unknown gimple code", __func__);
@@ -526,7 +534,7 @@ static void walk_use_def_ptr(struct pointer_set_t *visited, const_tree lhs)
 // Look for a ptr - ptr expression (e.g., cpuset_common_file_read() s - page)
 static void insert_mark_not_intentional_asm_at_ptr(const_tree arg)
 {
-	struct pointer_set_t *visited;
+	gimple_set *visited;
 
 	visited = pointer_set_create();
 	walk_use_def_ptr(visited, arg);
@@ -534,7 +542,7 @@ static void insert_mark_not_intentional_asm_at_ptr(const_tree arg)
 }
 
 // Determine the return value and insert the asm stmt to mark the return stmt.
-static void insert_asm_ret(gimple stmt)
+static void insert_asm_ret(greturn *stmt)
 {
 	tree ret;
 
@@ -543,7 +551,7 @@ static void insert_asm_ret(gimple stmt)
 }
 
 // Determine the correct arg index and arg and insert the asm stmt to mark the stmt.
-static void insert_asm_arg(gimple stmt, unsigned int orig_argnum)
+static void insert_asm_arg(gcall *stmt, unsigned int orig_argnum)
 {
 	tree arg;
 	unsigned int argnum;
@@ -620,7 +628,7 @@ static void search_interesting_args(tree fndecl, bool *argnums)
  * Look up the intentional_overflow attribute that turns off ipa based duplication
  * on the callee function.
  */
-static bool is_mark_turn_off_attribute(gimple stmt)
+static bool is_mark_turn_off_attribute(gcall *stmt)
 {
 	enum mark mark;
 	const_tree fndecl = gimple_call_fndecl(stmt);
@@ -632,7 +640,7 @@ static bool is_mark_turn_off_attribute(gimple stmt)
 }
 
 // If the argument(s) of the callee function is/are in the hash table or are marked by an attribute then mark the call stmt with an asm stmt
-static void handle_interesting_function(gimple stmt)
+static void handle_interesting_function(gcall *stmt)
 {
 	unsigned int argnum;
 	tree fndecl;
@@ -658,7 +666,7 @@ static void handle_interesting_function(gimple stmt)
 }
 
 // If the return value of the caller function is in hash table (its index is 0) then mark the return stmt with an asm stmt
-static void handle_interesting_ret(gimple stmt)
+static void handle_interesting_ret(greturn *stmt)
 {
 	bool orig_argnums[MAX_PARAM + 1] = {false};
 
@@ -679,13 +687,13 @@ static unsigned int search_interesting_functions(void)
 		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
 			gimple stmt = gsi_stmt(gsi);
 
-			if (is_size_overflow_asm(stmt))
+			if (gimple_code(stmt) == GIMPLE_ASM && is_size_overflow_asm(as_a_const_gasm(stmt)))
 				continue;
 
 			if (is_gimple_call(stmt))
-				handle_interesting_function(stmt);
+				handle_interesting_function(as_a_gcall(stmt));
 			else if (gimple_code(stmt) == GIMPLE_RETURN)
-				handle_interesting_ret(stmt);
+				handle_interesting_ret(as_a_greturn(stmt));
 		}
 	}
 	return 0;
@@ -697,6 +705,7 @@ static unsigned int search_interesting_functions(void)
  * that the ipa pass will detect and insert the size overflow checks for.
  */
 #if BUILDING_GCC_VERSION >= 4009
+namespace {
 static const struct pass_data insert_size_overflow_asm_pass_data = {
 #else
 static struct gimple_opt_pass insert_size_overflow_asm_pass = {
@@ -707,7 +716,8 @@ static struct gimple_opt_pass insert_size_overflow_asm_pass = {
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
 #endif
-#if BUILDING_GCC_VERSION >= 4009
+#if BUILDING_GCC_VERSION >= 5000
+#elif BUILDING_GCC_VERSION == 4009
 		.has_gate		= false,
 		.has_execute		= true,
 #else
@@ -729,20 +739,24 @@ static struct gimple_opt_pass insert_size_overflow_asm_pass = {
 };
 
 #if BUILDING_GCC_VERSION >= 4009
-namespace {
 class insert_size_overflow_asm_pass : public gimple_opt_pass {
 public:
 	insert_size_overflow_asm_pass() : gimple_opt_pass(insert_size_overflow_asm_pass_data, g) {}
+#if BUILDING_GCC_VERSION >= 5000
+	virtual unsigned int execute(function *) { return search_interesting_functions(); }
+#else
 	unsigned int execute() { return search_interesting_functions(); }
+#endif
 };
 }
-#endif
 
+opt_pass *make_insert_size_overflow_asm_pass(void)
+{
+	return new insert_size_overflow_asm_pass();
+}
+#else
 struct opt_pass *make_insert_size_overflow_asm_pass(void)
 {
-#if BUILDING_GCC_VERSION >= 4009
-	return new insert_size_overflow_asm_pass();
-#else
 	return &insert_size_overflow_asm_pass.pass;
-#endif
 }
+#endif

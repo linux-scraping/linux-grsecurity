@@ -149,11 +149,11 @@ static struct srcu_struct pmus_srcu;
  *   3 - disallow all unpriv perf event use
  */
 #ifdef CONFIG_GRKERNSEC_PERF_HARDEN
-int sysctl_perf_event_legitimately_concerned __read_mostly = 3;
+int sysctl_perf_event_legitimately_concerned __read_only = 3;
 #elif defined(CONFIG_GRKERNSEC_HIDESYM)
-int sysctl_perf_event_legitimately_concerned __read_mostly = 2;
+int sysctl_perf_event_legitimately_concerned __read_only = 2;
 #else
-int sysctl_perf_event_legitimately_concerned __read_mostly = 1;
+int sysctl_perf_event_legitimately_concerned __read_only = 1;
 #endif
 
 /* Minimum for 512 kiB + 1 user control page */

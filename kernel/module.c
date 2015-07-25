@@ -111,7 +111,7 @@ struct list_head *kdb_modules = &modules; /* kdb needs the list of modules */
 
 
 /* Block module loading/unloading? */
-int modules_disabled = 0;
+int modules_disabled __read_only = 0;
 
 /* Waiting for a module to finish initializing? */
 static DECLARE_WAIT_QUEUE_HEAD(module_wq);

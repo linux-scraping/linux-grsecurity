@@ -782,9 +782,9 @@ char *uuid_string(char *buf, char *end, const u8 *addr,
 }
 
 #ifdef CONFIG_GRKERNSEC_HIDESYM
-int kptr_restrict __read_mostly = 2;
+int kptr_restrict __read_only = 2;
 #else
-int kptr_restrict __read_mostly;
+int kptr_restrict __read_only;
 #endif
 
 /*

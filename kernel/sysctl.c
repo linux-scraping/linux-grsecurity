@@ -116,6 +116,7 @@ extern int sysctl_nr_trim_pages;
 #ifdef CONFIG_BLOCK
 extern int blk_iopoll_enabled;
 #endif
+extern int sysctl_modify_ldt;
 
 /* Constants used for minimum and  maximum */
 #ifdef CONFIG_LOCKUP_DETECTOR
@@ -172,7 +173,7 @@ static int proc_taint(struct ctl_table *table, int write,
 			       void __user *buffer, size_t *lenp, loff_t *ppos);
 #endif
 
-static int proc_dointvec_minmax_sysadmin(struct ctl_table *table, int write,
+static int proc_dointvec_minmax_secure_sysadmin(struct ctl_table *table, int write,
 				void __user *buffer, size_t *lenp, loff_t *ppos);
 
 static int proc_dointvec_minmax_coredump(struct ctl_table *table, int write,
@@ -599,7 +600,7 @@ static struct ctl_table kern_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		/* only handle a transition from default "0" to "1" */
-		.proc_handler	= proc_dointvec_minmax,
+		.proc_handler	= proc_dointvec_minmax_secure,
 		.extra1		= &one,
 		.extra2		= &one,
 	},
@@ -754,7 +755,7 @@ static struct ctl_table kern_table[] = {
 		.data		= &dmesg_restrict,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
-		.proc_handler	= proc_dointvec_minmax_sysadmin,
+		.proc_handler	= proc_dointvec_minmax_secure_sysadmin,
 		.extra1		= &zero,
 		.extra2		= &one,
 	},
@@ -764,7 +765,7 @@ static struct ctl_table kern_table[] = {
 		.data		= &kptr_restrict,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
-		.proc_handler	= proc_dointvec_minmax_sysadmin,
+		.proc_handler	= proc_dointvec_minmax_secure_sysadmin,
 #ifdef CONFIG_GRKERNSEC_HIDESYM
 		.extra1		= &two,
 #else
@@ -875,6 +876,15 @@ static struct ctl_table kern_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
+	},
+	{
+		.procname	= "modify_ldt",
+		.data		= &sysctl_modify_ldt,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax_secure_sysadmin,
+		.extra1		= &zero,
+		.extra2		= &one,
 	},
 #endif
 #if defined(CONFIG_MMU)
@@ -1006,7 +1016,7 @@ static struct ctl_table kern_table[] = {
 		.maxlen		= sizeof(sysctl_perf_event_legitimately_concerned),
 		.mode		= 0644,
 		/* go ahead, be a hero */
-		.proc_handler	= proc_dointvec_minmax_sysadmin,
+		.proc_handler	= proc_dointvec_minmax_secure_sysadmin,
 		.extra1		= &neg_one,
 #ifdef CONFIG_GRKERNSEC_PERF_HARDEN
 		.extra2		= &three,
@@ -2471,6 +2481,44 @@ int proc_dointvec(struct ctl_table *table, int write,
 		    	    NULL,NULL);
 }
 
+static int do_proc_dointvec_conv_secure(bool *negp, unsigned long *lvalp,
+				 int *valp,
+				 int write, void *data)
+{
+	if (write) {
+		if (*negp) {
+			if (*lvalp > (unsigned long) INT_MAX + 1)
+				return -EINVAL;
+			pax_open_kernel();
+			*valp = -*lvalp;
+			pax_close_kernel();
+		} else {
+			if (*lvalp > (unsigned long) INT_MAX)
+				return -EINVAL;
+			pax_open_kernel();
+			*valp = *lvalp;
+			pax_close_kernel();
+		}
+	} else {
+		int val = *valp;
+		if (val < 0) {
+			*negp = true;
+			*lvalp = (unsigned long)-val;
+		} else {
+			*negp = false;
+			*lvalp = (unsigned long)val;
+		}
+	}
+	return 0;
+}
+
+int proc_dointvec_secure(struct ctl_table *table, int write,
+		     void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+    return do_proc_dointvec(table,write,buffer,lenp,ppos,
+		    	    do_proc_dointvec_conv_secure,NULL);
+}
+
 /*
  * Taint values can only be increased
  * This means we can safely use a temporary.
@@ -2506,13 +2554,13 @@ static int proc_taint(struct ctl_table *table, int write,
 	return err;
 }
 
-static int proc_dointvec_minmax_sysadmin(struct ctl_table *table, int write,
+static int proc_dointvec_minmax_secure_sysadmin(struct ctl_table *table, int write,
 				void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	if (write && !capable(CAP_SYS_ADMIN))
 		return -EPERM;
 
-	return proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+	return proc_dointvec_minmax_secure(table, write, buffer, lenp, ppos);
 }
 
 struct do_proc_dointvec_minmax_conv_param {
@@ -2531,6 +2579,32 @@ static int do_proc_dointvec_minmax_conv(bool *negp, unsigned long *lvalp,
 		    (param->max && *param->max < val))
 			return -EINVAL;
 		*valp = val;
+	} else {
+		int val = *valp;
+		if (val < 0) {
+			*negp = true;
+			*lvalp = (unsigned long)-val;
+		} else {
+			*negp = false;
+			*lvalp = (unsigned long)val;
+		}
+	}
+	return 0;
+}
+
+static int do_proc_dointvec_minmax_conv_secure(bool *negp, unsigned long *lvalp,
+					int *valp,
+					int write, void *data)
+{
+	struct do_proc_dointvec_minmax_conv_param *param = data;
+	if (write) {
+		int val = *negp ? -*lvalp : *lvalp;
+		if ((param->min && *param->min > val) ||
+		    (param->max && *param->max < val))
+			return -EINVAL;
+		pax_open_kernel();
+		*valp = val;
+		pax_close_kernel();
 	} else {
 		int val = *valp;
 		if (val < 0) {
@@ -2569,6 +2643,17 @@ int proc_dointvec_minmax(struct ctl_table *table, int write,
 	};
 	return do_proc_dointvec(table, write, buffer, lenp, ppos,
 				do_proc_dointvec_minmax_conv, &param);
+}
+
+int proc_dointvec_minmax_secure(struct ctl_table *table, int write,
+		  void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	struct do_proc_dointvec_minmax_conv_param param = {
+		.min = (int *) table->extra1,
+		.max = (int *) table->extra2,
+	};
+	return do_proc_dointvec(table, write, buffer, lenp, ppos,
+				do_proc_dointvec_minmax_conv_secure, &param);
 }
 
 static void validate_coredump_safety(void)

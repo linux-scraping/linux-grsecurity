@@ -1,8 +1,9 @@
 /*
- * Copyright 2011-2014 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011-2015 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2, or (at your option) v3
  *
  * Homepage:
+ * https://github.com/ephox-gcc-plugins
  * http://www.grsecurity.net/~ephox/overflow_plugin/
  *
  * Documentation:
@@ -34,6 +35,20 @@ void unset_current_function_decl(void)
 	free_dominance_info(CDI_DOMINATORS);
 	pop_cfun();
 	current_function_decl = NULL_TREE;
+}
+
+tree get_lhs(const_gimple stmt)
+{
+	switch (gimple_code(stmt)) {
+	case GIMPLE_ASSIGN:
+	case GIMPLE_CALL:
+		return gimple_get_lhs(as_a_const_gassign(stmt));
+	case GIMPLE_PHI:
+		return gimple_phi_result(as_a_const_gphi(stmt));
+	default:
+		debug_gimple_stmt((gimple)stmt);
+		gcc_unreachable();
+	}
 }
 
 static bool is_bool(const_tree node)
@@ -147,7 +162,8 @@ tree cast_a_tree(tree type, tree var)
 
 gimple build_cast_stmt(struct visited *visited, tree dst_type, tree rhs, tree lhs, gimple_stmt_iterator *gsi, bool before, bool force)
 {
-	gimple assign, def_stmt;
+	gimple def_stmt;
+	gassign *assign;
 
 	gcc_assert(dst_type != NULL_TREE && rhs != NULL_TREE);
 	gcc_assert(!is_gimple_constant(rhs));
