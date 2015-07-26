@@ -932,7 +932,7 @@ static int kimage_load_segment(struct kimage *image,
  */
 struct kimage *kexec_image;
 struct kimage *kexec_crash_image;
-int kexec_load_disabled;
+int kexec_load_disabled __read_only;
 
 static DEFINE_MUTEX(kexec_mutex);
 
