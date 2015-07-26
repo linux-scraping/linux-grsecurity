@@ -209,8 +209,6 @@ static int __init setup_pax_nouderef(char *str)
 	memcpy(pax_exit_kernel_user, (unsigned char []){0xc3}, 1);
 	clone_pgd_mask = ~(pgdval_t)0UL;
 	pax_user_shadow_base = 0UL;
-	setup_clear_cpu_cap(X86_FEATURE_PCID);
-	setup_clear_cpu_cap(X86_FEATURE_INVPCID);
 #endif
 
 	return 0;

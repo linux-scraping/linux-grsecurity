@@ -1968,6 +1968,10 @@ ENTRY(nmi)
 	pushq	%r14		/* pt_regs->r14 */
 	pushq	%r15		/* pt_regs->r15 */
 
+#if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
+	xorl %ebx,%ebx
+#endif
+
 	pax_enter_kernel_nmi
 
 	/*
@@ -1994,8 +1998,12 @@ ENTRY(nmi)
 	 * register layouts across different kernel versions.
 	 */
 
+#if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
+	movq	RBX(%rsp), %rbx	/* pt_regs->rbx*/
+#endif
+
 #ifdef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
-	movq	R12(%rsp), %r12
+	movq	R12(%rsp), %r12	/* pt_regs->r12*/
 #endif
 
 	addq	$6*8, %rsp	/* skip bx, bp, and r12-r15 */

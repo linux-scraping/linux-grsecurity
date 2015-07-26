@@ -668,7 +668,7 @@ static struct ctl_table kern_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		/* only handle a transition from default "0" to "1" */
-		.proc_handler	= proc_dointvec_minmax,
+		.proc_handler	= proc_dointvec_minmax_secure,
 		.extra1		= &one,
 		.extra2		= &one,
 	},
