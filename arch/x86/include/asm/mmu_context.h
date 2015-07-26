@@ -44,7 +44,7 @@ static inline void enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk)
 {
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	if (!(static_cpu_has(X86_FEATURE_PCID))) {
+	if (!(static_cpu_has(X86_FEATURE_PCIDUDEREF))) {
 		unsigned int i;
 		pgd_t *pgd;
 
@@ -85,7 +85,7 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 		pax_open_kernel();
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-		if (static_cpu_has(X86_FEATURE_PCID))
+		if (static_cpu_has(X86_FEATURE_PCIDUDEREF))
 			__clone_user_pgds(get_cpu_pgd(cpu, user), next->pgd);
 		else
 #endif
@@ -96,7 +96,7 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 		BUG_ON((__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL) != (read_cr3() & __PHYSICAL_MASK) && (__pa(get_cpu_pgd(cpu, user)) | PCID_USER) != (read_cr3() & __PHYSICAL_MASK));
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-		if (static_cpu_has(X86_FEATURE_PCID)) {
+		if (static_cpu_has(X86_FEATURE_PCIDUDEREF)) {
 			if (static_cpu_has(X86_FEATURE_INVPCID)) {
 				u64 descriptor[2];
 				descriptor[0] = PCID_USER;
@@ -168,7 +168,7 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 		pax_open_kernel();
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-		if (static_cpu_has(X86_FEATURE_PCID))
+		if (static_cpu_has(X86_FEATURE_PCIDUDEREF))
 			__clone_user_pgds(get_cpu_pgd(cpu, user), next->pgd);
 		else
 #endif
@@ -179,7 +179,7 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 		BUG_ON((__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL) != (read_cr3() & __PHYSICAL_MASK) && (__pa(get_cpu_pgd(cpu, user)) | PCID_USER) != (read_cr3() & __PHYSICAL_MASK));
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-		if (static_cpu_has(X86_FEATURE_PCID)) {
+		if (static_cpu_has(X86_FEATURE_PCIDUDEREF)) {
 			if (static_cpu_has(X86_FEATURE_INVPCID)) {
 				u64 descriptor[2];
 				descriptor[0] = PCID_USER;

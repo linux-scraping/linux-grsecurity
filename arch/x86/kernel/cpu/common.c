@@ -292,6 +292,8 @@ static void setup_pcid(struct cpuinfo_x86 *c)
 		return;
 	}
 
+	set_cpu_cap(c, X86_FEATURE_PCIDUDEREF);
+
 	pax_open_kernel();
 	clone_pgd_mask = ~(pgdval_t)0UL;
 	pax_close_kernel();

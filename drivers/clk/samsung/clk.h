@@ -121,7 +121,7 @@ struct samsung_mux_clock {
 	unsigned int		id;
 	const char		*dev_name;
 	const char		*name;
-	const char		**parent_names;
+	const char		* const *parent_names;
 	u8			num_parents;
 	unsigned long		flags;
 	unsigned long		offset;

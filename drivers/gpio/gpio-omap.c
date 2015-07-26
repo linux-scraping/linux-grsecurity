@@ -1054,7 +1054,7 @@ static void omap_gpio_mod_init(struct gpio_bank *bank)
 		dev_err(bank->dev, "Could not get gpio dbck\n");
 }
 
-static int omap_gpio_chip_init(struct gpio_bank *bank, struct irq_chip *irqc)
+static int omap_gpio_chip_init(struct gpio_bank *bank, irq_chip_no_const *irqc)
 {
 	static int gpio;
 	int irq_base = 0;
