@@ -95,7 +95,7 @@ static inline void __native_flush_tlb(void)
 	}
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	if (static_cpu_has(X86_FEATURE_PCIDUDEREF)) {
+	if (static_cpu_has(X86_FEATURE_PCID)) {
 		unsigned int cpu = raw_get_cpu();
 
 		native_write_cr3(__pa(get_cpu_pgd(cpu, user)) | PCID_USER);
@@ -151,16 +151,14 @@ static inline void __native_flush_tlb_single(unsigned long addr)
 		descriptor[1] = addr;
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-		if (static_cpu_has(X86_FEATURE_PCIDUDEREF)) {
-			if (!static_cpu_has(X86_FEATURE_STRONGUDEREF) || addr >= TASK_SIZE_MAX) {
-				if (addr < TASK_SIZE_MAX)
-					descriptor[1] += pax_user_shadow_base;
-				asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_ADDRESS) : "memory");
-			}
-
-			descriptor[0] = PCID_USER;
-			descriptor[1] = addr;
+		if (!static_cpu_has(X86_FEATURE_STRONGUDEREF) || addr >= TASK_SIZE_MAX) {
+			if (addr < TASK_SIZE_MAX)
+				descriptor[1] += pax_user_shadow_base;
+			asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_ADDRESS) : "memory");
 		}
+
+		descriptor[0] = PCID_USER;
+		descriptor[1] = addr;
 #endif
 
 		asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_ADDRESS) : "memory");
@@ -168,7 +166,7 @@ static inline void __native_flush_tlb_single(unsigned long addr)
 	}
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-	if (static_cpu_has(X86_FEATURE_PCIDUDEREF)) {
+	if (static_cpu_has(X86_FEATURE_PCID)) {
 		unsigned int cpu = raw_get_cpu();
 
 		native_write_cr3(__pa(get_cpu_pgd(cpu, user)) | PCID_USER | PCID_NOFLUSH);
