@@ -5384,18 +5384,16 @@ static int get_bitmap_file(struct mddev * mddev, void __user * arg)
 	int err = -ENOMEM;
 
 	if (md_allow_write(mddev))
-		file = kmalloc(sizeof(*file), GFP_NOIO);
+		file = kzalloc(sizeof(*file), GFP_NOIO);
 	else
-		file = kmalloc(sizeof(*file), GFP_KERNEL);
+		file = kzalloc(sizeof(*file), GFP_KERNEL);
 
 	if (!file)
 		goto out;
 
-	/* bitmap disabled, zero the first byte and copy out */
-	if (!mddev->bitmap || !mddev->bitmap->file) {
-		file->pathname[0] = '\0';
+	/* bitmap disabled, copy out */
+	if (!mddev->bitmap || !mddev->bitmap->file)
 		goto copy_out;
-	}
 
 	buf = kmalloc(sizeof(file->pathname), GFP_KERNEL);
 	if (!buf)
