@@ -37,6 +37,7 @@ static struct plugin_info stackleak_plugin_info = {
 
 static void stackleak_check_alloca(gimple_stmt_iterator *gsi)
 {
+	gimple stmt;
 	gcall *check_alloca;
 	tree alloca_size;
 	cgraph_node_ptr node;
@@ -45,7 +46,8 @@ static void stackleak_check_alloca(gimple_stmt_iterator *gsi)
 
 	// insert call to void pax_check_alloca(unsigned long size)
 	alloca_size = gimple_call_arg(gsi_stmt(*gsi), 0);
-	check_alloca = gimple_build_call(check_function_decl, 1, alloca_size);
+	stmt = gimple_build_call(check_function_decl, 1, alloca_size);
+	check_alloca = as_a_gcall(stmt);
 	gsi_insert_before(gsi, check_alloca, GSI_SAME_STMT);
 
 	// update the cgraph
@@ -58,13 +60,15 @@ static void stackleak_check_alloca(gimple_stmt_iterator *gsi)
 
 static void stackleak_add_instrumentation(gimple_stmt_iterator *gsi)
 {
+	gimple stmt;
 	gcall *track_stack;
 	cgraph_node_ptr node;
 	int frequency;
 	basic_block bb;
 
 	// insert call to void pax_track_stack(void)
-	track_stack = gimple_build_call(track_function_decl, 0);
+	stmt = gimple_build_call(track_function_decl, 0);
+	track_stack = as_a_gcall(stmt);
 	gsi_insert_after(gsi, track_stack, GSI_CONTINUE_LINKING);
 
 	// update the cgraph

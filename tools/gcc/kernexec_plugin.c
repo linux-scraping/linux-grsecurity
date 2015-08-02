@@ -32,10 +32,12 @@ static void (*kernexec_instrument_retaddr)(rtx);
  */
 static void kernexec_reload_fptr_mask(gimple_stmt_iterator *gsi)
 {
+	gimple stmt;
 	gasm *asm_movabs_stmt;
 
 	// build asm volatile("movabs $0x8000000000000000, %%r12\n\t" : : : );
-	asm_movabs_stmt = gimple_build_asm_vec("movabs $0x8000000000000000, %%r12\n\t", NULL, NULL, NULL, NULL);
+	stmt = gimple_build_asm_vec("movabs $0x8000000000000000, %%r12\n\t", NULL, NULL, NULL, NULL);
+	asm_movabs_stmt = as_a_gasm(stmt);
 	gimple_asm_set_volatile(asm_movabs_stmt, true);
 	gsi_insert_after(gsi, asm_movabs_stmt, GSI_CONTINUE_LINKING);
 	update_stmt(asm_movabs_stmt);
@@ -129,6 +131,7 @@ static void kernexec_instrument_fptr_bts(gimple_stmt_iterator *gsi)
 
 static void kernexec_instrument_fptr_or(gimple_stmt_iterator *gsi)
 {
+	gimple stmt;
 	gasm *asm_or_stmt;
 	gcall *call_stmt;
 	tree old_fptr, new_fptr, input, output;
@@ -160,7 +163,8 @@ static void kernexec_instrument_fptr_or(gimple_stmt_iterator *gsi)
 	vec_safe_push(inputs, input);
 	vec_safe_push(outputs, output);
 #endif
-	asm_or_stmt = gimple_build_asm_vec("orq %%r12, %0\n\t", inputs, outputs, NULL, NULL);
+	stmt = gimple_build_asm_vec("orq %%r12, %0\n\t", inputs, outputs, NULL, NULL);
+	asm_or_stmt = as_a_gasm(stmt);
 	SSA_NAME_DEF_STMT(new_fptr) = asm_or_stmt;
 	gimple_asm_set_volatile(asm_or_stmt, true);
 	gsi_insert_before(gsi, asm_or_stmt, GSI_SAME_STMT);
