@@ -3289,7 +3289,7 @@ static int file_map_prot_check(struct file *file, unsigned long prot, int shared
 
 	if (default_noexec &&
 	    (prot & PROT_EXEC) && (!file || IS_PRIVATE(file_inode(file)) ||
-	    (!shared && (prot & PROT_WRITE)))) {
+				   (!shared && (prot & PROT_WRITE)))) {
 		/*
 		 * We are making executable an anonymous mapping or a
 		 * private file mapping that will also be writable.

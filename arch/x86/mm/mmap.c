@@ -150,3 +150,10 @@ void arch_pick_mmap_layout(struct mm_struct *mm)
 #endif
 
 }
+
+const char *arch_vma_name(struct vm_area_struct *vma)
+{
+	if (vma->vm_flags & VM_MPX)
+		return "[mpx]";
+	return NULL;
+}

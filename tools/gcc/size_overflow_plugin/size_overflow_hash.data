@@ -5787,7 +5787,8 @@ nvkm_i2c_pad_create__13292 nvkm_i2c_pad_create_ 5 13292 NULL
 sd_major_13294 sd_major 0-1 13294 NULL
 cx23885_start_audio_dma_13295 cx23885_start_audio_dma 0 13295 NULL
 map_offset_show_13301 map_offset_show 0 13301 NULL
-set_ptk_13304 set_ptk 0 13304 NULL
+set_ptk_13304 set_ptk 0 13304 NULL nohasharray
+__jbd2_update_log_tail_13304 __jbd2_update_log_tail 0 13304 &set_ptk_13304
 store_13310 store 0 13310 NULL
 saa7134_s_ctrl_13313 saa7134_s_ctrl 0 13313 NULL
 read_file_phy_err_13318 read_file_phy_err 3-0 13318 NULL nohasharray
@@ -13110,6 +13111,7 @@ cyber2000fb_set_par_30056 cyber2000fb_set_par 0 30056 &dev_attribute_show_30056
 __pci_request_selected_regions_30058 __pci_request_selected_regions 0 30058 NULL
 SyS_write_30059 SyS_write 3 30059 NULL
 general_stats_read_30067 general_stats_read 0 30067 NULL
+jbd2_log_do_checkpoint_30069 jbd2_log_do_checkpoint 0 30069 NULL
 capture_pcm_prepare_30072 capture_pcm_prepare 0 30072 NULL
 snd_seq_timer_open_30077 snd_seq_timer_open 0 30077 NULL
 m5602_write_sensor_30078 m5602_write_sensor 0 30078 NULL nohasharray
@@ -13145,6 +13147,7 @@ dbg_port_buf_30145 dbg_port_buf 2 30145 NULL
 start_transfer_30146 start_transfer 0 30146 NULL
 ext4_write_inline_data_end_30151 ext4_write_inline_data_end 0-4 30151 NULL
 hvfb_check_var_30153 hvfb_check_var 0 30153 NULL
+jbd2_write_superblock_30154 jbd2_write_superblock 0 30154 NULL
 elfcorehdr_read_30159 elfcorehdr_read 2 30159 NULL
 netlink_realloc_groups_30162 netlink_realloc_groups 0 30162 NULL nohasharray
 start_stop_khugepaged_30162 start_stop_khugepaged 0 30162 &netlink_realloc_groups_30162
@@ -27324,6 +27327,7 @@ iscsit_ta_demo_mode_write_protect_62998 iscsit_ta_demo_mode_write_protect 0 6299
 generic_file_fsync_62999 generic_file_fsync 0 62999 NULL
 asus_wmi_get_devstate_63000 asus_wmi_get_devstate 0 63000 NULL
 hash_max_show_63001 hash_max_show 0 63001 NULL
+jbd2_journal_update_sb_log_tail_63005 jbd2_journal_update_sb_log_tail 0 63005 NULL
 get_skb_63008 get_skb 2 63008 NULL
 __ext3_journal_stop_63017 __ext3_journal_stop 0 63017 NULL
 __sctp_connect_63020 __sctp_connect 0 63020 NULL
@@ -27750,7 +27754,8 @@ usbnet_change_mtu_64051 usbnet_change_mtu 0 64051 &dvb_dmxdev_ts_callback_64051
 qlcnic_alloc_sw_resources_64057 qlcnic_alloc_sw_resources 0 64057 NULL
 tps65912_reg_disable_64058 tps65912_reg_disable 0 64058 NULL
 alloc_codec_buffers_64063 alloc_codec_buffers 0 64063 NULL
-start_hw_64065 start_hw 0 64065 NULL
+start_hw_64065 start_hw 0 64065 NULL nohasharray
+jbd2_cleanup_journal_tail_64065 jbd2_cleanup_journal_tail 0 64065 &start_hw_64065
 nfs4_lookup_root_64067 nfs4_lookup_root 0 64067 NULL
 __sock_create_64069 __sock_create 0 64069 NULL
 pcifront_bus_write_64071 pcifront_bus_write 0 64071 NULL
