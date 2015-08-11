@@ -25,7 +25,16 @@ static void seq_set_overflow(struct seq_file *m)
 
 static void *seq_buf_alloc(unsigned long size)
 {
-	return kmalloc(size, GFP_KERNEL | GFP_USERCOPY);
+	void *buf;
+
+	/*
+	 * __GFP_NORETRY to avoid oom-killings with high-order allocations -
+	 * it's better to fall back to vmalloc() than to kill things.
+	 */
+	buf = kmalloc(size, GFP_KERNEL | GFP_USERCOPY | __GFP_NORETRY | __GFP_NOWARN);
+	if (!buf && size > PAGE_SIZE)
+		buf = vmalloc_usercopy(size);
+	return buf;
 }
 
 /**

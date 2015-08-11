@@ -1129,7 +1129,6 @@ long drm_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	 * than always failing.
 	 */
 	if (nr >= ARRAY_SIZE(drm_compat_ioctls))
-
 		return drm_ioctl(filp, cmd, arg);
 
 	if (drm_compat_ioctls[nr] != NULL)

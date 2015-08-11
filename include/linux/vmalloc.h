@@ -23,6 +23,9 @@ struct vm_area_struct;		/* vma defining user mapping in mm_types.h */
 #define VM_KERNEXEC		0x00000100	/* allocate from executable kernel memory range */
 #endif
 
+#define VM_USERCOPY		0x00000200	/* allocation intended for copies to userland */
+
+
 /* bits [20..32] reserved for arch specific ioremap internals */
 
 /*
@@ -72,6 +75,7 @@ static inline void vmalloc_init(void)
 #endif
 
 extern void *vmalloc(unsigned long size);
+extern void *vmalloc_usercopy(unsigned long size);
 extern void *vzalloc(unsigned long size);
 extern void *vmalloc_user(unsigned long size);
 extern void *vmalloc_node(unsigned long size, int node);

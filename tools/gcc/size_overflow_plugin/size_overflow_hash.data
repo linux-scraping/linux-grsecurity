@@ -3621,6 +3621,7 @@ open_candev_8354 open_candev 0 8354 &prop_compression_apply_8354
 generic_write_sync_8358 generic_write_sync 0 8358 NULL
 qlcnic_open_8359 qlcnic_open 0 8359 NULL
 isku_sysfs_write_talk_8360 isku_sysfs_write_talk 6-0-5 8360 NULL
+vmalloc_usercopy_8361 vmalloc_usercopy 1 8361 NULL
 ath6kl_lrssi_roam_write_8362 ath6kl_lrssi_roam_write 3-0 8362 NULL nohasharray
 batadv_sysfs_add_vlan_8362 batadv_sysfs_add_vlan 0 8362 &ath6kl_lrssi_roam_write_8362
 alloc_sleep_millisecs_store_8364 alloc_sleep_millisecs_store 0-4 8364 NULL

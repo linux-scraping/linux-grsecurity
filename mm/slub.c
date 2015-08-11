@@ -3410,6 +3410,17 @@ bool is_usercopy_object(const void *ptr)
 	if (!slab_is_available())
 		return false;
 
+	if (is_vmalloc_addr(ptr)
+#ifdef CONFIG_GRKERNSEC_KSTACKOVERFLOW
+	    && !object_starts_on_stack(ptr)
+#endif
+	) {
+		struct vm_struct *vm = find_vm_area(ptr);
+		if (vm && (vm->flags & VM_USERCOPY))
+			return true;
+		return false;
+	}
+
 	if (!virt_addr_valid(ptr))
 		return false;
 

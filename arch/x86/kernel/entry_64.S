@@ -392,6 +392,7 @@ ENDPROC(pax_exit_kernel_user)
 #endif
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
+	ALTERNATIVE "jmp 111f", "", X86_FEATURE_PCID
 	btr $2,%ebx
 	jnc 111f
 	GET_CR3_INTO_RDI
@@ -2222,12 +2223,13 @@ end_repeat_nmi:
 	movq $-1,%rsi
 	call do_nmi
 
+	pax_exit_kernel_nmi
+
 	testl $1,%ebx				/* swapgs needed? */
 	jnz nmi_restore
 nmi_swapgs:
 	SWAPGS_UNSAFE_STACK
 nmi_restore:
-	pax_exit_kernel_nmi
 	RESTORE_EXTRA_REGS
 	RESTORE_C_REGS
 

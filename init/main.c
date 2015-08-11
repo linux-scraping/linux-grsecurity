@@ -180,54 +180,6 @@ static int __init setup_grsec_sysfs_restrict(char *str)
 __setup("grsec_sysfs_restrict", setup_grsec_sysfs_restrict);
 #endif
 
-#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-unsigned long pax_user_shadow_base __read_only;
-EXPORT_SYMBOL(pax_user_shadow_base);
-extern char pax_enter_kernel_user[];
-extern char pax_exit_kernel_user[];
-#endif
-
-#if defined(CONFIG_X86) && defined(CONFIG_PAX_MEMORY_UDEREF)
-static int __init setup_pax_nouderef(char *str)
-{
-#ifdef CONFIG_X86_32
-	unsigned int cpu;
-	struct desc_struct *gdt;
-
-	for (cpu = 0; cpu < nr_cpu_ids; cpu++) {
-		gdt = get_cpu_gdt_table(cpu);
-		gdt[GDT_ENTRY_KERNEL_DS].type = 3;
-		gdt[GDT_ENTRY_KERNEL_DS].limit = 0xf;
-		gdt[GDT_ENTRY_DEFAULT_USER_CS].limit = 0xf;
-		gdt[GDT_ENTRY_DEFAULT_USER_DS].limit = 0xf;
-	}
-	loadsegment(ds, __KERNEL_DS);
-	loadsegment(es, __KERNEL_DS);
-	loadsegment(ss, __KERNEL_DS);
-#else
-	memcpy(pax_enter_kernel_user, (unsigned char []){0xc3}, 1);
-	memcpy(pax_exit_kernel_user, (unsigned char []){0xc3}, 1);
-	clone_pgd_mask = ~(pgdval_t)0UL;
-	pax_user_shadow_base = 0UL;
-	setup_clear_cpu_cap(X86_FEATURE_PCID);
-	setup_clear_cpu_cap(X86_FEATURE_INVPCID);
-#endif
-
-	return 0;
-}
-early_param("pax_nouderef", setup_pax_nouderef);
-
-#ifdef CONFIG_X86_64
-static int __init setup_pax_weakuderef(char *str)
-{
-	if (clone_pgd_mask != ~(pgdval_t)0UL)
-		pax_user_shadow_base = 1UL << TASK_SIZE_MAX_SHIFT;
-	return 1;
-}
-__setup("pax_weakuderef", setup_pax_weakuderef);
-#endif
-#endif
-
 #ifdef CONFIG_PAX_SOFTMODE
 int pax_softmode;
 

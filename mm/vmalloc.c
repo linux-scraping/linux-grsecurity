@@ -1856,6 +1856,14 @@ static void *__vmalloc_node(unsigned long size, unsigned long align,
 				gfp_mask, prot, 0, node, caller);
 }
 
+void *vmalloc_usercopy(unsigned long size)
+{
+	return __vmalloc_node_range(size, 1, VMALLOC_START, VMALLOC_END,
+				    GFP_KERNEL | __GFP_HIGHMEM, PAGE_KERNEL,
+				    VM_USERCOPY, NUMA_NO_NODE,
+				    __builtin_return_address(0));
+}
+
 void *__vmalloc(unsigned long size, gfp_t gfp_mask, pgprot_t prot)
 {
 	return __vmalloc_node(size, 1, gfp_mask, prot, NUMA_NO_NODE,

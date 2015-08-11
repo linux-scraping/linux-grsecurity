@@ -214,6 +214,7 @@
 #define X86_FEATURE_PAUSEFILTER ( 8*32+13) /* AMD filtered pause intercept */
 #define X86_FEATURE_PFTHRESHOLD ( 8*32+14) /* AMD pause filter threshold */
 #define X86_FEATURE_VMMCALL     ( 8*32+15) /* Prefer vmmcall to vmcall */
+#define X86_FEATURE_PCIDUDEREF	( 8*32+30) /* PaX PCID based UDEREF */
 #define X86_FEATURE_STRONGUDEREF (8*32+31) /* PaX PCID based strong UDEREF */
 
 /* Intel-defined CPU features, CPUID level 0x00000007:0 (ebx), word 9 */
@@ -455,7 +456,7 @@ static __always_inline __pure bool __static_cpu_has(u16 bit)
 
 #ifdef CONFIG_X86_DEBUG_STATIC_CPU_HAS
 	t_warn:
-		if (bit != X86_FEATURE_PCID && bit != X86_FEATURE_INVPCID)
+		if (bit != X86_FEATURE_PCID && bit != X86_FEATURE_INVPCID && bit != X86_FEATURE_PCIDUDEREF)
 			warn_pre_alternatives();
 		return false;
 #endif
