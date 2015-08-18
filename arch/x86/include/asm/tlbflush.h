@@ -105,7 +105,6 @@ static inline void __native_flush_tlb(void)
 	}
 #endif
 
-
 	native_write_cr3(native_read_cr3());
 }
 

@@ -1290,7 +1290,6 @@ config X86_PAE
 
 config ARCH_PHYS_ADDR_T_64BIT
 	def_bool y
-	depends on X86_64 || X86_PAE
 
 config ARCH_DMA_ADDR_T_64BIT
 	def_bool y

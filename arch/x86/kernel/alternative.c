@@ -281,6 +281,8 @@ recompute_jump(struct alt_instr *a, u8 *orig_insn, u8 *repl_insn, u8 *insnbuf)
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
 	if (orig_insn < (u8 *)_text || (u8 *)_einittext <= orig_insn)
 		orig_insn = ktva_ktla(orig_insn);
+	else
+		orig_insn -= ____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR;
 #endif
 
 	o_dspl = *(s32 *)(insnbuf + 1);
@@ -353,6 +355,7 @@ void __init_or_module apply_alternatives(struct alt_instr *start,
 {
 	struct alt_instr *a;
 	u8 *instr, *replacement;
+	u8 *vinstr, *vreplacement;
 	u8 insnbuf[MAX_PATCH_LEN];
 
 	DPRINTK("alt table %p -> %p", start, end);
@@ -368,67 +371,71 @@ void __init_or_module apply_alternatives(struct alt_instr *start,
 	for (a = start; a < end; a++) {
 		int insnbuf_sz = 0;
 
-		instr = (u8 *)&a->instr_offset + a->instr_offset;
+		vinstr = instr = (u8 *)&a->instr_offset + a->instr_offset;
 
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
-		if ((u8 *)_text <= instr && instr < (u8 *)_einittext) {
+		if ((u8 *)_text - (____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR) <= instr &&
+		    instr < (u8 *)_einittext - (____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR)) {
 			instr += ____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR;
-			instr = ktla_ktva(instr);
+			vinstr = ktla_ktva(instr);
+		} else if ((u8 *)_text <= instr && instr < (u8 *)_einittext) {
+			vinstr = ktla_ktva(instr);
+		} else {
+			instr = ktva_ktla(instr);
 		}
 #endif
 
-		replacement = (u8 *)&a->repl_offset + a->repl_offset;
+		vreplacement = replacement = (u8 *)&a->repl_offset + a->repl_offset;
 
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
-		if ((u8 *)_text <= replacement && replacement < (u8 *)_einittext) {
+		if ((u8 *)_text - (____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR) <= replacement &&
+		    replacement < (u8 *)_einittext - (____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR)) {
 			replacement += ____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR;
-			replacement = ktla_ktva(replacement);
-		}
+			vreplacement = ktla_ktva(replacement);
+		} else if ((u8 *)_text <= replacement && replacement < (u8 *)_einittext) {
+			vreplacement = ktla_ktva(replacement);
+		} else
+			replacement = ktva_ktla(replacement);
 #endif
 
 		BUG_ON(a->instrlen > sizeof(insnbuf));
 		BUG_ON(a->cpuid >= (NCAPINTS + NBUGINTS) * 32);
 		if (!boot_cpu_has(a->cpuid)) {
 			if (a->padlen > 1)
-				optimize_nops(a, instr);
+				optimize_nops(a, vinstr);
 
 			continue;
 		}
 
-		DPRINTK("feat: %d*32+%d, old: (%p, len: %d), repl: (%p, len: %d), pad: %d",
+		DPRINTK("feat: %d*32+%d, old: (%p/%p, len: %d), repl: (%p, len: %d), pad: %d",
 			a->cpuid >> 5,
 			a->cpuid & 0x1f,
-			instr, a->instrlen,
-			replacement, a->replacementlen, a->padlen);
+			instr, vinstr, a->instrlen,
+			vreplacement, a->replacementlen, a->padlen);
 
-		DUMP_BYTES(instr, a->instrlen, "%p: old_insn: ", instr);
-		DUMP_BYTES(replacement, a->replacementlen, "%p: rpl_insn: ", replacement);
+		DUMP_BYTES(vinstr, a->instrlen, "%p: old_insn: ", vinstr);
+		DUMP_BYTES(vreplacement, a->replacementlen, "%p: rpl_insn: ", vreplacement);
 
-		memcpy(insnbuf, replacement, a->replacementlen);
+		memcpy(insnbuf, vreplacement, a->replacementlen);
 		insnbuf_sz = a->replacementlen;
 
 		/* 0xe8 is a relative jump; fix the offset. */
 		if (*insnbuf == 0xe8 && a->replacementlen == 5) {
-			*(s32 *)(insnbuf + 1) += replacement - instr;
+			*(s32 *)(insnbuf + 1) += vreplacement - vinstr;
 			DPRINTK("Fix CALL offset: 0x%x, CALL 0x%lx",
 				*(s32 *)(insnbuf + 1),
-				(unsigned long)instr + *(s32 *)(insnbuf + 1) + 5);
+				(unsigned long)vinstr + *(s32 *)(insnbuf + 1) + 5);
 		}
 
-		if (a->replacementlen && is_jmp(replacement[0]))
-			recompute_jump(a, instr, replacement, insnbuf);
+		if (a->replacementlen && is_jmp(vreplacement[0]))
+			recompute_jump(a, instr, vreplacement, insnbuf);
 
 		if (a->instrlen > a->replacementlen) {
 			add_nops(insnbuf + a->replacementlen,
 				 a->instrlen - a->replacementlen);
 			insnbuf_sz += a->instrlen - a->replacementlen;
 		}
-		DUMP_BYTES(insnbuf, insnbuf_sz, "%p: final_insn: ", instr);
-
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
-		if (instr < (u8 *)_text || (u8 *)_einittext <= instr)
-			instr = ktva_ktla(instr);
-#endif
+		DUMP_BYTES(insnbuf, insnbuf_sz, "%p: final_insn: ", vinstr);
 
 		text_poke_early(instr, insnbuf, insnbuf_sz);
 	}

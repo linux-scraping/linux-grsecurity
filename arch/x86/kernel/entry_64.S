@@ -91,7 +91,6 @@ ENDPROC(native_usergs_sysret64)
 #if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
 	call pax_exit_kernel
 #endif
-
 	.endm
 
 #if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
@@ -1952,16 +1951,16 @@ ENTRY(nmi)
 	pushq	3*8(%rdx)	/* pt_regs->flags */
 	pushq	2*8(%rdx)	/* pt_regs->cs */
 	pushq	1*8(%rdx)	/* pt_regs->rip */
-	pushq	$-1		/* pt_regs->orig_ax */
-	pushq	%rdi		/* pt_regs->di */
-	pushq	%rsi		/* pt_regs->si */
-	pushq	(%rdx)		/* pt_regs->dx */
-	pushq	%rcx		/* pt_regs->cx */
-	pushq	%rax		/* pt_regs->ax */
-	pushq	%r8		/* pt_regs->r8 */
-	pushq	%r9		/* pt_regs->r9 */
-	pushq	%r10		/* pt_regs->r10 */
-	pushq	%r11		/* pt_regs->r11 */
+	pushq   $-1		/* pt_regs->orig_ax */
+	pushq   %rdi		/* pt_regs->di */
+	pushq   %rsi		/* pt_regs->si */
+	pushq   (%rdx)		/* pt_regs->dx */
+	pushq   %rcx		/* pt_regs->cx */
+	pushq   %rax		/* pt_regs->ax */
+	pushq   %r8		/* pt_regs->r8 */
+	pushq   %r9		/* pt_regs->r9 */
+	pushq   %r10		/* pt_regs->r10 */
+	pushq   %r11		/* pt_regs->r11 */
 	pushq	%rbx		/* pt_regs->rbx */
 	pushq	%rbp		/* pt_regs->rbp */
 	pushq	%r12		/* pt_regs->r12 */
@@ -1980,7 +1979,6 @@ ENTRY(nmi)
 	 * due to nesting -- we're on the normal thread stack and we're
 	 * done with the NMI stack.
 	 */
-
 	movq	%rsp, %rdi
 	movq	$-1, %rsi
 	call	do_nmi
@@ -1994,31 +1992,11 @@ ENTRY(nmi)
 	 */
 	SWAPGS
 
-	/*
-	 * Open-code the entire return process for compatibility with varying
-	 * register layouts across different kernel versions.
-	 */
-
 #if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
-	movq	RBX(%rsp), %rbx	/* pt_regs->rbx*/
+	movq_cfi_restore RBX, rbx
 #endif
 
-#ifdef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
-	movq	R12(%rsp), %r12	/* pt_regs->r12*/
-#endif
-
-	addq	$6*8, %rsp	/* skip bx, bp, and r12-r15 */
-	popq	%r11		/* pt_regs->r11 */
-	popq	%r10		/* pt_regs->r10 */
-	popq	%r9		/* pt_regs->r9 */
-	popq	%r8		/* pt_regs->r8 */
-	popq	%rax		/* pt_regs->ax */
-	popq	%rcx		/* pt_regs->cx */
-	popq	%rdx		/* pt_regs->dx */
-	popq	%rsi		/* pt_regs->si */
-	popq	%rdi		/* pt_regs->di */
-	addq	$8, %rsp	/* skip orig_ax */
-	INTERRUPT_RETURN
+	jmp	restore_c_regs_and_iret
 
 .Lnmi_from_kernel:
 	/*
@@ -2063,10 +2041,12 @@ ENTRY(nmi)
 	 */
 
 	/*
+	 * Determine whether we're a nested NMI.
+	 *
 	 * If we interrupted kernel code between repeat_nmi and
 	 * end_repeat_nmi, then we are a nested NMI.  We must not
 	 * modify the "iret" frame because it's being written by
-	 * the outer NMI.  That's okay: the outer NMI handler is
+	 * the outer NMI.  That's okay; the outer NMI handler is
 	 * about to about to call do_nmi anyway, so we can just
 	 * resume the outer NMI.
 	 */
@@ -2081,8 +2061,6 @@ ENTRY(nmi)
 
 	/*
 	 * Now check "NMI executing".  If it's set, then we're nested.
-	 *
-	 * First check "NMI executing".  If it's set, then we're nested.
 	 * This will not detect if we interrupted an outer NMI just
 	 * before IRET.
 	 */
@@ -2116,9 +2094,9 @@ ENTRY(nmi)
 	testb	$(X86_EFLAGS_DF >> 8), (3*8 + 1)(%rsp)
 	jz	first_nmi	/* RSP was user controlled. */
 
-	CFI_REMEMBER_STATE
-
 	/* This is a nested NMI. */
+
+	CFI_REMEMBER_STATE
 
 nested_nmi:
 	/*
@@ -2152,7 +2130,7 @@ first_nmi:
 	movq (%rsp), %rdx
 	CFI_RESTORE rdx
 
-	/* Set the NMI executing variable on the stack. */
+	/* Set "NMI executing" on the stack. */
 	pushq_cfi $1
 
 	/* Leave room for the "iret" frame */
@@ -2233,6 +2211,7 @@ nmi_restore:
 	RESTORE_EXTRA_REGS
 	RESTORE_C_REGS
 
+	/* Point RSP at the "iret" frame. */
 	REMOVE_PT_GPREGS_FROM_STACK 6*8
 
 	pax_force_retaddr_bts
