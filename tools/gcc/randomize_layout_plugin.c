@@ -301,6 +301,7 @@ static int relayout_struct(tree type)
 	unsigned long i;
 	tree list;
 	tree variant;
+	tree main_variant;
 	expanded_location xloc;
 
 	if (TYPE_FIELDS(type) == NULL_TREE)
@@ -363,14 +364,21 @@ static int relayout_struct(tree type)
 		TREE_CHAIN(newtree[i]) = newtree[i+1];
 	TREE_CHAIN(newtree[num_fields - 1]) = NULL_TREE;
 
-	for (variant = TYPE_MAIN_VARIANT(type); variant; variant = TYPE_NEXT_VARIANT(variant)) {
+	main_variant = TYPE_MAIN_VARIANT(type);
+	for (variant = main_variant; variant; variant = TYPE_NEXT_VARIANT(variant)) {
 		TYPE_FIELDS(variant) = list;
 		TYPE_ATTRIBUTES(variant) = copy_list(TYPE_ATTRIBUTES(variant));
 		TYPE_ATTRIBUTES(variant) = tree_cons(get_identifier("randomize_performed"), NULL_TREE, TYPE_ATTRIBUTES(variant));
-		// force a re-layout
-		TYPE_SIZE(variant) = NULL_TREE;
-		layout_type(variant);
 	}
+
+	/*
+	 * force a re-layout of the main variant
+	 * the TYPE_SIZE for all variants will be recomputed
+	 * by finalize_type_size()
+	 */
+	TYPE_SIZE(main_variant) = NULL_TREE;
+	layout_type(main_variant);
+	gcc_assert(TYPE_SIZE(main_variant) != NULL_TREE);
 
 	return 1;
 }

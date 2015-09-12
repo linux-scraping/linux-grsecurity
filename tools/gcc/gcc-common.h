@@ -170,6 +170,8 @@ static inline void debug_tree(const_tree t)
 #define O_BINARY 0
 #endif
 
+typedef struct varpool_node *varpool_node_ptr;
+
 static inline bool gimple_call_builtin_p(gimple stmt, enum built_in_function code)
 {
 	tree fndecl;

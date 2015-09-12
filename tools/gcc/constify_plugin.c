@@ -365,11 +365,7 @@ static void finish_type(void *event_data, void *data)
 
 static void check_global_variables(void *event_data, void *data)
 {
-#if BUILDING_GCC_VERSION >= 4009
-	varpool_node *node;
-#else
-	struct varpool_node *node;
-#endif
+	varpool_node_ptr node;
 
 	FOR_EACH_VARIABLE(node) {
 		tree var = NODE_DECL(node);

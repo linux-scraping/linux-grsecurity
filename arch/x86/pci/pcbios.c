@@ -79,7 +79,7 @@ union bios32 {
 static struct {
 	unsigned long address;
 	unsigned short segment;
-} bios32_indirect __initconst = { 0, __PCIBIOS_CS };
+} bios32_indirect __initdata = { 0, __PCIBIOS_CS };
 
 /*
  * Returns the entry point for the given service, NULL on error

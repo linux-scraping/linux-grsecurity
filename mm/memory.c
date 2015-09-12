@@ -2075,11 +2075,22 @@ static void pax_unmap_mirror_pte(struct vm_area_struct *vma, unsigned long addre
 
 	pte = pte_offset_map_lock(mm, pmd, address, &ptl);
 	entry = *pte;
-	if (!pte_present(entry)) {
-		if (!pte_none(entry)) {
-			free_swap_and_cache(pte_to_swp_entry(entry));
-			pte_clear_not_present_full(mm, address, pte, 0);
+	if (pte_none(entry))
+		;
+	else if (!pte_present(entry)) {
+		swp_entry_t swapentry;
+
+		swapentry = pte_to_swp_entry(entry);
+		if (!non_swap_entry(swapentry))
+			dec_mm_counter_fast(mm, MM_SWAPENTS);
+		else if (is_migration_entry(swapentry)) {
+			if (PageAnon(migration_entry_to_page(swapentry)))
+				dec_mm_counter_fast(mm, MM_ANONPAGES);
+			else
+				dec_mm_counter_fast(mm, MM_FILEPAGES);
 		}
+		free_swap_and_cache(swapentry);
+		pte_clear_not_present_full(mm, address, pte, 0);
 	} else {
 		struct page *page;
 
