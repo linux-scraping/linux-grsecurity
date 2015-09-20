@@ -211,7 +211,7 @@ enum {
 #define gr_log_fs_str(audit, msg, dentry, mnt, str) gr_log_varargs(audit, msg, GR_FILENAME_STR, dentry, mnt, str)
 #define gr_log_fs_int2(audit, msg, dentry, mnt, num1, num2) gr_log_varargs(audit, msg, GR_FILENAME_TWO_INT, dentry, mnt, num1, num2)
 #define gr_log_fs_int2_str(audit, msg, dentry, mnt, num1, num2, str) gr_log_varargs(audit, msg, GR_FILENAME_TWO_INT_STR, dentry, mnt, num1, num2, str)
-#define gr_log_textrel_ulong_ulong(audit, msg, file, ulong1, ulong2) gr_log_varargs(audit, msg, GR_TEXTREL, file, ulong1, ulong2)
+#define gr_log_textrel_ulong_ulong(audit, msg, str, file, ulong1, ulong2) gr_log_varargs(audit, msg, GR_TEXTREL, str, file, ulong1, ulong2)
 #define gr_log_ptrace(audit, msg, task) gr_log_varargs(audit, msg, GR_PTRACE, task)
 #define gr_log_res_ulong2_str(audit, msg, task, ulong1, str, ulong2) gr_log_varargs(audit, msg, GR_RESOURCE, task, ulong1, str, ulong2)
 #define gr_log_cap(audit, msg, task, str) gr_log_varargs(audit, msg, GR_CAP, task, str)

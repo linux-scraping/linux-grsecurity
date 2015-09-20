@@ -104,7 +104,7 @@
 #define GR_RESOURCE_MSG "denied resource overstep by requesting %lu for %.16s against limit %lu for "
 #define GR_RWXMMAP_MSG "denied RWX mmap of %.950s by "
 #define GR_RWXMPROTECT_MSG "denied RWX mprotect of %.950s by "
-#define GR_TEXTREL_AUDIT_MSG "denied text relocation in %.950s, VMA:0x%08lx 0x%08lx by "
+#define GR_TEXTREL_AUDIT_MSG "allowed %s text relocation transition in %.950s, VMA:0x%08lx 0x%08lx by "
 #define GR_PTGNUSTACK_MSG "denied marking stack executable as requested by PT_GNU_STACK marking in %.950s by "
 #define GR_VM86_MSG "denied use of vm86 by "
 #define GR_PTRACE_AUDIT_MSG "process %.950s(%.16s:%d) attached to via ptrace by "

@@ -2858,7 +2858,7 @@ static void elf_handle_mprotect(struct vm_area_struct *vma, unsigned long newfla
 				if (dyn.d_tag == DT_NULL)
 					break;
 				if (dyn.d_tag == DT_TEXTREL || (dyn.d_tag == DT_FLAGS && (dyn.d_un.d_val & DF_TEXTREL))) {
-					gr_log_textrel(vma);
+					gr_log_textrel(vma, is_textrel_rw);
 					if (is_textrel_rw)
 						vma->vm_flags |= VM_MAYWRITE;
 					else
