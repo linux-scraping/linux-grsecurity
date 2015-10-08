@@ -17,8 +17,10 @@
 
 #include <linux/linkage.h>
 
+#include <asm/alternative.h>
 #include <asm/asm-offsets.h>
 #include <asm/assembler.h>
+#include <asm/cpufeature.h>
 #include <asm/debug-monitors.h>
 #include <asm/esr.h>
 #include <asm/fpsimdmacros.h>
@@ -50,8 +52,8 @@
 	stp	x29, lr, [x3, #80]
 
 	mrs	x19, sp_el0
-	mrs	x20, elr_el2		// EL1 PC
-	mrs	x21, spsr_el2		// EL1 pstate
+	mrs	x20, elr_el2		// pc before entering el2
+	mrs	x21, spsr_el2		// pstate before entering el2
 
 	stp	x19, x20, [x3, #96]
 	str	x21, [x3, #112]
@@ -82,8 +84,8 @@
 	ldr	x21, [x3, #16]
 
 	msr	sp_el0, x19
-	msr	elr_el2, x20 				// EL1 PC
-	msr	spsr_el2, x21 				// EL1 pstate
+	msr	elr_el2, x20 		// pc on return from el2
+	msr	spsr_el2, x21 		// pstate on return from el2
 
 	add	x3, x2, #CPU_XREG_OFFSET(19)
 	ldp	x19, x20, [x3]
@@ -808,10 +810,7 @@
  * Call into the vgic backend for state saving
  */
 .macro save_vgic_state
-	adr	x24, __vgic_sr_vectors
-	ldr	x24, [x24, VGIC_SAVE_FN]
-	kern_hyp_va	x24
-	blr	x24
+	alternative_insn "bl __save_vgic_v2_state", "bl __save_vgic_v3_state", ARM64_HAS_SYSREG_GIC_CPUIF
 	mrs	x24, hcr_el2
 	mov	x25, #HCR_INT_OVERRIDE
 	neg	x25, x25
@@ -828,10 +827,7 @@
 	orr	x24, x24, #HCR_INT_OVERRIDE
 	orr	x24, x24, x25
 	msr	hcr_el2, x24
-	adr	x24, __vgic_sr_vectors
-	ldr	x24, [x24, #VGIC_RESTORE_FN]
-	kern_hyp_va	x24
-	blr	x24
+	alternative_insn "bl __restore_vgic_v2_state", "bl __restore_vgic_v3_state", ARM64_HAS_SYSREG_GIC_CPUIF
 .endm
 
 .macro save_timer_state
@@ -844,8 +840,6 @@
 	mrs	x3, cntv_ctl_el0
 	and	x3, x3, #3
 	str	w3, [x0, #VCPU_TIMER_CNTV_CTL]
-	bic	x3, x3, #1		// Clear Enable
-	msr	cntv_ctl_el0, x3
 
 	isb
 
@@ -853,6 +847,9 @@
 	str	x3, [x0, #VCPU_TIMER_CNTV_CVAL]
 
 1:
+	// Disable the virtual timer
+	msr	cntv_ctl_el0, xzr
+
 	// Allow physical timer/counter access for the host
 	mrs	x2, cnthctl_el2
 	orr	x2, x2, #3
@@ -947,13 +944,15 @@ ENTRY(__kvm_vcpu_run)
 	// Guest context
 	add	x2, x0, #VCPU_CONTEXT
 
+	// We must restore the 32-bit state before the sysregs, thanks
+	// to Cortex-A57 erratum #852523.
+	restore_guest_32bit_state
 	bl __restore_sysregs
 	bl __restore_fpsimd
 
 	skip_debug_state x3, 1f
 	bl	__restore_debug
 1:
-	restore_guest_32bit_state
 	restore_guest_regs
 
 	// That's it, no more messing around.
@@ -1061,12 +1060,6 @@ ENTRY(__kvm_flush_vm_context)
 	dsb	ish
 	ret
 ENDPROC(__kvm_flush_vm_context)
-
-	// struct vgic_sr_vectors __vgi_sr_vectors;
-	.align 3
-ENTRY(__vgic_sr_vectors)
-	.skip	VGIC_SR_VECTOR_SZ
-ENDPROC(__vgic_sr_vectors)
 
 __kvm_hyp_panic:
 	// Guess the context by looking at VTTBR:

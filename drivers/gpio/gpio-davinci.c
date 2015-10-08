@@ -442,9 +442,9 @@ static struct irq_chip *davinci_gpio_get_irq_chip(unsigned int irq)
 	return &gpio_unbanked.chip;
 };
 
-static struct irq_chip *keystone_gpio_get_irq_chip(unsigned int irq)
+static irq_chip_no_const *keystone_gpio_get_irq_chip(unsigned int irq)
 {
-	static struct irq_chip gpio_unbanked;
+	static irq_chip_no_const gpio_unbanked;
 
 	gpio_unbanked = *irq_get_chip(irq);
 	return &gpio_unbanked;
@@ -474,7 +474,7 @@ static int davinci_gpio_irq_setup(struct platform_device *pdev)
 	struct davinci_gpio_regs __iomem *g;
 	struct irq_domain	*irq_domain = NULL;
 	const struct of_device_id *match;
-	struct irq_chip *irq_chip;
+	irq_chip_no_const *irq_chip;
 	gpio_get_irq_chip_cb_t gpio_get_irq_chip;
 
 	/*
@@ -578,15 +578,13 @@ static int davinci_gpio_irq_setup(struct platform_device *pdev)
 		writel_relaxed(~0, &g->clr_falling);
 		writel_relaxed(~0, &g->clr_rising);
 
-		/* set up all irqs in this bank */
-		irq_set_chained_handler(bank_irq, gpio_irq_handler);
-
 		/*
 		 * Each chip handles 32 gpios, and each irq bank consists of 16
 		 * gpio irqs. Pass the irq bank's corresponding controller to
 		 * the chained irq handler.
 		 */
-		irq_set_handler_data(bank_irq, &chips[gpio / 32]);
+		irq_set_chained_handler_and_data(bank_irq, gpio_irq_handler,
+						 &chips[gpio / 32]);
 
 		binten |= BIT(bank);
 	}

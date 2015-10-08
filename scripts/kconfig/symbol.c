@@ -957,7 +957,7 @@ const char *sym_escape_string_value(const char *in)
 
 struct sym_match {
 	struct symbol	*sym;
-	off_t		so, eo;
+	regoff_t	so, eo;
 };
 
 /* Compare matched symbols as thus:
@@ -979,8 +979,8 @@ static int sym_rel_comp(const void *sym1, const void *sym2)
 	 * exactly; if this is the case, we can't decide which comes first,
 	 * and we fallback to sorting alphabetically.
 	 */
-	exact1 = (s1->eo - s1->so) == strlen(s1->sym->name);
-	exact2 = (s2->eo - s2->so) == strlen(s2->sym->name);
+	exact1 = (s1->eo - s1->so) == (long)strlen(s1->sym->name);
+	exact2 = (s2->eo - s2->so) == (long)strlen(s2->sym->name);
 	if (exact1 && !exact2)
 		return -1;
 	if (!exact1 && exact2)
@@ -1166,6 +1166,10 @@ static struct symbol *sym_check_expr_deps(struct expr *e)
 	case E_NOT:
 		return sym_check_expr_deps(e->left.expr);
 	case E_EQUAL:
+	case E_GEQ:
+	case E_GTH:
+	case E_LEQ:
+	case E_LTH:
 	case E_UNEQUAL:
 		sym = sym_check_deps(e->left.sym);
 		if (sym)

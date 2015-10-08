@@ -818,12 +818,14 @@
 
 #define INIT_DATA_SECTION(initsetup_align)				\
 	.init.data : AT(ADDR(.init.data) - LOAD_OFFSET) {		\
+		VMLINUX_SYMBOL(_sinitdata) = .;				\
 		INIT_DATA						\
 		INIT_SETUP(initsetup_align)				\
 		INIT_CALLS						\
 		CON_INITCALL						\
 		SECURITY_INITCALL					\
 		INIT_RAM_FS						\
+		VMLINUX_SYMBOL(_einitdata) = .;				\
 	}
 
 #define BSS_SECTION(sbss_align, bss_align, stop_align)			\

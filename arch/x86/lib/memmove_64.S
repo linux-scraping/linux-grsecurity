@@ -6,7 +6,6 @@
  *	- Copyright 2011 Fenghua Yu <fenghua.yu@intel.com>
  */
 #include <linux/linkage.h>
-#include <asm/dwarf2.h>
 #include <asm/cpufeature.h>
 #include <asm/alternative-asm.h>
 
@@ -27,7 +26,6 @@
 
 ENTRY(memmove)
 ENTRY(__memmove)
-	CFI_STARTPROC
 
 	/* Handle more 32 bytes in loop */
 	mov %rdi, %rax
@@ -208,6 +206,5 @@ ENTRY(__memmove)
 13:
 	pax_force_retaddr
 	retq
-	CFI_ENDPROC
 ENDPROC(__memmove)
 ENDPROC(memmove)

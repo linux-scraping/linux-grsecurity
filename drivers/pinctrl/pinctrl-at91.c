@@ -24,6 +24,7 @@
 #include <linux/pinctrl/pinmux.h>
 /* Since we request GPIOs from ourself */
 #include <linux/pinctrl/consumer.h>
+#include <asm/pgtable.h>
 
 #include "pinctrl-at91.h"
 #include "core.h"
@@ -320,6 +321,9 @@ static const struct pinctrl_ops at91_pctrl_ops = {
 static void __iomem *pin_to_controller(struct at91_pinctrl *info,
 				 unsigned int bank)
 {
+	if (!gpio_chips[bank])
+		return NULL;
+
 	return gpio_chips[bank]->regbase;
 }
 
@@ -729,6 +733,10 @@ static int at91_pmx_set(struct pinctrl_dev *pctldev, unsigned selector,
 		pin = &pins_conf[i];
 		at91_pin_dbg(info->dev, pin);
 		pio = pin_to_controller(info, pin->bank);
+
+		if (!pio)
+			continue;
+
 		mask = pin_to_mask(pin->pin);
 		at91_mux_disable_interrupt(pio, mask);
 		switch (pin->mux) {
@@ -848,6 +856,10 @@ static int at91_pinconf_get(struct pinctrl_dev *pctldev,
 	*config = 0;
 	dev_dbg(info->dev, "%s:%d, pin_id=%d", __func__, __LINE__, pin_id);
 	pio = pin_to_controller(info, pin_to_bank(pin_id));
+
+	if (!pio)
+		return -EINVAL;
+
 	pin = pin_id % MAX_NB_GPIO_PER_BANK;
 
 	if (at91_mux_get_multidrive(pio, pin))
@@ -889,6 +901,10 @@ static int at91_pinconf_set(struct pinctrl_dev *pctldev,
 			"%s:%d, pin_id=%d, config=0x%lx",
 			__func__, __LINE__, pin_id, config);
 		pio = pin_to_controller(info, pin_to_bank(pin_id));
+
+		if (!pio)
+			return -EINVAL;
+
 		pin = pin_id % MAX_NB_GPIO_PER_BANK;
 		mask = pin_to_mask(pin);
 
@@ -1238,9 +1254,9 @@ static int at91_pinctrl_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, info);
 	info->pctl = pinctrl_register(&at91_pinctrl_desc, &pdev->dev, info);
 
-	if (!info->pctl) {
+	if (IS_ERR(info->pctl)) {
 		dev_err(&pdev->dev, "could not register AT91 pinctrl driver\n");
-		return -EINVAL;
+		return PTR_ERR(info->pctl);
 	}
 
 	/* We will handle a range of GPIO pins */
@@ -1324,6 +1340,21 @@ static void at91_gpio_set(struct gpio_chip *chip, unsigned offset,
 	unsigned mask = 1 << offset;
 
 	writel_relaxed(mask, pio + (val ? PIO_SODR : PIO_CODR));
+}
+
+static void at91_gpio_set_multiple(struct gpio_chip *chip,
+				      unsigned long *mask, unsigned long *bits)
+{
+	struct at91_gpio_chip *at91_gpio = to_at91_gpio_chip(chip);
+	void __iomem *pio = at91_gpio->regbase;
+
+#define BITS_MASK(bits) (((bits) == 32) ? ~0U : (BIT(bits) - 1))
+	/* Mask additionally to ngpio as not all GPIO controllers have 32 pins */
+	uint32_t set_mask = (*mask & *bits) & BITS_MASK(chip->ngpio);
+	uint32_t clear_mask = (*mask & ~(*bits)) & BITS_MASK(chip->ngpio);
+
+	writel_relaxed(set_mask, pio + PIO_SODR);
+	writel_relaxed(clear_mask, pio + PIO_CODR);
 }
 
 static int at91_gpio_direction_output(struct gpio_chip *chip, unsigned offset,
@@ -1626,7 +1657,9 @@ static int at91_gpio_of_irq_setup(struct platform_device *pdev,
 	at91_gpio->pioc_hwirq = irqd_to_hwirq(d);
 
 	/* Setup proper .irq_set_type function */
-	gpio_irqchip.irq_set_type = at91_gpio->ops->irq_type;
+	pax_open_kernel();
+	*(void **)&gpio_irqchip.irq_set_type = at91_gpio->ops->irq_type;
+	pax_close_kernel();
 
 	/* Disable irqs of this PIO controller */
 	writel_relaxed(~0, at91_gpio->regbase + PIO_IDR);
@@ -1685,6 +1718,7 @@ static struct gpio_chip at91_gpio_template = {
 	.get			= at91_gpio_get,
 	.direction_output	= at91_gpio_direction_output,
 	.set			= at91_gpio_set,
+	.set_multiple		= at91_gpio_set_multiple,
 	.dbg_show		= at91_gpio_dbg_show,
 	.can_sleep		= false,
 	.ngpio			= MAX_NB_GPIO_PER_BANK,

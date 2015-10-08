@@ -220,7 +220,7 @@ static unsigned long lookup_addr(char *arg)
 	else if (!strcmp(arg, "sys_open"))
 		addr = (unsigned long)do_sys_open;
 	else if (!strcmp(arg, "do_fork"))
-		addr = (unsigned long)do_fork;
+		addr = (unsigned long)_do_fork;
 	else if (!strcmp(arg, "hw_break_val"))
 		addr = (unsigned long)&hw_break_val;
 	addr = (unsigned long) dereference_function_descriptor((void *)addr);
@@ -834,7 +834,7 @@ static void run_plant_and_detach_test(int is_early)
 	char before[BREAK_INSTR_SIZE];
 	char after[BREAK_INSTR_SIZE];
 
-	probe_kernel_read(before, ktla_ktva((char *)kgdbts_break_test),
+	probe_kernel_read(before, (void *)ktla_ktva((unsigned long)kgdbts_break_test),
 	  BREAK_INSTR_SIZE);
 	init_simple_test();
 	ts.tst = plant_and_detach_test;
@@ -842,7 +842,7 @@ static void run_plant_and_detach_test(int is_early)
 	/* Activate test with initial breakpoint */
 	if (!is_early)
 		kgdb_breakpoint();
-	probe_kernel_read(after, ktla_ktva((char *)kgdbts_break_test),
+	probe_kernel_read(after, (void *)ktla_ktva((unsigned long)kgdbts_break_test),
 	  BREAK_INSTR_SIZE);
 	if (memcmp(before, after, BREAK_INSTR_SIZE)) {
 		printk(KERN_CRIT "kgdbts: ERROR kgdb corrupted memory\n");

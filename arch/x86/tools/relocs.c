@@ -745,7 +745,7 @@ static void walk_relocs(int (*process)(struct section *sec, Elf_Rel *rel,
  * kernel data and does not require special treatment.
  *
  */
-static int per_cpu_shndx	= -1;
+static unsigned int per_cpu_shndx = ~0;
 static Elf_Addr per_cpu_load_addr;
 
 static void percpu_init(void)

@@ -26,7 +26,7 @@ struct shmid_kernel /* private to the kernel */
 	u64			shm_createtime;
 	pid_t			shm_lapid;
 #endif
-};
+} __randomize_layout;
 
 /* shm_mode upper byte flags */
 #define	SHM_DEST	01000	/* segment will be destroyed on last detach */

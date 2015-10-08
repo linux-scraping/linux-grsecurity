@@ -18,6 +18,16 @@
  */
 
 #include "size_overflow.h"
+struct interesting_stmts;
+typedef struct interesting_stmts * interesting_stmts_t;
+
+struct interesting_stmts {
+	struct interesting_stmts *next;
+	next_interesting_function_t next_node;
+	gimple first_stmt;
+	tree orig_node;
+	unsigned int num;
+};
 
 static tree cast_to_orig_type(struct visited *visited, gimple stmt, const_tree orig_node, tree new_node)
 {
@@ -40,6 +50,42 @@ static void change_size_overflow_asm_input(gasm *stmt, tree new_input)
 	gimple_asm_set_input_op(stmt, 0, list);
 }
 
+static void change_field_write_rhs(gassign *assign, const_tree orig_rhs, tree new_rhs)
+{
+	const_tree rhs1, rhs2, rhs3 = NULL_TREE;
+
+	rhs1 = gimple_assign_rhs1(assign);
+	if (rhs1 == orig_rhs) {
+		gimple_assign_set_rhs1(assign, new_rhs);
+		return;
+	}
+
+	rhs2 = gimple_assign_rhs2(assign);
+	if (rhs2 == orig_rhs) {
+		gimple_assign_set_rhs2(assign, new_rhs);
+		return;
+	}
+
+#if BUILDING_GCC_VERSION >= 4006
+	rhs3 = gimple_assign_rhs3(assign);
+	if (rhs3 == orig_rhs) {
+		gimple_assign_set_rhs3(assign, new_rhs);
+		return;
+	}
+#endif
+
+	debug_gimple_stmt(assign);
+	fprintf(stderr, "orig_rhs:\n");
+	debug_tree((tree)orig_rhs);
+	fprintf(stderr, "rhs1:\n");
+	debug_tree((tree)rhs1);
+	fprintf(stderr, "rhs2:\n");
+	debug_tree((tree)rhs2);
+	fprintf(stderr, "rhs3:\n");
+	debug_tree((tree)rhs3);
+	gcc_unreachable();
+}
+
 static void change_orig_node(struct visited *visited, gimple stmt, const_tree orig_node, tree new_node, unsigned int num)
 {
 	tree cast_lhs = cast_to_orig_type(visited, stmt, orig_node, new_node);
@@ -49,10 +95,13 @@ static void change_orig_node(struct visited *visited, gimple stmt, const_tree or
 		gimple_return_set_retval(as_a_greturn(stmt), cast_lhs);
 		break;
 	case GIMPLE_CALL:
-		gimple_call_set_arg(stmt, num - 1, cast_lhs);
+		gimple_call_set_arg(as_a_gcall(stmt), num - 1, cast_lhs);
 		break;
 	case GIMPLE_ASM:
 		change_size_overflow_asm_input(as_a_gasm(stmt), cast_lhs);
+		break;
+	case GIMPLE_ASSIGN:
+		change_field_write_rhs(as_a_gassign(stmt), orig_node, cast_lhs);
 		break;
 	default:
 		debug_gimple_stmt(stmt);
@@ -76,29 +125,23 @@ static bool skip_asm_cast(const_tree arg)
 	return def_stmt && gimple_code(def_stmt) == GIMPLE_ASM;
 }
 
-struct interesting_stmts {
-	struct interesting_stmts *next;
-	gimple first_stmt;
-	tree orig_node;
-	unsigned int num;
-};
-
-static struct interesting_stmts *create_interesting_stmts(struct interesting_stmts *head, tree orig_node, gimple first_stmt, unsigned int num)
+static interesting_stmts_t create_interesting_stmts(interesting_stmts_t head, next_interesting_function_t next_node, tree orig_node, gimple first_stmt, unsigned int num)
 {
-	struct interesting_stmts *new_node;
+	interesting_stmts_t new_node;
 
-	new_node = (struct interesting_stmts *)xmalloc(sizeof(*new_node));
+	new_node = (interesting_stmts_t )xmalloc(sizeof(*new_node));
 	new_node->first_stmt = first_stmt;
 	new_node->num = num;
 	new_node->orig_node = orig_node;
 	new_node->next = head;
+	new_node->next_node = next_node;
 	return new_node;
 }
 
-static void free_interesting_stmts(struct interesting_stmts *head)
+static void free_interesting_stmts(interesting_stmts_t head)
 {
 	while (head) {
-		struct interesting_stmts *cur = head->next;
+		interesting_stmts_t cur = head->next;
 		free(head);
 		head = cur;
 	}
@@ -108,7 +151,7 @@ static void free_interesting_stmts(struct interesting_stmts *head)
  * it decides whether the duplication is necessary or not. After expand() it changes the orig node to the duplicated node
  * in the original stmt (first stmt) and it inserts the overflow check for the arg of the callee or for the return value.
  */
-static struct interesting_stmts *search_interesting_stmt(struct interesting_stmts *head, gimple first_stmt, tree orig_node, unsigned int num)
+static interesting_stmts_t search_interesting_stmt(interesting_stmts_t head, next_interesting_function_t next_node, gimple first_stmt, tree orig_node, unsigned int num)
 {
 	enum tree_code orig_code;
 
@@ -119,9 +162,12 @@ static struct interesting_stmts *search_interesting_stmt(struct interesting_stmt
 
 	orig_code = TREE_CODE(orig_node);
 	gcc_assert(orig_code != FIELD_DECL && orig_code != FUNCTION_DECL);
-	gcc_assert(!skip_types(orig_node));
 
-	if (check_intentional_asm(first_stmt, num) != MARK_NO)
+	if (skip_types(orig_node))
+		return head;
+
+	// find a defining marked caller argument or struct field for arg
+	if (check_intentional_size_overflow_asm_and_attribute(orig_node) != MARK_NO)
 		return head;
 
 	if (SSA_NAME_IS_DEFAULT_DEF(orig_node))
@@ -130,37 +176,50 @@ static struct interesting_stmts *search_interesting_stmt(struct interesting_stmt
 	if (skip_asm_cast(orig_node))
 		return head;
 
-	return create_interesting_stmts(head, orig_node, first_stmt, num);
+	return create_interesting_stmts(head, next_node, orig_node, first_stmt, num);
 }
 
-static void handle_interesting_stmt(struct visited *visited, struct interesting_stmts *head)
+static void handle_interesting_stmt(struct visited *visited, interesting_stmts_t head)
 {
-	struct interesting_stmts *cur;
+	interesting_stmts_t cur;
 
 	for (cur = head; cur; cur = cur->next) {
 		tree new_node;
 
-		new_node = expand(visited, cur->orig_node);
+		new_node = expand(visited, cur->next_node, cur->orig_node);
 		if (new_node == NULL_TREE)
 			continue;
 
 		change_orig_node(visited, cur->first_stmt, cur->orig_node, new_node, cur->num);
-		check_size_overflow(cur->first_stmt, TREE_TYPE(new_node), new_node, cur->orig_node, BEFORE_STMT);
+		check_size_overflow(cur->next_node, cur->first_stmt, TREE_TYPE(new_node), new_node, cur->orig_node, BEFORE_STMT);
 	}
 }
 
-static bool is_interesting_function(const_tree decl, unsigned int num)
+static next_interesting_function_t get_interesting_function_next_node(tree decl, unsigned int num)
 {
-	const struct size_overflow_hash *so_hash;
+	next_interesting_function_t next_node;
+	const struct size_overflow_hash *so_hash, *disable_so_hash;
+	struct fn_raw_data raw_data;
 
-	if (get_global_next_interesting_function_entry_with_hash(decl, DECL_NAME_POINTER(decl), num, YES_SO_MARK))
-		return true;
+	raw_data.decl = decl;
+	raw_data.decl_str = DECL_NAME_POINTER(decl);
+	raw_data.num = num;
+	raw_data.marked = YES_SO_MARK;
 
-	if (made_by_compiler(decl))
-		return false;
+	next_node = get_global_next_interesting_function_entry_with_hash(&raw_data);
+	if (next_node && next_node->marked == ERROR_CODE_SO_MARK)
+		return NULL;
+	if (next_node && next_node->marked != NO_SO_MARK)
+		return next_node;
 
-	so_hash = get_size_overflow_hash_entry_tree(decl, num);
-	return so_hash != NULL;
+	disable_so_hash = get_size_overflow_hash_entry_tree(raw_data.decl, raw_data.num, ONLY_DISABLE_SO);
+	if (disable_so_hash != NULL)
+		return NULL;
+
+	so_hash = get_size_overflow_hash_entry_tree(raw_data.decl, raw_data.num, ONLY_SO);
+	if (so_hash)
+		return get_and_create_next_node_from_global_next_nodes(&raw_data, NULL);
+	return NULL;
 }
 
 tree handle_fnptr_assign(const_gimple stmt)
@@ -257,7 +316,7 @@ static tree get_fn_or_fnptr_decl(const gcall *call_stmt)
 }
 
 // Start stmt duplication on marked function parameters
-static struct interesting_stmts *search_interesting_calls(struct interesting_stmts *head, gcall *call_stmt)
+static interesting_stmts_t search_interesting_calls(interesting_stmts_t head, gcall *call_stmt)
 {
 	tree decl;
 	unsigned int i, len;
@@ -272,27 +331,98 @@ static struct interesting_stmts *search_interesting_calls(struct interesting_stm
 
 	for (i = 0; i < len; i++) {
 		tree arg;
+		next_interesting_function_t next_node;
 
 		arg = gimple_call_arg(call_stmt, i);
 		if (is_gimple_constant(arg))
 			continue;
 		if (skip_types(arg))
 			continue;
-		if (is_interesting_function(decl, i + 1))
-			head = search_interesting_stmt(head, call_stmt, arg, i + 1);
+		next_node = get_interesting_function_next_node(decl, i + 1);
+		if (next_node)
+			head = search_interesting_stmt(head, next_node, call_stmt, arg, i + 1);
 	}
 
 	return head;
+}
+
+// Find assignements to structure fields and vardecls
+static interesting_stmts_t search_interesting_structs_vardecls(interesting_stmts_t head, gassign *assign)
+{
+	enum intentional_mark mark;
+	next_interesting_function_t next_node;
+	tree rhs1, rhs2, lhs, decl;
+#if BUILDING_GCC_VERSION >= 4006
+	tree rhs3;
+#endif
+
+	lhs = gimple_assign_lhs(assign);
+
+	if (VAR_P(lhs))
+		decl = lhs;
+	else
+		decl = get_ref_field(lhs);
+	if (decl == NULL_TREE)
+		return head;
+	if (DECL_NAME(decl) == NULL_TREE)
+		return head;
+
+	next_node = get_interesting_function_next_node(decl, 0);
+	if (!next_node)
+		return head;
+
+	mark = get_intentional_attr_type(decl);
+	if (mark != MARK_NO)
+		return head;
+
+	if (is_intentional_truncation(assign))
+		return head;
+
+	rhs1 = gimple_assign_rhs1(assign);
+	head = search_interesting_stmt(head, next_node, assign, rhs1, 0);
+
+	rhs2 = gimple_assign_rhs2(assign);
+	if (rhs2)
+		head = search_interesting_stmt(head, next_node, assign, rhs2, 0);
+
+#if BUILDING_GCC_VERSION >= 4006
+	rhs3 = gimple_assign_rhs3(assign);
+	if (rhs3)
+		head = search_interesting_stmt(head, next_node, assign, rhs3, 0);
+#endif
+	return head;
+}
+
+static next_interesting_function_t create_so_asm_next_interesting_function_node(const gasm *stmt)
+{
+	next_interesting_function_t next_node;
+	struct fn_raw_data raw_data;
+
+	raw_data.decl = NULL_TREE;
+	raw_data.decl_str = gimple_asm_string(stmt);
+	raw_data.context = "attr";
+	raw_data.hash = 0;
+	raw_data.num = 0;
+	raw_data.marked = ASM_STMT_SO_MARK;
+
+	next_node = get_global_next_interesting_function_entry(&raw_data);
+	if (next_node)
+		return next_node;
+	next_node = create_new_next_interesting_entry(&raw_data, NULL);
+	gcc_assert(next_node);
+
+	add_to_global_next_interesting_function(next_node);
+	return next_node;
 }
 
 // Collect interesting stmts for duplication
 static void search_interesting_stmts(struct visited *visited)
 {
 	basic_block bb;
-	bool search_ret;
-	struct interesting_stmts *head = NULL;
+	next_interesting_function_t next_node_ret;
+	interesting_stmts_t head = NULL;
 
-	search_ret = is_interesting_function(current_function_decl, 0);
+	next_node_ret = get_interesting_function_next_node(current_function_decl, 0);
 
 	FOR_ALL_BB_FN(bb, cfun) {
 		gimple_stmt_iterator gsi;
@@ -302,22 +432,35 @@ static void search_interesting_stmts(struct visited *visited)
 			gimple stmt = gsi_stmt(gsi);
 
 			switch (gimple_code(stmt)) {
-			case GIMPLE_ASM:
-				if (!is_size_overflow_insert_check_asm(as_a_gasm(stmt)))
+			case GIMPLE_ASM: {
+				next_interesting_function_t next_node;
+				const gasm *asm_stmt = as_a_gasm(stmt);
+
+				if (!is_size_overflow_insert_check_asm(asm_stmt))
 					continue;
-				first_node = get_size_overflow_asm_input(as_a_gasm(stmt));
-				head = search_interesting_stmt(head, stmt, first_node, 0);
+				next_node = create_so_asm_next_interesting_function_node(asm_stmt);
+				first_node = get_size_overflow_asm_input(asm_stmt);
+				head = search_interesting_stmt(head, next_node, stmt, first_node, 0);
 				break;
+			}
 			case GIMPLE_RETURN:
-				if (!search_ret)
+				if (!next_node_ret || next_node_ret->marked == ASM_STMT_SO_MARK)
 					continue;
 				first_node = gimple_return_retval(as_a_greturn(stmt));
 				if (first_node == NULL_TREE)
 					break;
-				head = search_interesting_stmt(head, stmt, first_node, 0);
+				head = search_interesting_stmt(head, next_node_ret, stmt, first_node, 0);
 				break;
 			case GIMPLE_CALL:
 				head = search_interesting_calls(head, as_a_gcall(stmt));
+				break;
+			case GIMPLE_ASSIGN:
+				/* !!! TODO LTO modeban nincs duplikalas a globalis valtozora, mert a tree mergek
+				 * utan mar nem lehet megkulonboztetni attol a globalis valtozotol, aminek a scopeja csak a file
+				 * igy a context nem vardecl lesz, hanem vardecl_filenev. De execute-ban kiirja, ha hianyzik a hash tablabol
+				 * IPA-ban van duplikalas.
+				 */
+				head = search_interesting_structs_vardecls(head, as_a_gassign(stmt));
 				break;
 			default:
 				break;

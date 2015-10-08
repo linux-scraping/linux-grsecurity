@@ -91,7 +91,7 @@ PHDRS {
 #endif
 	text.init PT_LOAD FLAGS(5);     /* R_E */
 	text.exit PT_LOAD FLAGS(5);     /* R_E */
-	init PT_LOAD FLAGS(7);          /* RWE */
+	init PT_LOAD FLAGS(6);          /* RW_ */
 	note PT_NOTE FLAGS(0);          /* ___ */
 }
 
@@ -270,7 +270,13 @@ SECTIONS
 	.exit.text : AT(ADDR(.exit.text) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
 		EXIT_TEXT
 		VMLINUX_SYMBOL(_einittext) = .;
+
+#ifdef CONFIG_PAX_KERNEXEC
+		. = ALIGN(HPAGE_SIZE);
+#else
 		. = ALIGN(16);
+#endif
+
 	} :text.exit
 	. = init_begin + SIZEOF(.init.text) + SIZEOF(.exit.text);
 

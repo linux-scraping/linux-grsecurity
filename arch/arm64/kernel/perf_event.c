@@ -488,7 +488,7 @@ armpmu_reserve_hardware(struct arm_pmu *armpmu)
 			}
 
 			err = request_irq(irq, armpmu->handle_irq,
-					IRQF_NOBALANCING,
+					IRQF_NOBALANCING | IRQF_NO_THREAD,
 					"arm-pmu", armpmu);
 			if (err) {
 				pr_err("unable to request IRQ%d for ARM PMU counters\n",
@@ -1340,12 +1340,13 @@ static int armpmu_device_probe(struct platform_device *pdev)
 			if (arch_find_n_match_cpu_physical_id(dn, cpu, NULL))
 				break;
 
-		of_node_put(dn);
 		if (cpu >= nr_cpu_ids) {
 			pr_warn("Failed to find logical CPU for %s\n",
 				dn->name);
+			of_node_put(dn);
 			break;
 		}
+		of_node_put(dn);
 
 		irqs[i] = cpu;
 	}

@@ -124,7 +124,7 @@ static void msi_domain_free(struct irq_domain *domain, unsigned int virq,
 	irq_domain_free_irqs_top(domain, virq, nr_irqs);
 }
 
-static struct irq_domain_ops msi_domain_ops = {
+static const struct irq_domain_ops msi_domain_ops = {
 	.alloc		= msi_domain_alloc,
 	.free		= msi_domain_free,
 	.activate	= msi_domain_activate,
@@ -195,16 +195,18 @@ static void msi_domain_update_dom_ops(struct msi_domain_info *info)
 		return;
 	}
 
+	pax_open_kernel();
 	if (ops->get_hwirq == NULL)
-		ops->get_hwirq = msi_domain_ops_default.get_hwirq;
+		*(void **)&ops->get_hwirq = msi_domain_ops_default.get_hwirq;
 	if (ops->msi_init == NULL)
-		ops->msi_init = msi_domain_ops_default.msi_init;
+		*(void **)&ops->msi_init = msi_domain_ops_default.msi_init;
 	if (ops->msi_check == NULL)
-		ops->msi_check = msi_domain_ops_default.msi_check;
+		*(void **)&ops->msi_check = msi_domain_ops_default.msi_check;
 	if (ops->msi_prepare == NULL)
-		ops->msi_prepare = msi_domain_ops_default.msi_prepare;
+		*(void **)&ops->msi_prepare = msi_domain_ops_default.msi_prepare;
 	if (ops->set_desc == NULL)
-		ops->set_desc = msi_domain_ops_default.set_desc;
+		*(void **)&ops->set_desc = msi_domain_ops_default.set_desc;
+	pax_close_kernel();
 }
 
 static void msi_domain_update_chip_ops(struct msi_domain_info *info)
@@ -212,12 +214,14 @@ static void msi_domain_update_chip_ops(struct msi_domain_info *info)
 	struct irq_chip *chip = info->chip;
 
 	BUG_ON(!chip);
+	pax_open_kernel();
 	if (!chip->irq_mask)
-		chip->irq_mask = pci_msi_mask_irq;
+		*(void **)&chip->irq_mask = pci_msi_mask_irq;
 	if (!chip->irq_unmask)
-		chip->irq_unmask = pci_msi_unmask_irq;
+		*(void **)&chip->irq_unmask = pci_msi_unmask_irq;
 	if (!chip->irq_set_affinity)
-		chip->irq_set_affinity = msi_domain_set_affinity;
+		*(void **)&chip->irq_set_affinity = msi_domain_set_affinity;
+	pax_close_kernel();
 }
 
 /**

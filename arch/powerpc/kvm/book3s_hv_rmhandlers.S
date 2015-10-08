@@ -324,7 +324,7 @@ kvm_start_guest:
 kvm_secondary_got_guest:
 
 	/* Set HSTATE_DSCR(r13) to something sensible */
-	ld	r6, PACA_DSCR(r13)
+	ld	r6, PACA_DSCR_DEFAULT(r13)
 	std	r6, HSTATE_DSCR(r13)
 
 	/* Order load of vcore, ptid etc. after load of vcpu */
@@ -1127,6 +1127,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_HAS_PPR)
 	cmpwi	r12, BOOK3S_INTERRUPT_H_DOORBELL
 	bne	3f
 	lbz	r0, HSTATE_HOST_IPI(r13)
+	cmpwi	r0, 0
 	beq	4f
 	b	guest_exit_cont
 3:

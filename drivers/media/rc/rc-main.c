@@ -746,7 +746,7 @@ void rc_close(struct rc_dev *rdev)
 	if (rdev) {
 		mutex_lock(&rdev->lock);
 
-		 if (!--rdev->users && rdev->close != NULL)
+		if (!--rdev->users && rdev->close != NULL)
 			rdev->close(rdev);
 
 		mutex_unlock(&rdev->lock);
@@ -1190,9 +1190,6 @@ static void rc_dev_release(struct device *device)
 static int rc_dev_uevent(struct device *device, struct kobj_uevent_env *env)
 {
 	struct rc_dev *dev = to_rc_dev(device);
-
-	if (!dev || !dev->input_dev)
-		return -ENODEV;
 
 	if (dev->rc_map.name)
 		ADD_HOTPLUG_VAR("NAME=%s", dev->rc_map.name);

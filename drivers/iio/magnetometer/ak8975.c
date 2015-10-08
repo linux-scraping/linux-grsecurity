@@ -776,7 +776,7 @@ static int ak8975_probe(struct i2c_client *client,
 		name = id->name;
 	} else if (ACPI_HANDLE(&client->dev))
 		name = ak8975_match_acpi_device(&client->dev, &chipset);
-	else
+	if (!name)
 		return -ENOSYS;
 
 	if (chipset >= AK_MAX_TYPE) {

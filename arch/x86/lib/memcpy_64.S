@@ -2,7 +2,6 @@
 
 #include <linux/linkage.h>
 #include <asm/cpufeature.h>
-#include <asm/dwarf2.h>
 #include <asm/alternative-asm.h>
 
 /*
@@ -55,7 +54,6 @@ ENTRY(memcpy_erms)
 ENDPROC(memcpy_erms)
 
 ENTRY(memcpy_orig)
-	CFI_STARTPROC
 	movq %rdi, %rax
 
 	cmpq $0x20, %rdx
@@ -184,5 +182,4 @@ ENTRY(memcpy_orig)
 .Lend:
 	pax_force_retaddr
 	retq
-	CFI_ENDPROC
 ENDPROC(memcpy_orig)

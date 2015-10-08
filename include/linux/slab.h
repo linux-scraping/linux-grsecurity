@@ -264,8 +264,8 @@ extern struct kmem_cache *kmalloc_usercopy_caches[KMALLOC_SHIFT_HIGH + 1];
  * belongs to.
  * 0 = zero alloc
  * 1 =  65 .. 96 bytes
- * 2 = 120 .. 192 bytes
- * n = 2^(n-1) .. 2^n -1
+ * 2 = 129 .. 192 bytes
+ * n = 2^(n-1)+1 .. 2^n
  */
 static __always_inline __size_overflow(1) int kmalloc_index(size_t size)
 {

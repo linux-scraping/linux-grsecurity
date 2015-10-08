@@ -64,7 +64,7 @@ static inline void atomic64_set_unchecked(atomic64_unchecked_t *v, long i)
  *
  * Atomically adds @i to @v.
  */
-static inline void atomic64_add(long i, atomic64_t *v)
+static __always_inline void atomic64_add(long i, atomic64_t *v)
 {
 	asm volatile(LOCK_PREFIX "addq %1,%0\n"
 
@@ -86,7 +86,7 @@ static inline void atomic64_add(long i, atomic64_t *v)
  *
  * Atomically adds @i to @v.
  */
-static inline void atomic64_add_unchecked(long i, atomic64_unchecked_t *v)
+static __always_inline void atomic64_add_unchecked(long i, atomic64_unchecked_t *v)
 {
 	asm volatile(LOCK_PREFIX "addq %1,%0"
 		     : "=m" (v->counter)
@@ -149,7 +149,7 @@ static inline int atomic64_sub_and_test(long i, atomic64_t *v)
  *
  * Atomically increments @v by 1.
  */
-static inline void atomic64_inc(atomic64_t *v)
+static __always_inline void atomic64_inc(atomic64_t *v)
 {
 	asm volatile(LOCK_PREFIX "incq %0\n"
 
@@ -170,7 +170,7 @@ static inline void atomic64_inc(atomic64_t *v)
  *
  * Atomically increments @v by 1.
  */
-static inline void atomic64_inc_unchecked(atomic64_unchecked_t *v)
+static __always_inline void atomic64_inc_unchecked(atomic64_unchecked_t *v)
 {
 	asm volatile(LOCK_PREFIX "incq %0"
 		     : "=m" (v->counter)
@@ -183,7 +183,7 @@ static inline void atomic64_inc_unchecked(atomic64_unchecked_t *v)
  *
  * Atomically decrements @v by 1.
  */
-static inline void atomic64_dec(atomic64_t *v)
+static __always_inline void atomic64_dec(atomic64_t *v)
 {
 	asm volatile(LOCK_PREFIX "decq %0\n"
 
@@ -204,7 +204,7 @@ static inline void atomic64_dec(atomic64_t *v)
  *
  * Atomically decrements @v by 1.
  */
-static inline void atomic64_dec_unchecked(atomic64_unchecked_t *v)
+static __always_inline void atomic64_dec_unchecked(atomic64_unchecked_t *v)
 {
 	asm volatile(LOCK_PREFIX "decq %0\n"
 		     : "=m" (v->counter)
@@ -258,7 +258,7 @@ static inline int atomic64_add_negative(long i, atomic64_t *v)
  *
  * Atomically adds @i to @v and returns @i + @v
  */
-static inline long atomic64_add_return(long i, atomic64_t *v)
+static __always_inline long atomic64_add_return(long i, atomic64_t *v)
 {
 	return i + xadd_check_overflow(&v->counter, i);
 }
@@ -270,7 +270,7 @@ static inline long atomic64_add_return(long i, atomic64_t *v)
  *
  * Atomically adds @i to @v and returns @i + @v
  */
-static inline long atomic64_add_return_unchecked(long i, atomic64_unchecked_t *v)
+static __always_inline long atomic64_add_return_unchecked(long i, atomic64_unchecked_t *v)
 {
 	return i + xadd(&v->counter, i);
 }

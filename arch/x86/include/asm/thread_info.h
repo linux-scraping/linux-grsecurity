@@ -178,8 +178,6 @@ struct thread_info {
  */
 #ifndef __ASSEMBLY__
 
-DECLARE_PER_CPU(unsigned long, kernel_stack);
-
 DECLARE_PER_CPU(struct thread_info *, current_tinfo);
 
 static inline struct thread_info *current_thread_info(void)

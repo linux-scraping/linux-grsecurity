@@ -41,6 +41,7 @@
 #include <asm/pgalloc.h>
 #include <asm/setup.h>
 #include <asm/espfix.h>
+#include <asm/bug.h>
 
 /*
  * Note: we only need 6*8 = 48 bytes for the espfix stack, but round
@@ -70,7 +71,10 @@ static DEFINE_MUTEX(espfix_init_mutex);
 #define ESPFIX_MAX_PAGES  DIV_ROUND_UP(CONFIG_NR_CPUS, ESPFIX_STACKS_PER_PAGE)
 static void *espfix_pages[ESPFIX_MAX_PAGES];
 
-static pud_t espfix_pud_page[PTRS_PER_PUD] __page_aligned_rodata;
+static __page_aligned_rodata pud_t espfix_pud_page[PTRS_PER_PUD];
+static __page_aligned_rodata pmd_t espfix_pmd_page[PTRS_PER_PMD];
+static __page_aligned_rodata pte_t espfix_pte_page[PTRS_PER_PTE];
+static __page_aligned_rodata char espfix_stack_page[ESPFIX_MAX_PAGES][PAGE_SIZE];
 
 static unsigned int page_random, slot_random;
 
@@ -121,11 +125,14 @@ static void init_espfix_random(void)
 void __init init_espfix_bsp(void)
 {
 	pgd_t *pgd_p;
-	unsigned long index = pgd_index(ESPFIX_BASE_ADDR);
+	pud_t *pud_p;
+	unsigned long addr, index = pgd_index(ESPFIX_BASE_ADDR);
 
 	/* Install the espfix pud into the kernel page directory */
 	pgd_p = &init_level4_pgt[index];
-	pgd_populate(&init_mm, pgd_p, (pud_t *)espfix_pud_page);
+	pud_p = espfix_pud_page;
+	paravirt_alloc_pud(&init_mm, __pa(pud_p) >> PAGE_SHIFT);
+	set_pgd(pgd_p, __pgd(PGTABLE_PROT | __pa(pud_p)));
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
 	clone_pgd_range(get_cpu_pgd(0, kernel) + index, swapper_pg_dir + index, 1);
@@ -135,26 +142,27 @@ void __init init_espfix_bsp(void)
 	/* Randomize the locations */
 	init_espfix_random();
 
+	addr = espfix_base_addr(0);
+
 	/* The rest is the same as for any other processor */
-	init_espfix_ap();
+	init_espfix_ap(0);
 }
 
-void init_espfix_ap(void)
+void init_espfix_ap(int cpu)
 {
-	unsigned int cpu, page;
+	unsigned int page;
 	unsigned long addr;
 	pud_t pud, *pud_p;
 	pmd_t pmd, *pmd_p;
 	pte_t pte, *pte_p;
-	int n;
+	int n, node;
 	void *stack_page;
 	pteval_t ptemask;
 
 	/* We only have to do this once... */
-	if (likely(this_cpu_read(espfix_stack)))
+	if (likely(per_cpu(espfix_stack, cpu)))
 		return;		/* Already initialized */
 
-	cpu = smp_processor_id();
 	addr = espfix_base_addr(cpu);
 	page = cpu/ESPFIX_STACKS_PER_PAGE;
 
@@ -170,30 +178,39 @@ void init_espfix_ap(void)
 	if (stack_page)
 		goto unlock_done;
 
+	node = cpu_to_node(cpu);
 	ptemask = __supported_pte_mask;
 
 	pud_p = &espfix_pud_page[pud_index(addr)];
 	pud = *pud_p;
 	if (!pud_present(pud)) {
-		pmd_p = (pmd_t *)__get_free_page(PGALLOC_GFP);
+		if (cpu)
+			pmd_p = page_address(alloc_pages_node(node, PGALLOC_GFP, 0));
+		else
+			pmd_p = espfix_pmd_page;
 		pud = __pud(__pa(pmd_p) | (PGTABLE_PROT & ptemask));
 		paravirt_alloc_pmd(&init_mm, __pa(pmd_p) >> PAGE_SHIFT);
 		for (n = 0; n < ESPFIX_PUD_CLONES; n++)
 			set_pud(&pud_p[n], pud);
-	}
+	} else
+		BUG_ON(!cpu);
 
 	pmd_p = pmd_offset(&pud, addr);
 	pmd = *pmd_p;
 	if (!pmd_present(pmd)) {
-		pte_p = (pte_t *)__get_free_page(PGALLOC_GFP);
+		if (cpu)
+			pte_p = page_address(alloc_pages_node(node, PGALLOC_GFP, 0));
+		else
+			pte_p = espfix_pte_page;
 		pmd = __pmd(__pa(pte_p) | (PGTABLE_PROT & ptemask));
 		paravirt_alloc_pte(&init_mm, __pa(pte_p) >> PAGE_SHIFT);
 		for (n = 0; n < ESPFIX_PMD_CLONES; n++)
 			set_pmd(&pmd_p[n], pmd);
-	}
+	} else
+		BUG_ON(!cpu);
 
 	pte_p = pte_offset_kernel(&pmd, addr);
-	stack_page = (void *)__get_free_page(GFP_KERNEL);
+	stack_page = espfix_stack_page[page];
 	pte = __pte(__pa(stack_page) | (__PAGE_KERNEL_RO & ptemask));
 	for (n = 0; n < ESPFIX_PTE_CLONES; n++)
 		set_pte(&pte_p[n*PTE_STRIDE], pte);
@@ -204,7 +221,7 @@ void init_espfix_ap(void)
 unlock_done:
 	mutex_unlock(&espfix_init_mutex);
 done:
-	this_cpu_write(espfix_stack, addr);
-	this_cpu_write(espfix_waddr, (unsigned long)stack_page
-		       + (addr & ~PAGE_MASK));
+	per_cpu(espfix_stack, cpu) = addr;
+	per_cpu(espfix_waddr, cpu) = (unsigned long)stack_page
+				      + (addr & ~PAGE_MASK);
 }

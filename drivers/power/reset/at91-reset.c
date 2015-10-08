@@ -16,6 +16,7 @@
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/reboot.h>
+#include <asm/pgtable.h>
 
 #include <soc/at91/at91sam9_ddrsdr.h>
 #include <soc/at91/at91sam9_sdramc.h>
@@ -191,7 +192,9 @@ static int at91_reset_of_probe(struct platform_device *pdev)
 	}
 
 	match = of_match_node(at91_reset_of_match, pdev->dev.of_node);
-	at91_restart_nb.notifier_call = match->data;
+	pax_open_kernel();
+	*(void **)&at91_restart_nb.notifier_call = match->data;
+	pax_close_kernel();
 	return register_restart_handler(&at91_restart_nb);
 }
 
@@ -219,9 +222,11 @@ static int at91_reset_platform_probe(struct platform_device *pdev)
 	}
 
 	match = platform_get_device_id(pdev);
-	at91_restart_nb.notifier_call =
+	pax_open_kernel();
+	*(void **)&at91_restart_nb.notifier_call =
 		(int (*)(struct notifier_block *,
 			 unsigned long, void *)) match->driver_data;
+	pax_close_kernel();
 
 	return register_restart_handler(&at91_restart_nb);
 }
@@ -243,7 +248,7 @@ static int at91_reset_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_device_id at91_reset_plat_match[] = {
+static const struct platform_device_id at91_reset_plat_match[] = {
 	{ "at91-sam9260-reset", (unsigned long)at91sam9260_restart },
 	{ "at91-sam9g45-reset", (unsigned long)at91sam9g45_restart },
 	{ /* sentinel */ }

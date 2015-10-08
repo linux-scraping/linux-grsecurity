@@ -35,7 +35,7 @@ void *kmap_atomic_prot(struct page *page, pgprot_t prot)
 	unsigned long vaddr;
 	int idx, type;
 
-	/* even !CONFIG_PREEMPT needs this, for in_atomic in do_page_fault */
+	preempt_disable();
 	pagefault_disable();
 
 	if (!PageHighMem(page))
@@ -46,9 +46,7 @@ void *kmap_atomic_prot(struct page *page, pgprot_t prot)
 	vaddr = __fix_to_virt(FIX_KMAP_BEGIN + idx);
 	BUG_ON(!pte_none(*(kmap_pte-idx)));
 
-	pax_open_kernel();
 	set_pte(kmap_pte-idx, mk_pte(page, prot));
-	pax_close_kernel();
 
 	arch_flush_lazy_mmu_mode();
 
@@ -104,6 +102,7 @@ void __kunmap_atomic(void *kvaddr)
 #endif
 
 	pagefault_enable();
+	preempt_enable();
 }
 EXPORT_SYMBOL(__kunmap_atomic);
 

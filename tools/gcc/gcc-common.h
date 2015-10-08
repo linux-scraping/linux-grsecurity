@@ -360,6 +360,7 @@ static inline struct cgraph_node *cgraph_alias_target(struct cgraph_node *n)
 #define profile_status_for_fn(FN)	((FN)->cfg->x_profile_status)
 #define BASIC_BLOCK_FOR_FN(FN, N)	BASIC_BLOCK_FOR_FUNCTION((FN), (N))
 #define NODE_IMPLICIT_ALIAS(node)	(node)->same_body_alias
+#define VAR_P(NODE)			(TREE_CODE(NODE) == VAR_DECL)
 
 static inline bool tree_fits_shwi_p(const_tree t)
 {

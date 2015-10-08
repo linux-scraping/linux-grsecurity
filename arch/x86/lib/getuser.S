@@ -26,7 +26,6 @@
  */
 
 #include <linux/linkage.h>
-#include <asm/dwarf2.h>
 #include <asm/page_types.h>
 #include <asm/errno.h>
 #include <asm/asm-offsets.h>
@@ -45,7 +44,6 @@
 
 	.text
 ENTRY(__get_user_1)
-	CFI_STARTPROC
 
 #if !defined(CONFIG_X86_32) || !defined(CONFIG_PAX_MEMORY_UDEREF)
 	GET_THREAD_INFO(%_ASM_DX)
@@ -68,11 +66,9 @@ ENTRY(__get_user_1)
 	ASM_CLAC
 	pax_force_retaddr
 	ret
-	CFI_ENDPROC
 ENDPROC(__get_user_1)
 
 ENTRY(__get_user_2)
-	CFI_STARTPROC
 	add $1,%_ASM_AX
 
 #if !defined(CONFIG_X86_32) || !defined(CONFIG_PAX_MEMORY_UDEREF)
@@ -97,11 +93,9 @@ ENTRY(__get_user_2)
 	ASM_CLAC
 	pax_force_retaddr
 	ret
-	CFI_ENDPROC
 ENDPROC(__get_user_2)
 
 ENTRY(__get_user_4)
-	CFI_STARTPROC
 	add $3,%_ASM_AX
 
 #if !defined(CONFIG_X86_32) || !defined(CONFIG_PAX_MEMORY_UDEREF)
@@ -126,11 +120,9 @@ ENTRY(__get_user_4)
 	ASM_CLAC
 	pax_force_retaddr
 	ret
-	CFI_ENDPROC
 ENDPROC(__get_user_4)
 
 ENTRY(__get_user_8)
-	CFI_STARTPROC
 #ifdef CONFIG_X86_64
 	add $7,%_ASM_AX
 	jc bad_get_user
@@ -166,30 +158,25 @@ ENTRY(__get_user_8)
 	pax_force_retaddr
 	ret
 #endif
-	CFI_ENDPROC
 ENDPROC(__get_user_8)
 
 
 bad_get_user:
-	CFI_STARTPROC
 	xor %edx,%edx
 	mov $(-EFAULT),%_ASM_AX
 	ASM_CLAC
 	pax_force_retaddr
 	ret
-	CFI_ENDPROC
 END(bad_get_user)
 
 #ifdef CONFIG_X86_32
 bad_get_user_8:
-	CFI_STARTPROC
 	xor %edx,%edx
 	xor %ecx,%ecx
 	mov $(-EFAULT),%_ASM_AX
 	ASM_CLAC
 	pax_force_retaddr
 	ret
-	CFI_ENDPROC
 END(bad_get_user_8)
 #endif
 

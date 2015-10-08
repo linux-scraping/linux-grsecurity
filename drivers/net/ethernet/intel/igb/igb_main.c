@@ -58,7 +58,7 @@
 
 #define MAJ 5
 #define MIN 2
-#define BUILD 15
+#define BUILD 18
 #define DRV_VERSION __stringify(MAJ) "." __stringify(MIN) "." \
 __stringify(BUILD) "-k"
 char igb_driver_name[] = "igb";
@@ -1205,10 +1205,14 @@ static int igb_alloc_q_vector(struct igb_adapter *adapter,
 
 	/* allocate q_vector and rings */
 	q_vector = adapter->q_vector[v_idx];
-	if (!q_vector)
+	if (!q_vector) {
 		q_vector = kzalloc(size, GFP_KERNEL);
-	else
+	} else if (size > ksize(q_vector)) {
+		kfree_rcu(q_vector, rcu);
+		q_vector = kzalloc(size, GFP_KERNEL);
+	} else {
 		memset(q_vector, 0, size);
+	}
 	if (!q_vector)
 		return -ENOMEM;
 
@@ -1836,31 +1840,19 @@ void igb_reinit_locked(struct igb_adapter *adapter)
  *
  * @adapter: adapter struct
  **/
-static s32 igb_enable_mas(struct igb_adapter *adapter)
+static void igb_enable_mas(struct igb_adapter *adapter)
 {
 	struct e1000_hw *hw = &adapter->hw;
-	u32 connsw;
-	s32 ret_val = 0;
-
-	connsw = rd32(E1000_CONNSW);
-	if (!(hw->phy.media_type == e1000_media_type_copper))
-		return ret_val;
+	u32 connsw = rd32(E1000_CONNSW);
 
 	/* configure for SerDes media detect */
-	if (!(connsw & E1000_CONNSW_SERDESD)) {
+	if ((hw->phy.media_type == e1000_media_type_copper) &&
+	    (!(connsw & E1000_CONNSW_SERDESD))) {
 		connsw |= E1000_CONNSW_ENRGSRC;
 		connsw |= E1000_CONNSW_AUTOSENSE_EN;
 		wr32(E1000_CONNSW, connsw);
 		wrfl();
-	} else if (connsw & E1000_CONNSW_SERDESD) {
-		/* already SerDes, no need to enable anything */
-		return ret_val;
-	} else {
-		netdev_info(adapter->netdev,
-			"MAS: Unable to configure feature, disabling..\n");
-		adapter->flags &= ~IGB_FLAG_MAS_ENABLE;
 	}
-	return ret_val;
 }
 
 void igb_reset(struct igb_adapter *adapter)
@@ -1980,10 +1972,9 @@ void igb_reset(struct igb_adapter *adapter)
 		adapter->ei.get_invariants(hw);
 		adapter->flags &= ~IGB_FLAG_MEDIA_RESET;
 	}
-	if (adapter->flags & IGB_FLAG_MAS_ENABLE) {
-		if (igb_enable_mas(adapter))
-			dev_err(&pdev->dev,
-				"Error enabling Media Auto Sense\n");
+	if ((mac->type == e1000_82575) &&
+	    (adapter->flags & IGB_FLAG_MAS_ENABLE)) {
+		igb_enable_mas(adapter);
 	}
 	if (hw->mac.ops.init_hw(hw))
 		dev_err(&pdev->dev, "Hardware Error\n");
@@ -2900,6 +2891,14 @@ static void igb_init_queue_configuration(struct igb_adapter *adapter)
 	}
 
 	adapter->rss_queues = min_t(u32, max_rss_queues, num_online_cpus());
+
+	igb_set_flag_queue_pairs(adapter, max_rss_queues);
+}
+
+void igb_set_flag_queue_pairs(struct igb_adapter *adapter,
+			      const u32 max_rss_queues)
+{
+	struct e1000_hw *hw = &adapter->hw;
 
 	/* Determine if we need to pair queues. */
 	switch (hw->mac.type) {
@@ -4989,6 +4988,7 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
 	struct igb_tx_buffer *first;
 	int tso;
 	u32 tx_flags = 0;
+	unsigned short f;
 	u16 count = TXD_USE_COUNT(skb_headlen(skb));
 	__be16 protocol = vlan_get_protocol(skb);
 	u8 hdr_len = 0;
@@ -4999,14 +4999,8 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
 	 *       + 1 desc for context descriptor,
 	 * otherwise try next time
 	 */
-	if (NETDEV_FRAG_PAGE_MAX_SIZE > IGB_MAX_DATA_PER_TXD) {
-		unsigned short f;
-
-		for (f = 0; f < skb_shinfo(skb)->nr_frags; f++)
-			count += TXD_USE_COUNT(skb_shinfo(skb)->frags[f].size);
-	} else {
-		count += skb_shinfo(skb)->nr_frags;
-	}
+	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++)
+		count += TXD_USE_COUNT(skb_shinfo(skb)->frags[f].size);
 
 	if (igb_maybe_stop_tx(tx_ring, count + 3)) {
 		/* this is a hard error */

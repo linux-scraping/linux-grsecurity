@@ -20,6 +20,11 @@
 #include <asm/tlbflush.h>
 #include <asm/io.h>
 #include <asm/fixmap.h>
+#include <asm/boot.h>
+
+int __read_mostly alternatives_patched;
+
+EXPORT_SYMBOL_GPL(alternatives_patched);
 
 #define MAX_PATCH_LEN (255-1)
 
@@ -227,6 +232,15 @@ void __init arch_init_ideal_nops(void)
 #endif
 		}
 		break;
+
+	case X86_VENDOR_AMD:
+		if (boot_cpu_data.x86 > 0xf) {
+			ideal_nops = p6_nops;
+			return;
+		}
+
+		/* fall through */
+
 	default:
 #ifdef CONFIG_X86_64
 		ideal_nops = k8_nops;
@@ -280,7 +294,7 @@ recompute_jump(struct alt_instr *a, u8 *orig_insn, u8 *repl_insn, u8 *insnbuf)
 
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
 	if (orig_insn < (u8 *)_text || (u8 *)_einittext <= orig_insn)
-		orig_insn = ktva_ktla(orig_insn);
+		orig_insn = (u8 *)ktva_ktla((unsigned long)orig_insn);
 	else
 		orig_insn -= ____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR;
 #endif
@@ -377,11 +391,11 @@ void __init_or_module apply_alternatives(struct alt_instr *start,
 		if ((u8 *)_text - (____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR) <= instr &&
 		    instr < (u8 *)_einittext - (____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR)) {
 			instr += ____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR;
-			vinstr = ktla_ktva(instr);
+			vinstr = (u8 *)ktla_ktva((unsigned long)instr);
 		} else if ((u8 *)_text <= instr && instr < (u8 *)_einittext) {
-			vinstr = ktla_ktva(instr);
+			vinstr = (u8 *)ktla_ktva((unsigned long)instr);
 		} else {
-			instr = ktva_ktla(instr);
+			instr = (u8 *)ktva_ktla((unsigned long)instr);
 		}
 #endif
 
@@ -391,11 +405,11 @@ void __init_or_module apply_alternatives(struct alt_instr *start,
 		if ((u8 *)_text - (____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR) <= replacement &&
 		    replacement < (u8 *)_einittext - (____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR)) {
 			replacement += ____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR;
-			vreplacement = ktla_ktva(replacement);
+			vreplacement = (u8 *)ktla_ktva((unsigned long)replacement);
 		} else if ((u8 *)_text <= replacement && replacement < (u8 *)_einittext) {
-			vreplacement = ktla_ktva(replacement);
+			vreplacement = (u8 *)ktla_ktva((unsigned long)replacement);
 		} else
-			replacement = ktva_ktla(replacement);
+			replacement = (u8 *)ktva_ktla((unsigned long)replacement);
 #endif
 
 		BUG_ON(a->instrlen > sizeof(insnbuf));
@@ -460,7 +474,7 @@ static void alternatives_smp_lock(const s32 *start, const s32 *end,
 		if (!*poff || ptr < text || ptr >= text_end)
 			continue;
 		/* turn DS segment override prefix into lock prefix */
-		if (*ktla_ktva(ptr) == 0x3e)
+		if (*(u8 *)ktla_ktva((unsigned long)ptr) == 0x3e)
 			text_poke(ptr, ((unsigned char []){0xf0}), 1);
 	}
 	mutex_unlock(&text_mutex);
@@ -484,7 +498,7 @@ static void alternatives_smp_unlock(const s32 *start, const s32 *end,
 		if (!*poff || ptr < text || ptr >= text_end)
 			continue;
 		/* turn lock prefix into DS segment override prefix */
-		if (*ktla_ktva(ptr) == 0xf0)
+		if (*(u8 *)ktla_ktva((unsigned long)ptr) == 0xf0)
 			text_poke(ptr, ((unsigned char []){0x3E}), 1);
 	}
 	mutex_unlock(&text_mutex);
@@ -621,7 +635,7 @@ void __init_or_module apply_paravirt(struct paravirt_patch_site *start,
 
 		BUG_ON(p->len > MAX_PATCH_LEN);
 		/* prep the buffer with the original instructions */
-		memcpy(insnbuf, ktla_ktva(p->instr), p->len);
+		memcpy(insnbuf, (const void *)ktla_ktva((unsigned long)p->instr), p->len);
 		used = pv_init_ops.patch(p->instrtype, p->clobbers, insnbuf,
 					 (unsigned long)p->instr, p->len);
 
@@ -674,6 +688,7 @@ void __init alternative_instructions(void)
 	apply_paravirt(__parainstructions, __parainstructions_end);
 
 	restart_nmi();
+	alternatives_patched = 1;
 }
 
 /**
@@ -695,7 +710,7 @@ void *__kprobes text_poke_early(void *addr, const void *opcode,
 	local_irq_save(flags);
 
 	pax_open_kernel();
-	memcpy(ktla_ktva(addr), opcode, len);
+	memcpy((void *)ktla_ktva((unsigned long)addr), opcode, len);
 	sync_core();
 	pax_close_kernel();
 
@@ -720,7 +735,7 @@ void *__kprobes text_poke_early(void *addr, const void *opcode,
  */
 void *text_poke(void *addr, const void *opcode, size_t len)
 {
-	unsigned char *vaddr = ktla_ktva(addr);
+	unsigned char *vaddr = (void *)ktla_ktva((unsigned long)addr);
 	struct page *pages[2];
 	size_t i;
 

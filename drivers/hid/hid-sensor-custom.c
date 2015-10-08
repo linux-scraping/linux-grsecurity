@@ -34,7 +34,7 @@ struct hid_sensor_custom_field {
 	int report_id;
 	char group_name[HID_CUSTOM_NAME_LENGTH];
 	struct hid_sensor_hub_attribute_info attribute;
-	device_attribute_no_const sd_attrs[HID_CUSTOM_MAX_CORE_ATTRS];
+	struct device_attribute sd_attrs[HID_CUSTOM_MAX_CORE_ATTRS];
 	char attr_name[HID_CUSTOM_TOTAL_ATTRS][HID_CUSTOM_NAME_LENGTH];
 	struct attribute *attrs[HID_CUSTOM_TOTAL_ATTRS];
 	struct attribute_group hid_custom_attribute_group;

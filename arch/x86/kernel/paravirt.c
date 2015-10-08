@@ -145,7 +145,7 @@ unsigned paravirt_patch_default(u8 type, u16 clobbers, void *insnbuf,
 
 	if (opfunc == NULL)
 		/* If there's no function, patch it with a ud2a (BUG) */
-		ret = paravirt_patch_insns(insnbuf, len, ktva_ktla(ud2a), ud2a+sizeof(ud2a));
+		ret = paravirt_patch_insns(insnbuf, len, (const char *)ktva_ktla((unsigned long)ud2a), ud2a+sizeof(ud2a));
 	else if (opfunc == (void *)_paravirt_nop)
 		/* If the operation is a nop, then nop the callsite */
 		ret = paravirt_patch_nop();
@@ -161,7 +161,9 @@ unsigned paravirt_patch_default(u8 type, u16 clobbers, void *insnbuf,
 #endif
 
 	else if (type == PARAVIRT_PATCH(pv_cpu_ops.iret) ||
+#ifdef CONFIG_X86_32
 		 type == PARAVIRT_PATCH(pv_cpu_ops.irq_enable_sysexit) ||
+#endif
 		 type == PARAVIRT_PATCH(pv_cpu_ops.usergs_sysret32) ||
 		 type == PARAVIRT_PATCH(pv_cpu_ops.usergs_sysret64))
 		/* If operation requires a jmp, then jmp */
@@ -183,7 +185,7 @@ unsigned paravirt_patch_insns(void *insnbuf, unsigned len,
 	if (insn_len > len || start == NULL)
 		insn_len = len;
 	else
-		memcpy(insnbuf, ktla_ktva(start), insn_len);
+		memcpy(insnbuf, (const char *)ktla_ktva((unsigned long)start), insn_len);
 
 	return insn_len;
 }
@@ -378,7 +380,7 @@ __visible struct pv_cpu_ops pv_cpu_ops __read_only = {
 
 	.load_sp0 = native_load_sp0,
 
-#if defined(CONFIG_X86_32) || defined(CONFIG_IA32_EMULATION)
+#if defined(CONFIG_X86_32)
 	.irq_enable_sysexit = native_irq_enable_sysexit,
 #endif
 #ifdef CONFIG_X86_64

@@ -22,6 +22,12 @@ struct blk_flush_queue {
 	struct list_head	flush_queue[2];
 	struct list_head	flush_data_in_flight;
 	struct request		*flush_rq;
+
+	/*
+	 * flush_rq shares tag with this rq, both can't be active
+	 * at the same time
+	 */
+	struct request		*orig_rq;
 	spinlock_t		mq_flush_lock;
 };
 
@@ -78,7 +84,8 @@ bool bio_attempt_front_merge(struct request_queue *q, struct request *req,
 bool bio_attempt_back_merge(struct request_queue *q, struct request *req,
 			    struct bio *bio);
 bool blk_attempt_plug_merge(struct request_queue *q, struct bio *bio,
-			    unsigned int *request_count);
+			    unsigned int *request_count,
+			    struct request **same_queue_rq);
 
 void blk_account_io_start(struct request *req, bool new_io);
 void blk_account_io_completion(struct request *req, unsigned int bytes);
@@ -192,8 +199,6 @@ bool blk_rq_merge_ok(struct request *rq, struct bio *bio);
 int blk_try_merge(struct request *rq, struct bio *bio);
 
 void blk_queue_congestion_threshold(struct request_queue *q);
-
-void __blk_run_queue_uncond(struct request_queue *q);
 
 int blk_dev_init(void);
 

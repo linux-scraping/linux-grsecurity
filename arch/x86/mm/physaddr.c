@@ -10,7 +10,7 @@
 #ifdef CONFIG_X86_64
 
 #ifdef CONFIG_DEBUG_VIRTUAL
-unsigned long __intentional_overflow(-1) __phys_addr(unsigned long x)
+unsigned long __phys_addr(unsigned long x)
 {
 	unsigned long y = x - __START_KERNEL_map;
 
@@ -67,7 +67,7 @@ EXPORT_SYMBOL(__virt_addr_valid);
 #else
 
 #ifdef CONFIG_DEBUG_VIRTUAL
-unsigned long __intentional_overflow(-1) __phys_addr(unsigned long x)
+unsigned long __phys_addr(unsigned long x)
 {
 	unsigned long phys_addr = x - PAGE_OFFSET;
 	/* VMALLOC_* aren't constants  */

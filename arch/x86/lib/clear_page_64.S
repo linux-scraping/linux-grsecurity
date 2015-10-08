@@ -1,5 +1,4 @@
 #include <linux/linkage.h>
-#include <asm/dwarf2.h>
 #include <asm/cpufeature.h>
 #include <asm/alternative-asm.h>
 
@@ -15,7 +14,6 @@
  * %rdi	- page
  */
 ENTRY(clear_page)
-	CFI_STARTPROC
 
 	ALTERNATIVE_2 "jmp clear_page_orig", "", X86_FEATURE_REP_GOOD, \
 		      "jmp clear_page_c_e", X86_FEATURE_ERMS
@@ -25,11 +23,9 @@ ENTRY(clear_page)
 	rep stosq
 	pax_force_retaddr
 	ret
-	CFI_ENDPROC
 ENDPROC(clear_page)
 
 ENTRY(clear_page_orig)
-	CFI_STARTPROC
 
 	xorl   %eax,%eax
 	movl   $4096/64,%ecx
@@ -50,15 +46,12 @@ ENTRY(clear_page_orig)
 	nop
 	pax_force_retaddr
 	ret
-	CFI_ENDPROC
 ENDPROC(clear_page_orig)
 
 ENTRY(clear_page_c_e)
-	CFI_STARTPROC
 	movl $4096,%ecx
 	xorl %eax,%eax
 	rep stosb
 	pax_force_retaddr
 	ret
-	CFI_ENDPROC
 ENDPROC(clear_page_c_e)

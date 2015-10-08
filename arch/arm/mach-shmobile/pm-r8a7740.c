@@ -11,6 +11,7 @@
 #include <linux/console.h>
 #include <linux/io.h>
 #include <linux/suspend.h>
+#include <asm/pgtable.h>
 
 #include "common.h"
 #include "pm-rmobile.h"
@@ -117,7 +118,9 @@ static int r8a7740_enter_suspend(suspend_state_t suspend_state)
 
 static void r8a7740_suspend_init(void)
 {
-	shmobile_suspend_ops.enter = r8a7740_enter_suspend;
+	pax_open_kernel();
+	*(void **)&shmobile_suspend_ops.enter = r8a7740_enter_suspend;
+	pax_close_kernel();
 }
 #else
 static void r8a7740_suspend_init(void) {}

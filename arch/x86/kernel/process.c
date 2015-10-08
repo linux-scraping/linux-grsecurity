@@ -15,6 +15,7 @@
 #include <linux/dmi.h>
 #include <linux/utsname.h>
 #include <linux/stackprotector.h>
+#include <linux/kthread.h>
 #include <linux/tick.h>
 #include <linux/cpuidle.h>
 #include <trace/events/power.h>
@@ -25,8 +26,7 @@
 #include <asm/idle.h>
 #include <asm/uaccess.h>
 #include <asm/mwait.h>
-#include <asm/i387.h>
-#include <asm/fpu-internal.h>
+#include <asm/fpu/internal.h>
 #include <asm/debugreg.h>
 #include <asm/nmi.h>
 #include <asm/tlbflush.h>
@@ -78,8 +78,16 @@ void idle_notifier_unregister(struct notifier_block *n)
 EXPORT_SYMBOL_GPL(idle_notifier_unregister);
 #endif
 
-struct kmem_cache *task_xstate_cachep;
-EXPORT_SYMBOL_GPL(task_xstate_cachep);
+struct kmem_cache *fpregs_state_cachep;
+EXPORT_SYMBOL(fpregs_state_cachep);
+
+void __init arch_task_cache_init(void)
+{
+	/* create a slab on which task_structs can be allocated */
+	fpregs_state_cachep =
+		kmem_cache_create("fpregs_state", xstate_size,
+			ARCH_MIN_TASKALIGN, SLAB_PANIC | SLAB_NOTRACK | SLAB_USERCOPY, NULL);
+}
 
 /*
  * this gets called so that we can store lazy state into memory and copy the
@@ -89,36 +97,14 @@ int arch_dup_task_struct(struct task_struct *dst, struct task_struct *src)
 {
 	*dst = *src;
 
-	dst->thread.fpu_counter = 0;
-	dst->thread.fpu.has_fpu = 0;
-	dst->thread.fpu.state = NULL;
-	task_disable_lazy_fpu_restore(dst);
-	if (tsk_used_math(src)) {
-		int err = fpu_alloc(&dst->thread.fpu);
-		if (err)
-			return err;
-		fpu_copy(dst, src);
-	}
-	return 0;
-}
-
-void free_thread_xstate(struct task_struct *tsk)
-{
-	fpu_free(&tsk->thread.fpu);
+	dst->thread.fpu.state = kmem_cache_alloc_node(fpregs_state_cachep, GFP_KERNEL, tsk_fork_get_node(src));
+	return fpu__copy(&dst->thread.fpu, &src->thread.fpu);
 }
 
 void arch_release_task_struct(struct task_struct *tsk)
 {
-	free_thread_xstate(tsk);
-}
-
-void arch_task_cache_init(void)
-{
-        task_xstate_cachep =
-        	kmem_cache_create("task_xstate", xstate_size,
-				  __alignof__(union thread_xstate),
-				  SLAB_PANIC | SLAB_NOTRACK | SLAB_USERCOPY, NULL);
-	setup_xstate_comp();
+	kmem_cache_free(fpregs_state_cachep, tsk->thread.fpu.state);
+	tsk->thread.fpu.state = NULL;
 }
 
 /*
@@ -129,6 +115,7 @@ void exit_thread(void)
 	struct task_struct *me = current;
 	struct thread_struct *t = &me->thread;
 	unsigned long *bp = t->io_bitmap_ptr;
+	struct fpu *fpu = &t->fpu;
 
 	if (bp) {
 		struct tss_struct *tss = cpu_tss + get_cpu();
@@ -144,7 +131,7 @@ void exit_thread(void)
 		kfree(bp);
 	}
 
-	drop_fpu(me);
+	fpu__drop(fpu);
 }
 
 void flush_thread(void)
@@ -157,19 +144,7 @@ void flush_thread(void)
 	flush_ptrace_hw_breakpoint(tsk);
 	memset(tsk->thread.tls_array, 0, sizeof(tsk->thread.tls_array));
 
-	if (!use_eager_fpu()) {
-		/* FPU state will be reallocated lazily at the first use. */
-		drop_fpu(tsk);
-		free_thread_xstate(tsk);
-	} else {
-		if (!tsk_used_math(tsk)) {
-			/* kthread execs. TODO: cleanup this horror. */
-			if (WARN_ON(init_fpu(tsk)))
-				force_sig(SIGKILL, tsk);
-			user_fpu_begin();
-		}
-		restore_init_xstate();
-	}
+	fpu__clear(&tsk->thread.fpu);
 }
 
 static void hard_disable_TSC(void)
@@ -450,11 +425,10 @@ static int prefer_mwait_c1_over_halt(const struct cpuinfo_x86 *c)
 }
 
 /*
- * MONITOR/MWAIT with no hints, used for default default C1 state.
- * This invokes MWAIT with interrutps enabled and no flags,
- * which is backwards compatible with the original MWAIT implementation.
+ * MONITOR/MWAIT with no hints, used for default C1 state. This invokes MWAIT
+ * with interrupts enabled and no flags, which is backwards compatible with the
+ * original MWAIT implementation.
  */
-
 static void mwait_idle(void)
 {
 	if (!current_set_polling_and_test()) {
@@ -572,9 +546,6 @@ void pax_randomize_kstack(struct pt_regs *regs)
 
 	thread->sp0 ^= time;
 	load_sp0(cpu_tss + smp_processor_id(), thread);
-
-#ifdef CONFIG_X86_64
-	this_cpu_write(kernel_stack, thread->sp0);
-#endif
+	this_cpu_write(cpu_current_top_of_stack, thread->sp0);
 }
 #endif

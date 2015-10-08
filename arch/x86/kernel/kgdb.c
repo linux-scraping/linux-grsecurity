@@ -753,11 +753,11 @@ int kgdb_arch_set_breakpoint(struct kgdb_bkpt *bpt)
 #endif /* CONFIG_DEBUG_RODATA */
 
 	bpt->type = BP_BREAKPOINT;
-	err = probe_kernel_read(bpt->saved_instr, ktla_ktva((char *)bpt->bpt_addr),
+	err = probe_kernel_read(bpt->saved_instr, (const void *)ktla_ktva(bpt->bpt_addr),
 				BREAK_INSTR_SIZE);
 	if (err)
 		return err;
-	err = probe_kernel_write(ktla_ktva((char *)bpt->bpt_addr),
+	err = probe_kernel_write((void *)ktla_ktva(bpt->bpt_addr),
 				 arch_kgdb_ops.gdb_bpt_instr, BREAK_INSTR_SIZE);
 #ifdef CONFIG_DEBUG_RODATA
 	if (!err)
@@ -801,7 +801,7 @@ int kgdb_arch_remove_breakpoint(struct kgdb_bkpt *bpt)
 	return err;
 knl_write:
 #endif /* CONFIG_DEBUG_RODATA */
-	return probe_kernel_write(ktla_ktva((char *)bpt->bpt_addr),
+	return probe_kernel_write((void *)ktla_ktva(bpt->bpt_addr),
 				  (char *)bpt->saved_instr, BREAK_INSTR_SIZE);
 }
 

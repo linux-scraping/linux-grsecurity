@@ -9,6 +9,7 @@
  */
 
 #include <linux/suspend.h>
+#include <asm/pgtable.h>
 #include "common.h"
 
 #ifdef CONFIG_SUSPEND
@@ -20,7 +21,9 @@ static int sh73a0_enter_suspend(suspend_state_t suspend_state)
 
 static void sh73a0_suspend_init(void)
 {
-	shmobile_suspend_ops.enter = sh73a0_enter_suspend;
+	pax_open_kernel();
+	*(void **)&shmobile_suspend_ops.enter = sh73a0_enter_suspend;
+	pax_close_kernel();
 }
 #else
 static void sh73a0_suspend_init(void) {}

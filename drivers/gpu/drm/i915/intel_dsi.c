@@ -239,7 +239,7 @@ static int dpi_send_cmd(struct intel_dsi *intel_dsi, u32 cmd, bool hs,
 
 static void band_gap_reset(struct drm_i915_private *dev_priv)
 {
-	mutex_lock(&dev_priv->dpio_lock);
+	mutex_lock(&dev_priv->sb_lock);
 
 	vlv_flisdsi_write(dev_priv, 0x08, 0x0001);
 	vlv_flisdsi_write(dev_priv, 0x0F, 0x0005);
@@ -248,7 +248,7 @@ static void band_gap_reset(struct drm_i915_private *dev_priv)
 	vlv_flisdsi_write(dev_priv, 0x0F, 0x0000);
 	vlv_flisdsi_write(dev_priv, 0x08, 0x0000);
 
-	mutex_unlock(&dev_priv->dpio_lock);
+	mutex_unlock(&dev_priv->sb_lock);
 }
 
 static inline bool is_vid_mode(struct intel_dsi *intel_dsi)
@@ -346,11 +346,11 @@ static void intel_dsi_device_ready(struct intel_encoder *encoder)
 
 	DRM_DEBUG_KMS("\n");
 
-	mutex_lock(&dev_priv->dpio_lock);
+	mutex_lock(&dev_priv->sb_lock);
 	/* program rcomp for compliance, reduce from 50 ohms to 45 ohms
 	 * needed everytime after power gate */
 	vlv_flisdsi_write(dev_priv, 0x04, 0x0004);
-	mutex_unlock(&dev_priv->dpio_lock);
+	mutex_unlock(&dev_priv->sb_lock);
 
 	/* bandgap reset is needed after everytime we do power gate */
 	band_gap_reset(dev_priv);
@@ -1036,17 +1036,16 @@ void intel_dsi_init(struct drm_device *dev)
 	intel_connector->unregister = intel_connector_unregister;
 
 	/* Pipe A maps to MIPI DSI port A, pipe B maps to MIPI DSI port C */
-	if (dev_priv->vbt.dsi.config->dual_link) {
-		/* XXX: does dual link work on either pipe? */
-		intel_encoder->crtc_mask = (1 << PIPE_A);
-		intel_dsi->ports = ((1 << PORT_A) | (1 << PORT_C));
-	} else if (dev_priv->vbt.dsi.port == DVO_PORT_MIPIA) {
+	if (dev_priv->vbt.dsi.port == DVO_PORT_MIPIA) {
 		intel_encoder->crtc_mask = (1 << PIPE_A);
 		intel_dsi->ports = (1 << PORT_A);
 	} else if (dev_priv->vbt.dsi.port == DVO_PORT_MIPIC) {
 		intel_encoder->crtc_mask = (1 << PIPE_B);
 		intel_dsi->ports = (1 << PORT_C);
 	}
+
+	if (dev_priv->vbt.dsi.config->dual_link)
+		intel_dsi->ports = ((1 << PORT_A) | (1 << PORT_C));
 
 	/* Create a DSI host (and a device) for each port. */
 	for_each_dsi_port(port, intel_dsi->ports) {

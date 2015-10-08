@@ -51,12 +51,13 @@ create_structs() {
 		data_array=($data)
 		struct_hash_name="${data_array[0]}"
 		funcn="${data_array[1]}"
-		params="${data_array[2]}"
-		next="${data_array[4]}"
+		context="${data_array[2]}"
+		params="${data_array[3]}"
+		next="${data_array[5]}"
 
 		echo "const struct size_overflow_hash $struct_hash_name = {" >> "$header1"
 
-		echo -e "\t.next\t= $next,\n\t.name\t= \"$funcn\"," >> "$header1"
+		echo -e "\t.next\t= $next,\n\t.name\t= \"$funcn\",\n\t.context\t= \"$context\"," >> "$header1"
 		echo -en "\t.param\t= " >> "$header1"
 		line=
 		for param_num in ${params//-/ };
@@ -74,10 +75,10 @@ create_headers() {
 
 create_array_elements() {
 	index=0
-	grep -v "nohasharray" $database | sort -n -k 4 | while read data
+	grep -v "nohasharray" $database | sort -n -k 5 | while read data
 	do
 		data_array=($data)
-		i="${data_array[3]}"
+		i="${data_array[4]}"
 		hash="${data_array[0]}"
 		while [[ $index -lt $i ]]
 		do

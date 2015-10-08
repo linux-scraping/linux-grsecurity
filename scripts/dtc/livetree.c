@@ -492,7 +492,7 @@ struct node *get_node_by_phandle(struct node *tree, cell_t phandle)
 {
 	struct node *child, *node;
 
-	assert((phandle != 0) && (phandle != -1));
+	assert((phandle != 0) && (phandle != ~0U));
 
 	if (tree->phandle == phandle) {
 		if (tree->deleted)
@@ -511,7 +511,9 @@ struct node *get_node_by_phandle(struct node *tree, cell_t phandle)
 
 struct node *get_node_by_ref(struct node *tree, const char *ref)
 {
-	if (ref[0] == '/')
+	if (streq(ref, "/"))
+		return tree;
+	else if (ref[0] == '/')
 		return get_node_by_path(tree, ref);
 	else
 		return get_node_by_label(tree, ref);
@@ -521,7 +523,7 @@ cell_t get_node_phandle(struct node *root, struct node *node)
 {
 	static cell_t phandle = 1; /* FIXME: ick, static local */
 
-	if ((node->phandle != 0) && (node->phandle != -1))
+	if ((node->phandle != 0) && (node->phandle != ~0U))
 		return node->phandle;
 
 	while (get_node_by_phandle(root, phandle))

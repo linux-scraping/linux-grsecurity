@@ -499,7 +499,8 @@ static ssize_t fill_periodic_buffer(struct debug_buffer *buf)
 	unsigned		i;
 	__hc32			tag;
 
-	if (!(seen = kmalloc (DBG_SCHED_LIMIT * sizeof *seen, GFP_ATOMIC)))
+	seen = kmalloc(DBG_SCHED_LIMIT * sizeof *seen, GFP_ATOMIC);
+	if (!seen)
 		return 0;
 	seen_count = 0;
 
@@ -5155,7 +5156,7 @@ static int hcd_fusbh200_init(struct usb_hcd *hcd)
 
 	/* Accept arbitrarily long scatter-gather lists */
 	if (!(hcd->driver->flags & HCD_LOCAL_MEM))
-		hcd->self.sg_tablesize = ~0;
+		hcd->self.sg_tablesize = SG_ALL;
 	return 0;
 }
 

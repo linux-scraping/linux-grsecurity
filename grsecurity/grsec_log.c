@@ -310,8 +310,6 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 			__u8 whr, chr;
 			__u8 wmin, cmin;
 			__u8 wsec, csec;
-			char cur_tty[64] = { 0 };
-			char parent_tty[64] = { 0 };
 
 			task = va_arg(ap, struct task_struct *);
 			wday = va_arg(ap, unsigned int);
@@ -326,7 +324,7 @@ void gr_log_varargs(int audit, const char *msg, int argtypes, ...)
 			cred = __task_cred(task);
 			pcred = __task_cred(task->real_parent);
 
-			gr_log_middle_varargs(audit, msg, gr_task_fullpath(task), task->comm, task_pid_nr(task), &task->signal->curr_ip, tty_name(task->signal->tty, cur_tty), GR_GLOBAL_UID(cred->uid), GR_GLOBAL_UID(cred->euid), GR_GLOBAL_GID(cred->gid), GR_GLOBAL_GID(cred->egid), wday, whr, wmin, wsec, cday, chr, cmin, csec, (task->flags & PF_SIGNALED) ? "killed by signal" : "exited", ulong1, gr_parent_task_fullpath(task), task->real_parent->comm, task_pid_nr(task->real_parent), &task->real_parent->signal->curr_ip, tty_name(task->real_parent->signal->tty, parent_tty), GR_GLOBAL_UID(pcred->uid), GR_GLOBAL_UID(pcred->euid), GR_GLOBAL_GID(pcred->gid), GR_GLOBAL_GID(pcred->egid));
+			gr_log_middle_varargs(audit, msg, gr_task_fullpath(task), task->comm, task_pid_nr(task), &task->signal->curr_ip, tty_name(task->signal->tty), GR_GLOBAL_UID(cred->uid), GR_GLOBAL_UID(cred->euid), GR_GLOBAL_GID(cred->gid), GR_GLOBAL_GID(cred->egid), wday, whr, wmin, wsec, cday, chr, cmin, csec, (task->flags & PF_SIGNALED) ? "killed by signal" : "exited", ulong1, gr_parent_task_fullpath(task), task->real_parent->comm, task_pid_nr(task->real_parent), &task->real_parent->signal->curr_ip, tty_name(task->real_parent->signal->tty), GR_GLOBAL_UID(pcred->uid), GR_GLOBAL_UID(pcred->euid), GR_GLOBAL_GID(pcred->gid), GR_GLOBAL_GID(pcred->egid));
 		}
 		break;
 	default:

@@ -35,11 +35,14 @@
   */
 
 #define ARCH_HAS_IOREMAP_WC
+#define ARCH_HAS_IOREMAP_WT
 
 #include <linux/string.h>
 #include <linux/compiler.h>
 #include <asm/page.h>
 #include <asm/early_ioremap.h>
+#include <asm/pgtable_types.h>
+#include <asm/processor.h>
 
 #define build_mmio_read(name, size, type, reg, barrier) \
 static inline type name(const volatile void __iomem *addr) \
@@ -177,6 +180,7 @@ static inline unsigned int isa_virt_to_bus(volatile void *address)
  * look at pci_iomap().
  */
 extern void __iomem *ioremap_nocache(resource_size_t offset, unsigned long size);
+extern void __iomem *ioremap_uc(resource_size_t offset, unsigned long size);
 extern void __iomem *ioremap_cache(resource_size_t offset, unsigned long size);
 extern void __iomem *ioremap_prot(resource_size_t offset, unsigned long size,
 				unsigned long prot_val);
@@ -196,8 +200,6 @@ extern void set_iounmap_nonlazy(void);
 #ifdef __KERNEL__
 
 #include <asm-generic/iomap.h>
-
-#include <linux/vmalloc.h>
 
 #define ARCH_HAS_VALID_PHYS_ADDR_RANGE
 static inline int valid_phys_addr_range(unsigned long addr, size_t count)
@@ -256,6 +258,12 @@ static inline void flush_write_buffers(void)
 #if defined(CONFIG_X86_PPRO_FENCE)
 	asm volatile("lock; addl $0,0(%%esp)": : :"memory");
 #endif
+}
+
+static inline void __pmem *arch_memremap_pmem(resource_size_t offset,
+	unsigned long size)
+{
+	return (void __force __pmem *) ioremap_cache(offset, size);
 }
 
 #endif /* __KERNEL__ */
@@ -331,6 +339,7 @@ extern void unxlate_dev_mem_ptr(phys_addr_t phys, void *addr);
 extern int ioremap_change_attr(unsigned long vaddr, unsigned long size,
 				enum page_cache_mode pcm);
 extern void __iomem *ioremap_wc(resource_size_t offset, unsigned long size);
+extern void __iomem *ioremap_wt(resource_size_t offset, unsigned long size);
 
 extern bool is_early_ioremap_ptep(pte_t *ptep);
 
@@ -349,6 +358,9 @@ extern bool xen_biovec_phys_mergeable(const struct bio_vec *vec1,
 #define IO_SPACE_LIMIT 0xffff
 
 #ifdef CONFIG_MTRR
+extern int __must_check arch_phys_wc_index(int handle);
+#define arch_phys_wc_index arch_phys_wc_index
+
 extern int __must_check arch_phys_wc_add(unsigned long base,
 					 unsigned long size);
 extern void arch_phys_wc_del(int handle);

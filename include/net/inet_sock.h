@@ -43,7 +43,7 @@
 struct ip_options {
 	__be32		faddr;
 	__be32		nexthop;
-	unsigned char	optlen;
+	unsigned char	optlen __intentional_overflow(0);
 	unsigned char	srr;
 	unsigned char	rr;
 	unsigned char	ts;
@@ -187,6 +187,7 @@ struct inet_sock {
 				transparent:1,
 				mc_all:1,
 				nodefrag:1;
+	__u8			bind_address_no_port:1;
 	__u8			rcv_tos;
 	__u8			convert_csum;
 	int			uc_index;

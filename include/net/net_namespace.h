@@ -28,6 +28,8 @@
 #include <net/netns/xfrm.h>
 #include <net/netns/mpls.h>
 #include <linux/ns_common.h>
+#include <linux/idr.h>
+#include <linux/skbuff.h>
 
 struct user_namespace;
 struct proc_dir_entry;
@@ -51,13 +53,14 @@ struct net {
 						 */
 	spinlock_t		rules_mod_lock;
 
-	atomic64_t		cookie_gen;
+	atomic64_unchecked_t	cookie_gen;
 
 	struct list_head	list;		/* list of network namespaces */
 	struct list_head	cleanup_list;	/* namespaces on death row */
 	struct list_head	exit_list;	/* Use only net_mutex */
 
 	struct user_namespace   *user_ns;	/* Owning user namespace */
+	spinlock_t		nsid_lock;
 	struct idr		netns_ids;
 
 	struct ns_common	ns;
@@ -275,7 +278,9 @@ static inline struct net *read_pnet(const possible_net_t *pnet)
 #endif
 #endif
 
+int peernet2id_alloc(struct net *net, struct net *peer);
 int peernet2id(struct net *net, struct net *peer);
+bool peernet_has_id(struct net *net, struct net *peer);
 struct net *get_net_ns_by_id(struct net *net, int id);
 
 struct pernet_operations {

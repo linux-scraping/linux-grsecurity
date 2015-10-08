@@ -43,7 +43,7 @@
  */
 uint16_t __cachemode2pte_tbl[_PAGE_CACHE_MODE_NUM] = {
 	[_PAGE_CACHE_MODE_WB      ]	= 0         | 0        ,
-	[_PAGE_CACHE_MODE_WC      ]	= _PAGE_PWT | 0        ,
+	[_PAGE_CACHE_MODE_WC      ]	= 0         | _PAGE_PCD,
 	[_PAGE_CACHE_MODE_UC_MINUS]	= 0         | _PAGE_PCD,
 	[_PAGE_CACHE_MODE_UC      ]	= _PAGE_PWT | _PAGE_PCD,
 	[_PAGE_CACHE_MODE_WT      ]	= 0         | _PAGE_PCD,
@@ -53,11 +53,11 @@ EXPORT_SYMBOL(__cachemode2pte_tbl);
 
 uint8_t __pte2cachemode_tbl[8] = {
 	[__pte2cm_idx( 0        | 0         | 0        )] = _PAGE_CACHE_MODE_WB,
-	[__pte2cm_idx(_PAGE_PWT | 0         | 0        )] = _PAGE_CACHE_MODE_WC,
+	[__pte2cm_idx(_PAGE_PWT | 0         | 0        )] = _PAGE_CACHE_MODE_UC_MINUS,
 	[__pte2cm_idx( 0        | _PAGE_PCD | 0        )] = _PAGE_CACHE_MODE_UC_MINUS,
 	[__pte2cm_idx(_PAGE_PWT | _PAGE_PCD | 0        )] = _PAGE_CACHE_MODE_UC,
 	[__pte2cm_idx( 0        | 0         | _PAGE_PAT)] = _PAGE_CACHE_MODE_WB,
-	[__pte2cm_idx(_PAGE_PWT | 0         | _PAGE_PAT)] = _PAGE_CACHE_MODE_WC,
+	[__pte2cm_idx(_PAGE_PWT | 0         | _PAGE_PAT)] = _PAGE_CACHE_MODE_UC_MINUS,
 	[__pte2cm_idx(0         | _PAGE_PCD | _PAGE_PAT)] = _PAGE_CACHE_MODE_UC_MINUS,
 	[__pte2cm_idx(_PAGE_PWT | _PAGE_PCD | _PAGE_PAT)] = _PAGE_CACHE_MODE_UC,
 };
@@ -796,7 +796,7 @@ void free_initmem(void)
 		pgd = pgd_offset_k(addr);
 		pud = pud_offset(pgd, addr);
 		pmd = pmd_offset(pud, addr);
-	set_pmd(pmd, __pmd(pmd_val(*pmd) | (_PAGE_NX & __supported_pte_mask)));
+		set_pmd(pmd, __pmd(pmd_val(*pmd) | (_PAGE_NX & __supported_pte_mask)));
 	}
 */
 #endif
@@ -807,16 +807,23 @@ void free_initmem(void)
 
 #else
 	/* PaX: make kernel code/rodata read-only, rest non-executable */
+	set_memory_ro((unsigned long)_text, ((unsigned long)(_sdata - _text) >> PAGE_SHIFT));
+	set_memory_nx((unsigned long)_sdata, (__START_KERNEL_map + KERNEL_IMAGE_SIZE - (unsigned long)_sdata) >> PAGE_SHIFT);
+
 	for (addr = __START_KERNEL_map; addr < __START_KERNEL_map + KERNEL_IMAGE_SIZE; addr += PMD_SIZE) {
 		pgd = pgd_offset_k(addr);
 		pud = pud_offset(pgd, addr);
 		pmd = pmd_offset(pud, addr);
 		if (!pmd_present(*pmd))
 			continue;
+		if (addr >= (unsigned long)_text)
+			BUG_ON(!pmd_large(*pmd));
 		if ((unsigned long)_text <= addr && addr < (unsigned long)_sdata)
-			set_pmd(pmd, __pmd(pmd_val(*pmd) & ~_PAGE_RW));
+			BUG_ON(pmd_write(*pmd));
+//			set_pmd(pmd, __pmd(pmd_val(*pmd) & ~_PAGE_RW));
 		else
-			set_pmd(pmd, __pmd(pmd_val(*pmd) | (_PAGE_NX & __supported_pte_mask)));
+			BUG_ON(!(pmd_flags(*pmd) & _PAGE_NX));
+//			set_pmd(pmd, __pmd(pmd_val(*pmd) | (_PAGE_NX & __supported_pte_mask)));
 	}
 
 	addr = (unsigned long)__va(__pa(__START_KERNEL_map));
@@ -827,8 +834,11 @@ void free_initmem(void)
 		pmd = pmd_offset(pud, addr);
 		if (!pmd_present(*pmd))
 			continue;
+		if (addr >= (unsigned long)_text)
+			BUG_ON(!pmd_large(*pmd));
 		if ((unsigned long)__va(__pa(_text)) <= addr && addr < (unsigned long)__va(__pa(_sdata)))
-			set_pmd(pmd, __pmd(pmd_val(*pmd) & ~_PAGE_RW));
+			BUG_ON(pmd_write(*pmd));
+//			set_pmd(pmd, __pmd(pmd_val(*pmd) & ~_PAGE_RW));
 	}
 #endif
 

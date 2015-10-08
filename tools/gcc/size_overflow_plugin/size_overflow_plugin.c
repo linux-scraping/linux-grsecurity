@@ -29,7 +29,7 @@ tree size_overflow_type_DI;
 tree size_overflow_type_TI;
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20150614",
+	.version	= "20150929",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
@@ -48,6 +48,7 @@ static tree handle_size_overflow_attribute(tree *node, tree __unused name, tree 
 		break;
 	default:
 		*no_add_attrs = true;
+		debug_tree(*node);
 		error("%s: %qE attribute only applies to functions", __func__, name);
 		return NULL_TREE;
 	}
@@ -87,11 +88,13 @@ static tree handle_intentional_overflow_attribute(tree *node, tree __unused name
 	case METHOD_TYPE:
 		arg_count = type_num_arguments(*node);
 		break;
+	case VAR_DECL:
 	case FIELD_DECL:
 		return NULL_TREE;
 	default:
 		*no_add_attrs = true;
-		error("%qE attribute only applies to functions", name);
+		debug_tree(*node);
+		error("%qE attribute only applies to functions, fields or vars", name);
 		return NULL_TREE;
 	}
 
@@ -198,6 +201,47 @@ static void size_overflow_start_unit(void __unused *gcc_data, void __unused *use
 	TREE_NOTHROW(report_size_overflow_decl) = 1;
 }
 
+#if BUILDING_GCC_VERSION >= 4009
+static bool gate_disable_ubsan_si_overflow(void)
+{
+	flag_sanitize &= ~SANITIZE_SI_OVERFLOW;
+	return true;
+}
+
+static const struct pass_data disable_ubsan_si_overflow_pass_data = {
+		.type			= GIMPLE_PASS,
+		.name			= "disable_ubsan_si_overflow",
+		.optinfo_flags		= OPTGROUP_NONE,
+#if BUILDING_GCC_VERSION >= 5000
+#else
+		.has_gate		= true,
+		.has_execute		= false,
+#endif
+		.tv_id			= TV_NONE,
+		.properties_required	= 0,
+		.properties_provided	= 0,
+		.properties_destroyed	= 0,
+		.todo_flags_start	= 0,
+		.todo_flags_finish	= 0
+};
+
+namespace {
+class disable_ubsan_si_overflow_pass : public gimple_opt_pass {
+public:
+	disable_ubsan_si_overflow_pass() : gimple_opt_pass(disable_ubsan_si_overflow_pass_data, g) {}
+#if BUILDING_GCC_VERSION >= 5000
+	virtual bool gate(function *) { return gate_disable_ubsan_si_overflow(); }
+#else
+	bool gate() { return gate_disable_ubsan_si_overflow(); }
+#endif
+};
+}
+
+opt_pass *make_disable_ubsan_si_overflow_pass(void)
+{
+	return new disable_ubsan_si_overflow_pass();
+}
+#endif
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
@@ -208,6 +252,9 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	bool enable = true;
 	struct register_pass_info insert_size_overflow_asm_pass_info;
 	struct register_pass_info size_overflow_functions_pass_info;
+#if BUILDING_GCC_VERSION >= 4009
+	struct register_pass_info disable_ubsan_si_overflow_pass_info;
+#endif
 
 	static const struct ggc_root_tab gt_ggc_r_gt_size_overflow[] = {
 		{
@@ -245,8 +292,23 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 
 	register_callback(plugin_name, PLUGIN_INFO, NULL, &size_overflow_plugin_info);
 	if (enable) {
+#if BUILDING_GCC_VERSION >= 4009
+		if (flag_sanitize & SANITIZE_SI_OVERFLOW) {
+			error(G_("ubsan SANITIZE_SI_OVERFLOW option is unsupported"));
+			return 1;
+		}
+#endif
 		register_callback(plugin_name, PLUGIN_START_UNIT, &size_overflow_start_unit, NULL);
 		register_callback(plugin_name, PLUGIN_REGISTER_GGC_ROOTS, NULL, (void *)&gt_ggc_r_gt_size_overflow);
+#if BUILDING_GCC_VERSION >= 4009
+		flag_sanitize |= SANITIZE_SI_OVERFLOW;
+		disable_ubsan_si_overflow_pass_info.pass			= make_disable_ubsan_si_overflow_pass();
+		disable_ubsan_si_overflow_pass_info.reference_pass_name		= "ubsan";
+		disable_ubsan_si_overflow_pass_info.ref_pass_instance_number	= 1;
+		disable_ubsan_si_overflow_pass_info.pos_op			= PASS_POS_REPLACE;
+
+		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &disable_ubsan_si_overflow_pass_info);
+#endif
 		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &insert_size_overflow_asm_pass_info);
 		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &size_overflow_functions_pass_info);
 	}

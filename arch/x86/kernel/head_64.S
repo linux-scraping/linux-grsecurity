@@ -113,6 +113,13 @@ startup_64:
 	addq	%rbp, level3_kernel_pgt + (L3_START_KERNEL*8)(%rip)
 	addq	%rbp, level3_kernel_pgt + ((L3_START_KERNEL+1)*8)(%rip)
 
+	addq	%rbp, level2_ident_pgt + (0*8)(%rip)
+
+	addq	%rbp, level2_fixmap_pgt + (0*8)(%rip)
+	addq	%rbp, level2_fixmap_pgt + (1*8)(%rip)
+	addq	%rbp, level2_fixmap_pgt + (2*8)(%rip)
+	addq	%rbp, level2_fixmap_pgt + (3*8)(%rip)
+
 	addq	%rbp, level2_fixmap_pgt + (504*8)(%rip)
 	addq	%rbp, level2_fixmap_pgt + (505*8)(%rip)
 	addq	%rbp, level2_fixmap_pgt + (506*8)(%rip)
@@ -382,7 +389,7 @@ early_idt_handler_common:
 	cld
 
 	cmpl $2,(%rsp)		# X86_TRAP_NMI
-	je is_nmi		# Ignore NMI
+	je .Lis_nmi		# Ignore NMI
 
 	cmpl $2,early_recursion_flag(%rip)
 	jz  1f
@@ -447,7 +454,7 @@ early_idt_handler_common:
 	popq %rcx
 	popq %rax
 	decl early_recursion_flag(%rip)
-is_nmi:
+.Lis_nmi:
 	addq $16,%rsp		# drop vector number and error code
 	INTERRUPT_RETURN
 ENDPROC(early_idt_handler_common)
@@ -481,7 +488,7 @@ GLOBAL(name)
 	__INITDATA
 NEXT_PAGE(early_level4_pgt)
 	.fill	511,8,0
-	.quad	level3_kernel_pgt - __START_KERNEL_map + _PAGE_TABLE
+	.quad	level3_kernel_pgt - __START_KERNEL_map + _KERNPG_TABLE
 
 NEXT_PAGE(early_dynamic_pgts)
 	.fill	512*EARLY_DYNAMIC_PAGE_TABLES,8,0
@@ -499,7 +506,7 @@ NEXT_PAGE(init_level4_pgt)
 	.quad	level3_vmemmap_pgt - __START_KERNEL_map + _KERNPG_TABLE
 	.org    init_level4_pgt + L4_START_KERNEL*8, 0
 	/* (2^48-(2*1024*1024*1024))/(2^39) = 511 */
-	.quad   level3_kernel_pgt - __START_KERNEL_map + _PAGE_TABLE
+	.quad   level3_kernel_pgt - __START_KERNEL_map + _KERNPG_TABLE
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
 NEXT_PAGE(cpu_pgd)
@@ -528,16 +535,17 @@ NEXT_PAGE(level3_vmemmap_pgt)
 	.quad	level2_vmemmap_pgt - __START_KERNEL_map + _KERNPG_TABLE
 
 NEXT_PAGE(level2_ident_pgt)
+	.quad	level1_ident_pgt - __START_KERNEL_map + _KERNPG_TABLE
 	/* Since I easily can, map the first 2G.
 	 * Don't set NX because code runs from these pages.
 	 */
-	PMDS(0, __PAGE_KERNEL_IDENT_LARGE_EXEC, 2*PTRS_PER_PMD)
+	PMDS(PMD_SIZE, __PAGE_KERNEL_IDENT_LARGE_EXEC, 2*PTRS_PER_PMD - 1)
 
 NEXT_PAGE(level3_kernel_pgt)
 	.fill	L3_START_KERNEL,8,0
 	/* (2^48-(2*1024*1024*1024)-((2^39)*511))/(2^30) = 510 */
 	.quad	level2_kernel_pgt - __START_KERNEL_map + _KERNPG_TABLE
-	.quad	level2_fixmap_pgt - __START_KERNEL_map + _PAGE_TABLE
+	.quad	level2_fixmap_pgt - __START_KERNEL_map + _KERNPG_TABLE
 
 NEXT_PAGE(level2_vmemmap_pgt)
 	.fill	512,8,0
@@ -557,13 +565,23 @@ NEXT_PAGE(level2_kernel_pgt)
 		KERNEL_IMAGE_SIZE/PMD_SIZE)
 
 NEXT_PAGE(level2_fixmap_pgt)
-	.fill	504,8,0
-	.quad	level1_fixmap_pgt - __START_KERNEL_map + 0 * PAGE_SIZE + _PAGE_TABLE
-	.quad	level1_fixmap_pgt - __START_KERNEL_map + 1 * PAGE_SIZE + _PAGE_TABLE
-	.quad	level1_fixmap_pgt - __START_KERNEL_map + 2 * PAGE_SIZE + _PAGE_TABLE
-	.quad	level1_vsyscall_pgt - __START_KERNEL_map + _PAGE_TABLE
+	.quad	level1_modules_pgt - __START_KERNEL_map + 0 * PAGE_SIZE + _KERNPG_TABLE
+	.quad	level1_modules_pgt - __START_KERNEL_map + 1 * PAGE_SIZE + _KERNPG_TABLE
+	.quad	level1_modules_pgt - __START_KERNEL_map + 2 * PAGE_SIZE + _KERNPG_TABLE
+	.quad	level1_modules_pgt - __START_KERNEL_map + 3 * PAGE_SIZE + _KERNPG_TABLE
+	.fill	500,8,0
+	.quad	level1_fixmap_pgt - __START_KERNEL_map + 0 * PAGE_SIZE + _KERNPG_TABLE
+	.quad	level1_fixmap_pgt - __START_KERNEL_map + 1 * PAGE_SIZE + _KERNPG_TABLE
+	.quad	level1_fixmap_pgt - __START_KERNEL_map + 2 * PAGE_SIZE + _KERNPG_TABLE
+	.quad	level1_vsyscall_pgt - __START_KERNEL_map + _KERNPG_TABLE
 	/* 6MB reserved for vsyscalls + a 2MB hole = 3 + 1 entries */
 	.fill	4,8,0
+
+NEXT_PAGE(level1_ident_pgt)
+	.fill	512,8,0
+
+NEXT_PAGE(level1_modules_pgt)
+	.fill	4*512,8,0
 
 NEXT_PAGE(level1_fixmap_pgt)
 	.fill	3*512,8,0

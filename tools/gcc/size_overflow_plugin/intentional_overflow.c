@@ -165,12 +165,12 @@ static void print_missing_intentional(enum intentional_mark callee_attr, enum in
 	if (callee_attr == MARK_END_INTENTIONAL || callee_attr == MARK_YES)
 		return;
 
-	hash = get_size_overflow_hash_entry_tree(decl, argnum);
+	hash = get_size_overflow_hash_entry_tree(decl, argnum, ONLY_SO);
 	if (!hash)
 		return;
 
-	loc = DECL_SOURCE_LOCATION(decl);
-	inform(loc, "The intentional_overflow attribute is missing from +%s+%u+", DECL_NAME_POINTER(decl), argnum);
+//	loc = DECL_SOURCE_LOCATION(decl);
+//	inform(loc, "The intentional_overflow attribute is missing from +%s+%u+", DECL_NAME_POINTER(decl), argnum);
 }
 
 // Get the field decl of a component ref for intentional_overflow checking
@@ -194,7 +194,7 @@ static const_tree search_field_decl(const_tree comp_ref)
  *  * MARK_NO
  *  * MARK_END_INTENTIONAL
  */
-static enum intentional_mark get_intentional_attr_type(const_tree node)
+enum intentional_mark get_intentional_attr_type(const_tree node)
 {
 	const_tree cur_decl;
 
@@ -229,7 +229,14 @@ static enum intentional_mark get_intentional_attr_type(const_tree node)
 			return MARK_TURN_OFF;
 		if (is_end_intentional_intentional_attr(fndecl))
 			return MARK_END_INTENTIONAL;
+		break;
 	}
+	case FIELD_DECL:
+	case VAR_DECL:
+		if (is_end_intentional_intentional_attr(node))
+			return MARK_END_INTENTIONAL;
+		if (is_turn_off_intentional_attr(node))
+			return MARK_TURN_OFF;
 	default:
 		break;
 	}
@@ -325,10 +332,13 @@ static enum intentional_mark walk_use_def(gimple_set *visited, const_tree lhs)
 	}
 }
 
-static enum intentional_mark check_intentional_size_overflow_asm_and_attribute(const_tree var)
+enum intentional_mark check_intentional_size_overflow_asm_and_attribute(const_tree var)
 {
 	enum intentional_mark mark;
 	gimple_set *visited;
+
+	if (is_turn_off_intentional_attr(get_orig_fndecl(current_function_decl)))
+		return MARK_TURN_OFF;
 
 	visited = pointer_set_create();
 	mark = walk_use_def(visited, var);
@@ -423,33 +433,6 @@ enum intentional_mark check_intentional_attribute(const_gimple stmt, unsigned in
 	print_intentional_mark(caller_mark);
 	print_intentional_mark(callee_mark);
 	gcc_unreachable();
-}
-
-enum intentional_mark check_intentional_asm(const_gimple stmt, unsigned int argnum)
-{
-	const_tree arg;
-
-	switch (gimple_code(stmt)) {
-	case GIMPLE_RETURN:
-		gcc_assert(argnum == 0);
-		arg = gimple_return_retval(as_a_const_greturn(stmt));
-		break;
-	case GIMPLE_CALL:
-		gcc_assert(argnum != 0);
-		gcc_assert(argnum <= gimple_call_num_args(stmt));
-		arg = gimple_call_arg(stmt, argnum - 1);
-		break;
-	case GIMPLE_ASM:
-		gcc_assert(is_size_overflow_insert_check_asm(as_a_const_gasm(stmt)));
-		arg = get_size_overflow_asm_input(as_a_const_gasm(stmt));
-		break;
-	default:
-		debug_gimple_stmt((gimple)stmt);
-		gcc_unreachable();
-	}
-
-	// find a defining marked caller argument or struct field for arg
-	return check_intentional_size_overflow_asm_and_attribute(arg);
 }
 
 bool is_a_cast_and_const_overflow(const_tree no_const_rhs)
@@ -605,7 +588,7 @@ static tree change_assign_rhs(struct visited *visited, gassign *stmt, const_tree
 	return get_lhs(assign);
 }
 
-tree handle_intentional_overflow(struct visited *visited, bool check_overflow, gassign *stmt, tree change_rhs, tree new_rhs2)
+tree handle_intentional_overflow(struct visited *visited, next_interesting_function_t expand_from, bool check_overflow, gassign *stmt, tree change_rhs, tree new_rhs2)
 {
 	tree new_rhs, orig_rhs;
 	void (*gimple_assign_set_rhs)(gimple, tree);
@@ -627,7 +610,7 @@ tree handle_intentional_overflow(struct visited *visited, bool check_overflow, g
 		gimple_assign_set_rhs = &gimple_assign_set_rhs2;
 	}
 
-	check_size_overflow(stmt, TREE_TYPE(change_rhs), change_rhs, orig_rhs, BEFORE_STMT);
+	check_size_overflow(expand_from, stmt, TREE_TYPE(change_rhs), change_rhs, orig_rhs, BEFORE_STMT);
 
 	new_rhs = change_assign_rhs(visited, stmt, orig_rhs, change_rhs);
 	gimple_assign_set_rhs(stmt, new_rhs);
@@ -647,10 +630,10 @@ static bool is_subtraction_special(struct visited *visited, const gassign *stmt)
 	if (is_gimple_constant(rhs1) || is_gimple_constant(rhs2))
 		return false;
 
-	gcc_assert(TREE_CODE(rhs1) == SSA_NAME && TREE_CODE(rhs2) == SSA_NAME);
-
 	if (gimple_assign_rhs_code(stmt) != MINUS_EXPR)
 		return false;
+
+	gcc_assert(TREE_CODE(rhs1) == SSA_NAME && TREE_CODE(rhs2) == SSA_NAME);
 
 	rhs1_def_stmt = get_def_stmt(rhs1);
 	rhs2_def_stmt = get_def_stmt(rhs2);
@@ -739,7 +722,7 @@ static tree get_def_stmt_rhs(struct visited *visited, const_tree var)
 	}
 }
 
-tree handle_integer_truncation(struct visited *visited, const_tree lhs)
+tree handle_integer_truncation(struct visited *visited, next_interesting_function_t expand_from, const_tree lhs)
 {
 	tree new_rhs1, new_rhs2;
 	tree new_rhs1_def_stmt_rhs1, new_rhs2_def_stmt_rhs1, new_lhs;
@@ -750,8 +733,8 @@ tree handle_integer_truncation(struct visited *visited, const_tree lhs)
 	if (!is_subtraction_special(visited, stmt))
 		return NULL_TREE;
 
-	new_rhs1 = expand(visited, rhs1);
-	new_rhs2 = expand(visited, rhs2);
+	new_rhs1 = expand(visited, expand_from, rhs1);
+	new_rhs2 = expand(visited, expand_from, rhs2);
 
 	new_rhs1_def_stmt_rhs1 = get_def_stmt_rhs(visited, new_rhs1);
 	new_rhs2_def_stmt_rhs1 = get_def_stmt_rhs(visited, new_rhs2);
@@ -766,7 +749,7 @@ tree handle_integer_truncation(struct visited *visited, const_tree lhs)
 
 	assign = create_binary_assign(visited, MINUS_EXPR, stmt, new_rhs1_def_stmt_rhs1, new_rhs2_def_stmt_rhs1);
 	new_lhs = gimple_assign_lhs(assign);
-	check_size_overflow(assign, TREE_TYPE(new_lhs), new_lhs, rhs1, AFTER_STMT);
+	check_size_overflow(expand_from, assign, TREE_TYPE(new_lhs), new_lhs, rhs1, AFTER_STMT);
 
 	return dup_assign(visited, stmt, lhs, new_rhs1, new_rhs2, NULL_TREE);
 }
@@ -954,5 +937,44 @@ void unsigned_signed_cast_intentional_overflow(struct visited *visited, gassign 
 
 	so_stmt = get_dup_stmt(visited, stmt);
 	create_up_and_down_cast(visited, so_stmt, lhs_type, gimple_assign_rhs1(so_stmt));
+}
+
+bool is_intentional_truncation(gassign *assign)
+{
+	enum machine_mode lhs_mode, def_rhs_mode;
+	gimple def_stmt;
+	const_tree decl, rhs, def_rhs, def_def_rhs, lhs;
+
+	if (gimple_num_ops(assign) != 2)
+		return false;
+
+	lhs = gimple_assign_lhs(assign);
+	if (VAR_P(lhs))
+		return false;
+
+	// structure field write
+	decl = get_ref_field(lhs);
+	if (TREE_CODE(decl) != FIELD_DECL)
+		return false;
+
+	rhs = gimple_assign_rhs1(assign);
+	def_stmt = get_def_stmt(rhs);
+	if (!def_stmt || !gimple_assign_cast_p(def_stmt))
+		return false;
+
+	lhs_mode = TYPE_MODE(TREE_TYPE(rhs));
+	def_rhs = gimple_assign_rhs1(def_stmt);
+	def_rhs_mode = TYPE_MODE(TREE_TYPE(def_rhs));
+	// cast from 16 to 8
+	if (def_rhs_mode != HImode || lhs_mode != QImode)
+		return false;
+
+	def_stmt = get_def_stmt(def_rhs);
+	if (!def_stmt || !is_gimple_assign(def_stmt) || gimple_num_ops(def_stmt) != 2)
+		return false;
+
+	def_def_rhs = gimple_assign_rhs1(def_stmt);
+	// structure field read
+	return TREE_CODE(def_def_rhs) == MEM_REF;
 }
 

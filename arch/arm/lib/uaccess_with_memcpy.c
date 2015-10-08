@@ -85,7 +85,7 @@ pin_page_for_write(const void __user *_addr, pte_t **ptep, spinlock_t **ptlp)
 	return 1;
 }
 
-static unsigned long noinline
+static unsigned long noinline __size_overflow(3)
 __copy_to_user_memcpy(void __user *to, const void *from, unsigned long n)
 {
 	int atomic;
@@ -96,7 +96,7 @@ __copy_to_user_memcpy(void __user *to, const void *from, unsigned long n)
 	}
 
 	/* the mmap semaphore is taken only if not in an atomic context */
-	atomic = in_atomic();
+	atomic = faulthandler_disabled();
 
 	if (!atomic)
 		down_read(&current->mm->mmap_sem);
@@ -150,7 +150,7 @@ ___copy_to_user(void __user *to, const void *from, unsigned long n)
 	return __copy_to_user_memcpy(to, from, n);
 }
 	
-static unsigned long noinline
+static unsigned long noinline __size_overflow(2)
 __clear_user_memset(void __user *addr, unsigned long n)
 {
 	if (unlikely(segment_eq(get_fs(), KERNEL_DS))) {

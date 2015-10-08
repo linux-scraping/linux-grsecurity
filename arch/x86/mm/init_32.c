@@ -125,6 +125,7 @@ page_table_range_init_count(unsigned long start, unsigned long end)
 
 	vaddr = start;
 	pgd_idx = pgd_index(vaddr);
+	pmd_idx = pmd_index(vaddr);
 
 	for ( ; (pgd_idx < PTRS_PER_PGD) && (vaddr != end); pgd_idx++) {
 		for (; (pmd_idx < PTRS_PER_PMD) && (vaddr != end);
@@ -437,7 +438,7 @@ void __init add_highpages_with_active_regions(int nid,
 	phys_addr_t start, end;
 	u64 i;
 
-	for_each_free_mem_range(i, nid, &start, &end, NULL) {
+	for_each_free_mem_range(i, nid, MEMBLOCK_NONE, &start, &end, NULL) {
 		unsigned long pfn = clamp_t(unsigned long, PFN_UP(start),
 					    start_pfn, end_pfn);
 		unsigned long e_pfn = clamp_t(unsigned long, PFN_DOWN(end),

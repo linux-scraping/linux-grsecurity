@@ -67,6 +67,7 @@
 #include <linux/rcupdate.h>
 #include <linux/list.h>
 #include <linux/kmemleak.h>
+#include <linux/vmalloc.h>
 
 #include <trace/events/kmem.h>
 

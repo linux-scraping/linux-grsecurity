@@ -11,7 +11,6 @@
  * return value.
  */
 #include <linux/linkage.h>
-#include <asm/dwarf2.h>
 #include <asm/thread_info.h>
 #include <asm/errno.h>
 #include <asm/asm.h>
@@ -32,11 +31,10 @@
  * as they get called from within inline assembly.
  */
 
-#define ENTER	CFI_STARTPROC
+#define ENTER
 #define EXIT	ASM_CLAC ;		\
 		pax_force_retaddr ;	\
-		ret ;			\
-		CFI_ENDPROC
+		ret
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 #define _DEST %_ASM_CX,%_ASM_BX
@@ -157,7 +155,6 @@ ENTRY(__put_user_8)
 ENDPROC(__put_user_8)
 
 bad_put_user:
-	CFI_STARTPROC
 	movl $-EFAULT,%eax
 	EXIT
 END(bad_put_user)

@@ -244,5 +244,3 @@ void fb_deferred_io_cleanup(struct fb_info *info)
 	mutex_destroy(&fbdefio->lock);
 }
 EXPORT_SYMBOL_GPL(fb_deferred_io_cleanup);
-
-MODULE_LICENSE("GPL");

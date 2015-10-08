@@ -120,7 +120,7 @@ __synthesize_relative_insn(void *from, void *to, u8 op)
 		s32 raddr;
 	} __packed *insn;
 
-	insn = (struct __arch_relative_insn *)ktla_ktva(from);
+	insn = (struct __arch_relative_insn *)ktla_ktva((unsigned long)from);
 
 	pax_open_kernel();
 	insn->raddr = (s32)((long)(to) - ((long)(from) + 5));

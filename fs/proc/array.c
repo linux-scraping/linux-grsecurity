@@ -127,6 +127,14 @@ static inline const char *get_task_state(struct task_struct *tsk)
 {
 	unsigned int state = (tsk->state | tsk->exit_state) & TASK_REPORT;
 
+	/*
+	 * Parked tasks do not run; they sit in __kthread_parkme().
+	 * Without this check, we would report them as running, which is
+	 * clearly wrong, so we report them as sleeping instead.
+	 */
+	if (tsk->state == TASK_PARKED)
+		state = TASK_INTERRUPTIBLE;
+
 	BUILD_BUG_ON(1 + ilog2(TASK_REPORT) != ARRAY_SIZE(task_state_array)-1);
 
 	return task_state_array[fls(state)];
@@ -651,7 +659,7 @@ int proc_pid_ipaddr(struct seq_file *m, struct pid_namespace *ns, struct pid *pi
 }
 #endif
 
-#ifdef CONFIG_CHECKPOINT_RESTORE
+#ifdef CONFIG_PROC_CHILDREN
 static struct pid *
 get_children_pid(struct inode *inode, struct pid *pid_prev, loff_t pos)
 {
@@ -774,4 +782,4 @@ const struct file_operations proc_tid_children_operations = {
 	.llseek  = seq_lseek,
 	.release = children_seq_release,
 };
-#endif /* CONFIG_CHECKPOINT_RESTORE */
+#endif /* CONFIG_PROC_CHILDREN */

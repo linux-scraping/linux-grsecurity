@@ -464,19 +464,18 @@ static void __init e820_reserve_setup_data(void)
 {
 	struct setup_data *data;
 	u64 pa_data;
-	int found = 0;
 
 	pa_data = boot_params.hdr.setup_data;
+	if (!pa_data)
+		return;
+
 	while (pa_data) {
 		data = early_memremap(pa_data, sizeof(*data));
 		e820_update_range(pa_data, sizeof(*data)+data->len,
 			 E820_RAM, E820_RESERVED_KERN);
-		found = 1;
 		pa_data = data->next;
 		early_memunmap(data, sizeof(*data));
 	}
-	if (!found)
-		return;
 
 	sanitize_e820_map(e820.map, ARRAY_SIZE(e820.map), &e820.nr_map);
 	memcpy(&e820_saved, &e820, sizeof(struct e820map));
@@ -534,12 +533,14 @@ static void __init reserve_crashkernel_low(void)
 	if (ret != 0) {
 		/*
 		 * two parts from lib/swiotlb.c:
-		 *	swiotlb size: user specified with swiotlb= or default.
-		 *	swiotlb overflow buffer: now is hardcoded to 32k.
-		 *		We round it to 8M for other buffers that
-		 *		may need to stay low too.
+		 * -swiotlb size: user-specified with swiotlb= or default.
+		 *
+		 * -swiotlb overflow buffer: now hardcoded to 32k. We round it
+		 * to 8M for other buffers that may need to stay low too. Also
+		 * make sure we allocate enough extra low memory so that we
+		 * don't run out of DMA buffers for 32-bit devices.
 		 */
-		low_size = swiotlb_size_or_default() + (8UL<<20);
+		low_size = max(swiotlb_size_or_default() + (8UL<<20), 256UL<<20);
 		auto_set = true;
 	} else {
 		/* passed with crashkernel=0,low ? */
@@ -782,7 +783,7 @@ static void __init trim_bios_range(void)
 /* called before trim_bios_range() to spare extra sanitize */
 static void __init e820_add_kernel_range(void)
 {
-	u64 start = __pa_symbol(ktla_ktva(_text));
+	u64 start = __pa_symbol(ktla_ktva((unsigned long)_text));
 	u64 size = __pa_symbol(_end) - start;
 
 	/*
@@ -837,7 +838,7 @@ dump_kernel_offset(struct notifier_block *self, unsigned long v, void *p)
 {
 	if (kaslr_enabled()) {
 		pr_emerg("Kernel Offset: 0x%lx from 0x%lx (relocation range: 0x%lx-0x%lx)\n",
-			 (unsigned long)&_text - __START_KERNEL,
+			 kaslr_offset(),
 			 __START_KERNEL,
 			 __START_KERNEL_map,
 			 MODULES_VADDR-1);
@@ -962,15 +963,15 @@ void __init setup_arch(char **cmdline_p)
 
 	if (!boot_params.hdr.root_flags)
 		root_mountflags &= ~MS_RDONLY;
-	init_mm.start_code = ktla_ktva((unsigned long) _text);
-	init_mm.end_code = ktla_ktva((unsigned long) _etext);
-	init_mm.end_data = (unsigned long) _edata;
+	init_mm.start_code = ktla_ktva((unsigned long)_text);
+	init_mm.end_code = ktla_ktva((unsigned long)_etext);
+	init_mm.end_data = (unsigned long)_edata;
 	init_mm.brk = _brk_end;
 
 	mpx_mm_init(&init_mm);
 
-	code_resource.start = __pa_symbol(ktla_ktva(_text));
-	code_resource.end = __pa_symbol(ktla_ktva(_etext))-1;
+	code_resource.start = __pa_symbol(ktla_ktva((unsigned long)_text));
+	code_resource.end = __pa_symbol(ktla_ktva((unsigned long)_etext))-1;
 	data_resource.start = __pa_symbol(_sdata);
 	data_resource.end = __pa_symbol(_edata)-1;
 	bss_resource.start = __pa_symbol(__bss_start);
@@ -1106,6 +1107,9 @@ void __init setup_arch(char **cmdline_p)
 	memblock_set_current_limit(ISA_END_ADDRESS);
 	memblock_x86_fill();
 
+	if (efi_enabled(EFI_BOOT))
+		efi_find_mirror();
+
 	/*
 	 * The EFI specification says that boot service code won't be called
 	 * after ExitBootServices(). This is, in fact, a lie.
@@ -1225,8 +1229,7 @@ void __init setup_arch(char **cmdline_p)
 	init_cpu_to_node();
 
 	init_apic_mappings();
-	if (x86_io_apic_ops.init)
-		x86_io_apic_ops.init();
+	io_apic_init_mappings();
 
 	kvm_guest_init();
 

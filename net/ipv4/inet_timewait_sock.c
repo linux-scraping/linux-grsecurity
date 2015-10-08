@@ -170,7 +170,7 @@ void __inet_twsk_hashdance(struct inet_timewait_sock *tw, struct sock *sk,
 }
 EXPORT_SYMBOL_GPL(__inet_twsk_hashdance);
 
-void tw_timer_handler(unsigned long data)
+static void tw_timer_handler(unsigned long data)
 {
 	struct inet_timewait_sock *tw = (struct inet_timewait_sock *)data;
 
@@ -214,7 +214,7 @@ struct inet_timewait_sock *inet_twsk_alloc(const struct sock *sk,
 		tw->tw_ipv6only	    = 0;
 		tw->tw_transparent  = inet->transparent;
 		tw->tw_prot	    = sk->sk_prot_creator;
-		atomic64_set(&tw->tw_cookie, atomic64_read(&sk->sk_cookie));
+		atomic64_set_unchecked(&tw->tw_cookie, atomic64_read_unchecked(&sk->sk_cookie));
 		twsk_net_set(tw, sock_net(sk));
 		setup_timer(&tw->tw_timer, tw_timer_handler, (unsigned long)tw);
 		/*

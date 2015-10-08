@@ -809,12 +809,12 @@ static struct usb_feature_control_info audio_feature_info[] = {
 	{ "Tone Control - Treble",	USB_MIXER_S8 },
 	{ "Graphic Equalizer",		USB_MIXER_S8 }, /* FIXME: not implemeted yet */
 	{ "Auto Gain Control",		USB_MIXER_BOOLEAN },
-	{ "Delay Control",		USB_MIXER_U16 },
+	{ "Delay Control",		USB_MIXER_U16 }, /* FIXME: U32 in UAC2 */
 	{ "Bass Boost",			USB_MIXER_BOOLEAN },
 	{ "Loudness",			USB_MIXER_BOOLEAN },
 	/* UAC2 specific */
-	{ "Input Gain Control",		USB_MIXER_U16 },
-	{ "Input Gain Pad Control",	USB_MIXER_BOOLEAN },
+	{ "Input Gain Control",		USB_MIXER_S16 },
+	{ "Input Gain Pad Control",	USB_MIXER_S16 },
 	{ "Phase Inverter Control",	USB_MIXER_BOOLEAN },
 };
 
@@ -2522,7 +2522,7 @@ static int restore_mixer_value(struct usb_mixer_elem_list *list)
 		for (c = 0; c < MAX_CHANNELS; c++) {
 			if (!(cval->cmask & (1 << c)))
 				continue;
-			if (cval->cached & (1 << c)) {
+			if (cval->cached & (1 << (c + 1))) {
 				err = snd_usb_set_cur_mix_value(cval, c + 1, idx,
 							cval->cache_val[idx]);
 				if (err < 0)

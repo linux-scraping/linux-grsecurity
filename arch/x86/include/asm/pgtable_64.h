@@ -23,6 +23,7 @@ extern pud_t level2_vmemmap_pgt[512];
 extern pmd_t level2_kernel_pgt[512];
 extern pmd_t level2_fixmap_pgt[512];
 extern pmd_t level2_ident_pgt[2][512];
+extern pte_t level1_modules_pgt[4][512];
 extern pte_t level1_fixmap_pgt[3][512];
 extern pte_t level1_vsyscall_pgt[512];
 extern pgd_t init_level4_pgt[512];
@@ -52,12 +53,16 @@ void set_pte_vaddr_pud(pud_t *pud_page, unsigned long vaddr, pte_t new_pte);
 static inline void native_pte_clear(struct mm_struct *mm, unsigned long addr,
 				    pte_t *ptep)
 {
+	pax_open_kernel();
 	*ptep = native_make_pte(0);
+	pax_close_kernel();
 }
 
 static inline void native_set_pte(pte_t *ptep, pte_t pte)
 {
+	pax_open_kernel();
 	*ptep = pte;
+	pax_close_kernel();
 }
 
 static inline void native_set_pte_atomic(pte_t *ptep, pte_t pte)
@@ -80,7 +85,12 @@ static inline void native_pmd_clear(pmd_t *pmd)
 static inline pte_t native_ptep_get_and_clear(pte_t *xp)
 {
 #ifdef CONFIG_SMP
-	return native_make_pte(xchg(&xp->pte, 0));
+	pte_t pte;
+
+	pax_open_kernel();
+	pte = native_make_pte(xchg(&xp->pte, 0));
+	pax_close_kernel();
+	return pte;
 #else
 	/* native_local_ptep_get_and_clear,
 	   but duplicated because of cyclic dependency */
@@ -93,7 +103,12 @@ static inline pte_t native_ptep_get_and_clear(pte_t *xp)
 static inline pmd_t native_pmdp_get_and_clear(pmd_t *xp)
 {
 #ifdef CONFIG_SMP
-	return native_make_pmd(xchg(&xp->pmd, 0));
+	pmd_t pmd;
+
+	pax_open_kernel();
+	pmd = native_make_pmd(xchg(&xp->pmd, 0));
+	pax_close_kernel();
+	return pmd;
 #else
 	/* native_local_pmdp_get_and_clear,
 	   but duplicated because of cyclic dependency */

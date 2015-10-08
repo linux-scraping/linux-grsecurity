@@ -363,7 +363,7 @@ struct usb_bus {
 					 * with the URB_SHORT_NOT_OK flag set.
 					 */
 	unsigned no_sg_constraint:1;	/* no sg constraint */
-	unsigned sg_tablesize;		/* 0 or largest number of sg list entries */
+	unsigned short sg_tablesize;	/* 0 or largest number of sg list entries */
 
 	int devnum_next;		/* Next open device number in
 					 * round-robin allocation */

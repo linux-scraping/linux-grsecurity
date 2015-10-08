@@ -53,7 +53,7 @@ struct check {
 	void *data;
 	bool warn, error;
 	enum checkstatus status;
-	int inprogress;
+	bool inprogress;
 	int num_prereqs;
 	struct check **prereq;
 };
@@ -113,6 +113,7 @@ static inline void check_msg(struct check *c, const char *fmt, ...)
 		vfprintf(stderr, fmt, ap);
 		fprintf(stderr, "\n");
 	}
+	va_end(ap);
 }
 
 #define FAIL(c, ...) \
@@ -141,9 +142,9 @@ static void check_nodes_props(struct check *c, struct node *dt, struct node *nod
 		check_nodes_props(c, dt, child);
 }
 
-static int run_check(struct check *c, struct node *dt)
+static bool run_check(struct check *c, struct node *dt)
 {
-	int error = 0;
+	bool error = false;
 	int i;
 
 	assert(!c->inprogress);
@@ -151,11 +152,11 @@ static int run_check(struct check *c, struct node *dt)
 	if (c->status != UNCHECKED)
 		goto out;
 
-	c->inprogress = 1;
+	c->inprogress = true;
 
 	for (i = 0; i < c->num_prereqs; i++) {
 		struct check *prq = c->prereq[i];
-		error |= run_check(prq, dt);
+		error = error || run_check(prq, dt);
 		if (prq->status != PASSED) {
 			c->status = PREREQ;
 			check_msg(c, "Failed prerequisite '%s'",
@@ -177,9 +178,9 @@ static int run_check(struct check *c, struct node *dt)
 	TRACE(c, "\tCompleted, status %d", c->status);
 
 out:
-	c->inprogress = 0;
+	c->inprogress = false;
 	if ((c->status != PASSED) && (c->error))
-		error = 1;
+		error = true;
 	return error;
 }
 
@@ -276,7 +277,7 @@ NODE_ERROR(duplicate_property_names, NULL);
 static void check_node_name_chars(struct check *c, struct node *dt,
 				  struct node *node)
 {
-	int n = strspn(node->name, c->data);
+	size_t n = strspn(node->name, c->data);
 
 	if (n < strlen(node->name))
 		FAIL(c, "Bad character '%c' in node %s",
@@ -296,7 +297,7 @@ NODE_ERROR(node_name_format, NULL, &node_name_chars);
 static void check_property_name_chars(struct check *c, struct node *dt,
 				      struct node *node, struct property *prop)
 {
-	int n = strspn(prop->name, c->data);
+	size_t n = strspn(prop->name, c->data);
 
 	if (n < strlen(prop->name))
 		FAIL(c, "Bad character '%c' in property name \"%s\", node %s",
@@ -398,7 +399,7 @@ static void check_explicit_phandles(struct check *c, struct node *root,
 
 	phandle = propval_cell(prop);
 
-	if ((phandle == 0) || (phandle == -1)) {
+	if ((phandle == 0) || (phandle == ~0U)) {
 		FAIL(c, "%s has bad value (0x%x) in %s property",
 		     node->fullpath, phandle, prop->name);
 		return;
@@ -461,7 +462,7 @@ static void fixup_phandle_references(struct check *c, struct node *dt,
 	cell_t phandle;
 
 	for_each_marker_of_type(m, REF_PHANDLE) {
-		assert(m->offset + sizeof(cell_t) <= prop->val.len);
+		assert(m->offset + (int)sizeof(cell_t) <= prop->val.len);
 
 		refnode = get_node_by_ref(dt, m->ref);
 		if (! refnode) {
@@ -624,11 +625,11 @@ static void check_avoid_default_addr_size(struct check *c, struct node *dt,
 	if (!reg && !ranges)
 		return;
 
-	if ((node->parent->addr_cells == -1))
+	if (node->parent->addr_cells == -1)
 		FAIL(c, "Relying on default #address-cells value for %s",
 		     node->fullpath);
 
-	if ((node->parent->size_cells == -1))
+	if (node->parent->size_cells == -1)
 		FAIL(c, "Relying on default #size-cells value for %s",
 		     node->fullpath);
 }
@@ -687,7 +688,7 @@ static void enable_warning_error(struct check *c, bool warn, bool error)
 
 static void disable_warning_error(struct check *c, bool warn, bool error)
 {
-	int i;
+	size_t i;
 
 	/* Lowering level, also lower it for things this is the prereq
 	 * for */
@@ -706,15 +707,15 @@ static void disable_warning_error(struct check *c, bool warn, bool error)
 	c->error = c->error && !error;
 }
 
-void parse_checks_option(bool warn, bool error, const char *optarg)
+void parse_checks_option(bool warn, bool error, const char *arg)
 {
-	int i;
-	const char *name = optarg;
+	size_t i;
+	const char *name = arg;
 	bool enable = true;
 
-	if ((strncmp(optarg, "no-", 3) == 0)
-	    || (strncmp(optarg, "no_", 3) == 0)) {
-		name = optarg + 3;
+	if ((strncmp(arg, "no-", 3) == 0)
+	    || (strncmp(arg, "no_", 3) == 0)) {
+		name = arg + 3;
 		enable = false;
 	}
 
@@ -733,10 +734,10 @@ void parse_checks_option(bool warn, bool error, const char *optarg)
 	die("Unrecognized check name \"%s\"\n", name);
 }
 
-void process_checks(int force, struct boot_info *bi)
+void process_checks(bool force, struct boot_info *bi)
 {
 	struct node *dt = bi->dt;
-	int i;
+	size_t i;
 	int error = 0;
 
 	for (i = 0; i < ARRAY_SIZE(check_table); i++) {

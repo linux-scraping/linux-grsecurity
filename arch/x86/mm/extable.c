@@ -2,6 +2,7 @@
 #include <linux/spinlock.h>
 #include <linux/sort.h>
 #include <asm/uaccess.h>
+#include <asm/boot.h>
 
 static inline unsigned long
 ex_insn_addr(const struct exception_table_entry *x)

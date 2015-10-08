@@ -62,7 +62,7 @@ void insn_init(struct insn *insn, const void *kaddr, int buf_len, int x86_64)
 		buf_len = MAX_INSN_SIZE;
 
 	memset(insn, 0, sizeof(*insn));
-	insn->kaddr = ktla_ktva(kaddr);
+	insn->kaddr = (void *)ktla_ktva((unsigned long)kaddr);
 	insn->end_kaddr = insn->kaddr + buf_len;
 	insn->next_byte = insn->kaddr;
 	insn->x86_64 = x86_64 ? 1 : 0;

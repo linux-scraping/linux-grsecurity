@@ -74,7 +74,7 @@ struct data data_copy_escape_string(const char *s, int len)
 	struct data d;
 	char *q;
 
-	d = data_grow_for(empty_data, strlen(s)+1);
+	d = data_grow_for(empty_data, len + 1);
 
 	q = d.val;
 	while (i < len) {
@@ -94,10 +94,10 @@ struct data data_copy_file(FILE *f, size_t maxlen)
 {
 	struct data d = empty_data;
 
-	while (!feof(f) && (d.len < maxlen)) {
+	while (!feof(f) && ((size_t)d.len < maxlen)) {
 		size_t chunksize, ret;
 
-		if (maxlen == -1)
+		if (maxlen == ~0UL)
 			chunksize = 4096;
 		else
 			chunksize = maxlen - d.len;
@@ -108,7 +108,7 @@ struct data data_copy_file(FILE *f, size_t maxlen)
 		if (ferror(f))
 			die("Error reading file into data: %s", strerror(errno));
 
-		if (d.len + ret < d.len)
+		if (d.len + ret < (size_t)d.len)
 			die("Overflow reading file into data\n");
 
 		d.len += ret;
@@ -250,20 +250,20 @@ struct data data_add_marker(struct data d, enum markertype type, char *ref)
 	return data_append_markers(d, m);
 }
 
-int data_is_one_string(struct data d)
+bool data_is_one_string(struct data d)
 {
 	int i;
 	int len = d.len;
 
 	if (len == 0)
-		return 0;
+		return false;
 
 	for (i = 0; i < len-1; i++)
 		if (d.val[i] == '\0')
-			return 0;
+			return false;
 
 	if (d.val[len-1] != '\0')
-		return 0;
+		return false;
 
-	return 1;
+	return true;
 }

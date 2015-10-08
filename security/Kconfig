@@ -932,7 +932,7 @@ config PAX_USERCOPY_DEBUG
 config PAX_SIZE_OVERFLOW
 	bool "Prevent various integer overflows in function size parameters"
 	default y if GRKERNSEC_CONFIG_AUTO
-	depends on X86
+	depends on BROKEN
 	help
 	  By saying Y here the kernel recomputes expressions of function
 	  arguments marked by a size_overflow attribute with double integer
@@ -941,7 +941,7 @@ config PAX_SIZE_OVERFLOW
 	  The recomputed argument is checked against TYPE_MAX and an event
 	  is logged on overflow and the triggering process is killed.
 
-	  Homepage: http://www.grsecurity.net/~ephox/overflow_plugin/
+	  Homepage: https://github.com/ephox-gcc-plugins
 
 	  Note that the implementation requires a gcc with plugin support,
 	  i.e., gcc 4.5 or newer.  You may need to install the supporting

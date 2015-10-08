@@ -80,8 +80,13 @@ static void __unused print_next_interesting_function(next_interesting_function_t
 #else
 	FOR_EACH_VEC_SAFE_ELT(node->children, i, cur) {
 #endif
-		fprintf(stderr, "\t%u. child: %s %u %p\n", i + 1, cur->decl_name, cur->num, cur);
+		fprintf(stderr, "\t%u. child: %s %u %p marked: %s context: %s\n", i + 1, cur->decl_name, cur->num, cur, print_so_mark_name(cur->marked), cur->context);
 	}
+
+	if (is_default_error_data_flow(node->error_data_flow))
+		fprintf(stderr, "error data flow: default\n");
+	else
+		fprintf(stderr, "error data flow: bin_op: %c, error_const: %c, only_signed_unsigned_cast: %c\n", node->error_data_flow->bin_op?'t':'f', node->error_data_flow->error_const?'t':'f', node->error_data_flow->only_signed_unsigned_cast?'t':'f');
 }
 
 // Dump the full next_interesting_function_t list for parsing by print_dependecy.py
@@ -154,11 +159,34 @@ void __unused print_all_next_node_children_chain_list(next_interesting_function_
 	}
 }
 
+const char * __unused print_intentional_mark_name(enum intentional_mark mark)
+{
+	switch(mark) {
+	case MARK_NO:
+		return "mark no";
+	case MARK_YES:
+		return "mark yes";
+	case MARK_END_INTENTIONAL:
+		return "mark end intetional";
+	case MARK_TURN_OFF:
+		return "mark turn off";
+	}
+
+	gcc_unreachable();
+}
+
 const char * __unused print_so_mark_name(enum size_overflow_mark mark)
 {
-	if (mark == ASM_STMT_SO_MARK)
+	switch(mark) {
+	case ASM_STMT_SO_MARK:
 		return "asm_stmt_so_mark";
-	if (mark == YES_SO_MARK)
+	case YES_SO_MARK:
 		return "yes_so_mark";
-	return "no_so_mark";
+	case NO_SO_MARK:
+		return "no_so_mark";
+	case ERROR_CODE_SO_MARK:
+		return "error_code_so_mark";
+	}
+
+	gcc_unreachable();
 }

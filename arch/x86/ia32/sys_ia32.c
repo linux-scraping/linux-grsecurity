@@ -49,18 +49,26 @@
 
 #define AA(__x)		((unsigned long)(__x))
 
-
-asmlinkage long sys32_truncate64(const char __user *filename,
-				 unsigned long offset_low,
-				 unsigned long offset_high)
+static inline loff_t compose_loff(unsigned int high, unsigned int low)
 {
-       return sys_truncate(filename, ((loff_t) offset_high << 32) | offset_low);
+	loff_t retval = low;
+
+	BUILD_BUG_ON(sizeof retval != sizeof low + sizeof high);
+	__builtin_memcpy((unsigned char *)&retval + sizeof low, &high, sizeof high);
+	return retval;
 }
 
-asmlinkage long sys32_ftruncate64(unsigned int fd, unsigned long offset_low,
-				  unsigned long offset_high)
+asmlinkage long sys32_truncate64(const char __user *filename,
+				 unsigned int offset_low,
+				 unsigned int offset_high)
 {
-       return sys_ftruncate(fd, ((loff_t) offset_high << 32) | offset_low);
+	return sys_truncate(filename, compose_loff(offset_high, offset_low));
+}
+
+asmlinkage long sys32_ftruncate64(unsigned int fd, unsigned int offset_low,
+				  unsigned int offset_high)
+{
+	return sys_ftruncate(fd, ((unsigned long) offset_high << 32) | offset_low);
 }
 
 /*
@@ -196,29 +204,29 @@ long sys32_fadvise64_64(int fd, __u32 offset_low, __u32 offset_high,
 			__u32 len_low, __u32 len_high, int advice)
 {
 	return sys_fadvise64_64(fd,
-			       (((u64)offset_high)<<32) | offset_low,
-			       (((u64)len_high)<<32) | len_low,
+			       compose_loff(offset_high, offset_low),
+			       compose_loff(len_high, len_low),
 				advice);
 }
 
 asmlinkage ssize_t sys32_readahead(int fd, unsigned off_lo, unsigned off_hi,
 				   size_t count)
 {
-	return sys_readahead(fd, ((u64)off_hi << 32) | off_lo, count);
+	return sys_readahead(fd, compose_loff(off_hi, off_lo), count);
 }
 
 asmlinkage long sys32_sync_file_range(int fd, unsigned off_low, unsigned off_hi,
 				      unsigned n_low, unsigned n_hi,  int flags)
 {
 	return sys_sync_file_range(fd,
-				   ((u64)off_hi << 32) | off_low,
-				   ((u64)n_hi << 32) | n_low, flags);
+				   compose_loff(off_hi, off_low),
+				   compose_loff(n_hi, n_low), flags);
 }
 
 asmlinkage long sys32_fadvise64(int fd, unsigned offset_lo, unsigned offset_hi,
-				size_t len, int advice)
+				int len, int advice)
 {
-	return sys_fadvise64_64(fd, ((u64)offset_hi << 32) | offset_lo,
+	return sys_fadvise64_64(fd, compose_loff(offset_hi, offset_lo),
 				len, advice);
 }
 
@@ -226,6 +234,6 @@ asmlinkage long sys32_fallocate(int fd, int mode, unsigned offset_lo,
 				unsigned offset_hi, unsigned len_lo,
 				unsigned len_hi)
 {
-	return sys_fallocate(fd, mode, ((u64)offset_hi << 32) | offset_lo,
-			     ((u64)len_hi << 32) | len_lo);
+	return sys_fallocate(fd, mode, compose_loff(offset_hi, offset_lo),
+			     compose_loff(len_hi, len_lo));
 }

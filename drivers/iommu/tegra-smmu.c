@@ -7,6 +7,7 @@
  */
 
 #include <linux/bitops.h>
+#include <linux/debugfs.h>
 #include <linux/err.h>
 #include <linux/iommu.h>
 #include <linux/kernel.h>
@@ -26,11 +27,14 @@ struct tegra_smmu {
 	const struct tegra_smmu_soc *soc;
 
 	unsigned long pfn_mask;
+	unsigned long tlb_mask;
 
 	unsigned long *asids;
 	struct mutex lock;
 
 	struct list_head list;
+
+	struct dentry *debugfs;
 };
 
 struct tegra_smmu_as {
@@ -65,7 +69,8 @@ static inline u32 smmu_readl(struct tegra_smmu *smmu, unsigned long offset)
 #define SMMU_TLB_CONFIG 0x14
 #define  SMMU_TLB_CONFIG_HIT_UNDER_MISS (1 << 29)
 #define  SMMU_TLB_CONFIG_ROUND_ROBIN_ARBITRATION (1 << 28)
-#define  SMMU_TLB_CONFIG_ACTIVE_LINES(x) ((x) & 0x3f)
+#define  SMMU_TLB_CONFIG_ACTIVE_LINES(smmu) \
+	((smmu)->soc->num_tlb_lines & (smmu)->tlb_mask)
 
 #define SMMU_PTC_CONFIG 0x18
 #define  SMMU_PTC_CONFIG_ENABLE (1 << 29)
@@ -673,6 +678,103 @@ static void tegra_smmu_ahb_enable(void)
 	}
 }
 
+static int tegra_smmu_swgroups_show(struct seq_file *s, void *data)
+{
+	struct tegra_smmu *smmu = s->private;
+	unsigned int i;
+	u32 value;
+
+	seq_printf(s, "swgroup    enabled  ASID\n");
+	seq_printf(s, "------------------------\n");
+
+	for (i = 0; i < smmu->soc->num_swgroups; i++) {
+		const struct tegra_smmu_swgroup *group = &smmu->soc->swgroups[i];
+		const char *status;
+		unsigned int asid;
+
+		value = smmu_readl(smmu, group->reg);
+
+		if (value & SMMU_ASID_ENABLE)
+			status = "yes";
+		else
+			status = "no";
+
+		asid = value & SMMU_ASID_MASK;
+
+		seq_printf(s, "%-9s  %-7s  %#04x\n", group->name, status,
+			   asid);
+	}
+
+	return 0;
+}
+
+static int tegra_smmu_swgroups_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, tegra_smmu_swgroups_show, inode->i_private);
+}
+
+static const struct file_operations tegra_smmu_swgroups_fops = {
+	.open = tegra_smmu_swgroups_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static int tegra_smmu_clients_show(struct seq_file *s, void *data)
+{
+	struct tegra_smmu *smmu = s->private;
+	unsigned int i;
+	u32 value;
+
+	seq_printf(s, "client       enabled\n");
+	seq_printf(s, "--------------------\n");
+
+	for (i = 0; i < smmu->soc->num_clients; i++) {
+		const struct tegra_mc_client *client = &smmu->soc->clients[i];
+		const char *status;
+
+		value = smmu_readl(smmu, client->smmu.reg);
+
+		if (value & BIT(client->smmu.bit))
+			status = "yes";
+		else
+			status = "no";
+
+		seq_printf(s, "%-12s %s\n", client->name, status);
+	}
+
+	return 0;
+}
+
+static int tegra_smmu_clients_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, tegra_smmu_clients_show, inode->i_private);
+}
+
+static const struct file_operations tegra_smmu_clients_fops = {
+	.open = tegra_smmu_clients_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static void tegra_smmu_debugfs_init(struct tegra_smmu *smmu)
+{
+	smmu->debugfs = debugfs_create_dir("smmu", NULL);
+	if (!smmu->debugfs)
+		return;
+
+	debugfs_create_file("swgroups", S_IRUGO, smmu->debugfs, smmu,
+			    &tegra_smmu_swgroups_fops);
+	debugfs_create_file("clients", S_IRUGO, smmu->debugfs, smmu,
+			    &tegra_smmu_clients_fops);
+}
+
+static void tegra_smmu_debugfs_exit(struct tegra_smmu *smmu)
+{
+	debugfs_remove_recursive(smmu->debugfs);
+}
+
 struct tegra_smmu *tegra_smmu_probe(struct device *dev,
 				    const struct tegra_smmu_soc *soc,
 				    struct tegra_mc *mc)
@@ -716,6 +818,9 @@ struct tegra_smmu *tegra_smmu_probe(struct device *dev,
 	smmu->pfn_mask = BIT_MASK(mc->soc->num_address_bits - PAGE_SHIFT) - 1;
 	dev_dbg(dev, "address bits: %u, PFN mask: %#lx\n",
 		mc->soc->num_address_bits, smmu->pfn_mask);
+	smmu->tlb_mask = (smmu->soc->num_tlb_lines << 1) - 1;
+	dev_dbg(dev, "TLB lines: %u, mask: %#lx\n", smmu->soc->num_tlb_lines,
+		smmu->tlb_mask);
 
 	value = SMMU_PTC_CONFIG_ENABLE | SMMU_PTC_CONFIG_INDEX_MAP(0x3f);
 
@@ -725,7 +830,7 @@ struct tegra_smmu *tegra_smmu_probe(struct device *dev,
 	smmu_writel(smmu, value, SMMU_PTC_CONFIG);
 
 	value = SMMU_TLB_CONFIG_HIT_UNDER_MISS |
-		SMMU_TLB_CONFIG_ACTIVE_LINES(0x20);
+		SMMU_TLB_CONFIG_ACTIVE_LINES(smmu);
 
 	if (soc->supports_round_robin_arbitration)
 		value |= SMMU_TLB_CONFIG_ROUND_ROBIN_ARBITRATION;
@@ -743,5 +848,14 @@ struct tegra_smmu *tegra_smmu_probe(struct device *dev,
 	if (err < 0)
 		return ERR_PTR(err);
 
+	if (IS_ENABLED(CONFIG_DEBUG_FS))
+		tegra_smmu_debugfs_init(smmu);
+
 	return smmu;
+}
+
+void tegra_smmu_remove(struct tegra_smmu *smmu)
+{
+	if (IS_ENABLED(CONFIG_DEBUG_FS))
+		tegra_smmu_debugfs_exit(smmu);
 }

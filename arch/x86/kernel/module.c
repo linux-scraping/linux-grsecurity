@@ -159,7 +159,7 @@ int apply_relocate(Elf32_Shdr *sechdrs,
 		plocation = (void *)sechdrs[sechdrs[relsec].sh_info].sh_addr + rel[i].r_offset;
 		location = (uint32_t)plocation;
 		if (sechdrs[sechdrs[relsec].sh_info].sh_flags & SHF_EXECINSTR)
-			plocation = ktla_ktva((void *)plocation);
+			plocation = (uint32_t *)ktla_ktva((unsigned long)plocation);
 		/* This is the symbol it is referring to.  Note that all
 		   undefined symbols have been resolved.  */
 		sym = (Elf32_Sym *)sechdrs[symindex].sh_addr

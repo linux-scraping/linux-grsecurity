@@ -205,6 +205,8 @@ dev_t gr_get_dev_from_dentry(struct dentry *dentry);
 u64 gr_get_ino_from_dentry(struct dentry *dentry);
 void gr_put_exec_file(struct task_struct *task);
 
+int gr_get_symlinkown_enabled(void);
+
 int gr_ptrace_readexec(struct file *file, int unsafe_flags);
 
 void gr_inc_chroot_refcnts(struct dentry *dentry, struct vfsmount *mnt);

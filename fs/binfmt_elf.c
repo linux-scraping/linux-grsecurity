@@ -1228,7 +1228,7 @@ static int load_elf_binary(struct linux_binprm *bprm)
 
 #if defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)
 	if (0 > pax_parse_pax_flags(&loc->elf_ex, elf_phdata, bprm->file)) {
-		send_sig(SIGKILL, current, 0);
+		retval = -EINVAL;
 		goto out_free_dentry;
 	}
 #endif
@@ -1844,7 +1844,7 @@ static void fill_elf_header(struct elfhdr *elf, int segs,
 	return;
 }
 
-static void fill_elf_note_phdr(struct elf_phdr *phdr, int sz, loff_t offset)
+static void fill_elf_note_phdr(struct elf_phdr *phdr, size_t sz, loff_t offset)
 {
 	phdr->p_type = PT_NOTE;
 	phdr->p_offset = offset;
@@ -2011,7 +2011,7 @@ static int fill_files_note(struct memelfnote *note)
 		file = vma->vm_file;
 		if (!file)
 			continue;
-		filename = d_path(&file->f_path, name_curpos, remaining);
+		filename = file_path(file, name_curpos, remaining);
 		if (IS_ERR(filename)) {
 			if (PTR_ERR(filename) == -ENAMETOOLONG) {
 				vfree(data);
@@ -2021,7 +2021,7 @@ static int fill_files_note(struct memelfnote *note)
 			continue;
 		}
 
-		/* d_path() fills at the end, move name down */
+		/* file_path() fills at the end, move name down */
 		/* n = strlen(filename) + 1: */
 		n = (name_curpos + remaining) - filename;
 		remaining = filename - name_curpos;

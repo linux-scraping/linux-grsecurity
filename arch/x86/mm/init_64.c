@@ -303,9 +303,7 @@ void set_pte_vaddr_pud(pud_t *pud_page, unsigned long vaddr, pte_t new_pte)
 	pmd = fill_pmd(pud, vaddr);
 	pte = fill_pte(pmd, vaddr);
 
-	pax_open_kernel();
 	set_pte(pte, new_pte);
-	pax_close_kernel();
 
 	/*
 	 * It's enough to flush this one mapping.

@@ -22,7 +22,7 @@
  *
  * Atomically reads the value of @v.
  */
-static inline int atomic_read(const atomic_t *v)
+static __always_inline int atomic_read(const atomic_t *v)
 {
 	return ACCESS_ONCE((v)->counter);
 }
@@ -33,7 +33,7 @@ static inline int atomic_read(const atomic_t *v)
  *
  * Atomically reads the value of @v.
  */
-static inline int __intentional_overflow(-1) atomic_read_unchecked(const atomic_unchecked_t *v)
+static __always_inline int __intentional_overflow(-1) atomic_read_unchecked(const atomic_unchecked_t *v)
 {
 	return ACCESS_ONCE((v)->counter);
 }
@@ -45,7 +45,7 @@ static inline int __intentional_overflow(-1) atomic_read_unchecked(const atomic_
  *
  * Atomically sets the value of @v to @i.
  */
-static inline void atomic_set(atomic_t *v, int i)
+static __always_inline void atomic_set(atomic_t *v, int i)
 {
 	v->counter = i;
 }
@@ -57,7 +57,7 @@ static inline void atomic_set(atomic_t *v, int i)
  *
  * Atomically sets the value of @v to @i.
  */
-static inline void atomic_set_unchecked(atomic_unchecked_t *v, int i)
+static __always_inline void atomic_set_unchecked(atomic_unchecked_t *v, int i)
 {
 	v->counter = i;
 }
@@ -69,7 +69,7 @@ static inline void atomic_set_unchecked(atomic_unchecked_t *v, int i)
  *
  * Atomically adds @i to @v.
  */
-static inline void atomic_add(int i, atomic_t *v)
+static __always_inline void atomic_add(int i, atomic_t *v)
 {
 	asm volatile(LOCK_PREFIX "addl %1,%0\n"
 
@@ -91,7 +91,7 @@ static inline void atomic_add(int i, atomic_t *v)
  *
  * Atomically adds @i to @v.
  */
-static inline void atomic_add_unchecked(int i, atomic_unchecked_t *v)
+static __always_inline void atomic_add_unchecked(int i, atomic_unchecked_t *v)
 {
 	asm volatile(LOCK_PREFIX "addl %1,%0\n"
 		     : "+m" (v->counter)
@@ -105,7 +105,7 @@ static inline void atomic_add_unchecked(int i, atomic_unchecked_t *v)
  *
  * Atomically subtracts @i from @v.
  */
-static inline void atomic_sub(int i, atomic_t *v)
+static __always_inline void atomic_sub(int i, atomic_t *v)
 {
 	asm volatile(LOCK_PREFIX "subl %1,%0\n"
 
@@ -127,7 +127,7 @@ static inline void atomic_sub(int i, atomic_t *v)
  *
  * Atomically subtracts @i from @v.
  */
-static inline void atomic_sub_unchecked(int i, atomic_unchecked_t *v)
+static __always_inline void atomic_sub_unchecked(int i, atomic_unchecked_t *v)
 {
 	asm volatile(LOCK_PREFIX "subl %1,%0\n"
 		     : "+m" (v->counter)
@@ -143,7 +143,7 @@ static inline void atomic_sub_unchecked(int i, atomic_unchecked_t *v)
  * true if the result is zero, or false for all
  * other cases.
  */
-static inline int atomic_sub_and_test(int i, atomic_t *v)
+static __always_inline int atomic_sub_and_test(int i, atomic_t *v)
 {
 	GEN_BINARY_RMWcc(LOCK_PREFIX "subl", LOCK_PREFIX "addl",  v->counter, "er", i, "%0", "e");
 }
@@ -154,7 +154,7 @@ static inline int atomic_sub_and_test(int i, atomic_t *v)
  *
  * Atomically increments @v by 1.
  */
-static inline void atomic_inc(atomic_t *v)
+static __always_inline void atomic_inc(atomic_t *v)
 {
 	asm volatile(LOCK_PREFIX "incl %0\n"
 
@@ -174,7 +174,7 @@ static inline void atomic_inc(atomic_t *v)
  *
  * Atomically increments @v by 1.
  */
-static inline void atomic_inc_unchecked(atomic_unchecked_t *v)
+static __always_inline void atomic_inc_unchecked(atomic_unchecked_t *v)
 {
 	asm volatile(LOCK_PREFIX "incl %0\n"
 		     : "+m" (v->counter));
@@ -186,7 +186,7 @@ static inline void atomic_inc_unchecked(atomic_unchecked_t *v)
  *
  * Atomically decrements @v by 1.
  */
-static inline void atomic_dec(atomic_t *v)
+static __always_inline void atomic_dec(atomic_t *v)
 {
 	asm volatile(LOCK_PREFIX "decl %0\n"
 
@@ -206,7 +206,7 @@ static inline void atomic_dec(atomic_t *v)
  *
  * Atomically decrements @v by 1.
  */
-static inline void atomic_dec_unchecked(atomic_unchecked_t *v)
+static __always_inline void atomic_dec_unchecked(atomic_unchecked_t *v)
 {
 	asm volatile(LOCK_PREFIX "decl %0\n"
 		     : "+m" (v->counter));
@@ -220,7 +220,7 @@ static inline void atomic_dec_unchecked(atomic_unchecked_t *v)
  * returns true if the result is 0, or false for all other
  * cases.
  */
-static inline int atomic_dec_and_test(atomic_t *v)
+static __always_inline int atomic_dec_and_test(atomic_t *v)
 {
 	GEN_UNARY_RMWcc(LOCK_PREFIX "decl", LOCK_PREFIX "incl", v->counter, "%0", "e");
 }
@@ -233,7 +233,7 @@ static inline int atomic_dec_and_test(atomic_t *v)
  * and returns true if the result is zero, or false for all
  * other cases.
  */
-static inline int atomic_inc_and_test(atomic_t *v)
+static __always_inline int atomic_inc_and_test(atomic_t *v)
 {
 	GEN_UNARY_RMWcc(LOCK_PREFIX "incl", LOCK_PREFIX "decl", v->counter, "%0", "e");
 }
@@ -246,7 +246,7 @@ static inline int atomic_inc_and_test(atomic_t *v)
  * and returns true if the result is zero, or false for all
  * other cases.
  */
-static inline int atomic_inc_and_test_unchecked(atomic_unchecked_t *v)
+static __always_inline int atomic_inc_and_test_unchecked(atomic_unchecked_t *v)
 {
 	GEN_UNARY_RMWcc_unchecked(LOCK_PREFIX "incl", v->counter, "%0", "e");
 }
@@ -260,7 +260,7 @@ static inline int atomic_inc_and_test_unchecked(atomic_unchecked_t *v)
  * if the result is negative, or false when
  * result is greater than or equal to zero.
  */
-static inline int atomic_add_negative(int i, atomic_t *v)
+static __always_inline int atomic_add_negative(int i, atomic_t *v)
 {
 	GEN_BINARY_RMWcc(LOCK_PREFIX "addl", LOCK_PREFIX "subl", v->counter, "er", i, "%0", "s");
 }
@@ -272,7 +272,7 @@ static inline int atomic_add_negative(int i, atomic_t *v)
  *
  * Atomically adds @i to @v and returns @i + @v
  */
-static inline int __intentional_overflow(-1) atomic_add_return(int i, atomic_t *v)
+static __always_inline int __intentional_overflow(-1) atomic_add_return(int i, atomic_t *v)
 {
 	return i + xadd_check_overflow(&v->counter, i);
 }
@@ -280,11 +280,11 @@ static inline int __intentional_overflow(-1) atomic_add_return(int i, atomic_t *
 /**
  * atomic_add_return_unchecked - add integer and return
  * @i: integer value to add
- * @v: pointer of type atomic_unchecked_t
+ * @v: pointer of type atomi_uncheckedc_t
  *
  * Atomically adds @i to @v and returns @i + @v
  */
-static inline int atomic_add_return_unchecked(int i, atomic_unchecked_t *v)
+static __always_inline int atomic_add_return_unchecked(int i, atomic_unchecked_t *v)
 {
 	return i + xadd(&v->counter, i);
 }
@@ -296,24 +296,24 @@ static inline int atomic_add_return_unchecked(int i, atomic_unchecked_t *v)
  *
  * Atomically subtracts @i from @v and returns @v - @i
  */
-static inline int __intentional_overflow(-1) atomic_sub_return(int i, atomic_t *v)
+static __always_inline int __intentional_overflow(-1) atomic_sub_return(int i, atomic_t *v)
 {
 	return atomic_add_return(-i, v);
 }
 
 #define atomic_inc_return(v)  (atomic_add_return(1, v))
-static inline int atomic_inc_return_unchecked(atomic_unchecked_t *v)
+static __always_inline int atomic_inc_return_unchecked(atomic_unchecked_t *v)
 {
 	return atomic_add_return_unchecked(1, v);
 }
 #define atomic_dec_return(v)  (atomic_sub_return(1, v))
 
-static inline int __intentional_overflow(-1) atomic_cmpxchg(atomic_t *v, int old, int new)
+static __always_inline int __intentional_overflow(-1) atomic_cmpxchg(atomic_t *v, int old, int new)
 {
 	return cmpxchg(&v->counter, old, new);
 }
 
-static inline int atomic_cmpxchg_unchecked(atomic_unchecked_t *v, int old, int new)
+static __always_inline int atomic_cmpxchg_unchecked(atomic_unchecked_t *v, int old, int new)
 {
 	return cmpxchg(&v->counter, old, new);
 }
@@ -337,7 +337,7 @@ static inline int atomic_xchg_unchecked(atomic_unchecked_t *v, int new)
  * Atomically adds @a to @v, so long as @v was not already @u.
  * Returns the old value of @v.
  */
-static inline int __atomic_add_unless(atomic_t *v, int a, int u)
+static __always_inline int __atomic_add_unless(atomic_t *v, int a, int u)
 {
 	int c, old, new;
 	c = atomic_read(v);
@@ -415,7 +415,7 @@ static inline int atomic_inc_not_zero_hint(atomic_t *v, int hint)
  * Atomically adds 1 to @v
  * Returns the new value of @u
  */
-static inline short int atomic_inc_short(short int *v)
+static __always_inline short int atomic_inc_short(short int *v)
 {
 	asm(LOCK_PREFIX "addw $1, %0" : "+m" (*v));
 	return *v;

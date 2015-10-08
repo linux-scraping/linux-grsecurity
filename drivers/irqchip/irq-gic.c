@@ -324,6 +324,7 @@ static irq_chip_no_const gic_chip __read_only = {
 #endif
 	.irq_get_irqchip_state	= gic_irq_get_irqchip_state,
 	.irq_set_irqchip_state	= gic_irq_set_irqchip_state,
+	.flags			= IRQCHIP_SET_TYPE_MASKED,
 };
 
 void __init gic_cascade_irq(unsigned int gic_nr, unsigned int irq)
@@ -1054,7 +1055,7 @@ gic_acpi_parse_madt_cpu(struct acpi_subtable_header *header,
 
 	processor = (struct acpi_madt_generic_interrupt *)header;
 
-	if (BAD_MADT_ENTRY(processor, end))
+	if (BAD_MADT_GICC_ENTRY(processor, end))
 		return -EINVAL;
 
 	/*

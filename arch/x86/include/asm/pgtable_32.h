@@ -62,9 +62,7 @@ extern pmd_t swapper_pm_dir[PTRS_PER_PGD][PTRS_PER_PMD];
 /* Clear a kernel PTE and flush it from the TLB */
 #define kpte_clear_flush(ptep, vaddr)		\
 do {						\
-	pax_open_kernel();			\
 	pte_clear(&init_mm, (vaddr), (ptep));	\
-	pax_close_kernel();			\
 	__flush_tlb_one((vaddr));		\
 } while (0)
 
