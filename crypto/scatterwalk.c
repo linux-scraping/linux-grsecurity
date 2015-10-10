@@ -109,14 +109,20 @@ void scatterwalk_map_and_copy(void *buf, struct scatterlist *sg,
 {
 	struct scatter_walk walk;
 	struct scatterlist tmp[2];
+	void *realbuf = buf;
 
 	if (!nbytes)
 		return;
 
 	sg = scatterwalk_ffwd(tmp, sg, start);
 
-	if (sg_page(sg) == virt_to_page(buf) &&
-	    sg->offset == offset_in_page(buf))
+#ifdef CONFIG_GRKERNSEC_KSTACKOVERFLOW
+	if (object_starts_on_stack(buf))
+		realbuf = buf - current->stack + current->lowmem_stack;
+#endif
+
+	if (sg_page(sg) == virt_to_page(realbuf) &&
+	    sg->offset == offset_in_page(realbuf))
 		return;
 
 	scatterwalk_start(&walk, sg);

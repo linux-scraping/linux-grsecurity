@@ -35,6 +35,8 @@ void *kmap_atomic_prot(struct page *page, pgprot_t prot)
 	unsigned long vaddr;
 	int idx, type;
 
+	BUG_ON(pgprot_val(prot) & _PAGE_USER);
+
 	preempt_disable();
 	pagefault_disable();
 

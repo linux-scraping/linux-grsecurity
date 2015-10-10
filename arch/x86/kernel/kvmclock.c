@@ -29,7 +29,7 @@
 #include <asm/x86_init.h>
 #include <asm/reboot.h>
 
-static int kvmclock = 1;
+static int kvmclock __read_only = 1;
 static int msr_kvm_system_time = MSR_KVM_SYSTEM_TIME;
 static int msr_kvm_wall_clock = MSR_KVM_WALL_CLOCK;
 
@@ -41,7 +41,7 @@ static int parse_no_kvmclock(char *arg)
 early_param("no-kvmclock", parse_no_kvmclock);
 
 /* The hypervisor will put information about time periodically here */
-static struct pvclock_vsyscall_time_info *hv_clock;
+static struct pvclock_vsyscall_time_info hv_clock[NR_CPUS] __page_aligned_bss;
 static struct pvclock_wall_clock wall_clock;
 
 /*
@@ -132,7 +132,7 @@ bool kvm_check_and_clear_guest_paused(void)
 	struct pvclock_vcpu_time_info *src;
 	int cpu = smp_processor_id();
 
-	if (!hv_clock)
+	if (!kvmclock)
 		return ret;
 
 	src = &hv_clock[cpu].pvti;
@@ -159,7 +159,7 @@ int kvm_register_clock(char *txt)
 	int low, high, ret;
 	struct pvclock_vcpu_time_info *src;
 
-	if (!hv_clock)
+	if (!kvmclock)
 		return 0;
 
 	src = &hv_clock[cpu].pvti;
@@ -219,7 +219,6 @@ static void kvm_shutdown(void)
 void __init kvmclock_init(void)
 {
 	struct pvclock_vcpu_time_info *vcpu_time;
-	unsigned long mem;
 	int size, cpu;
 	u8 flags;
 
@@ -237,15 +236,8 @@ void __init kvmclock_init(void)
 	printk(KERN_INFO "kvm-clock: Using msrs %x and %x",
 		msr_kvm_system_time, msr_kvm_wall_clock);
 
-	mem = memblock_alloc(size, PAGE_SIZE);
-	if (!mem)
-		return;
-	hv_clock = __va(mem);
-	memset(hv_clock, 0, size);
-
 	if (kvm_register_clock("primary cpu clock")) {
-		hv_clock = NULL;
-		memblock_free(mem, size);
+		kvmclock = 0;
 		return;
 	}
 	pv_time_ops.sched_clock = kvm_clock_read;
@@ -286,7 +278,7 @@ int __init kvm_setup_vsyscall_timeinfo(void)
 	struct pvclock_vcpu_time_info *vcpu_time;
 	unsigned int size;
 
-	if (!hv_clock)
+	if (!kvmclock)
 		return 0;
 
 	size = PAGE_ALIGN(sizeof(struct pvclock_vsyscall_time_info)*NR_CPUS);

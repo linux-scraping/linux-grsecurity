@@ -616,6 +616,40 @@ void __init reserve_top_address(unsigned long reserve)
 
 int fixmaps_set;
 
+static void fix_user_fixmap(enum fixed_addresses idx, unsigned long address)
+{
+#ifdef CONFIG_X86_64
+	pgd_t *pgd;
+	pud_t *pud;
+	pmd_t *pmd;
+
+	switch (idx) {
+	default:
+		return;
+
+#ifdef CONFIG_X86_VSYSCALL_EMULATION
+	case VSYSCALL_PAGE:
+#endif
+#ifdef CONFIG_PARAVIRT_CLOCK
+	case PVCLOCK_FIXMAP_BEGIN ... PVCLOCK_FIXMAP_END:
+#endif
+		break;
+	}
+
+	pgd = pgd_offset_k(address);
+	if (!(pgd_val(*pgd) & _PAGE_USER))
+		set_pgd(pgd, __pgd(pgd_val(*pgd) | _PAGE_USER));
+
+	pud = pud_offset(pgd, address);
+	if (!(pud_val(*pud) & _PAGE_USER))
+		set_pud(pud, __pud(pud_val(*pud) | _PAGE_USER));
+
+	pmd = pmd_offset(pud, address);
+	if (!(pmd_val(*pmd) & _PAGE_USER))
+		set_pmd(pmd, __pmd(pmd_val(*pmd) | _PAGE_USER));
+#endif
+}
+
 void __native_set_fixmap(enum fixed_addresses idx, pte_t pte)
 {
 	unsigned long address = __fix_to_virt(idx);
@@ -626,6 +660,7 @@ void __native_set_fixmap(enum fixed_addresses idx, pte_t pte)
 	}
 	set_pte_vaddr(address, pte);
 	fixmaps_set++;
+	fix_user_fixmap(idx, address);
 }
 
 void native_set_fixmap(enum fixed_addresses idx, phys_addr_t phys,

@@ -126,7 +126,7 @@ void __init init_espfix_bsp(void)
 {
 	pgd_t *pgd_p;
 	pud_t *pud_p;
-	unsigned long addr, index = pgd_index(ESPFIX_BASE_ADDR);
+	unsigned long index = pgd_index(ESPFIX_BASE_ADDR);
 
 	/* Install the espfix pud into the kernel page directory */
 	pgd_p = &init_level4_pgt[index];
@@ -141,8 +141,6 @@ void __init init_espfix_bsp(void)
 
 	/* Randomize the locations */
 	init_espfix_random();
-
-	addr = espfix_base_addr(0);
 
 	/* The rest is the same as for any other processor */
 	init_espfix_ap(0);

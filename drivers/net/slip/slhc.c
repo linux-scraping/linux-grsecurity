@@ -94,6 +94,9 @@ slhc_init(int rslots, int tslots)
 	register struct cstate *ts;
 	struct slcompress *comp;
 
+	if (rslots <= 0 || tslots <= 0 || rslots >= 256 || tslots >= 256)
+		goto out_fail;
+
 	comp = kzalloc(sizeof(struct slcompress), GFP_KERNEL);
 	if (! comp)
 		goto out_fail;
