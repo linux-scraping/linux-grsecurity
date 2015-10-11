@@ -1607,8 +1607,6 @@ static int lookup_fast(struct nameidata *nd,
 		negative = d_is_negative(dentry);
 		if (read_seqcount_retry(&dentry->d_seq, seq))
 			return -ECHILD;
-		if (negative)
-			return -ENOENT;
 
 		/*
 		 * This sequence count validates that the parent had no
@@ -1629,6 +1627,12 @@ static int lookup_fast(struct nameidata *nd,
 				goto unlazy;
 			}
 		}
+		/*
+		 * Note: do negative dentry check after revalidation in
+		 * case that drops it.
+		 */
+		if (negative)
+			return -ENOENT;
 		path->mnt = mnt;
 		path->dentry = dentry;
 		if (likely(__follow_mount_rcu(nd, path, inode, seqp)))

@@ -30,17 +30,12 @@ struct plt_entries {
 	u32	lit[PLT_ENT_COUNT];
 };
 
-static bool in_init(const struct module *mod, u32 addr)
-{
-	return addr - (u32)mod->module_init < mod->init_size;
-}
-
 u32 get_module_plt(struct module *mod, unsigned long loc, Elf32_Addr val)
 {
 	struct plt_entries *plt, *plt_end;
 	int c, *count;
 
-	if (in_init(mod, loc)) {
+	if (within_module_init(loc, mod)) {
 		plt = (void *)mod->arch.init_plt->sh_addr;
 		plt_end = (void *)plt + mod->arch.init_plt->sh_size;
 		count = &mod->arch.init_plt_count;

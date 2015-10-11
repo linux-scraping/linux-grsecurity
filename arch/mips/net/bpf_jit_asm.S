@@ -62,7 +62,9 @@ sk_load_word_positive:
 	is_offset_in_header(4, word)
 	/* Offset within header boundaries */
 	PTR_ADDU t1, $r_skb_data, offset
+	.set	reorder
 	lw	$r_A, 0(t1)
+	.set	noreorder
 #ifdef CONFIG_CPU_LITTLE_ENDIAN
 	wsbh	t0, $r_A
 	rotr	$r_A, t0, 16
@@ -78,7 +80,9 @@ sk_load_half_positive:
 	is_offset_in_header(2, half)
 	/* Offset within header boundaries */
 	PTR_ADDU t1, $r_skb_data, offset
+	.set	reorder
 	lh	$r_A, 0(t1)
+	.set	noreorder
 #ifdef CONFIG_CPU_LITTLE_ENDIAN
 	wsbh	t0, $r_A
 	seh	$r_A, t0

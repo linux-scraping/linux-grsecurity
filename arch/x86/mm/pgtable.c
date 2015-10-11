@@ -629,16 +629,31 @@ static void fix_user_fixmap(enum fixed_addresses idx, unsigned long address)
 
 #ifdef CONFIG_X86_VSYSCALL_EMULATION
 	case VSYSCALL_PAGE:
+		break;
 #endif
+
 #ifdef CONFIG_PARAVIRT_CLOCK
 	case PVCLOCK_FIXMAP_BEGIN ... PVCLOCK_FIXMAP_END:
-#endif
 		break;
+#endif
 	}
 
 	pgd = pgd_offset_k(address);
-	if (!(pgd_val(*pgd) & _PAGE_USER))
+	if (!(pgd_val(*pgd) & _PAGE_USER)) {
+#ifdef CONFIG_PAX_PER_CPU_PGD
+		unsigned int cpu;
+		pgd_t *pgd_cpu;
+
+		for_each_possible_cpu(cpu) {
+			pgd_cpu = pgd_offset_cpu(cpu, kernel, address);
+			set_pgd(pgd_cpu, __pgd(pgd_val(*pgd_cpu) | _PAGE_USER));
+
+			pgd_cpu = pgd_offset_cpu(cpu, user, address);
+			set_pgd(pgd_cpu, __pgd(pgd_val(*pgd_cpu) | _PAGE_USER));
+		}
+#endif
 		set_pgd(pgd, __pgd(pgd_val(*pgd) | _PAGE_USER));
+	}
 
 	pud = pud_offset(pgd, address);
 	if (!(pud_val(*pud) & _PAGE_USER))
