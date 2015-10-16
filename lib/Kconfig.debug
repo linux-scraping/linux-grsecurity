@@ -242,6 +242,7 @@ config PAGE_OWNER
 	bool "Track page owner"
 	depends on DEBUG_KERNEL && STACKTRACE_SUPPORT
 	select DEBUG_FS
+	depends on !GRKERNSEC_KMEM
 	select STACKTRACE
 	select PAGE_EXTENSION
 	help
@@ -256,6 +257,7 @@ config PAGE_OWNER
 
 config DEBUG_FS
 	bool "Debug Filesystem"
+	depends on !GRKERNSEC_KMEM
 	help
 	  debugfs is a virtual file system that kernel developers use to put
 	  debugging files into.  Enable this option to be able to read and
@@ -488,6 +490,7 @@ config DEBUG_KMEMLEAK
 	bool "Kernel memory leak detector"
 	depends on DEBUG_KERNEL && HAVE_DEBUG_KMEMLEAK
 	select DEBUG_FS
+	depends on !GRKERNSEC_KMEM
 	select STACKTRACE if STACKTRACE_SUPPORT
 	select KALLSYMS
 	select CRC32
@@ -1422,6 +1425,7 @@ config NOTIFIER_ERROR_INJECTION
 	tristate "Notifier error injection"
 	depends on DEBUG_KERNEL
 	select DEBUG_FS
+	depends on !GRKERNSEC_KMEM
 	help
 	  This option provides the ability to inject artificial errors to
 	  specified notifier chain callbacks. It is useful to test the error
@@ -1534,6 +1538,7 @@ config FAIL_IO_TIMEOUT
 config FAIL_MMC_REQUEST
 	bool "Fault-injection capability for MMC IO"
 	select DEBUG_FS
+	depends on !GRKERNSEC_KMEM
 	depends on FAULT_INJECTION && MMC
 	help
 	  Provide fault-injection capability for MMC IO.

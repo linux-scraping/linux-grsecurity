@@ -169,5 +169,8 @@ echo "%files devel"
 echo '%defattr (400, root, root, 500)'
 echo "%dir /lib/modules/$KERNELRELEASE"
 echo "/usr/src/kernels/$KERNELRELEASE"
+echo "%attr (500, root, root) /usr/src/kernels/$KERNELRELEASE/scripts/mod/recordmcount"
+echo "%attr (500, root, root) /usr/src/kernels/$KERNELRELEASE/scripts/mod/basic/fixdep"
+echo "%attr (500, root, root) /usr/src/kernels/$KERNELRELEASE/scripts/mod/modpost"
 echo ""
 fi

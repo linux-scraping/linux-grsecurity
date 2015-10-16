@@ -102,7 +102,7 @@ struct cpuinfo_x86 {
 	int			x86_tlbsize;
 #endif
 	__u8			x86_virt_bits;
-	__u8			x86_phys_bits __intentional_overflow(-1);
+	__u8			x86_phys_bits;
 	/* CPUID returned core id bits: */
 	__u8			x86_coreid_bits;
 	/* Max extended CPUID function supported: */

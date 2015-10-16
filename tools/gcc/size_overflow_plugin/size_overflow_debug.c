@@ -63,16 +63,25 @@ unsigned int __unused size_overflow_dump_function(FILE *file, struct cgraph_node
 
 static void __unused print_next_interesting_function(next_interesting_function_t node)
 {
-	unsigned int i;
+	unsigned int i, children_len;
 	next_interesting_function_t cur;
 
 	if (!node)
 		return;
 
+#if BUILDING_GCC_VERSION <= 4007
+	if (VEC_empty(next_interesting_function_t, node->children))
+		children_len = 0;
+	else
+		children_len = VEC_length(next_interesting_function_t, node->children);
+#else
+	children_len = vec_safe_length(node->children);
+#endif
+
 	fprintf(stderr, "print_next_interesting_function: ptr: %p, ", node);
 	fprintf(stderr, "decl_name: %s, ", node->decl_name);
 
-	fprintf(stderr, "num: %u marked: %s context: %s\n", node->num, print_so_mark_name(node->marked), node->context);
+	fprintf(stderr, "num: %u marked: %s context: %s children len: %u\n", node->num, print_so_mark_name(node->marked), node->context, children_len);
 #if BUILDING_GCC_VERSION <= 4007
 	if (VEC_empty(next_interesting_function_t, node->children))
 		return;
@@ -82,11 +91,6 @@ static void __unused print_next_interesting_function(next_interesting_function_t
 #endif
 		fprintf(stderr, "\t%u. child: %s %u %p marked: %s context: %s\n", i + 1, cur->decl_name, cur->num, cur, print_so_mark_name(cur->marked), cur->context);
 	}
-
-	if (is_default_error_data_flow(node->error_data_flow))
-		fprintf(stderr, "error data flow: default\n");
-	else
-		fprintf(stderr, "error data flow: bin_op: %c, error_const: %c, only_signed_unsigned_cast: %c\n", node->error_data_flow->bin_op?'t':'f', node->error_data_flow->error_const?'t':'f', node->error_data_flow->only_signed_unsigned_cast?'t':'f');
 }
 
 // Dump the full next_interesting_function_t list for parsing by print_dependecy.py
@@ -184,8 +188,6 @@ const char * __unused print_so_mark_name(enum size_overflow_mark mark)
 		return "yes_so_mark";
 	case NO_SO_MARK:
 		return "no_so_mark";
-	case ERROR_CODE_SO_MARK:
-		return "error_code_so_mark";
 	}
 
 	gcc_unreachable();

@@ -6,6 +6,12 @@
 #include <linux/gracl.h>
 
 /* notify of brain-dead configs */
+#if defined(CONFIG_DEBUG_FS) && defined(CONFIG_GRKERNSEC_KMEM)
+#error "CONFIG_DEBUG_FS being enabled is a security risk when CONFIG_GRKERNSEC_KMEM is enabled"
+#endif
+#if defined(CONFIG_PROC_PAGE_MONITOR) && defined(CONFIG_GRKERNSEC)
+#error "CONFIG_PROC_PAGE_MONITOR is a security risk"
+#endif
 #if defined(CONFIG_GRKERNSEC_PROC_USER) && defined(CONFIG_GRKERNSEC_PROC_USERGROUP)
 #error "CONFIG_GRKERNSEC_PROC_USER and CONFIG_GRKERNSEC_PROC_USERGROUP cannot both be enabled."
 #endif

@@ -380,6 +380,7 @@ config HWPOISON_INJECT
 	tristate "HWPoison pages injector"
 	depends on MEMORY_FAILURE && DEBUG_KERNEL && PROC_FS && !GRKERNSEC
 	select PROC_PAGE_MONITOR
+	depends on !GRKERNSEC
 
 config NOMMU_INITIAL_TRIM_EXCESS
 	int "Turn on mmap() excess space trimming before booting"
@@ -540,6 +541,7 @@ config MEM_SOFT_DIRTY
 	bool "Track memory changes"
 	depends on CHECKPOINT_RESTORE && HAVE_ARCH_SOFT_DIRTY && PROC_FS
 	select PROC_PAGE_MONITOR
+	depends on !GRKERNSEC
 	help
 	  This option enables memory changes tracking by introducing a
 	  soft-dirty bit on pte-s. This bit it set when someone writes
@@ -614,6 +616,7 @@ config ZSMALLOC_STAT
 	bool "Export zsmalloc statistics"
 	depends on ZSMALLOC
 	select DEBUG_FS
+	depends on !GRKERNSEC_KMEM
 	help
 	  This option enables code in the zsmalloc to collect various
 	  statistics about whats happening in zsmalloc and exports that

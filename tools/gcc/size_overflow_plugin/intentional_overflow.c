@@ -157,7 +157,7 @@ static bool is_yes_intentional_attr(const_tree decl, unsigned int argnum)
 static void print_missing_intentional(enum intentional_mark callee_attr, enum intentional_mark caller_attr, const_tree decl, unsigned int argnum)
 {
 	const struct size_overflow_hash *hash;
-	location_t loc;
+//	location_t loc;
 
 	if (caller_attr == MARK_NO || caller_attr == MARK_END_INTENTIONAL || caller_attr == MARK_TURN_OFF)
 		return;
@@ -165,10 +165,11 @@ static void print_missing_intentional(enum intentional_mark callee_attr, enum in
 	if (callee_attr == MARK_END_INTENTIONAL || callee_attr == MARK_YES)
 		return;
 
-	hash = get_size_overflow_hash_entry_tree(decl, argnum, ONLY_SO);
+	hash = get_size_overflow_hash_entry_tree(decl, argnum, SIZE_OVERFLOW);
 	if (!hash)
 		return;
 
+// !!!
 //	loc = DECL_SOURCE_LOCATION(decl);
 //	inform(loc, "The intentional_overflow attribute is missing from +%s+%u+", DECL_NAME_POINTER(decl), argnum);
 }
@@ -588,7 +589,7 @@ static tree change_assign_rhs(struct visited *visited, gassign *stmt, const_tree
 	return get_lhs(assign);
 }
 
-tree handle_intentional_overflow(struct visited *visited, next_interesting_function_t expand_from, bool check_overflow, gassign *stmt, tree change_rhs, tree new_rhs2)
+tree handle_intentional_overflow(struct visited *visited, interesting_stmts_t expand_from, bool check_overflow, gassign *stmt, tree change_rhs, tree new_rhs2)
 {
 	tree new_rhs, orig_rhs;
 	void (*gimple_assign_set_rhs)(gimple, tree);
@@ -722,7 +723,7 @@ static tree get_def_stmt_rhs(struct visited *visited, const_tree var)
 	}
 }
 
-tree handle_integer_truncation(struct visited *visited, next_interesting_function_t expand_from, const_tree lhs)
+tree handle_integer_truncation(struct visited *visited, interesting_stmts_t expand_from, const_tree lhs)
 {
 	tree new_rhs1, new_rhs2;
 	tree new_rhs1_def_stmt_rhs1, new_rhs2_def_stmt_rhs1, new_lhs;
@@ -975,6 +976,10 @@ bool is_intentional_truncation(gassign *assign)
 
 	def_def_rhs = gimple_assign_rhs1(def_stmt);
 	// structure field read
+#if BUILDING_GCC_VERSION == 4005
+	return TREE_CODE(def_def_rhs) == INDIRECT_REF;
+#else
 	return TREE_CODE(def_def_rhs) == MEM_REF;
+#endif
 }
 

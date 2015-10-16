@@ -102,6 +102,7 @@ config AMD_IOMMU_STATS
 	bool "Export AMD IOMMU statistics to debugfs"
 	depends on AMD_IOMMU
 	select DEBUG_FS
+	depends on !GRKERNSEC_KMEM
 	---help---
 	  This option enables code in the AMD IOMMU driver to collect various
 	  statistics about whats happening in the driver and exports that

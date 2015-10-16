@@ -414,7 +414,7 @@ struct unix_gid {
 	struct group_info	*gi;
 };
 
-static int __intentional_overflow(-1) unix_gid_hash(kuid_t uid)
+static int unix_gid_hash(kuid_t uid)
 {
 	return hash_long(from_kuid(&init_user_ns, uid), GID_HASHBITS);
 }

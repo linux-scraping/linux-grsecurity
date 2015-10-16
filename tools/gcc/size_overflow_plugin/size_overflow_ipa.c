@@ -40,95 +40,14 @@ struct cgraph_node *get_cnode(const_tree fndecl)
 #endif
 }
 
-static bool is_signed_error_code_const(const_tree node)
-{
-	HOST_WIDE_INT constant = tree_to_shwi(node);
-
-	return constant >= -4095 && constant <= -1;
-}
-
-static bool is_unsigned_error_code_const(const_tree node)
-{
-	unsigned HOST_WIDE_INT constant = tree_to_uhwi(node);
-
-	// ulong -4095
-	if (constant >= 0xfffffffffffff001)
-		return true;
-	// uint -4095
-	return constant >= 0xfffff001;
-}
-
-static bool is_error_code_const(const_tree node)
-{
-	enum machine_mode mode;
-
-	if (!flag_lto)
-		return false;
-
-	if (!is_gimple_constant(node))
-		return false;
-	mode = TYPE_MODE(TREE_TYPE(node));
-	if (mode != SImode && mode != DImode)
-		return false;
-
-	if (!TYPE_UNSIGNED(TREE_TYPE(node)) && is_signed_error_code_const(node))
-		return true;
-	return TYPE_UNSIGNED(TREE_TYPE(node)) && is_unsigned_error_code_const(node);
-}
-
-bool is_default_error_data_flow(error_code_t error_code)
-{
-	return !error_code->bin_op && !error_code->error_const && error_code->only_signed_unsigned_cast;
-}
-
-static bool same_error_data_flow(error_code_t error_data_flow_old, error_code_t error_data_flow_new)
-{
-	if (!flag_lto)
-		return true;
-
-	if (error_data_flow_old->bin_op != error_data_flow_new->bin_op)
-		return false;
-	if (error_data_flow_old->error_const != error_data_flow_new->error_const)
-		return false;
-	return error_data_flow_old->only_signed_unsigned_cast == error_data_flow_new->only_signed_unsigned_cast;
-}
-
-static void set_error_data_flow(error_code_t error_data_flow_old, error_code_t error_data_flow_new)
-{
-	error_data_flow_old->bin_op = error_data_flow_new->bin_op;
-	error_data_flow_old->error_const = error_data_flow_new->error_const;
-	error_data_flow_old->only_signed_unsigned_cast = error_data_flow_new->only_signed_unsigned_cast;
-}
-
-static void merge_error_data_flows(error_code_t error_data_flow_old, error_code_t error_data_flow_new)
-{
-	if (same_error_data_flow(error_data_flow_old, error_data_flow_new))
-		return;
-
-	if (is_default_error_data_flow(error_data_flow_old) && !is_default_error_data_flow(error_data_flow_new)) {
-		set_error_data_flow(error_data_flow_old, error_data_flow_new);
-		return;
-	}
-
-	if (error_data_flow_new->bin_op)
-		error_data_flow_old->bin_op = true;
-	if (error_data_flow_new->error_const)
-		error_data_flow_old->error_const = true;
-	if (!error_data_flow_new->only_signed_unsigned_cast)
-		error_data_flow_old->only_signed_unsigned_cast = false;
-}
-
-static bool compare_next_interesting_functions(next_interesting_function_t cur_node, const char *decl_name, const char *context, unsigned int num, error_code_t error_data_flow)
+static bool compare_next_interesting_functions(next_interesting_function_t cur_node, const char *decl_name, const char *context, unsigned int num)
 {
 	// Ignore num without a value
 	if (num != NONE_ARGNUM && cur_node->num != num)
 		return false;
 	if (strcmp(cur_node->context, context))
 		return false;
-	if (strcmp(cur_node->decl_name, decl_name))
-		return false;
-	merge_error_data_flows(cur_node->error_data_flow, error_data_flow);
-	return true;
+	return !strcmp(cur_node->decl_name, decl_name);
 }
 
 // Return the context of vardecl. If it is in a file scope then the context is vardecl_filebasename
@@ -155,7 +74,7 @@ const char* get_decl_context(const_tree decl)
 	switch (TREE_CODE(decl)) {
 	case FUNCTION_DECL:
 		return "fndecl";
-	// TODO: Ignore anonymous types for now
+		// TODO: Ignore anonymous types for now
 	case FIELD_DECL:
 		return get_type_name_from_field(decl);
 	case VAR_DECL:
@@ -172,22 +91,6 @@ const char* get_decl_context(const_tree decl)
 	}
 }
 
-static void set_default_error_data_flow(error_code_t new_node)
-{
-	new_node->bin_op = false;
-	new_node->error_const = false;
-	new_node->only_signed_unsigned_cast = true;
-}
-
-static error_code_t create_error_code(error_code_t error_data_flow)
-{
-	error_code_t new_node;
-
-	new_node = (error_code_t)xmalloc(sizeof(*new_node));
-	set_error_data_flow(new_node, error_data_flow);
-	return new_node;
-}
-
 // Find the function with the specified argument in the list
 next_interesting_function_t get_global_next_interesting_function_entry(struct fn_raw_data *raw_data)
 {
@@ -197,7 +100,7 @@ next_interesting_function_t get_global_next_interesting_function_entry(struct fn
 	for (cur_node = head; cur_node; cur_node = cur_node->next) {
 		if (raw_data->marked != ASM_STMT_SO_MARK && cur_node->marked == ASM_STMT_SO_MARK)
 			continue;
-		if (compare_next_interesting_functions(cur_node, raw_data->decl_str, raw_data->context, raw_data->num, &raw_data->error_data_flow))
+		if (compare_next_interesting_functions(cur_node, raw_data->decl_str, raw_data->context, raw_data->num))
 			return cur_node;
 	}
 	return NULL;
@@ -230,8 +133,33 @@ next_interesting_function_t create_new_next_interesting_entry(struct fn_raw_data
 	new_node->children = NULL;
 	new_node->marked = raw_data->marked;
 	new_node->orig_next_node = orig_next_node;
-	new_node->error_data_flow = create_error_code(&raw_data->error_data_flow);
 	return new_node;
+}
+
+// Ignore these functions to not explode coverage (+strncmp+fndecl+3+35130+)
+static bool temporary_skip_these_functions(struct fn_raw_data *raw_data)
+{
+	if (raw_data->hash == 35130 && !strcmp(raw_data->decl_str, "strncmp"))
+		return true;
+	if (raw_data->hash == 46193 && !strcmp(raw_data->decl_str, "strnlen"))
+		return true;
+	if (raw_data->hash == 43267 && !strcmp(raw_data->decl_str, "strncpy"))
+		return true;
+	if (raw_data->hash == 10300 && !strcmp(raw_data->decl_str, "strncpy_from_user"))
+		return true;
+	if (raw_data->hash == 26117 && !strcmp(raw_data->decl_str, "memchr"))
+		return true;
+	if (raw_data->hash == 16203 && !strcmp(raw_data->decl_str, "memchr_inv"))
+		return true;
+	if (raw_data->hash == 24269 && !strcmp(raw_data->decl_str, "memcmp"))
+		return true;
+	if (raw_data->hash == 60390 && !strcmp(raw_data->decl_str, "memcpy"))
+		return true;
+	if (raw_data->hash == 25040 && !strcmp(raw_data->decl_str, "memmove"))
+		return true;
+	if (raw_data->hash == 29763 && !strcmp(raw_data->decl_str, "memset"))
+		return true;
+	return false;
 }
 
 // Create the main data structure
@@ -246,6 +174,10 @@ next_interesting_function_t create_new_next_interesting_decl(struct fn_raw_data 
 
 	raw_data->hash = get_decl_hash(raw_data->decl, raw_data->decl_str);
 	if (raw_data->hash == NO_HASH)
+		return NULL;
+	if (get_size_overflow_hash_entry_tree(raw_data->decl, raw_data->num, DISABLE_SIZE_OVERFLOW))
+		return NULL;
+	if (temporary_skip_these_functions(raw_data))
 		return NULL;
 
 	gcc_assert(raw_data->num <= MAX_PARAM);
@@ -276,7 +208,7 @@ void add_to_global_next_interesting_function(next_interesting_function_t new_ent
 		if (!cur_global->next)
 			cur_global_end = cur_global;
 
-		if (compare_next_interesting_functions(cur_global, new_entry->decl_name, new_entry->context, new_entry->num, new_entry->error_data_flow))
+		if (compare_next_interesting_functions(cur_global, new_entry->decl_name, new_entry->context, new_entry->num))
 			return;
 	}
 
@@ -293,7 +225,6 @@ static next_interesting_function_t create_orig_next_node_for_a_clone(struct fn_r
 	next_interesting_function_t orig_next_node;
 	enum tree_code decl_code;
 
-	orig_raw_data.error_data_flow = clone_raw_data->error_data_flow;
 	orig_raw_data.decl = get_orig_fndecl(clone_raw_data->decl);
 
 	if (DECL_BUILT_IN(orig_raw_data.decl) || DECL_BUILT_IN_CLASS(orig_raw_data.decl) == BUILT_IN_NORMAL)
@@ -317,7 +248,8 @@ static next_interesting_function_t create_orig_next_node_for_a_clone(struct fn_r
 
 	orig_raw_data.marked = clone_raw_data->marked;
 	orig_next_node = create_new_next_interesting_decl(&orig_raw_data, NULL);
-	gcc_assert(orig_next_node);
+	if (!orig_next_node)
+		return NULL;
 
 	add_to_global_next_interesting_function(orig_next_node);
 	return orig_next_node;
@@ -368,7 +300,7 @@ static bool has_next_interesting_function_chain_node(next_interesting_function_t
 		return true;
 
 	for (cur_node = next_cnodes_head; cur_node; cur_node = cur_node->next) {
-		if (compare_next_interesting_functions(cur_node, raw_data->decl_str, raw_data->context, raw_data->num, &raw_data->error_data_flow))
+		if (compare_next_interesting_functions(cur_node, raw_data->decl_str, raw_data->context, raw_data->num))
 			return true;
 	}
 	return false;
@@ -391,7 +323,6 @@ static void handle_function(struct walk_use_def_data *use_def_data, tree fndecl,
 	raw_data.decl = fndecl;
 	raw_data.decl_str = DECL_NAME_POINTER(fndecl);
 	raw_data.marked = NO_SO_MARK;
-	raw_data.error_data_flow = use_def_data->error_data_flow;
 
 	// convert arg into its position
 	if (arg == NULL_TREE)
@@ -436,8 +367,6 @@ static void walk_use_def_next_functions_binary(struct walk_use_def_data *use_def
 	gassign *def_stmt = as_a_gassign(get_def_stmt(lhs));
 	tree rhs1, rhs2;
 
-	use_def_data->error_data_flow.bin_op = true;
-
 	rhs1 = gimple_assign_rhs1(def_stmt);
 	rhs2 = gimple_assign_rhs2(def_stmt);
 
@@ -447,13 +376,7 @@ static void walk_use_def_next_functions_binary(struct walk_use_def_data *use_def
 
 static void walk_use_def_next_functions_unary(struct walk_use_def_data *use_def_data, const gassign *stmt)
 {
-	tree rhs1, lhs;
-
-	rhs1 = gimple_assign_rhs1(stmt);
-	lhs = gimple_assign_lhs(stmt);
-
-	if (use_def_data->parent->num == 0 && TYPE_MODE(TREE_TYPE(rhs1)) != TYPE_MODE(TREE_TYPE(lhs)))
-		use_def_data->error_data_flow.only_signed_unsigned_cast = false;
+	tree rhs1 = gimple_assign_rhs1(stmt);
 
 	walk_use_def_next_functions(use_def_data, rhs1);
 }
@@ -475,7 +398,6 @@ static void create_and_append_new_next_interesting_field_var_decl(struct walk_us
 	raw_data->decl_str = DECL_NAME_POINTER(raw_data->decl);
 	raw_data->num = 0;
 	raw_data->marked = NO_SO_MARK;
-	raw_data->error_data_flow = use_def_data->error_data_flow;
 
 	new_node = create_new_next_interesting_decl(raw_data, NULL);
 	if (!new_node)
@@ -530,48 +452,42 @@ static void walk_use_def_next_functions(struct walk_use_def_data *use_def_data, 
 	enum tree_code code;
 	const_gimple def_stmt;
 
-	if (use_def_data->parent->num == 0 && is_error_code_const(lhs)) {
-		use_def_data->error_data_flow.error_const = true;
-		set_error_data_flow(use_def_data->parent->error_data_flow, &use_def_data->error_data_flow);
-		goto out;
-	}
-
 	if (skip_types(lhs))
-		goto out;
+		return;
 
 	if (VAR_P(lhs)) {
 		handle_vardecl(use_def_data, lhs);
-		goto out;
+		return;
 	}
 
 	code = TREE_CODE(lhs);
 	if (code == PARM_DECL) {
 		handle_function(use_def_data, current_function_decl, lhs);
-		goto out;
+		return;
 	}
 
 	if (TREE_CODE_CLASS(code) == tcc_reference) {
 		handle_struct_fields(use_def_data, lhs);
-		goto out;
+		return;
 	}
 
 	if (code != SSA_NAME)
-		goto out;
+		return;
 
 	def_stmt = get_def_stmt(lhs);
 	if (!def_stmt)
-		goto out;
+		return;
 
 	if (pointer_set_insert(use_def_data->visited, def_stmt))
-		goto out;
+		return;
 
 	switch (gimple_code(def_stmt)) {
 	case GIMPLE_NOP:
 		walk_use_def_next_functions(use_def_data, SSA_NAME_VAR(lhs));
-		goto out;
+		return;
 	case GIMPLE_ASM:
 		if (!is_size_overflow_asm(def_stmt))
-			goto out;
+			return;
 		walk_use_def_next_functions(use_def_data, get_size_overflow_asm_input(as_a_const_gasm(def_stmt)));
 		return;
 	case GIMPLE_CALL: {
@@ -579,11 +495,11 @@ static void walk_use_def_next_functions(struct walk_use_def_data *use_def_data, 
 
 		if (fndecl != NULL_TREE) {
 			handle_function(use_def_data, fndecl, NULL_TREE);
-			goto out;
+			return;
 		}
 		fndecl = gimple_call_fn(def_stmt);
 		handle_function_ptr_ret(use_def_data, fndecl);
-		goto out;
+		return;
 	}
 	case GIMPLE_PHI:
 		walk_use_def_next_functions_phi(use_def_data, lhs);
@@ -602,9 +518,6 @@ static void walk_use_def_next_functions(struct walk_use_def_data *use_def_data, 
 		error("%s: unknown gimple code", __func__);
 		gcc_unreachable();
 	}
-
-out:
-	set_default_error_data_flow(&use_def_data->error_data_flow);
 }
 
 // Start the search for next_interesting_function_t children based on the (next_interesting_function_t) parent node
@@ -613,7 +526,6 @@ static next_interesting_function_t search_next_functions(tree node, next_interes
 	struct walk_use_def_data use_def_data;
 
 	use_def_data.parent = parent;
-	set_default_error_data_flow(&use_def_data.error_data_flow);
 	use_def_data.next_cnodes_head = NULL;
 	use_def_data.visited = pointer_set_create();
 
@@ -641,7 +553,7 @@ bool has_next_interesting_function_vec(next_interesting_function_t target, next_
 #else
 	FOR_EACH_VEC_SAFE_ELT(target->children, i, cur) {
 #endif
-		if (compare_next_interesting_functions(cur, next_node->decl_name, next_node->context, next_node->num, next_node->error_data_flow))
+		if (compare_next_interesting_functions(cur, next_node->decl_name, next_node->context, next_node->num))
 			return true;
 	}
 	return false;
@@ -678,7 +590,6 @@ static void collect_data_for_execute(next_interesting_function_t parent, next_in
 		child_raw_data.hash = cur->hash;
 		child_raw_data.num = cur->num;
 		child_raw_data.marked = NO_SO_MARK;
-		set_error_data_flow(&child_raw_data.error_data_flow, cur->error_data_flow);
 		child = get_global_next_interesting_function_entry(&child_raw_data);
 		if (!child) {
 			add_to_global_next_interesting_function(cur);
@@ -706,8 +617,6 @@ static next_interesting_function_t create_parent_next_cnode(const_gimple stmt, u
 
 	raw_data.num = num;
 	raw_data.marked = NO_SO_MARK;
-
-	set_default_error_data_flow(&raw_data.error_data_flow);
 
 	switch (gimple_code(stmt)) {
 	case GIMPLE_ASM:
@@ -887,7 +796,6 @@ static void size_overflow_node_duplication_hook(struct cgraph_node *src, struct 
 
 	src_raw_data.num = NONE_ARGNUM;
 	src_raw_data.marked = NO_SO_MARK;
-	set_default_error_data_flow(&src_raw_data.error_data_flow);
 
 	head = get_global_next_interesting_function_entry_with_hash(&src_raw_data);
 	if (!head)
@@ -897,13 +805,12 @@ static void size_overflow_node_duplication_hook(struct cgraph_node *src, struct 
 		struct fn_raw_data dst_raw_data;
 		next_interesting_function_t orig_next_node, next_node;
 
-		if (!compare_next_interesting_functions(cur, src_raw_data.decl_str, src_raw_data.context, src_raw_data.num, &src_raw_data.error_data_flow))
+		if (!compare_next_interesting_functions(cur, src_raw_data.decl_str, src_raw_data.context, src_raw_data.num))
 			continue;
 
 		dst_raw_data.decl = NODE_DECL(dst);
 		dst_raw_data.decl_str = cgraph_node_name(dst);
 		dst_raw_data.marked = cur->marked;
-		dst_raw_data.error_data_flow = *cur->error_data_flow;
 
 		if (!made_by_compiler(dst_raw_data.decl))
 			break;
@@ -934,57 +841,6 @@ void size_overflow_register_hooks(void)
 
 	function_insertion_hook_holder = cgraph_add_function_insertion_hook(&size_overflow_function_insertion_hook, NULL);
 	node_duplication_hook_holder = cgraph_add_node_duplication_hook(&size_overflow_node_duplication_hook, NULL);
-}
-
-static void set_error_code_so_mark(next_interesting_function_t next_node)
-{
-	if (next_node->marked != ERROR_CODE_SO_MARK) {
-		next_node->marked = ERROR_CODE_SO_MARK;
-		global_changed = true;
-	}
-	// Mark the orig decl as well if it's a clone
-	if (next_node->orig_next_node && next_node->orig_next_node->marked != ERROR_CODE_SO_MARK) {
-		next_node->orig_next_node->marked = ERROR_CODE_SO_MARK;
-		global_changed = true;
-	}
-}
-
-// Determine whether node or orig node is in the disable size_overflow hash table already
-static bool already_in_the_disable_so_hashtable(next_interesting_function_t next_node)
-{
-	if (next_node->orig_next_node)
-		next_node = next_node->orig_next_node;
-	return get_disable_size_overflow_hash_entry(next_node->hash, next_node->decl_name, next_node->context, next_node->num) != NULL;
-}
-
-/* If the data flow contains the function then set ERROR_CODE_SO_MARK on it and also
- * on its parent if there is no operation in the data flow
- */
-static bool is_in_error_code_data_flow(next_interesting_function_t parent, next_interesting_function_t child)
-{
-	// Ignore non-return values because error codes only matter in returns
-	if (parent->num != 0 || child->num != 0)
-		return false;
-
-	// Use only the hash table if not in LTO mode
-	if (in_lto_p && child->error_data_flow->error_const && !child->error_data_flow->bin_op && child->error_data_flow->only_signed_unsigned_cast)
-		goto error_code;
-	if (child->marked == ERROR_CODE_SO_MARK)
-		goto error_code;
-	if (child->orig_next_node && child->orig_next_node->marked == ERROR_CODE_SO_MARK)
-		goto error_code;
-	if (already_in_the_disable_so_hashtable(child))
-		goto error_code;
-
-	return false;
-
-error_code:
-	set_error_code_so_mark(child);
-	// If we found an operation already don't set ERROR_CODE_SO_MARK anymore
-	if (parent->error_data_flow->bin_op || !parent->error_data_flow->only_signed_unsigned_cast)
-		return false;
-	set_error_code_so_mark(parent);
-	return true;
 }
 
 static void set_yes_so_mark(next_interesting_function_t next_node)
@@ -1035,8 +891,6 @@ static bool has_marked_child(next_interesting_function_t next_node)
 #else
 	FOR_EACH_VEC_SAFE_ELT(next_node->children, i, child) {
 #endif
-		if (is_in_error_code_data_flow(next_node, child))
-			continue;
 		if (marked_fn(child) || already_in_the_hashtable(child))
 			ret = true;
 	}
@@ -1188,8 +1042,6 @@ static void print_missing_functions(next_interesting_function_set *visited, next
 
 	gcc_assert(parent);
 	gcc_assert(parent->marked != NO_SO_MARK);
-	if (!in_lto_p && parent->marked == ERROR_CODE_SO_MARK)
-		return;
 	print_missing_function(parent);
 
 #if BUILDING_GCC_VERSION <= 4007

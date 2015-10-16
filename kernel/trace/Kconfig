@@ -120,6 +120,7 @@ config TRACING_SUPPORT
 	# irqflags tracing for your architecture.
 	depends on TRACE_IRQFLAGS_SUPPORT || PPC32
 	depends on STACKTRACE_SUPPORT
+	depends on !GRKERNSEC_KMEM
 	default y
 
 if TRACING_SUPPORT
@@ -378,6 +379,7 @@ config BLK_DEV_IO_TRACE
 	depends on BLOCK
 	select RELAY
 	select DEBUG_FS
+	depends on !GRKERNSEC_KMEM
 	select TRACEPOINTS
 	select GENERIC_TRACER
 	select STACKTRACE

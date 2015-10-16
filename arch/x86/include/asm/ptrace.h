@@ -21,10 +21,10 @@ struct pt_regs {
 	unsigned long fs;
 	unsigned long gs;
 	unsigned long orig_ax;
-	unsigned long ip __intentional_overflow(-1);
+	unsigned long ip;
 	unsigned long cs;
 	unsigned long flags;
-	unsigned long sp __intentional_overflow(-1);
+	unsigned long sp;
 	unsigned long ss;
 };
 
@@ -57,10 +57,10 @@ struct pt_regs {
  */
 	unsigned long orig_ax;
 /* Return frame for iretq */
-	unsigned long ip __intentional_overflow(-1);
+	unsigned long ip;
 	unsigned long cs;
 	unsigned long flags;
-	unsigned long sp __intentional_overflow(-1);
+	unsigned long sp;
 	unsigned long ss;
 /* top of stack page */
 };

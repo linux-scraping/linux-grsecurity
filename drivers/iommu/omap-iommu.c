@@ -546,36 +546,30 @@ __dump_tlb_entries(struct omap_iommu *obj, struct cr_regs *crs, int num)
 }
 
 /**
- * iotlb_dump_cr - Dump an iommu tlb entry into buf
+ * iotlb_dump_cr - Dump an iommu tlb entry into seq_file
  * @obj:	target iommu
  * @cr:		contents of cam and ram register
- * @buf:	output buffer
+ * @s:	    output seq_file
  **/
 static ssize_t iotlb_dump_cr(struct omap_iommu *obj, struct cr_regs *cr,
-			     char *buf)
+		struct seq_file *s)
 {
-	char *p = buf;
-
 	/* FIXME: Need more detail analysis of cam/ram */
-	p += sprintf(p, "%08x %08x %01x\n", cr->cam, cr->ram,
-					(cr->cam & MMU_CAM_P) ? 1 : 0);
-
-	return p - buf;
+	return seq_printf(s, "%08x %08x %01x\n", cr->cam, cr->ram,
+			(cr->cam & MMU_CAM_P) ? 1 : 0);
 }
 
 /**
- * omap_dump_tlb_entries - dump cr arrays to given buffer
+ * omap_dump_tlb_entries - dump cr arrays to given seq_file
  * @obj:	target iommu
- * @buf:	output buffer
+ * @s:	    output seq_file
  **/
-size_t omap_dump_tlb_entries(struct omap_iommu *obj, char *buf, ssize_t bytes)
+size_t omap_dump_tlb_entries(struct omap_iommu *obj, struct seq_file *s)
 {
 	int i, num;
 	struct cr_regs *cr;
-	char *p = buf;
 
-	num = bytes / sizeof(*cr);
-	num = min(obj->nr_tlb_entries, num);
+	num = obj->nr_tlb_entries;
 
 	cr = kcalloc(num, sizeof(*cr), GFP_KERNEL);
 	if (!cr)
@@ -583,10 +577,10 @@ size_t omap_dump_tlb_entries(struct omap_iommu *obj, char *buf, ssize_t bytes)
 
 	num = __dump_tlb_entries(obj, cr, num);
 	for (i = 0; i < num; i++)
-		p += iotlb_dump_cr(obj, cr + i, p);
+		iotlb_dump_cr(obj, cr + i, s);
 	kfree(cr);
 
-	return p - buf;
+	return 0;
 }
 
 #endif /* CONFIG_OMAP_IOMMU_DEBUG */

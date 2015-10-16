@@ -379,7 +379,7 @@ static pteval_t pte_mfn_to_pfn(pteval_t val)
 	return val;
 }
 
-static pteval_t __intentional_overflow(-1) pte_pfn_to_mfn(pteval_t val)
+static pteval_t pte_pfn_to_mfn(pteval_t val)
 {
 	if (val & _PAGE_PRESENT) {
 		unsigned long pfn = (val & PTE_PFN_MASK) >> PAGE_SHIFT;

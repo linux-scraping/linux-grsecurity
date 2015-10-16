@@ -41,10 +41,10 @@ extern int random_int_secret_init(void);
 extern const struct file_operations random_fops, urandom_fops;
 #endif
 
-unsigned int __intentional_overflow(-1) get_random_int(void);
+unsigned int get_random_int(void);
 unsigned long randomize_range(unsigned long start, unsigned long end, unsigned long len);
 
-u32 prandom_u32(void) __intentional_overflow(-1);
+u32 prandom_u32(void);
 void prandom_bytes(void *buf, size_t nbytes);
 void prandom_seed(u32 seed);
 void prandom_reseed_late(void);

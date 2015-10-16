@@ -642,6 +642,7 @@ config RCU_FAST_NO_HZ
 config TREE_RCU_TRACE
 	def_bool RCU_TRACE && ( TREE_RCU || PREEMPT_RCU )
 	select DEBUG_FS
+	depends on !GRKERNSEC_KMEM
 	help
 	  This option provides tracing for the TREE_RCU and
 	  PREEMPT_RCU implementations, permitting Makefile to

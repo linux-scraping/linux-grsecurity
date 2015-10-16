@@ -282,10 +282,17 @@ static void search_interesting_so_args(tree fndecl, bool *argnums)
 
 static enum intentional_mark handle_intentional_attr(gimple stmt, unsigned int argnum)
 {
+	const_tree fndecl;
 	enum intentional_mark mark;
 
 	mark = check_intentional_attribute(stmt, argnum);
 	if (mark == MARK_NO)
+		return MARK_NO;
+	if (gimple_code(stmt) == GIMPLE_RETURN)
+		fndecl = current_function_decl;
+	else
+		fndecl = gimple_call_fndecl(stmt);
+	if (fndecl == NULL_TREE && !get_size_overflow_hash_entry_tree(fndecl, argnum, DISABLE_SIZE_OVERFLOW))
 		return MARK_NO;
 	insert_size_overflow_asm(stmt, argnum, mark);
 	return mark;

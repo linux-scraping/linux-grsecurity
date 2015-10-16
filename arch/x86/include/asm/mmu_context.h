@@ -106,6 +106,51 @@ static inline void enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk)
 #endif
 }
 
+static inline void pax_switch_mm(struct mm_struct *next, unsigned int cpu)
+{
+
+#ifdef CONFIG_PAX_PER_CPU_PGD
+	pax_open_kernel();
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	if (static_cpu_has(X86_FEATURE_PCIDUDEREF))
+		__clone_user_pgds(get_cpu_pgd(cpu, user), next->pgd);
+	else
+#endif
+
+		__clone_user_pgds(get_cpu_pgd(cpu, kernel), next->pgd);
+
+	__shadow_user_pgds(get_cpu_pgd(cpu, kernel) + USER_PGD_PTRS, next->pgd);
+
+	pax_close_kernel();
+
+	BUG_ON((__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL) != (read_cr3() & __PHYSICAL_MASK) && (__pa(get_cpu_pgd(cpu, user)) | PCID_USER) != (read_cr3() & __PHYSICAL_MASK));
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	if (static_cpu_has(X86_FEATURE_PCIDUDEREF)) {
+		if (static_cpu_has(X86_FEATURE_INVPCID)) {
+			u64 descriptor[2];
+			descriptor[0] = PCID_USER;
+			asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_CONTEXT) : "memory");
+			if (!static_cpu_has(X86_FEATURE_STRONGUDEREF)) {
+				descriptor[0] = PCID_KERNEL;
+				asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_CONTEXT) : "memory");
+			}
+		} else {
+			write_cr3(__pa(get_cpu_pgd(cpu, user)) | PCID_USER);
+			if (static_cpu_has(X86_FEATURE_STRONGUDEREF))
+				write_cr3(__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL | PCID_NOFLUSH);
+			else
+				write_cr3(__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL);
+		}
+	} else
+#endif
+
+		load_cr3(get_cpu_pgd(cpu, kernel));
+#endif
+
+}
+
 static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 			     struct task_struct *tsk)
 {
@@ -126,40 +171,7 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 
 		/* Re-load page tables */
 #ifdef CONFIG_PAX_PER_CPU_PGD
-		pax_open_kernel();
-
-#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-		if (static_cpu_has(X86_FEATURE_PCIDUDEREF))
-			__clone_user_pgds(get_cpu_pgd(cpu, user), next->pgd);
-		else
-#endif
-
-		__clone_user_pgds(get_cpu_pgd(cpu, kernel), next->pgd);
-		__shadow_user_pgds(get_cpu_pgd(cpu, kernel) + USER_PGD_PTRS, next->pgd);
-		pax_close_kernel();
-		BUG_ON((__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL) != (read_cr3() & __PHYSICAL_MASK) && (__pa(get_cpu_pgd(cpu, user)) | PCID_USER) != (read_cr3() & __PHYSICAL_MASK));
-
-#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-		if (static_cpu_has(X86_FEATURE_PCIDUDEREF)) {
-			if (static_cpu_has(X86_FEATURE_INVPCID)) {
-				u64 descriptor[2];
-				descriptor[0] = PCID_USER;
-				asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_CONTEXT) : "memory");
-				if (!static_cpu_has(X86_FEATURE_STRONGUDEREF)) {
-					descriptor[0] = PCID_KERNEL;
-					asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_CONTEXT) : "memory");
-				}
-			} else {
-				write_cr3(__pa(get_cpu_pgd(cpu, user)) | PCID_USER);
-				if (static_cpu_has(X86_FEATURE_STRONGUDEREF))
-					write_cr3(__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL | PCID_NOFLUSH);
-				else
-					write_cr3(__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL);
-			}
-		} else
-#endif
-
-			load_cr3(get_cpu_pgd(cpu, kernel));
+		pax_switch_mm(next, cpu);
 #else
 		load_cr3(next->pgd);
 #endif
@@ -207,43 +219,7 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 
 	}
 	else {
-
-#ifdef CONFIG_PAX_PER_CPU_PGD
-		pax_open_kernel();
-
-#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-		if (static_cpu_has(X86_FEATURE_PCIDUDEREF))
-			__clone_user_pgds(get_cpu_pgd(cpu, user), next->pgd);
-		else
-#endif
-
-		__clone_user_pgds(get_cpu_pgd(cpu, kernel), next->pgd);
-		__shadow_user_pgds(get_cpu_pgd(cpu, kernel) + USER_PGD_PTRS, next->pgd);
-		pax_close_kernel();
-		BUG_ON((__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL) != (read_cr3() & __PHYSICAL_MASK) && (__pa(get_cpu_pgd(cpu, user)) | PCID_USER) != (read_cr3() & __PHYSICAL_MASK));
-
-#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
-		if (static_cpu_has(X86_FEATURE_PCIDUDEREF)) {
-			if (static_cpu_has(X86_FEATURE_INVPCID)) {
-				u64 descriptor[2];
-				descriptor[0] = PCID_USER;
-				asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_CONTEXT) : "memory");
-				if (!static_cpu_has(X86_FEATURE_STRONGUDEREF)) {
-					descriptor[0] = PCID_KERNEL;
-					asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_CONTEXT) : "memory");
-				}
-			} else {
-				write_cr3(__pa(get_cpu_pgd(cpu, user)) | PCID_USER);
-				if (static_cpu_has(X86_FEATURE_STRONGUDEREF))
-					write_cr3(__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL | PCID_NOFLUSH);
-				else
-					write_cr3(__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL);
-			}
-		} else
-#endif
-
-			load_cr3(get_cpu_pgd(cpu, kernel));
-#endif
+		pax_switch_mm(next, cpu);
 
 #ifdef CONFIG_SMP
 		this_cpu_write(cpu_tlbstate.state, TLBSTATE_OK);

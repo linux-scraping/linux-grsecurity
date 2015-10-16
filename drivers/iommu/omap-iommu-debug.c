@@ -55,34 +55,22 @@ static ssize_t debug_read_regs(struct file *file, char __user *userbuf,
 	return bytes;
 }
 
-static ssize_t debug_read_tlb(struct file *file, char __user *userbuf,
-			      size_t count, loff_t *ppos)
+static int debug_read_tlb(struct seq_file *s, void *data)
 {
-	struct omap_iommu *obj = file->private_data;
-	char *p, *buf;
-	ssize_t bytes, rest;
+	struct omap_iommu *obj = s->private;
 
 	if (is_omap_iommu_detached(obj))
 		return -EPERM;
 
-	buf = kmalloc(count, GFP_KERNEL);
-	if (!buf)
-		return -ENOMEM;
-	p = buf;
-
 	mutex_lock(&iommu_debug_lock);
 
-	p += sprintf(p, "%8s %8s\n", "cam:", "ram:");
-	p += sprintf(p, "-----------------------------------------\n");
-	rest = count - (p - buf);
-	p += omap_dump_tlb_entries(obj, p, rest);
-
-	bytes = simple_read_from_buffer(userbuf, count, ppos, buf, p - buf);
+	seq_printf(s, "%8s %8s\n", "cam:", "ram:");
+	seq_puts(s, "-----------------------------------------\n");
+	omap_dump_tlb_entries(obj, s);
 
 	mutex_unlock(&iommu_debug_lock);
-	kfree(buf);
 
-	return bytes;
+	return 0;
 }
 
 static void dump_ioptable(struct seq_file *s)
@@ -157,7 +145,7 @@ static int debug_read_pagetable(struct seq_file *s, void *data)
 	};
 
 DEBUG_FOPS_RO(regs);
-DEBUG_FOPS_RO(tlb);
+DEBUG_SEQ_FOPS_RO(tlb);
 DEBUG_SEQ_FOPS_RO(pagetable);
 
 #define __DEBUG_ADD_FILE(attr, mode)					\

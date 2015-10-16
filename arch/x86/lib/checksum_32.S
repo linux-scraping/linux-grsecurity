@@ -282,6 +282,8 @@ unsigned int csum_partial_copy_generic (const char *src, char *dst,
 #define ARGBASE 16		
 #define FP		12
 
+ENTRY(csum_partial_copy_generic_to_user)
+
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	pushl %gs
 	popl %es

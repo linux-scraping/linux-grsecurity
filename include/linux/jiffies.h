@@ -75,7 +75,7 @@ extern int register_refined_jiffies(long clock_tick_rate);
  * get_jiffies_64() will do this for you as appropriate.
  */
 extern u64 __jiffy_data jiffies_64;
-extern unsigned long volatile __jiffy_data __intentional_overflow(-1) jiffies;
+extern unsigned long volatile __jiffy_data jiffies;
 
 #if (BITS_PER_LONG < 64)
 u64 get_jiffies_64(void);
@@ -281,8 +281,8 @@ extern unsigned long preset_lpj;
 /*
  * Convert various time units to each other:
  */
-extern unsigned int jiffies_to_msecs(const unsigned long j) __intentional_overflow(-1);
-extern unsigned int jiffies_to_usecs(const unsigned long j) __intentional_overflow(-1);
+extern unsigned int jiffies_to_msecs(const unsigned long j);
+extern unsigned int jiffies_to_usecs(const unsigned long j);
 
 static inline u64 __intentional_overflow(-1) jiffies_to_nsecs(const unsigned long j)
 {
@@ -416,8 +416,8 @@ static inline unsigned long usecs_to_jiffies(const unsigned int u)
 
 extern unsigned long timespec_to_jiffies(const struct timespec *value);
 extern void jiffies_to_timespec(const unsigned long jiffies,
-				struct timespec *value) __intentional_overflow(-1);
-extern unsigned long timeval_to_jiffies(const struct timeval *value) __intentional_overflow(-1);
+				struct timespec *value);
+extern unsigned long timeval_to_jiffies(const struct timeval *value);
 extern void jiffies_to_timeval(const unsigned long jiffies,
 			       struct timeval *value);
 

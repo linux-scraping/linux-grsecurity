@@ -256,11 +256,10 @@ const struct size_overflow_hash *get_size_overflow_hash_entry(unsigned int hash,
 	entry_node = get_proper_hash_chain(entry, decl_name, context);
 	if (entry_node && entry_node->param & (1U << argnum))
 		return entry_node;
-
-	return get_disable_size_overflow_hash_entry(hash, decl_name, context, argnum);
+	return NULL;
 }
 
-const struct size_overflow_hash *get_size_overflow_hash_entry_tree(const_tree fndecl, unsigned int argnum, bool only_from_disable_so_hash_table)
+const struct size_overflow_hash *get_size_overflow_hash_entry_tree(const_tree fndecl, unsigned int argnum, bool hash_table)
 {
 	const_tree orig_decl;
 	unsigned int orig_argnum, hash;
@@ -286,9 +285,9 @@ const struct size_overflow_hash *get_size_overflow_hash_entry_tree(const_tree fn
 	if (!context)
 		return NULL;
 
-	if (only_from_disable_so_hash_table)
-		return get_disable_size_overflow_hash_entry(hash, decl_name, context, orig_argnum);
-	return get_size_overflow_hash_entry(hash, decl_name, context, orig_argnum);
+	if (hash_table == SIZE_OVERFLOW)
+		return get_size_overflow_hash_entry(hash, decl_name, context, orig_argnum);
+	return get_disable_size_overflow_hash_entry(hash, decl_name, context, orig_argnum);
 }
 
 unsigned int find_arg_number_tree(const_tree arg, const_tree func)
@@ -348,6 +347,6 @@ void print_missing_function(next_interesting_function_t node)
 		return;
 
 	// inform() would be too slow
-	fprintf(stderr, "Function %s is missing from the %s hash table +%s+%s+%u+%u+\n", decl_name, node->marked == ERROR_CODE_SO_MARK?"disable_size_overflow":"size_overflow", decl_name, node->context, argnum, hash);
+	fprintf(stderr, "Function %s is missing from the size_overflow hash table +%s+%s+%u+%u+\n", decl_name, decl_name, node->context, argnum, hash);
 }
 

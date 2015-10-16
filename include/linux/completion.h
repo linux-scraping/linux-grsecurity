@@ -90,16 +90,16 @@ static inline void reinit_completion(struct completion *x)
 
 extern void wait_for_completion(struct completion *);
 extern void wait_for_completion_io(struct completion *);
-extern int wait_for_completion_interruptible(struct completion *x) __intentional_overflow(-1);
-extern int wait_for_completion_killable(struct completion *x) __intentional_overflow(-1);
+extern int wait_for_completion_interruptible(struct completion *x);
+extern int wait_for_completion_killable(struct completion *x);
 extern unsigned long wait_for_completion_timeout(struct completion *x,
-						   unsigned long timeout) __intentional_overflow(-1);
+						   unsigned long timeout);
 extern unsigned long wait_for_completion_io_timeout(struct completion *x,
-						    unsigned long timeout) __intentional_overflow(-1);
+						    unsigned long timeout);
 extern long wait_for_completion_interruptible_timeout(
-	struct completion *x, unsigned long timeout) __intentional_overflow(-1);
+	struct completion *x, unsigned long timeout);
 extern long wait_for_completion_killable_timeout(
-	struct completion *x, unsigned long timeout) __intentional_overflow(-1);
+	struct completion *x, unsigned long timeout);
 extern bool try_wait_for_completion(struct completion *x);
 extern bool completion_done(struct completion *x);
 

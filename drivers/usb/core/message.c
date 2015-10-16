@@ -128,7 +128,7 @@ static int usb_internal_control_msg(struct usb_device *usb_dev,
  * Return: If successful, the number of bytes transferred. Otherwise, a negative
  * error number.
  */
-int __intentional_overflow(-1) usb_control_msg(struct usb_device *dev, unsigned int pipe, __u8 request,
+int usb_control_msg(struct usb_device *dev, unsigned int pipe, __u8 request,
 		    __u8 requesttype, __u16 value, __u16 index, void *data,
 		    __u16 size, int timeout)
 {
@@ -180,7 +180,7 @@ EXPORT_SYMBOL_GPL(usb_control_msg);
  * If successful, 0. Otherwise a negative error number. The number of actual
  * bytes transferred will be stored in the @actual_length parameter.
  */
-int __intentional_overflow(-1) usb_interrupt_msg(struct usb_device *usb_dev, unsigned int pipe,
+int usb_interrupt_msg(struct usb_device *usb_dev, unsigned int pipe,
 		      void *data, int len, int *actual_length, int timeout)
 {
 	return usb_bulk_msg(usb_dev, pipe, data, len, actual_length, timeout);
@@ -220,7 +220,7 @@ EXPORT_SYMBOL_GPL(usb_interrupt_msg);
  * bytes transferred will be stored in the @actual_length parameter.
  *
  */
-int __intentional_overflow(-1) usb_bulk_msg(struct usb_device *usb_dev, unsigned int pipe,
+int usb_bulk_msg(struct usb_device *usb_dev, unsigned int pipe,
 		 void *data, int len, int *actual_length, int timeout)
 {
 	struct urb *urb;

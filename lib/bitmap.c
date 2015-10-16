@@ -234,7 +234,7 @@ int __bitmap_subset(const unsigned long *bitmap1,
 }
 EXPORT_SYMBOL(__bitmap_subset);
 
-int __intentional_overflow(-1) __bitmap_weight(const unsigned long *bitmap, unsigned int bits)
+int __bitmap_weight(const unsigned long *bitmap, unsigned int bits)
 {
 	unsigned int k, lim = bits/BITS_PER_LONG;
 	int w = 0;

@@ -1252,7 +1252,7 @@ int ahci_kick_engine(struct ata_port *ap)
 }
 EXPORT_SYMBOL_GPL(ahci_kick_engine);
 
-static int __intentional_overflow(-1) ahci_exec_polled_cmd(struct ata_port *ap, int pmp,
+static int ahci_exec_polled_cmd(struct ata_port *ap, int pmp,
 				struct ata_taskfile *tf, int is_cmd, u16 flags,
 				unsigned long timeout_msec)
 {

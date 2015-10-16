@@ -29,7 +29,7 @@ tree size_overflow_type_DI;
 tree size_overflow_type_TI;
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20150929",
+	.version	= "20151016",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 

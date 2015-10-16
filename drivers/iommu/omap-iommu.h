@@ -193,8 +193,7 @@ static inline struct omap_iommu *dev_to_omap_iommu(struct device *dev)
 #ifdef CONFIG_OMAP_IOMMU_DEBUG
 extern ssize_t
 omap_iommu_dump_ctx(struct omap_iommu *obj, char *buf, ssize_t len);
-extern size_t
-omap_dump_tlb_entries(struct omap_iommu *obj, char *buf, ssize_t len);
+extern size_t omap_dump_tlb_entries(struct omap_iommu *obj, struct seq_file *s);
 
 void omap_iommu_debugfs_init(void);
 void omap_iommu_debugfs_exit(void);

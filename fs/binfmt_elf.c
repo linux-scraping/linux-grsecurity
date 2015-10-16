@@ -49,7 +49,7 @@
 
 static int load_elf_binary(struct linux_binprm *bprm);
 static unsigned long elf_map(struct file *, unsigned long, struct elf_phdr *,
-				int, int, unsigned long) __intentional_overflow(-1);
+				int, int, unsigned long);
 
 #ifdef CONFIG_USELIB
 static int load_elf_library(struct file *);

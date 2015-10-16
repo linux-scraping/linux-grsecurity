@@ -485,6 +485,7 @@ config ARC_DBG_TLB_MISS_COUNT
 	bool "Profile TLB Misses"
 	default n
 	select DEBUG_FS
+	depends on !GRKERNSEC_KMEM
 	help
 	  Counts number of I and D TLB Misses and exports them via Debugfs
 	  The counters can be cleared via Debugfs as well
