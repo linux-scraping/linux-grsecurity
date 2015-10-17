@@ -12392,3 +12392,5 @@ disable_so_enc_cd_paddr_qat_alg_aead_ctx_65505 enc_cd_paddr qat_alg_aead_ctx 0 6
 disable_so_s5m_rtc_set_time_fndecl_65518 s5m_rtc_set_time fndecl 0 65518 NULL
 disable_so_addr_w83627hf_data_65526 addr w83627hf_data 0 65526 NULL
 disable_so_si_pt_regs_65527 si pt_regs 0 65527 NULL
+enable_so_rts_threshold_wiphy_15170 rts_threshold wiphy 0 15170 NULL
+enable_so_value_iw_param_65472 value iw_param 0 65472 NULL
