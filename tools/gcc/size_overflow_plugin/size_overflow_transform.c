@@ -227,7 +227,7 @@ static bool is_error_code_const(const_tree node)
 	return TYPE_UNSIGNED(TREE_TYPE(node)) && is_unsigned_error_code_const(node);
 }
 
-static bool has_error_code(interesting_stmts_t expand_from, gphi *phi)
+static bool has_error_code(gphi *phi)
 {
 	unsigned int i, len = gimple_phi_num_args(phi);
 
@@ -258,12 +258,17 @@ static interesting_stmts_t search_interesting_rets(interesting_stmts_t head, nex
 static void handle_binary_assign(struct visited *visited, interesting_stmts_t expand_from, gassign *assign, tree rhs)
 {
 	tree new_node;
+	gimple def_orig_node;
 
 	new_node = expand(visited, expand_from, rhs);
 	if (new_node == NULL_TREE)
 		return;
 
+	def_orig_node = get_def_stmt(rhs);
 	change_orig_node(visited, assign, rhs, new_node, 0);
+
+	if (pointer_set_contains(visited->no_cast_check, def_orig_node))
+		return;
 	check_size_overflow(expand_from, assign, TREE_TYPE(new_node), new_node, rhs, BEFORE_STMT);
 }
 
@@ -313,7 +318,7 @@ static bool search_error_codes(struct visited *visited, gimple_set *visited_erro
 	case GIMPLE_PHI: {
 		unsigned int i;
 
-		error_code = has_error_code(expand_from, as_a_gphi(def_stmt));
+		error_code = has_error_code(as_a_gphi(def_stmt));
 		for (i = 0; i < gimple_phi_num_args(def_stmt); i++) {
 			error_code = search_error_codes(visited, visited_error_codes, expand_from, gimple_phi_arg_def(def_stmt, i), error_code);
 		}
@@ -348,6 +353,7 @@ static void handle_interesting_stmt(struct visited *visited, interesting_stmts_t
 
 	for (cur = head; cur; cur = cur->next) {
 		tree new_node;
+		gimple orig_def_stmt;
 
 		if (handle_error_codes(visited, cur))
 			continue;
@@ -356,7 +362,12 @@ static void handle_interesting_stmt(struct visited *visited, interesting_stmts_t
 		if (new_node == NULL_TREE)
 			continue;
 
+		orig_def_stmt = get_def_stmt(cur->orig_node);
+
 		change_orig_node(visited, cur->first_stmt, cur->orig_node, new_node, cur->num);
+
+		if (pointer_set_contains(visited->no_cast_check, orig_def_stmt))
+			continue;
 		check_size_overflow(cur, cur->first_stmt, TREE_TYPE(new_node), new_node, cur->orig_node, BEFORE_STMT);
 	}
 }

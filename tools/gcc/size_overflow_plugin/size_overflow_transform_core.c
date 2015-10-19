@@ -577,6 +577,69 @@ void check_size_overflow(interesting_stmts_t expand_from, gimple stmt, tree size
 	insert_check_size_overflow(expand_from, stmt, LT_EXPR, cast_rhs, type_min, before, MIN_CHECK);
 }
 
+static tree get_my_stmt_lhs(struct visited *visited, gimple stmt)
+{
+	gimple_stmt_iterator gsi;
+	gimple next_stmt = NULL;
+
+	gsi = gsi_for_stmt(stmt);
+
+	do {
+		gsi_next(&gsi);
+		next_stmt = gsi_stmt(gsi);
+
+		if (gimple_code(stmt) == GIMPLE_PHI && !pointer_set_contains(visited->my_stmts, next_stmt))
+			return NULL_TREE;
+
+		if (pointer_set_contains(visited->my_stmts, next_stmt) && !pointer_set_contains(visited->skip_expr_casts, next_stmt))
+			break;
+
+		gcc_assert(pointer_set_contains(visited->my_stmts, next_stmt));
+	} while (!gsi_end_p(gsi));
+
+	gcc_assert(next_stmt);
+	return get_lhs(next_stmt);
+}
+
+/* When the result of the negation is cast to a signed type then move
+ * the size_overflow cast check before negation.
+ * ssa:
+ * unsigned _588
+ * _588 = _587 >> 12;
+ * _589 = -_588;
+ * _590 = (long int) _589;
+ */
+static bool handle_unsigned_neg_or_bit_not(struct visited *visited, interesting_stmts_t expand_from, const gassign *stmt)
+{
+	gimple def_neg_stmt, neg_stmt;
+	tree lhs, new_neg_rhs;
+	const_tree rhs, neg_rhs;
+	enum tree_code rhs_code;
+
+	rhs = gimple_assign_rhs1(stmt);
+	lhs = gimple_assign_lhs(stmt);
+	if (TYPE_UNSIGNED(TREE_TYPE(lhs)) || !TYPE_UNSIGNED(TREE_TYPE(rhs)))
+		return false;
+
+	neg_stmt = get_def_stmt(rhs);
+	if (!neg_stmt || !is_gimple_assign(neg_stmt))
+		return false;
+
+	rhs_code = gimple_assign_rhs_code(neg_stmt);
+	if (rhs_code != BIT_NOT_EXPR && rhs_code != NEGATE_EXPR)
+		return false;
+
+	neg_rhs = gimple_assign_rhs1(neg_stmt);
+	def_neg_stmt = get_def_stmt(neg_rhs);
+	if (!def_neg_stmt)
+		return false;
+
+	new_neg_rhs = get_my_stmt_lhs(visited, def_neg_stmt);
+	check_size_overflow(expand_from, neg_stmt, TREE_TYPE(new_neg_rhs), new_neg_rhs, lhs, BEFORE_STMT);
+	pointer_set_insert(visited->no_cast_check, stmt);
+	return true;
+}
+
 static tree create_cast_overflow_check(struct visited *visited, interesting_stmts_t expand_from, tree new_rhs1, gassign *stmt)
 {
 	bool cast_lhs, cast_rhs;
@@ -602,6 +665,9 @@ static tree create_cast_overflow_check(struct visited *visited, interesting_stmt
 		{ true,  false, true,  true  }, // lhs = rhs
 		{ true,  false, true,  true  }, // lhs < rhs
 	};
+
+	if (handle_unsigned_neg_or_bit_not(visited, expand_from, stmt))
+		return dup_assign(visited, stmt, lhs, new_rhs1, NULL_TREE, NULL_TREE);
 
 	// skip lhs check on signed SI -> HI cast or signed SI -> QI cast
 	if (rhs_mode == SImode && !TYPE_UNSIGNED(rhs_type) && (lhs_mode == HImode || lhs_mode == QImode))
@@ -874,30 +940,6 @@ static tree handle_ternary_ops(struct visited *visited, interesting_stmts_t expa
 	return dup_assign(visited, def_stmt, lhs, new_rhs1, new_rhs2, new_rhs3);
 }
 #endif
-
-static tree get_my_stmt_lhs(struct visited *visited, gimple stmt)
-{
-	gimple_stmt_iterator gsi;
-	gimple next_stmt = NULL;
-
-	gsi = gsi_for_stmt(stmt);
-
-	do {
-		gsi_next(&gsi);
-		next_stmt = gsi_stmt(gsi);
-
-		if (gimple_code(stmt) == GIMPLE_PHI && !pointer_set_contains(visited->my_stmts, next_stmt))
-			return NULL_TREE;
-
-		if (pointer_set_contains(visited->my_stmts, next_stmt) && !pointer_set_contains(visited->skip_expr_casts, next_stmt))
-			break;
-
-		gcc_assert(pointer_set_contains(visited->my_stmts, next_stmt));
-	} while (!gsi_end_p(gsi));
-
-	gcc_assert(next_stmt);
-	return get_lhs(next_stmt);
-}
 
 static tree expand_visited(struct visited *visited, gimple def_stmt)
 {
