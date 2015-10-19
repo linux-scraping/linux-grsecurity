@@ -13,9 +13,7 @@
  */
 static inline void native_set_pte(pte_t *ptep , pte_t pte)
 {
-	pax_open_kernel();
 	*ptep = pte;
-	pax_close_kernel();
 }
 
 static inline void native_set_pmd(pmd_t *pmdp, pmd_t pmd)
@@ -38,20 +36,13 @@ static inline void native_pmd_clear(pmd_t *pmdp)
 static inline void native_pte_clear(struct mm_struct *mm,
 				    unsigned long addr, pte_t *xp)
 {
-	pax_open_kernel();
 	*xp = native_make_pte(0);
-	pax_close_kernel();
 }
 
 #ifdef CONFIG_SMP
 static inline pte_t native_ptep_get_and_clear(pte_t *xp)
 {
-	pte_t pte;
-
-	pax_open_kernel();
-	pte = __pte(xchg(&xp->pte_low, 0));
-	pax_close_kernel();
-	return pte;
+	return __pte(xchg(&xp->pte_low, 0));
 }
 #else
 #define native_ptep_get_and_clear(xp) native_local_ptep_get_and_clear(xp)
@@ -60,12 +51,7 @@ static inline pte_t native_ptep_get_and_clear(pte_t *xp)
 #ifdef CONFIG_SMP
 static inline pmd_t native_pmdp_get_and_clear(pmd_t *xp)
 {
-	pmd_t pmd;
-
-	pax_open_kernel();
-	pmd = __pmd(xchg((pmdval_t *)xp, 0));
-	pax_close_kernel();
-	return pmd;
+	return __pmd(xchg((pmdval_t *)xp, 0));
 }
 #else
 #define native_pmdp_get_and_clear(xp) native_local_pmdp_get_and_clear(xp)

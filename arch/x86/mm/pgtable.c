@@ -742,9 +742,11 @@ int pmd_set_huge(pmd_t *pmd, phys_addr_t addr, pgprot_t prot)
 
 	prot = pgprot_4k_2_large(prot);
 
+	pax_open_kernel();
 	set_pte((pte_t *)pmd, pfn_pte(
 		(u64)addr >> PAGE_SHIFT,
 		__pgprot(pgprot_val(prot) | _PAGE_PSE)));
+	pax_close_kernel();
 
 	return 1;
 }

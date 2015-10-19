@@ -445,6 +445,7 @@ EXPORT_SYMBOL_GPL(slow_virt_to_phys);
 static void __set_pmd_pte(pte_t *kpte, unsigned long address, pte_t pte)
 {
 	/* change init_mm */
+	pax_open_kernel();
 	set_pte_atomic(kpte, pte);
 
 #ifdef CONFIG_X86_32
@@ -474,6 +475,7 @@ static void __set_pmd_pte(pte_t *kpte, unsigned long address, pte_t pte)
 		}
 	}
 #endif
+	pax_close_kernel();
 }
 
 static int
@@ -1198,7 +1200,9 @@ repeat:
 		 * Do we really change anything ?
 		 */
 		if (pte_val(old_pte) != pte_val(new_pte)) {
+			pax_open_kernel();
 			set_pte_atomic(kpte, new_pte);
+			pax_close_kernel();
 			cpa->flags |= CPA_FLUSHTLB;
 		}
 		cpa->numpages = 1;

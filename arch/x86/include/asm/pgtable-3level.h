@@ -26,11 +26,9 @@
  */
 static inline void native_set_pte(pte_t *ptep, pte_t pte)
 {
-	pax_open_kernel();
 	ptep->pte_high = pte.pte_high;
 	smp_wmb();
 	ptep->pte_low = pte.pte_low;
-	pax_close_kernel();
 }
 
 #define pmd_read_atomic pmd_read_atomic
@@ -89,9 +87,7 @@ static inline pmd_t pmd_read_atomic(pmd_t *pmdp)
 
 static inline void native_set_pte_atomic(pte_t *ptep, pte_t pte)
 {
-	pax_open_kernel();
 	set_64bit((unsigned long long *)(ptep), native_pte_val(pte));
-	pax_close_kernel();
 }
 
 static inline void native_set_pmd(pmd_t *pmdp, pmd_t pmd)
@@ -116,11 +112,9 @@ static inline void native_set_pud(pud_t *pudp, pud_t pud)
 static inline void native_pte_clear(struct mm_struct *mm, unsigned long addr,
 				    pte_t *ptep)
 {
-	pax_open_kernel();
 	ptep->pte_low = 0;
 	smp_wmb();
 	ptep->pte_high = 0;
-	pax_close_kernel();
 }
 
 static inline void native_pmd_clear(pmd_t *pmd)
@@ -156,11 +150,9 @@ static inline pte_t native_ptep_get_and_clear(pte_t *ptep)
 	pte_t res;
 
 	/* xchg acts as a barrier before the setting of the high bits */
-	pax_open_kernel();
 	res.pte_low = xchg(&ptep->pte_low, 0);
 	res.pte_high = ptep->pte_high;
 	ptep->pte_high = 0;
-	pax_close_kernel();
 
 	return res;
 }
@@ -181,11 +173,9 @@ static inline pmd_t native_pmdp_get_and_clear(pmd_t *pmdp)
 	union split_pmd res, *orig = (union split_pmd *)pmdp;
 
 	/* xchg acts as a barrier before setting of the high bits */
-	pax_open_kernel();
 	res.pmd_low = xchg(&orig->pmd_low, 0);
 	res.pmd_high = orig->pmd_high;
 	orig->pmd_high = 0;
-	pax_close_kernel();
 
 	return res.pmd;
 }
