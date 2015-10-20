@@ -29,7 +29,7 @@ tree size_overflow_type_DI;
 tree size_overflow_type_TI;
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20151019",
+	.version	= "20151020",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
@@ -193,7 +193,7 @@ static void size_overflow_start_unit(void __unused *gcc_data, void __unused *use
 	TREE_PUBLIC(report_size_overflow_decl) = 1;
 	DECL_EXTERNAL(report_size_overflow_decl) = 1;
 	DECL_ARTIFICIAL(report_size_overflow_decl) = 1;
-	TREE_THIS_VOLATILE(report_size_overflow_decl) = 1;
+//	TREE_THIS_VOLATILE(report_size_overflow_decl) = 1;
 // !!!
 	DECL_PRESERVE_P(report_size_overflow_decl) = 1;
 	DECL_UNINLINABLE(report_size_overflow_decl) = 1;

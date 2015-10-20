@@ -2221,9 +2221,14 @@ EXPORT_SYMBOL(pax_track_stack);
 #ifdef CONFIG_PAX_SIZE_OVERFLOW
 void __nocapture(1, 3, 4) __used report_size_overflow(const char *file, unsigned int line, const char *func, const char *ssa_name)
 {
+#ifdef CONFIG_PAX_SIZE_OVERFLOW_DISABLE_KILL
+	printk_ratelimited(KERN_EMERG "PAX: size overflow detected in function %s %s:%u %s", func, file, line, ssa_name);
+	dump_stack();
+#else
 	printk(KERN_EMERG "PAX: size overflow detected in function %s %s:%u %s", func, file, line, ssa_name);
 	dump_stack();
 	do_group_exit(SIGKILL);
+#endif
 }
 EXPORT_SYMBOL(report_size_overflow);
 #endif
