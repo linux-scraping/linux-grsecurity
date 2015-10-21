@@ -546,9 +546,6 @@ static interesting_stmts_t search_interesting_structs_vardecls(interesting_stmts
 	if (mark != MARK_NO)
 		return head;
 
-	if (is_intentional_truncation(assign))
-		return head;
-
 	rhs1 = gimple_assign_rhs1(assign);
 	head = search_interesting_stmt(head, next_node, assign, rhs1, 0);
 

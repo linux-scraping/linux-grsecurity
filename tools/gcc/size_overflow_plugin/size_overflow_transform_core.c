@@ -669,6 +669,12 @@ static tree create_cast_overflow_check(struct visited *visited, interesting_stmt
 	if (handle_unsigned_neg_or_bit_not(visited, expand_from, stmt))
 		return dup_assign(visited, stmt, lhs, new_rhs1, NULL_TREE, NULL_TREE);
 
+	// skip lhs check on HI -> QI cast
+	if (rhs_mode == HImode && lhs_mode == QImode) {
+		pointer_set_insert(visited->no_cast_check, stmt);
+		return dup_assign(visited, stmt, lhs, new_rhs1, NULL_TREE, NULL_TREE);
+	}
+
 	// skip lhs check on signed SI -> HI cast or signed SI -> QI cast
 	if (rhs_mode == SImode && !TYPE_UNSIGNED(rhs_type) && (lhs_mode == HImode || lhs_mode == QImode))
 		return create_assign(visited, stmt, lhs, AFTER_STMT);

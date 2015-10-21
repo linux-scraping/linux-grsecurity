@@ -11515,7 +11515,8 @@ disable_so_timeout_netns_frags_60708 timeout netns_frags 0 60708 NULL
 disable_so_time_to_send_netem_skb_cb_60711 time_to_send netem_skb_cb 0 60711 NULL nohasharray
 disable_so_ref_div_atom_clock_dividers_60711 ref_div atom_clock_dividers 0 60711 &disable_so_time_to_send_netem_skb_cb_60711
 disable_so_dev_sof_uvc_clock_sample_60716 dev_sof uvc_clock_sample 0 60716 NULL
-disable_so_addr_reg_musb_qh_60718 addr_reg musb_qh 0 60718 NULL
+disable_so_addr_reg_musb_qh_60718 addr_reg musb_qh 0 60718 NULL nohasharray
+enable_so_acpi_ex_do_math_op_fndecl_60718 acpi_ex_do_math_op fndecl 0-3-2 60718 &disable_so_addr_reg_musb_qh_60718
 disable_so_reg_clock_sx150x_789_pri_60721 reg_clock sx150x_789_pri 0 60721 NULL
 disable_so___parse_nl_addr_fndecl_60734 __parse_nl_addr fndecl 0 60734 NULL
 disable_so_frequency_zl10036_state_60737 frequency zl10036_state 0 60737 NULL
@@ -12394,3 +12395,4 @@ disable_so_addr_w83627hf_data_65526 addr w83627hf_data 0 65526 NULL
 disable_so_si_pt_regs_65527 si pt_regs 0 65527 NULL
 enable_so_rts_threshold_wiphy_15170 rts_threshold wiphy 0 15170 NULL
 enable_so_value_iw_param_65472 value iw_param 0 65472 NULL
+enable_so_value_acpi_object_integer_44755 value acpi_object_integer 0 44755 NULL

@@ -1499,7 +1499,7 @@ static int proc_do_submiturb(struct usb_dev_state *ps, struct usbdevfs_urb *uurb
 		}
 	}
 	as->urb->dev = ps->dev;
-	as->urb->pipe = (uurb->type << 30) |
+	as->urb->pipe = ((unsigned int)uurb->type << 30) |
 			__create_pipe(ps->dev, uurb->endpoint & 0xf) |
 			(uurb->endpoint & USB_DIR_IN);
 
