@@ -64,6 +64,9 @@ int drm_legacy_lock(struct drm_device *dev, void *data,
 	if (!drm_core_check_feature(dev, DRIVER_KMS_LEGACY_CONTEXT))
 		return -EINVAL;
 
+	if (drm_core_check_feature(dev, DRIVER_MODESET))
+		return -EINVAL;
+
 	++file_priv->lock_count;
 
 	if (_DRM_LOCKING_CONTEXT(lock->context) == DRM_KERNEL_CONTEXT) {
@@ -159,7 +162,10 @@ int drm_legacy_unlock(struct drm_device *dev, void *data, struct drm_file *file_
 	if (!drm_core_check_feature(dev, DRIVER_KMS_LEGACY_CONTEXT))
 		return -EINVAL;
 
-	if (_DRM_LOCKING_CONTEXT(lock->context) == DRM_KERNEL_CONTEXT) {
+	if (drm_core_check_feature(dev, DRIVER_MODESET))
+		return -EINVAL;
+
+	if (lock->context == DRM_KERNEL_CONTEXT) {
 		DRM_ERROR("Process %d using kernel context %d\n",
 			  task_pid_nr(current), lock->context);
 		return -EINVAL;
