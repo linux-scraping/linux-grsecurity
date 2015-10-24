@@ -1785,10 +1785,10 @@ void usb_sg_wait(struct usb_sg_request *io);
 
 /* NOTE:  these are not the standard USB_ENDPOINT_XFER_* values!! */
 /* (yet ... they're the values used by usbfs) */
-#define PIPE_ISOCHRONOUS		0
-#define PIPE_INTERRUPT			1
-#define PIPE_CONTROL			2
-#define PIPE_BULK			3
+#define PIPE_ISOCHRONOUS		0U
+#define PIPE_INTERRUPT			1U
+#define PIPE_CONTROL			2U
+#define PIPE_BULK			3U
 
 #define usb_pipein(pipe)	((pipe) & USB_DIR_IN)
 #define usb_pipeout(pipe)	(!usb_pipein(pipe))
