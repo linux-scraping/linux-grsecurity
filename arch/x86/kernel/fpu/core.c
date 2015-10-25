@@ -258,7 +258,7 @@ static void fpu_copy(struct fpu *dst_fpu, struct fpu *src_fpu)
 	 */
 	preempt_disable();
 	if (!copy_fpregs_to_fpstate(dst_fpu)) {
-		memcpy(&src_fpu->state, &dst_fpu->state, xstate_size);
+		memcpy(src_fpu->state, dst_fpu->state, xstate_size);
 		fpregs_deactivate(src_fpu);
 	}
 	preempt_enable();

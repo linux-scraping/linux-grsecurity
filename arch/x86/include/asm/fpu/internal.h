@@ -623,7 +623,7 @@ switch_fpu_prepare(struct fpu *old_fpu, struct fpu *new_fpu, int cpu)
 		if (fpu.preload) {
 			new_fpu->counter++;
 			__fpregs_activate(new_fpu);
-			prefetch(&new_fpu->state);
+			prefetch(new_fpu->state);
 		} else {
 			__fpregs_deactivate_hw();
 		}
@@ -635,7 +635,7 @@ switch_fpu_prepare(struct fpu *old_fpu, struct fpu *new_fpu, int cpu)
 			if (fpu_want_lazy_restore(new_fpu, cpu))
 				fpu.preload = 0;
 			else
-				prefetch(&new_fpu->state);
+				prefetch(new_fpu->state);
 			fpregs_activate(new_fpu);
 		}
 	}
