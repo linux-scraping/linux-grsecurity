@@ -154,20 +154,6 @@ union fpregs_state init_fpregs_state;
  */
 static void __init fpu__init_task_struct_size(void)
 {
-	size_t task_size = sizeof(struct task_struct);
-
-	/*
-	 * Subtract off the static size of the register state.
-	 * It potentially has a bunch of padding.
-	 */
-	task_size -= sizeof(((struct task_struct *)0)->thread.fpu.state);
-
-	/*
-	 * Add back the dynamically-calculated register state
-	 * size.
-	 */
-	task_size += xstate_size;
-
 	/*
 	 * We dynamically size 'struct fpu', so we require that
 	 * it be at the end of 'thread_struct'. If

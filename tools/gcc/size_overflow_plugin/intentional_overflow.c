@@ -234,6 +234,9 @@ enum intentional_mark get_intentional_attr_type(const_tree node)
 	}
 	case FIELD_DECL:
 	case VAR_DECL:
+		// !!! temporarily ignore bitfield types
+		if (DECL_BIT_FIELD_TYPE(node))
+			return MARK_YES;
 		if (is_end_intentional_intentional_attr(node))
 			return MARK_END_INTENTIONAL;
 		if (is_turn_off_intentional_attr(node))

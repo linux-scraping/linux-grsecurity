@@ -12399,3 +12399,6 @@ enable_so_value_iw_param_65472 value iw_param 0 65472 NULL
 enable_so_value_acpi_object_integer_44755 value acpi_object_integer 0 44755 NULL
 enable_so_idx_ieee80211_tx_rate_64646 idx ieee80211_tx_rate 0 64646 NULL
 enable_so_rs_get_adjacent_rate_fndecl_28334 rs_get_adjacent_rate fndecl 0-2 28334 NULL
+enable_so_index_rs_rate_53 index rs_rate 0 53 NULL
+enable_so_l1_xfs_bmbt_rec_host_22094 l1 xfs_bmbt_rec_host 0 22094 NULL
+enable_so_l0_xfs_bmbt_rec_host_34805 l0 xfs_bmbt_rec_host 0 34805 NULL

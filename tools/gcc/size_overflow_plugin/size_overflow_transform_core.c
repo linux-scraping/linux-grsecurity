@@ -38,8 +38,6 @@ tree get_size_overflow_type(struct visited *visited, const_gimple stmt, const_tr
 
 	switch (TYPE_MODE(type)) {
 	case QImode:
-		new_type = size_overflow_type_HI;
-		break;
 	case HImode:
 		new_type = size_overflow_type_SI;
 		break;
