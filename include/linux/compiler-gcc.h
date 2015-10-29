@@ -267,7 +267,7 @@
 #endif
 
 #if GCC_VERSION >= 50000
-#define CC_HAVE_BUILTIN_OVERFLOW
+//#define CC_HAVE_BUILTIN_OVERFLOW
 #endif
 
 #endif	/* gcc version >= 40000 specific checks */
