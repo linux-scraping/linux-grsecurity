@@ -1565,6 +1565,8 @@ struct task_struct {
 /* hung task detection */
 	unsigned long last_switch_count;
 #endif
+/* CPU-specific state of this task */
+	struct thread_struct thread;
 /* filesystem information */
 	struct fs_struct *fs;
 /* open file information */
@@ -1855,8 +1857,6 @@ struct task_struct {
 #ifdef CONFIG_X86
 	struct thread_info tinfo;
 #endif
-/* CPU-specific state of this task */
-	struct thread_struct thread;
 } __randomize_layout;
 
 #ifdef CONFIG_ARCH_WANTS_DYNAMIC_TASK_STRUCT

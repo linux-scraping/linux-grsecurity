@@ -422,9 +422,10 @@ static void handle_struct_fields(struct walk_use_def_data *use_def_data, const_t
 	// TODO
 	case BIT_FIELD_REF:
 	case VIEW_CONVERT_EXPR:
+	case REALPART_EXPR:
+	case IMAGPART_EXPR:
 		return;
 	default:
-		// XXX: keep this syncronized with size_overflow_transform.c:search_interesting_structs()
 		debug_tree((tree)node);
 		gcc_unreachable();
 	}

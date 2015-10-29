@@ -209,7 +209,7 @@ static inline void copy_fxregs_to_kernel(struct fpu *fpu)
 		 * an extended register is needed for addressing (fix submitted
 		 * to mainline 2005-11-21).
 		 *
-		 *  asm volatile("rex64/fxsave %0" : "=m" (fpu->state.fxsave));
+		 *  asm volatile("rex64/fxsave %0" : "=m" (fpu->state->fxsave));
 		 *
 		 * This, however, we can work around by forcing the compiler to
 		 * select an addressing mode that doesn't require extended

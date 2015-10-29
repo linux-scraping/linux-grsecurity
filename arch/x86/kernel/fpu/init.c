@@ -143,26 +143,7 @@ static void __init fpu__init_system_generic(void)
 unsigned int xstate_size;
 EXPORT_SYMBOL_GPL(xstate_size);
 
-/* Enforce that 'MEMBER' is the last field of 'TYPE': */
-#define CHECK_MEMBER_AT_END_OF(TYPE, MEMBER) \
-	BUILD_BUG_ON(sizeof(TYPE) != offsetofend(TYPE, MEMBER))
-
 union fpregs_state init_fpregs_state;
-
-/*
- * We append the 'struct fpu' to the task_struct:
- */
-static void __init fpu__init_task_struct_size(void)
-{
-	/*
-	 * We dynamically size 'struct fpu', so we require that
-	 * it be at the end of 'thread_struct'. If
-	 * you hit a compile error here, check the structure to
-	 * see if something got added to the end.
-	 */
-	CHECK_MEMBER_AT_END_OF(struct fpu, state);
-	CHECK_MEMBER_AT_END_OF(struct thread_struct, fpu);
-}
 
 /*
  * Set up the xstate_size based on the legacy FPU context size.
@@ -284,6 +265,9 @@ static void __init fpu__init_system_ctx_switch(void)
 		}
 	}
 
+	/* XXX: Temporarily forcing eager FPU mode */
+	eagerfpu = ENABLE;
+
 	if (eagerfpu == ENABLE)
 		setup_force_cpu_cap(X86_FEATURE_EAGER_FPU);
 
@@ -315,7 +299,6 @@ void __init fpu__init_system(struct cpuinfo_x86 *c)
 	fpu__init_system_generic();
 	fpu__init_system_xstate_size_legacy();
 	fpu__init_system_xstate();
-	fpu__init_task_struct_size();
 
 	fpu__init_system_ctx_switch();
 }
