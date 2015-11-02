@@ -265,9 +265,6 @@ static void __init fpu__init_system_ctx_switch(void)
 		}
 	}
 
-	/* XXX: Temporarily forcing eager FPU mode */
-	eagerfpu = ENABLE;
-
 	if (eagerfpu == ENABLE)
 		setup_force_cpu_cap(X86_FEATURE_EAGER_FPU);
 
