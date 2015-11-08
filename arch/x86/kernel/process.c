@@ -96,7 +96,6 @@ void __init arch_task_cache_init(void)
 int arch_dup_task_struct(struct task_struct *dst, struct task_struct *src)
 {
 	*dst = *src;
-
 	dst->thread.fpu.state = kmem_cache_alloc_node(fpregs_state_cachep, GFP_KERNEL, tsk_fork_get_node(src));
 	memcpy(dst->thread.fpu.state, src->thread.fpu.state, xstate_size);
 

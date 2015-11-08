@@ -21,7 +21,7 @@ struct sem_array {
 	struct list_head	list_id;	/* undo requests on this array */
 	int			sem_nsems;	/* no. of semaphores in array */
 	int			complex_count;	/* pending complex operations */
-};
+} __randomize_layout;
 
 #ifdef CONFIG_SYSVIPC
 

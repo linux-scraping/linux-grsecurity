@@ -538,7 +538,7 @@ static void close_connection(struct connection *con, bool and_other)
 /* We only send shutdown messages to nodes that are not part of the cluster */
 static void sctp_send_shutdown(sctp_assoc_t associd)
 {
-	char outcmsg[CMSG_SPACE(sizeof(struct sctp_sndrcvinfo))];
+	char outcmsg[CMSG_SPACE(sizeof(struct sctp_sndrcvinfo))] = {};
 	struct msghdr outmessage;
 	struct cmsghdr *cmsg;
 	struct sctp_sndrcvinfo *sinfo;

@@ -2180,7 +2180,8 @@ void exit_sem(struct task_struct *tsk)
 static int sysvipc_sem_proc_show(struct seq_file *s, void *it)
 {
 	struct user_namespace *user_ns = seq_user_ns(s);
-	struct sem_array *sma = it;
+	struct kern_ipc_perm *perm = it;
+	struct sem_array *sma = container_of(perm, struct sem_array, sem_perm);
 	time_t sem_otime;
 
 	/*

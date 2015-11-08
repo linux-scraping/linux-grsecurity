@@ -520,6 +520,7 @@ unsigned long get_wchan(struct task_struct *p)
 
 	if (!p || p == current || p->state == TASK_RUNNING)
 		return 0;
+
 	start = (unsigned long)task_stack_page(p);
 	if (!start)
 		return 0;
@@ -544,10 +545,7 @@ unsigned long get_wchan(struct task_struct *p)
 	 */
 	top = start + THREAD_SIZE - TOP_OF_KERNEL_STACK_PADDING;
 	top -= 2 * sizeof(unsigned long);
-	/* not adding sizeof(thread_info) since it's not located on the stack
-	   with PaX patched in
-	*/
-	bottom = start;
+	bottom = start + sizeof(struct thread_info);
 
 	sp = READ_ONCE(p->thread.sp);
 	if (sp < bottom || sp > top)
