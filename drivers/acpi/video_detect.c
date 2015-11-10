@@ -283,7 +283,7 @@ static int acpi_video_backlight_notify(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
-static const struct notifier_block backlight_nb = {
+static struct notifier_block backlight_nb = {
 	.notifier_call = acpi_video_backlight_notify,
 };
 

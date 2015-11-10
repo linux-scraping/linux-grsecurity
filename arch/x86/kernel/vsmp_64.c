@@ -224,10 +224,15 @@ static void fill_vector_allocation_domain(int cpu, struct cpumask *retmask,
 static void vsmp_apic_post_init(void)
 {
 	/* need to update phys_pkg_id */
-	apic->phys_pkg_id = apicid_phys_pkg_id;
+	pax_open_kernel();
+	*(void **)&apic->phys_pkg_id = apicid_phys_pkg_id;
+	pax_close_kernel();
 
-	if (!irq_routing_comply)
-		apic->vector_allocation_domain = fill_vector_allocation_domain;
+	if (!irq_routing_comply) {
+		pax_open_kernel();
+		*(void **)&apic->vector_allocation_domain = fill_vector_allocation_domain;
+		pax_close_kernel();
+	}
 }
 
 void __init vsmp_init(void)

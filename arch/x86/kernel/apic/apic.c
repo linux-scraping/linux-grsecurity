@@ -2143,7 +2143,9 @@ void __init apic_set_eoi_write(void (*eoi_write)(u32 reg, u32 v))
 	for (drv = __apicdrivers; drv < __apicdrivers_end; drv++) {
 		/* Should happen once for each apic */
 		WARN_ON((*drv)->eoi_write == eoi_write);
-		(*drv)->eoi_write = eoi_write;
+		pax_open_kernel();
+		*(void **)&(*drv)->eoi_write = eoi_write;
+		pax_close_kernel();
 	}
 }
 
