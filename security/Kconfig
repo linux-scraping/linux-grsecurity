@@ -948,7 +948,7 @@ config PAX_SIZE_OVERFLOW
 
 config PAX_SIZE_OVERFLOW_DISABLE_KILL
 	bool "Do not kill process on overflow detection"
-	default y
+	default n
 	depends on PAX_SIZE_OVERFLOW
 
 config PAX_LATENT_ENTROPY

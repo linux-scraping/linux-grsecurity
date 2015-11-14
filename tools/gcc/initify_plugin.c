@@ -17,13 +17,16 @@
 
 int plugin_is_GPL_compatible;
 
-static bool verbose = false;
-
 static struct plugin_info initify_plugin_info = {
-	.version	= "20150524a",
+	.version	= "20151113",
 	.help		= "initify_plugin\n",
 };
 
+/* nocapture attribute:
+ *  * to mark nocapture function arguments. If used on a vararg argument it applies to all of them
+ *    that have no other uses.
+ *  * attribute value 0 is ignored to allow reusing print attribute arguments
+ */
 static tree handle_nocapture_attribute(tree *node, tree __unused name, tree args, int __unused flags, bool *no_add_attrs)
 {
 	tree orig_attr, arg;
@@ -34,7 +37,6 @@ static tree handle_nocapture_attribute(tree *node, tree __unused name, tree args
 	case FUNCTION_TYPE:
 	case METHOD_TYPE:
 		break;
-
 	case TYPE_DECL: {
 		const_tree fntype = TREE_TYPE(*node);
 
@@ -44,10 +46,9 @@ static tree handle_nocapture_attribute(tree *node, tree __unused name, tree args
 			break;
 		// FALLTHROUGH
 	}
-
 	default:
-		error("%s: %qE attribute only applies to functions", __func__, name);
 		debug_tree(*node);
+		error("%s: %qE attribute only applies to functions", __func__, name);
 		return NULL_TREE;
 	}
 
@@ -55,8 +56,12 @@ static tree handle_nocapture_attribute(tree *node, tree __unused name, tree args
 		tree position = TREE_VALUE(arg);
 
 		if (TREE_CODE(position) != INTEGER_CST) {
-			error("%s: parameter isn't an integer", __func__);
-			debug_tree(arg);
+			error("%qE parameter of the %qE attribute isn't an integer (fn: %qE)", position, name, *node);
+			return NULL_TREE;
+		}
+
+		if (tree_int_cst_lt(position, integer_minus_one_node)) {
+			error("%qE parameter of the %qE attribute less than 0 (fn: %qE)", position, name, *node);
 			return NULL_TREE;
 		}
 	}
@@ -103,7 +108,6 @@ static const char *get_init_exit_section(const_tree decl)
 
 		if (!strncmp(str, ".init.", 6))
 			return str;
-
 		if (!strncmp(str, ".exit.", 6))
 			return str;
 	}
@@ -131,11 +135,9 @@ static tree get_string_cst(tree var)
 		}
 		break;
 	}
-
 	default:
 		break;
 	}
-
 	return NULL_TREE;
 }
 
@@ -156,6 +158,164 @@ static bool set_init_exit_section(tree decl, bool initexit)
 	return true;
 }
 
+static bool is_syscall(const_tree fn)
+{
+	if (!strncmp(DECL_NAME_POINTER(fn), "sys_", 4))
+		return true;
+
+	if (!strncmp(DECL_NAME_POINTER(fn), "sys32_", 6))
+		return true;
+
+	if (!strncmp(DECL_NAME_POINTER(fn), "compat_sys_", 11))
+		return true;
+
+	return false;
+}
+
+static bool is_nocapture_param(const gcall *stmt, int fn_arg_count)
+{
+	const_tree attr, attr_val;
+	int fntype_arg_len;
+	const_tree fndecl = gimple_call_fndecl(stmt);
+
+	gcc_assert(DECL_ABSTRACT_ORIGIN(fndecl) == NULL_TREE);
+
+	if (is_syscall(fndecl))
+		return true;
+
+	fntype_arg_len = type_num_arguments(TREE_TYPE(fndecl));
+	attr = lookup_attribute("nocapture", DECL_ATTRIBUTES(fndecl));
+	if (attr == NULL_TREE)
+		return false;
+
+	for (attr_val = TREE_VALUE(attr); attr_val; attr_val = TREE_CHAIN(attr_val)) {
+		int attr_arg_val = (int)tree_to_shwi(TREE_VALUE(attr_val));
+
+		if (attr_arg_val == -1)
+			return true;
+		if (attr_arg_val == fn_arg_count)
+			return true;
+		if (attr_arg_val > fntype_arg_len && fn_arg_count >= attr_arg_val)
+			return true;
+	}
+
+	return false;
+}
+
+static bool compare_vardecls(const_tree vardecl, tree op)
+{
+	tree decl, offset;
+	HOST_WIDE_INT bitsize, bitpos;
+	enum machine_mode mode;
+	int unsignedp, volatilep;
+	enum tree_code code = TREE_CODE(op);
+
+	if (TREE_CODE_CLASS(code) == tcc_exceptional && code != SSA_NAME)
+		return false;
+
+	if (code == ADDR_EXPR)
+		op = TREE_OPERAND(op, 0);
+
+	if (TREE_CODE(op) == COMPONENT_REF)
+		return false;
+
+	decl = get_inner_reference(op, &bitsize, &bitpos, &offset, &mode, &unsignedp, &volatilep, true);
+
+	switch (TREE_CODE_CLASS(TREE_CODE(decl))) {
+	case tcc_constant:
+	case tcc_statement:
+		return false;
+	default:
+		break;
+	}
+
+	switch (TREE_CODE(decl)) {
+#if BUILDING_GCC_VERSION >= 4006
+	case MEM_REF:
+#endif
+	case TARGET_MEM_REF:
+		decl = TREE_OPERAND(decl, 0);
+		break;
+	default:
+		break;
+	}
+
+	if (TREE_CODE(decl) == ADDR_EXPR)
+		decl = TREE_OPERAND(decl, 0);
+	if (TREE_CODE(decl) == SSA_NAME)
+		decl = SSA_NAME_VAR(decl);
+	if (decl == NULL_TREE)
+		return false;
+
+	if (!DECL_P(decl)) {
+		debug_tree(op);
+		debug_tree(decl);
+		gcc_unreachable();
+	}
+
+	if (!VAR_P(decl))
+		return false;
+	if (!DECL_NAME(decl))
+		return false;
+
+	if (decl != vardecl && strcmp(DECL_NAME_POINTER(decl), DECL_NAME_POINTER(vardecl)))
+		return false;
+
+	gcc_assert(TREE_CODE(op) != SSA_NAME);
+	return true;
+}
+
+static bool search_capture_use(const_tree vardecl, gimple stmt)
+{
+	unsigned int i;
+
+	for (i = 0; i < gimple_num_ops(stmt); i++) {
+		unsigned int arg_count;
+		const_tree fndecl;
+		tree op = *(gimple_op_ptr(stmt, i));
+
+		if (op == NULL_TREE)
+			continue;
+		if (is_gimple_constant(op))
+			continue;
+
+		if (!compare_vardecls(vardecl, op))
+			continue;
+
+		if (!is_gimple_call(stmt))
+			return true;
+
+		// return, fndecl
+		gcc_assert(i >= 3);
+		arg_count = i - 2;
+		if (is_nocapture_param(as_a_const_gcall(stmt), (int)arg_count))
+			continue;
+
+		fndecl = gimple_call_fndecl(stmt);
+		gcc_assert(fndecl != NULL_TREE);
+//		inform(gimple_location(stmt), "nocapture attribute is missing (fn: %E, arg: %u)\n", fndecl, arg_count);
+		return true;
+
+	}
+	return false;
+}
+
+static bool has_capture_use_local_var(const_tree vardecl)
+{
+	basic_block bb;
+
+	FOR_ALL_BB_FN(bb, cfun) {
+		gimple_stmt_iterator gsi;
+
+		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
+			if (search_capture_use(vardecl, gsi_stmt(gsi)))
+				return true;
+		}
+	}
+
+	return false;
+}
+
 static void search_local_strs(bool initexit)
 {
 	unsigned int i;
@@ -164,16 +324,21 @@ static void search_local_strs(bool initexit)
 	FOR_EACH_LOCAL_DECL(cfun, i, var) {
 		tree str, init_val = DECL_INITIAL(var);
 
-		if (init_val == NULL_TREE)
+		if (init_val == NULL_TREE || init_val == error_mark_node)
 			continue;
+		// !!! str local vars
 		if (strcmp(DECL_NAME_POINTER(var), "__func__"))
+			continue;
+
+		if (has_capture_use_local_var(var))
 			continue;
 
 		str = get_string_cst(init_val);
 		gcc_assert(str);
 
-		if (set_init_exit_section(var, initexit) && verbose)
-			inform(DECL_SOURCE_LOCATION(var), "initified local var: %s: %s", DECL_NAME_POINTER(current_function_decl), TREE_STRING_POINTER(str));
+		if (set_init_exit_section(var, initexit)) {
+//			inform(DECL_SOURCE_LOCATION(var), "initified local var: %s: %s", DECL_NAME_POINTER(current_function_decl), TREE_STRING_POINTER(str));
+		}
 	}
 }
 
@@ -214,70 +379,6 @@ static tree create_tmp_assign(gcall *stmt, unsigned int num)
 	return TREE_OPERAND(decl, 0);
 }
 
-static bool is_syscall(const_tree fn)
-{
-	if (!strncmp(DECL_NAME_POINTER(fn), "sys_", 4))
-		return true;
-
-	if (!strncmp(DECL_NAME_POINTER(fn), "sys32_", 6))
-		return true;
-
-	if (!strncmp(DECL_NAME_POINTER(fn), "compat_sys_", 11))
-		return true;
-
-	return false;
-}
-
-static bool is_vararg(const_tree fn)
-{
-	tree arg_list;
-
-	arg_list = TYPE_ARG_TYPES(TREE_TYPE(fn));
-	if (arg_list == NULL_TREE)
-		return false;
-
-	return tree_last(arg_list) != void_list_node;
-}
-
-// __printf(1, 0), 0: turn off the varargs checking
-static bool check_varargs(const_tree attr)
-{
-	const_tree attr_val;
-
-	for (attr_val = TREE_VALUE(attr); attr_val; attr_val = TREE_CHAIN(attr_val)) {
-		if (TREE_VALUE(attr_val) == integer_zero_node)
-			return false;
-	}
-	return true;
-}
-
-static bool is_nocapture_param(const_gimple stmt, unsigned int num)
-{
-	unsigned int attr_arg_val = 0;
-	tree attr_val;
-	const_tree attr;
-	const_tree fndecl = gimple_call_fndecl(stmt);
-
-	gcc_assert(DECL_ABSTRACT_ORIGIN(fndecl) == NULL_TREE);
-
-	if (is_syscall(fndecl))
-		return true;
-
-	attr = lookup_attribute("nocapture", DECL_ATTRIBUTES(fndecl));
-	for (attr_val = TREE_VALUE(attr); attr_val; attr_val = TREE_CHAIN(attr_val)) {
-		attr_arg_val = (unsigned int)tree_to_uhwi(TREE_VALUE(attr_val));
-
-		if (attr_arg_val == num + 1)
-			return true;
-	}
-
-	if (!is_vararg(fndecl))
-		return false;
-	if (!check_varargs(attr))
-		return false;
-	return attr_arg_val < num + 1;
-}
-
 static void search_str_param(gcall *stmt, bool initexit)
 {
 	unsigned int num;
@@ -289,12 +390,13 @@ static void search_str_param(gcall *stmt, bool initexit)
 		if (str == NULL_TREE)
 			continue;
 
-		if (!is_nocapture_param(stmt, num))
+		if (!is_nocapture_param(stmt, num + 1))
 			continue;
 
 		var = create_tmp_assign(stmt, num);
-		if (set_init_exit_section(var, initexit) && verbose)
-			inform(gimple_location(stmt), "initified function arg: %s: [%s]", DECL_NAME_POINTER(current_function_decl), TREE_STRING_POINTER(str));
+		if (set_init_exit_section(var, initexit)) {
+//			inform(gimple_location(stmt), "initified function arg: %E: [%E]", current_function_decl, str);
+		}
 	}
 }
 
