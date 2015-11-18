@@ -1,4 +1,4 @@
-# grsecurity – access control and security hardening for Linux
+# grsecurity - access control and security hardening for Linux
 # All code in this directory and various hooks located throughout the Linux kernel are
 # Copyright (C) 2001-2014 Bradley Spengler, Open Source Security, Inc.
 # http://www.grsecurity.net spender@grsecurity.net
