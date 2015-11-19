@@ -12,7 +12,7 @@
 #include <asm/page_types.h>
 #include <asm/unistd_64.h>
 
-__PAGE_ALIGNED_DATA
+.section ".data..read_only", "a"
 	.globl __vsyscall_page
 	.balign PAGE_SIZE, 0xcc
 	.type __vsyscall_page, @object

@@ -784,7 +784,7 @@ static bool has_pid_permissions(struct pid_namespace *pid,
 	rcu_read_unlock();
 
 	if (!pid->hide_pid)
-		return false;
+		return ptrace_may_access(task, PTRACE_MODE_READ | PTRACE_MODE_NOAUDIT);
 #endif
 
 	if (pid->hide_pid < hide_pid_min)

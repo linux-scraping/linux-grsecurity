@@ -140,7 +140,7 @@ static void BITSFUNC(go)(void *raw_addr, size_t raw_len,
 	fprintf(outfile, "#include <asm/vdso.h>\n");
 	fprintf(outfile, "\n");
 	fprintf(outfile,
-		"static unsigned char raw_data[%lu] __page_aligned_data = {",
+		"static unsigned char raw_data[%lu] __page_aligned_rodata = {",
 		mapping_size);
 	for (j = 0; j < stripped_len; j++) {
 		if (j % 10 == 0)
@@ -150,7 +150,7 @@ static void BITSFUNC(go)(void *raw_addr, size_t raw_len,
 	}
 	fprintf(outfile, "\n};\n\n");
 
-	fprintf(outfile, "static struct page *pages[%lu];\n\n",
+	fprintf(outfile, "static struct page *pages[%lu] __read_only;\n\n",
 		mapping_size / 4096);
 
 	fprintf(outfile, "const struct vdso_image %s = {\n", name);

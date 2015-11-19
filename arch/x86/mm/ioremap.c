@@ -424,7 +424,7 @@ void unxlate_dev_mem_ptr(phys_addr_t phys, void *addr)
 	iounmap((void __iomem __force *)addr);
 }
 
-static pte_t __bm_pte[PAGE_SIZE/sizeof(pte_t)] __read_only __aligned(PAGE_SIZE);
+static pte_t __bm_pte[PAGE_SIZE/sizeof(pte_t)] __page_aligned_rodata;
 static pte_t *bm_pte __read_only = __bm_pte;
 
 static inline pmd_t * __init early_ioremap_pmd(unsigned long addr)

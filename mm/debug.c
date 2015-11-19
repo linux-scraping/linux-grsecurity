@@ -127,6 +127,9 @@ static const struct trace_print_flags vmaflags_names[] = {
 	{VM_RAND_READ,			"randread"	},
 	{VM_DONTCOPY,			"dontcopy"	},
 	{VM_DONTEXPAND,			"dontexpand"	},
+#if defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_X86_32)
+	{VM_PAGEEXEC,			"pageexec"	},
+#endif
 	{VM_ACCOUNT,			"account"	},
 	{VM_NORESERVE,			"noreserve"	},
 	{VM_HUGETLB,			"hugetlb"	},
