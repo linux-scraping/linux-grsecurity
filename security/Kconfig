@@ -946,11 +946,6 @@ config PAX_SIZE_OVERFLOW
 	  i.e., gcc 4.5 or newer.  You may need to install the supporting
 	  headers explicitly in addition to the normal gcc package.
 
-config PAX_SIZE_OVERFLOW_DISABLE_KILL
-	bool "Do not kill process on overflow detection"
-	default n
-	depends on PAX_SIZE_OVERFLOW
-
 config PAX_LATENT_ENTROPY
 	bool "Generate some entropy during boot and runtime"
 	default y if GRKERNSEC_CONFIG_AUTO

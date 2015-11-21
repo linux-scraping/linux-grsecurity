@@ -207,7 +207,7 @@ static bool compare_vardecls(const_tree vardecl, tree op)
 	tree decl, offset;
 	HOST_WIDE_INT bitsize, bitpos;
 	enum machine_mode mode;
-	int unsignedp, volatilep;
+	int unsignedp, reversep, volatilep;
 	enum tree_code code = TREE_CODE(op);
 
 	if (TREE_CODE_CLASS(code) == tcc_exceptional && code != SSA_NAME)
@@ -219,7 +219,7 @@ static bool compare_vardecls(const_tree vardecl, tree op)
 	if (TREE_CODE(op) == COMPONENT_REF)
 		return false;
 
-	decl = get_inner_reference(op, &bitsize, &bitpos, &offset, &mode, &unsignedp, &volatilep, true);
+	decl = get_inner_reference(op, &bitsize, &bitpos, &offset, &mode, &unsignedp, &reversep, &volatilep, true);
 
 	switch (TREE_CODE_CLASS(TREE_CODE(decl))) {
 	case tcc_constant:

@@ -1,8 +1,12 @@
 #ifndef GCC_COMMON_H_INCLUDED
 #define GCC_COMMON_H_INCLUDED
 
-#include "plugin.h"
 #include "bversion.h"
+#if BUILDING_GCC_VERSION >= 6000
+#include "gcc-plugin.h"
+#else
+#include "plugin.h"
+#endif
 #include "plugin-version.h"
 #include "config.h"
 #include "system.h"
@@ -600,6 +604,21 @@ static inline const greturn *as_a_const_greturn(const_gimple stmt)
 #define NODE_IMPLICIT_ALIAS(node) (node)->cpp_implicit_alias
 #endif
 
+#if BUILDING_GCC_VERSION <= 5000
+#define get_inner_reference(exp, pbitsize, pbitpos, poffset, pmode, punsignedp, preversep, pvolatilep, keep_aligning) get_inner_reference(exp, pbitsize, pbitpos, poffset, pmode, punsignedp, pvolatilep, keep_aligning)
+#define gen_rtx_set(ARG0, ARG1) gen_rtx_SET(VOIDmode, (ARG0), (ARG1))
+#endif
+
+#if BUILDING_GCC_VERSION == 5000
+// gimple related
+template <>
+template <>
+inline bool is_a_helper<const gassign *>::test(const_gimple gs)
+{
+	return gs->code == GIMPLE_ASSIGN;
+}
+#endif
+
 #if BUILDING_GCC_VERSION >= 5000
 #define TODO_verify_ssa TODO_verify_il
 #define TODO_verify_flow TODO_verify_il
@@ -702,17 +721,17 @@ static inline void cgraph_remove_node_duplication_hook(struct cgraph_2node_hook_
 	symtab->remove_cgraph_duplication_hook(entry);
 }
 
+
+#if BUILDING_GCC_VERSION >= 6000
+typedef gimple *gimple_ptr;
+typedef const gimple *const_gimple;
+#define gimple gimple_ptr
+#endif
+
 // gimple related
 static inline gimple gimple_build_assign_with_ops(enum tree_code subcode, tree lhs, tree op1, tree op2 MEM_STAT_DECL)
 {
 	return gimple_build_assign(lhs, subcode, op1, op2 PASS_MEM_STAT);
-}
-
-template <>
-template <>
-inline bool is_a_helper<const gassign *>::test(const_gimple gs)
-{
-	return gs->code == GIMPLE_ASSIGN;
 }
 
 template <>
@@ -785,6 +804,10 @@ static inline void ipa_remove_stmt_references(symtab_node *referring_node, gimpl
 {
 	referring_node->remove_stmt_references(stmt);
 }
+#endif
+
+#if BUILDING_GCC_VERSION >= 6000
+#define gen_rtx_set(ARG0, ARG1) gen_rtx_SET((ARG0), (ARG1))
 #endif
 
 #endif

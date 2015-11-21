@@ -2220,22 +2220,11 @@ EXPORT_SYMBOL(pax_track_stack);
 
 #ifdef CONFIG_PAX_SIZE_OVERFLOW
 
-#ifdef CONFIG_PAX_SIZE_OVERFLOW_DISABLE_KILL
-static DEFINE_RATELIMIT_STATE(size_overflow_ratelimit, 15 * HZ, 3);
-#endif
-
 void __nocapture(1, 3, 4) __used report_size_overflow(const char *file, unsigned int line, const char *func, const char *ssa_name)
 {
-#ifdef CONFIG_PAX_SIZE_OVERFLOW_DISABLE_KILL
-	if (__ratelimit(&size_overflow_ratelimit)) {
-		printk(KERN_EMERG "PAX: size overflow detected in function %s %s:%u %s", func, file, line, ssa_name);
-		dump_stack();
-	}
-#else
 	printk(KERN_EMERG "PAX: size overflow detected in function %s %s:%u %s", func, file, line, ssa_name);
 	dump_stack();
 	do_group_exit(SIGKILL);
-#endif
 }
 EXPORT_SYMBOL(report_size_overflow);
 #endif

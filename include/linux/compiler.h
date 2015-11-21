@@ -222,34 +222,6 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
 
 #include <uapi/linux/types.h>
 
-static __always_inline void __read_once_size(const volatile void *p, void *res, int size)
-{
-	switch (size) {
-	case 1: *(__u8 *)res = *(const volatile __u8 *)p; break;
-	case 2: *(__u16 *)res = *(const volatile __u16 *)p; break;
-	case 4: *(__u32 *)res = *(const volatile __u32 *)p; break;
-	case 8: *(__u64 *)res = *(const volatile __u64 *)p; break;
-	default:
-		barrier();
-		__builtin_memcpy(res, (const void *)p, size);
-		barrier();
-	}
-}
-
-static __always_inline void __write_once_size(volatile void *p, const void *res, int size)
-{
-	switch (size) {
-	case 1: *(volatile __u8 *)p = *(const __u8 *)res; break;
-	case 2: *(volatile __u16 *)p = *(const __u16 *)res; break;
-	case 4: *(volatile __u32 *)p = *(const __u32 *)res; break;
-	case 8: *(volatile __u64 *)p = *(const __u64 *)res; break;
-	default:
-		barrier();
-		__builtin_memcpy((void *)p, res, size);
-		barrier();
-	}
-}
-
 /*
  * Prevent the compiler from merging or refetching reads or writes. The
  * compiler is also forbidden from reordering successive instances of
@@ -272,11 +244,16 @@ static __always_inline void __write_once_size(volatile void *p, const void *res,
  * required ordering.
  */
 
-#define READ_ONCE(x) \
-	({ union { typeof(x) __val; char __c[1]; } __u; __read_once_size(&(x), __u.__c, sizeof(x)); __u.__val; })
+#define READ_ONCE(x) ({					\
+	typeof(x) __val = *(volatile typeof(x) *)&(x);	\
+	__val;						\
+})
 
-#define WRITE_ONCE(x, val) \
-	({ union { typeof(x) __val; char __c[1]; } __u = { .__val = (val) }; __write_once_size(&(x), __u.__c, sizeof(x)); __u.__val; })
+#define WRITE_ONCE(x, val) ({				\
+	typeof(x) __val = (val);			\
+	(x) = *(volatile typeof(x) *)&__val;		\
+	__val;						\
+})
 
 /**
  * READ_ONCE_CTRL - Read a value heading a control dependency
