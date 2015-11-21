@@ -604,7 +604,7 @@ static inline const greturn *as_a_const_greturn(const_gimple stmt)
 #define NODE_IMPLICIT_ALIAS(node) (node)->cpp_implicit_alias
 #endif
 
-#if BUILDING_GCC_VERSION <= 5000
+#if BUILDING_GCC_VERSION < 6000
 #define get_inner_reference(exp, pbitsize, pbitpos, poffset, pmode, punsignedp, preversep, pvolatilep, keep_aligning) get_inner_reference(exp, pbitsize, pbitpos, poffset, pmode, punsignedp, pvolatilep, keep_aligning)
 #define gen_rtx_set(ARG0, ARG1) gen_rtx_SET(VOIDmode, (ARG0), (ARG1))
 #endif
