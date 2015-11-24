@@ -604,12 +604,7 @@ static inline const greturn *as_a_const_greturn(const_gimple stmt)
 #define NODE_IMPLICIT_ALIAS(node) (node)->cpp_implicit_alias
 #endif
 
-#if BUILDING_GCC_VERSION < 6000
-#define get_inner_reference(exp, pbitsize, pbitpos, poffset, pmode, punsignedp, preversep, pvolatilep, keep_aligning) get_inner_reference(exp, pbitsize, pbitpos, poffset, pmode, punsignedp, pvolatilep, keep_aligning)
-#define gen_rtx_set(ARG0, ARG1) gen_rtx_SET(VOIDmode, (ARG0), (ARG1))
-#endif
-
-#if BUILDING_GCC_VERSION == 5000
+#if BUILDING_GCC_VERSION >= 5000 && BUILDING_GCC_VERSION < 6000
 // gimple related
 template <>
 template <>
@@ -721,7 +716,6 @@ static inline void cgraph_remove_node_duplication_hook(struct cgraph_2node_hook_
 	symtab->remove_cgraph_duplication_hook(entry);
 }
 
-
 #if BUILDING_GCC_VERSION >= 6000
 typedef gimple *gimple_ptr;
 typedef const gimple *const_gimple;
@@ -804,6 +798,11 @@ static inline void ipa_remove_stmt_references(symtab_node *referring_node, gimpl
 {
 	referring_node->remove_stmt_references(stmt);
 }
+#endif
+
+#if BUILDING_GCC_VERSION < 6000
+#define get_inner_reference(exp, pbitsize, pbitpos, poffset, pmode, punsignedp, preversep, pvolatilep, keep_aligning) get_inner_reference(exp, pbitsize, pbitpos, poffset, pmode, punsignedp, pvolatilep, keep_aligning)
+#define gen_rtx_set(ARG0, ARG1) gen_rtx_SET(VOIDmode, (ARG0), (ARG1))
 #endif
 
 #if BUILDING_GCC_VERSION >= 6000

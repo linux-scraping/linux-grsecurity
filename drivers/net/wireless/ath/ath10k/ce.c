@@ -901,7 +901,7 @@ ath10k_ce_alloc_src_ring(struct ath10k *ar, unsigned int ce_id,
 			 const struct ce_attr *attr)
 {
 	struct ath10k_ce_ring *src_ring;
-	u32 nentries = attr->src_nentries;
+	unsigned long nentries = attr->src_nentries;
 	dma_addr_t base_addr;
 
 	nentries = roundup_pow_of_two(nentries);
@@ -968,7 +968,7 @@ ath10k_ce_alloc_dest_ring(struct ath10k *ar, unsigned int ce_id,
 			  const struct ce_attr *attr)
 {
 	struct ath10k_ce_ring *dest_ring;
-	u32 nentries;
+	unsigned long nentries;
 	dma_addr_t base_addr;
 
 	nentries = roundup_pow_of_two(attr->dest_nentries);
