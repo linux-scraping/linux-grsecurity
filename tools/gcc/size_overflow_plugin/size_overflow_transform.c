@@ -482,6 +482,9 @@ static tree get_fn_or_fnptr_decl(const gcall *call_stmt)
 		return decl;
 
 	fnptr = gimple_call_fn(call_stmt);
+	if (fnptr == NULL_TREE)
+		return NULL_TREE;
+
 	// !!! assertot kell irni 0-ra, mert csak az lehet ott
 	if (is_gimple_constant(fnptr))
 		return NULL_TREE;
@@ -599,7 +602,7 @@ static void search_interesting_stmts(struct visited *visited)
 
 	next_node_ret = get_interesting_function_next_node(current_function_decl, 0);
 
-	FOR_ALL_BB_FN(bb, cfun) {
+	FOR_EACH_BB_FN(bb, cfun) {
 		gimple_stmt_iterator gsi;
 
 		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
@@ -708,7 +711,7 @@ static void remove_all_size_overflow_asm(void)
 {
 	basic_block bb;
 
-	FOR_ALL_BB_FN(bb, cfun) {
+	FOR_EACH_BB_FN(bb, cfun) {
 		gimple_stmt_iterator si;
 
 		for (si = gsi_start_bb(bb); !gsi_end_p(si); gsi_next(&si))

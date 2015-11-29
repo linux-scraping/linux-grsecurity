@@ -1157,7 +1157,7 @@ static void __make_request(struct mddev *mddev, struct bio *bio)
 	struct md_rdev *blocked_rdev;
 	struct blk_plug_cb *cb;
 	struct raid10_plug_cb *plug = NULL;
-	int sectors_handled;
+	sector_t sectors_handled;
 	int max_sectors;
 	int sectors;
 

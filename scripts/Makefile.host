@@ -30,6 +30,12 @@
 # libkconfig.so as the executable conf.
 # Note: Shared libraries consisting of C++ files are not supported
 
+# hostcc-option
+# Usage: cflags-y += $(call hostcc-option,-march=winchip-c6,-march=i586)
+
+hostcc-option = $(call try-run,\
+	$(HOSTCC) $(HOSTCFLAGS) $(HOST_EXTRACFLAGS) $(1) -c -x c /dev/null -o "$$TMP",$(1),$(2))
+
 __hostprogs := $(sort $(hostprogs-y) $(hostprogs-m))
 __hostlibs := $(sort $(hostlibs-y) $(hostlibs-m))
 __hostcxxlibs := $(sort $(hostcxxlibs-y) $(hostcxxlibs-m))

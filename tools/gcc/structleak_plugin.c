@@ -26,7 +26,7 @@
 
 #include "gcc-common.h"
 
-// unused C type flag in all versions 4.5-5.0
+// unused C type flag in all versions 4.5-6
 #define TYPE_USERSPACE(TYPE) TYPE_LANG_FLAG_5(TYPE)
 
 int plugin_is_GPL_compatible;

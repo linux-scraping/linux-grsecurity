@@ -6113,13 +6113,13 @@ static __init int hardware_setup(void)
 	 */
 	if (!flexpriority_enabled) {
 		pax_open_kernel();
-		*(void **)&kvm_x86_ops->set_apic_access_page_addr = NULL;
+		kvm_x86_ops->set_apic_access_page_addr = NULL;
 		pax_close_kernel();
 	}
 
 	if (!cpu_has_vmx_tpr_shadow()) {
 		pax_open_kernel();
-		*(void **)&kvm_x86_ops->update_cr8_intercept = NULL;
+		kvm_x86_ops->update_cr8_intercept = NULL;
 		pax_close_kernel();
 	}
 
@@ -6134,12 +6134,12 @@ static __init int hardware_setup(void)
 
 	pax_open_kernel();
 	if (enable_apicv)
-		*(void **)&kvm_x86_ops->update_cr8_intercept = NULL;
+		kvm_x86_ops->update_cr8_intercept = NULL;
 	else {
-		*(void **)&kvm_x86_ops->hwapic_irr_update = NULL;
-		*(void **)&kvm_x86_ops->hwapic_isr_update = NULL;
-		*(void **)&kvm_x86_ops->deliver_posted_interrupt = NULL;
-		*(void **)&kvm_x86_ops->sync_pir_to_irr = vmx_sync_pir_to_irr_dummy;
+		kvm_x86_ops->hwapic_irr_update = NULL;
+		kvm_x86_ops->hwapic_isr_update = NULL;
+		kvm_x86_ops->deliver_posted_interrupt = NULL;
+		kvm_x86_ops->sync_pir_to_irr = vmx_sync_pir_to_irr_dummy;
 	}
 	pax_close_kernel();
 
@@ -6197,10 +6197,10 @@ static __init int hardware_setup(void)
 
 	if (!enable_pml) {
 		pax_open_kernel();
-		*(void **)&kvm_x86_ops->slot_enable_log_dirty = NULL;
-		*(void **)&kvm_x86_ops->slot_disable_log_dirty = NULL;
-		*(void **)&kvm_x86_ops->flush_log_dirty = NULL;
-		*(void **)&kvm_x86_ops->enable_log_dirty_pt_masked = NULL;
+		kvm_x86_ops->slot_enable_log_dirty = NULL;
+		kvm_x86_ops->slot_disable_log_dirty = NULL;
+		kvm_x86_ops->flush_log_dirty = NULL;
+		kvm_x86_ops->enable_log_dirty_pt_masked = NULL;
 		pax_close_kernel();
 	}
 
@@ -10354,7 +10354,7 @@ static void vmx_enable_log_dirty_pt_masked(struct kvm *kvm,
 	kvm_mmu_clear_dirty_pt_masked(kvm, memslot, offset, mask);
 }
 
-static struct kvm_x86_ops vmx_x86_ops = {
+static struct kvm_x86_ops vmx_x86_ops __read_only = {
 	.cpu_has_kvm_support = cpu_has_kvm_support,
 	.disabled_by_bios = vmx_disabled_by_bios,
 	.hardware_setup = hardware_setup,

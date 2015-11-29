@@ -110,7 +110,7 @@ extern int _cond_resched(void);
 					_cond_resched();		\
 				if (__get_user(__c_ao, (char __user *)__addr))	\
 					break;				\
-				if (type != VERIFY_WRITE) {		\
+				if ((type) != VERIFY_WRITE) {		\
 					__addr = __addr_ao;		\
 					continue;			\
 				}					\

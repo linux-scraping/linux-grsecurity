@@ -1110,7 +1110,7 @@ struct kvm_vcpu *kvm_mpidr_to_vcpu(struct kvm *kvm, unsigned long mpidr)
 /**
  * Initialize Hyp-mode and memory mappings on all CPUs.
  */
-int kvm_arch_init(const void *opaque)
+int kvm_arch_init(void *opaque)
 {
 	int err;
 	int ret, cpu;

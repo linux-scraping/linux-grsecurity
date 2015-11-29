@@ -708,7 +708,7 @@ static void handle_cgraph_node(struct cgraph_node *node)
 
 	set_current_function_decl(cur_fndecl);
 
-	FOR_ALL_BB_FN(bb, cfun) {
+	FOR_EACH_BB_FN(bb, cfun) {
 		gimple_stmt_iterator gsi;
 
 		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {

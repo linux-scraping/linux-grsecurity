@@ -5777,7 +5777,6 @@ enable_so_tty_write_fndecl_18533 tty_write fndecl 3 18533 NULL
 enable_so_tomoyo_update_domain_fndecl_18537 tomoyo_update_domain fndecl 2 18537 NULL
 enable_so_progress_kcopyd_job_18540 progress kcopyd_job 0 18540 NULL
 enable_so_sect_floppy_struct_18543 sect floppy_struct 0 18543 NULL
-enable_so_i_size_high_ext4_inode_18545 i_size_high ext4_inode 0 18545 NULL
 enable_so_ubi_leb_write_fndecl_18549 ubi_leb_write fndecl 5-4 18549 NULL
 enable_so_xfs_efi_init_fndecl_18551 xfs_efi_init fndecl 2 18551 NULL
 enable_so_inodes_squashfs_sb_info_18553 inodes squashfs_sb_info 0 18553 NULL nohasharray
@@ -11038,7 +11037,6 @@ enable_so_ath10k_htc_alloc_skb_fndecl_34920 ath10k_htc_alloc_skb fndecl 2 34920 
 enable_so_consume_size_vmci_qp_alloc_info_34922 consume_size vmci_qp_alloc_info 0 34922 NULL
 enable_so_rcc__DMABUFFERENTRY_34925 rcc _DMABUFFERENTRY 0 34925 NULL
 enable_so_shared_secret_len_net_conf_34926 shared_secret_len net_conf 0 34926 NULL
-enable_so_nr_kvm_queued_interrupt_34927 nr kvm_queued_interrupt 0 34927 NULL
 enable_so_port_fops_write_fndecl_34928 port_fops_write fndecl 3 34928 NULL
 enable_so_len_wil6210_mbox_hdr_34930 len wil6210_mbox_hdr 0 34930 NULL
 enable_so_swiotlb_init_with_tbl_fndecl_34935 swiotlb_init_with_tbl fndecl 2 34935 NULL
@@ -12751,7 +12749,6 @@ enable_so_num_jumbo_rxd_netxen_adapter_40137 num_jumbo_rxd netxen_adapter 0 4013
 enable_so_port_fops_read_fndecl_40137 port_fops_read fndecl 3 40137 &enable_so_num_jumbo_rxd_netxen_adapter_40137
 enable_so_off_fuse_notify_inval_inode_out_40142 off fuse_notify_inval_inode_out 0 40142 NULL
 enable_so_isr_wakeups_read_fndecl_40148 isr_wakeups_read fndecl 3 40148 NULL
-enable_so_i_size_lo_ext4_inode_40153 i_size_lo ext4_inode 0 40153 NULL
 enable_so_ftdi_elan_edset_single_fndecl_40157 ftdi_elan_edset_single fndecl 0 40157 NULL
 enable_so_xfs_ialloc_get_rec_fndecl_40163 xfs_ialloc_get_rec fndecl 2 40163 NULL
 enable_so_at24_bin_read_fndecl_40165 at24_bin_read fndecl 6 40165 NULL nohasharray

@@ -108,15 +108,15 @@ static int zlib_compress_setup(struct crypto_pcomp *tfm, const void *params,
 
 	ret = zlib_deflateInit2(stream,
 				tb[ZLIB_COMP_LEVEL]
-					? nla_get_u32(tb[ZLIB_COMP_LEVEL])
+					? nla_get_s32(tb[ZLIB_COMP_LEVEL])
 					: Z_DEFAULT_COMPRESSION,
 				tb[ZLIB_COMP_METHOD]
-					? nla_get_u32(tb[ZLIB_COMP_METHOD])
+					? nla_get_s32(tb[ZLIB_COMP_METHOD])
 					: Z_DEFLATED,
 				window_bits,
 				mem_level,
 				tb[ZLIB_COMP_STRATEGY]
-					? nla_get_u32(tb[ZLIB_COMP_STRATEGY])
+					? nla_get_s32(tb[ZLIB_COMP_STRATEGY])
 					: Z_DEFAULT_STRATEGY);
 	if (ret != Z_OK) {
 		vfree(stream->workspace);
@@ -224,7 +224,7 @@ static int zlib_decompress_setup(struct crypto_pcomp *tfm, const void *params,
 	zlib_decomp_exit(ctx);
 
 	ctx->decomp_windowBits = tb[ZLIB_DECOMP_WINDOWBITS]
-				 ? nla_get_u32(tb[ZLIB_DECOMP_WINDOWBITS])
+				 ? nla_get_s32(tb[ZLIB_DECOMP_WINDOWBITS])
 				 : DEF_WBITS;
 
 	stream->workspace = vzalloc(zlib_inflate_workspacesize());

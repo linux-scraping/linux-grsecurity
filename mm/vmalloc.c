@@ -1452,7 +1452,9 @@ static struct vm_struct *__get_vm_area_node(unsigned long size,
 	if (unlikely(!area))
 		return NULL;
 
+#ifndef CONFIG_GRKERNSEC_KSTACKOVERFLOW
 	if (!(flags & VM_NO_GUARD))
+#endif
 		size += PAGE_SIZE;
 
 	va = alloc_vmap_area(size, align, start, end, node, gfp_mask);

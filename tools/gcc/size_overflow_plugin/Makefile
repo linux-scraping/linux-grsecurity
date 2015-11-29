@@ -1,3 +1,5 @@
+HOST_EXTRACXXFLAGS += $(call hostcc-option, -fno-ipa-icf)
+
 $(HOSTLIBS)-$(CONFIG_PAX_SIZE_OVERFLOW) += size_overflow_plugin.so
 always := $($(HOSTLIBS)-y)
 

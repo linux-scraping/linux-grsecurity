@@ -45,7 +45,7 @@ unsigned int __unused size_overflow_dump_function(FILE *file, struct cgraph_node
 	fprintf(file, "dump_function function_name: %s\n", cgraph_node_name(node));
 
 	fprintf(file, "\nstmts:\n");
-	FOR_ALL_BB_FN(bb, DECL_STRUCT_FUNCTION(NODE_DECL(node))) {
+	FOR_EACH_BB_FN(bb, DECL_STRUCT_FUNCTION(NODE_DECL(node))) {
 		gimple_stmt_iterator si;
 
 		fprintf(file, "<bb %u>:\n", bb->index);

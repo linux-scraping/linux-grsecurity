@@ -552,6 +552,8 @@ void check_size_overflow(interesting_stmts_t expand_from, gimple stmt, tree size
 
 	if (is_const_plus_unsigned_signed_truncation(rhs))
 		return;
+	if (is_gimple_assign(stmt) && neg_short_add_intentional_overflow(as_a_gassign(stmt)))
+		return;
 
 	type_max = cast_a_tree(size_overflow_type, TYPE_MAX_VALUE(rhs_type));
 	// typemax (-1) < typemin (0)

@@ -709,7 +709,7 @@ static unsigned int find_bad_casts(void)
 
 	handle_local_var_initializers();
 
-	FOR_ALL_BB_FN(bb, cfun) {
+	FOR_EACH_BB_FN(bb, cfun) {
 		gimple_stmt_iterator gsi;
 
 		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {

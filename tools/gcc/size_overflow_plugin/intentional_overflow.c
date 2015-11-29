@@ -373,6 +373,9 @@ enum intentional_mark check_intentional_attribute(const_gimple stmt, unsigned in
 	// handle MARK_TURN_OFF early on the caller
 	if (is_turn_off_intentional_attr(orig_cur_fndecl))
 		return MARK_TURN_OFF;
+	// handle MARK_END_INTENTIONAL on the caller
+	if (is_end_intentional_intentional_attr(orig_cur_fndecl))
+		return MARK_END_INTENTIONAL;
 
 	switch (gimple_code(stmt)) {
 	case GIMPLE_RETURN:
@@ -944,4 +947,64 @@ void unsigned_signed_cast_intentional_overflow(struct visited *visited, gassign 
 
 	so_stmt = get_dup_stmt(visited, stmt);
 	create_up_and_down_cast(visited, so_stmt, lhs_type, gimple_assign_rhs1(so_stmt));
+}
+
+/* gcc intentional overflow
+ * e.g., skb_set_network_header(), skb_set_mac_header()
+ * -, int offset + u16 network_header
+ * offset = -x->props.header_len
+ * skb->network_header += offset;
+ *
+ * SSA
+ * _141 = -_140;
+ * _154 = (short unsigned int) _141;
+ * _155 = (size_overflow_type_SI) _154;
+ * _156 = _154 + _155;
+ * _157 = (short unsigned int) _156;
+ */
+static bool is_short_cast_neg(const_tree rhs)
+{
+	const_tree cast_rhs;
+	const_gimple neg_stmt;
+	gimple neg_cast_stmt, cast_stmt = get_def_stmt(rhs);
+
+	if (!cast_stmt || !gimple_assign_cast_p(cast_stmt))
+		return false;
+
+	cast_rhs = gimple_assign_rhs1(cast_stmt);
+	if (GET_MODE_BITSIZE(TYPE_MODE(TREE_TYPE(cast_rhs))) >= GET_MODE_BITSIZE(TYPE_MODE(TREE_TYPE(rhs))))
+		return false;
+
+	neg_cast_stmt = get_def_stmt(cast_rhs);
+	if (!neg_cast_stmt || !gimple_assign_cast_p(neg_cast_stmt))
+		return false;
+
+	neg_stmt = get_def_stmt(gimple_assign_rhs1(neg_cast_stmt));
+	if (!neg_stmt || !is_gimple_assign(neg_stmt))
+		return false;
+	return gimple_assign_rhs_code(neg_stmt) == NEGATE_EXPR;
+}
+
+bool neg_short_add_intentional_overflow(gassign *unary_stmt)
+{
+	const_tree rhs1, add_rhs1, add_rhs2, cast_rhs;
+	const_gimple add_stmt;
+	gimple cast_stmt;
+
+	rhs1 = gimple_assign_rhs1(unary_stmt);
+
+	cast_stmt = get_def_stmt(rhs1);
+	if (!cast_stmt || !gimple_assign_cast_p(cast_stmt))
+		return false;
+	cast_rhs = gimple_assign_rhs1(cast_stmt);
+	if (GET_MODE_BITSIZE(TYPE_MODE(TREE_TYPE(cast_rhs))) <= GET_MODE_BITSIZE(TYPE_MODE(TREE_TYPE(rhs1))))
+		return false;
+
+	add_stmt = get_def_stmt(cast_rhs);
+	if (!add_stmt || !is_gimple_assign(add_stmt) || gimple_assign_rhs_code(add_stmt) != PLUS_EXPR)
+		return false;
+
+	add_rhs1 = gimple_assign_rhs1(add_stmt);
+	add_rhs2 = gimple_assign_rhs2(add_stmt);
+	return is_short_cast_neg(add_rhs1) || is_short_cast_neg(add_rhs2);
 }

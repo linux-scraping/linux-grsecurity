@@ -198,6 +198,8 @@ static unsigned int execute_kernexec_fptr(void)
 				continue;
 			call_stmt = as_a_gcall(stmt);
 			fn = gimple_call_fn(call_stmt);
+			if (!fn)
+				continue;
 			if (TREE_CODE(fn) == ADDR_EXPR)
 				continue;
 			if (TREE_CODE(fn) != SSA_NAME)
@@ -233,14 +235,12 @@ static void kernexec_instrument_retaddr_bts(rtx insn)
 {
 	rtx btsq;
 	rtvec argvec, constraintvec, labelvec;
-	int line;
 
 	// create asm volatile("btsq $63,(%%rsp)":::)
 	argvec = rtvec_alloc(0);
 	constraintvec = rtvec_alloc(0);
 	labelvec = rtvec_alloc(0);
-	line = expand_location(RTL_LOCATION(insn)).line;
-	btsq = gen_rtx_ASM_OPERANDS(VOIDmode, "btsq $63,(%%rsp)", empty_string, 0, argvec, constraintvec, labelvec, line);
+	btsq = gen_rtx_ASM_OPERANDS(VOIDmode, "btsq $63,(%%rsp)", empty_string, 0, argvec, constraintvec, labelvec, RTL_LOCATION(insn));
 	MEM_VOLATILE_P(btsq) = 1;
 //	RTX_FRAME_RELATED_P(btsq) = 1; // not for ASM_OPERANDS
 	emit_insn_before(btsq, insn);
@@ -251,14 +251,12 @@ static void kernexec_instrument_retaddr_or(rtx insn)
 {
 	rtx orq;
 	rtvec argvec, constraintvec, labelvec;
-	int line;
 
 	// create asm volatile("orq %%r12,(%%rsp)":::)
 	argvec = rtvec_alloc(0);
 	constraintvec = rtvec_alloc(0);
 	labelvec = rtvec_alloc(0);
-	line = expand_location(RTL_LOCATION(insn)).line;
-	orq = gen_rtx_ASM_OPERANDS(VOIDmode, "orq %%r12,(%%rsp)", empty_string, 0, argvec, constraintvec, labelvec, line);
+	orq = gen_rtx_ASM_OPERANDS(VOIDmode, "orq %%r12,(%%rsp)", empty_string, 0, argvec, constraintvec, labelvec, RTL_LOCATION(insn));
 	MEM_VOLATILE_P(orq) = 1;
 //	RTX_FRAME_RELATED_P(orq) = 1; // not for ASM_OPERANDS
 	emit_insn_before(orq, insn);

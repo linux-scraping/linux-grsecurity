@@ -18,7 +18,7 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info initify_plugin_info = {
-	.version	= "20151113",
+	.version	= "20151128",
 	.help		= "initify_plugin\n",
 };
 
@@ -304,7 +304,7 @@ static bool has_capture_use_local_var(const_tree vardecl)
 {
 	basic_block bb;
 
-	FOR_ALL_BB_FN(bb, cfun) {
+	FOR_EACH_BB_FN(bb, cfun) {
 		gimple_stmt_iterator gsi;
 
 		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
@@ -418,7 +418,7 @@ static void search_const_strs(bool initexit)
 {
 	basic_block bb;
 
-	FOR_ALL_BB_FN(bb, cfun) {
+	FOR_EACH_BB_FN(bb, cfun) {
 		gimple_stmt_iterator gsi;
 
 		for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {

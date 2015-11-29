@@ -5,7 +5,7 @@ if HAVE_ARCH_KASAN
 
 config KASAN
 	bool "KASan: runtime memory debugger"
-	depends on SLUB_DEBUG
+	depends on SLUB_DEBUG && !GRKERNSEC_KSTACKOVERFLOW
 	select CONSTRUCTORS
 	help
 	  Enables kernel address sanitizer - runtime memory debugger,

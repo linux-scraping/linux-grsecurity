@@ -1016,7 +1016,7 @@ long kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 	return r;
 }
 
-int kvm_arch_init(const void *opaque)
+int kvm_arch_init(void *opaque)
 {
 	if (kvm_mips_callbacks) {
 		kvm_err("kvm: module already exists\n");

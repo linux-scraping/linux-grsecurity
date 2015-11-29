@@ -5790,7 +5790,7 @@ static struct notifier_block pvclock_gtod_notifier = {
 };
 #endif
 
-int kvm_arch_init(const void *opaque)
+int kvm_arch_init(void *opaque)
 {
 	int r;
 	struct kvm_x86_ops *ops = opaque;
