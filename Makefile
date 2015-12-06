@@ -678,6 +678,11 @@ else
 gcc-plugins:
 ifeq ($(call cc-ifversion, -ge, 0405, y), y)
 	$(error Your gcc installation does not support plugins.  If the necessary headers for plugin support are missing, they should be installed.  On Debian, apt-get install gcc-<ver>-plugin-dev.  If you choose to ignore this error and lessen the improvements provided by this patch, re-run make with the DISABLE_PAX_PLUGINS=y argument.))
+ifeq ($(call cc-ifversion, -ge, 0408, y), y)
+	$(CONFIG_SHELL) -x $(srctree)/scripts/gcc-plugin.sh "$(HOSTCXX)" "$(HOSTCXX)" "$(CC)"
+else
+	$(CONFIG_SHELL) -x $(srctree)/scripts/gcc-plugin.sh "$(HOSTCC)" "$(HOSTCXX)" "$(CC)"
+endif
 else
 	$(Q)echo "warning, your gcc version does not support plugins, you should upgrade it to gcc 4.5 at least"
 endif

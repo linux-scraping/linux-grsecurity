@@ -5723,9 +5723,10 @@ static int get_array_info(struct mddev *mddev, void __user *arg)
 	info.patch_version = MD_PATCHLEVEL_VERSION;
 	info.ctime         = mddev->ctime;
 	info.level         = mddev->level;
-	info.size          = mddev->dev_sectors / 2;
-	if (info.size != mddev->dev_sectors / 2) /* overflow */
+	if (2 * (sector_t)INT_MAX < mddev->dev_sectors) /* overflow */
 		info.size = -1;
+	else
+		info.size = mddev->dev_sectors / 2;
 	info.nr_disks      = nr;
 	info.raid_disks    = mddev->raid_disks;
 	info.md_minor      = mddev->md_minor;

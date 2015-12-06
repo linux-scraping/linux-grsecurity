@@ -459,7 +459,7 @@ do {									\
 #define __get_user_nocheck(x, ptr, size)				\
 ({									\
 	int __gu_err;							\
-	unsigned long __gu_val;						\
+	__inttype(*(ptr)) __gu_val;					\
 	__get_user_size(__gu_val, (ptr), (size), __gu_err, -EFAULT);	\
 	(x) = (__typeof__(*(ptr)))__gu_val;				\
 	__gu_err;							\

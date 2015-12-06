@@ -959,7 +959,7 @@ void unsigned_signed_cast_intentional_overflow(struct visited *visited, gassign 
  * _141 = -_140;
  * _154 = (short unsigned int) _141;
  * _155 = (size_overflow_type_SI) _154;
- * _156 = _154 + _155;
+ * _156 = _154 + _155; // 2x
  * _157 = (short unsigned int) _156;
  */
 static bool is_short_cast_neg(const_tree rhs)
@@ -985,11 +985,28 @@ static bool is_short_cast_neg(const_tree rhs)
 	return gimple_assign_rhs_code(neg_stmt) == NEGATE_EXPR;
 }
 
+static bool check_add_stmt(const_tree node)
+{
+	const_gimple add_stmt;
+	const_tree add_rhs1, add_rhs2;
+
+	if (node == NULL_TREE)
+		return false;
+
+	add_stmt = get_def_stmt(node);
+	if (!add_stmt || !is_gimple_assign(add_stmt) || gimple_assign_rhs_code(add_stmt) != PLUS_EXPR)
+		return false;
+
+	add_rhs1 = gimple_assign_rhs1(add_stmt);
+	add_rhs2 = gimple_assign_rhs2(add_stmt);
+	return is_short_cast_neg(add_rhs1) || is_short_cast_neg(add_rhs2);
+}
+
 bool neg_short_add_intentional_overflow(gassign *unary_stmt)
 {
 	const_tree rhs1, add_rhs1, add_rhs2, cast_rhs;
-	const_gimple add_stmt;
 	gimple cast_stmt;
+	const_gimple add_stmt;
 
 	rhs1 = gimple_assign_rhs1(unary_stmt);
 
@@ -1000,11 +1017,16 @@ bool neg_short_add_intentional_overflow(gassign *unary_stmt)
 	if (GET_MODE_BITSIZE(TYPE_MODE(TREE_TYPE(cast_rhs))) <= GET_MODE_BITSIZE(TYPE_MODE(TREE_TYPE(rhs1))))
 		return false;
 
-	add_stmt = get_def_stmt(cast_rhs);
-	if (!add_stmt || !is_gimple_assign(add_stmt) || gimple_assign_rhs_code(add_stmt) != PLUS_EXPR)
-		return false;
+	// one or two plus expressions
+	if (check_add_stmt(cast_rhs))
+		return true;
 
+	add_stmt = get_def_stmt(cast_rhs);
+	if (!add_stmt || !is_gimple_assign(add_stmt))
+		return false;
 	add_rhs1 = gimple_assign_rhs1(add_stmt);
+	if (check_add_stmt(add_rhs1))
+		return true;
 	add_rhs2 = gimple_assign_rhs2(add_stmt);
-	return is_short_cast_neg(add_rhs1) || is_short_cast_neg(add_rhs2);
+	return check_add_stmt(add_rhs2);
 }
