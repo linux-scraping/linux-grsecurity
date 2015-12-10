@@ -36,7 +36,8 @@ static struct irq_chip lapic_controller;
 static struct apic_chip_data *legacy_irq_data[NR_IRQS_LEGACY];
 #endif
 
-void lock_vector_lock(void) __acquires(vector_lock)
+void lock_vector_lock(void) __acquires(&vector_lock);
+void lock_vector_lock(void)
 {
 	/* Used to the online set of cpus does not change
 	 * during assign_irq_vector.
@@ -44,7 +45,8 @@ void lock_vector_lock(void) __acquires(vector_lock)
 	raw_spin_lock(&vector_lock);
 }
 
-void unlock_vector_lock(void) __releases(vector_lock)
+void unlock_vector_lock(void) __releases(&vector_lock);
+void unlock_vector_lock(void)
 {
 	raw_spin_unlock(&vector_lock);
 }
@@ -360,7 +362,11 @@ int __init arch_probe_nr_irqs(void)
 	if (nr < nr_irqs)
 		nr_irqs = nr;
 
-	return nr_legacy_irqs();
+	/*
+	 * We don't know if PIC is present at this point so we need to do
+	 * probe() to get the right number of legacy IRQs.
+	 */
+	return legacy_pic->probe();
 }
 
 #ifdef	CONFIG_X86_IO_APIC

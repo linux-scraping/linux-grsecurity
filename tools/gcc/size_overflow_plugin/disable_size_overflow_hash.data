@@ -12422,3 +12422,4 @@ enable_so_i_size_lo_ext4_inode_40153 i_size_lo ext4_inode 0 40153 NULL
 enable_so_i_size_high_ext4_inode_18545 i_size_high ext4_inode 0 18545 NULL
 enable_so_nr_kvm_queued_interrupt_34927 nr kvm_queued_interrupt 0 34927 NULL
 enable_so_last_used_idx_vhost_virtqueue_40059 last_used_idx vhost_virtqueue 0 40059 NULL
+enable_so___load_segment_descriptor_fndecl_30833 __load_segment_descriptor fndecl 2-4 30833 NULL

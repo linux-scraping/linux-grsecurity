@@ -133,7 +133,7 @@ static inline void arch_memcpy_to_pmem(void __pmem *dst, const void *src,
 	 * before the WARN+BUG.
 	 */
 	unwritten = __copy_from_user_inatomic_nocache((void __force *) dst,
-			(void __user *) src, n);
+			(void __force_user *) src, n);
 	if (WARN(unwritten, "%s: fault copying %p <- %p unwritten: %d\n",
 				__func__, dst, src, unwritten))
 		BUG();

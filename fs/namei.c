@@ -2088,7 +2088,6 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
 	nd->last_type = LAST_ROOT; /* if there are only slashes... */
 	nd->flags = flags | LOOKUP_JUMPED | LOOKUP_PARENT;
 	nd->depth = 0;
-	nd->total_link_count = 0;
 #ifdef CONFIG_GRKERNSEC_SYMLINKOWN
 	nd->symlinkown_depth = 0;
 #endif

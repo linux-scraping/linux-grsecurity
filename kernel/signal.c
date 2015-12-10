@@ -605,6 +605,7 @@ static int __dequeue_signal(struct sigpending *pending, sigset_t *mask,
  *
  * All callers have to hold the siglock.
  */
+int dequeue_signal(struct task_struct *tsk, sigset_t *mask, siginfo_t *info) __must_hold(&tsk->sighand->siglock);
 int dequeue_signal(struct task_struct *tsk, sigset_t *mask, siginfo_t *info)
 {
 	int signr;
@@ -1843,9 +1844,8 @@ static int sigkill_pending(struct task_struct *tsk)
  * If we actually decide not to stop at all because the tracer
  * is gone, we keep current->exit_code unless clear_code.
  */
+static void ptrace_stop(int exit_code, int why, int clear_code, siginfo_t *info) __must_hold(&current->sighand->siglock);
 static void ptrace_stop(int exit_code, int why, int clear_code, siginfo_t *info)
-	__releases(&current->sighand->siglock)
-	__acquires(&current->sighand->siglock)
 {
 	bool gstop_done = false;
 
@@ -1965,6 +1965,7 @@ static void ptrace_stop(int exit_code, int why, int clear_code, siginfo_t *info)
 	recalc_sigpending_tsk(current);
 }
 
+static void ptrace_do_notify(int signr, int exit_code, int why) __must_hold(&current->sighand->siglock);
 static void ptrace_do_notify(int signr, int exit_code, int why)
 {
 	siginfo_t info;
@@ -2012,8 +2013,8 @@ void ptrace_notify(int exit_code)
  * %false if group stop is already cancelled or ptrace trap is scheduled.
  * %true if participated in group stop.
  */
+static bool do_signal_stop(int signr) __releases(&current->sighand->siglock);
 static bool do_signal_stop(int signr)
-	__releases(&current->sighand->siglock)
 {
 	struct signal_struct *sig = current->signal;
 
@@ -2025,8 +2026,10 @@ static bool do_signal_stop(int signr)
 		WARN_ON_ONCE(signr & ~JOBCTL_STOP_SIGMASK);
 
 		if (!likely(current->jobctl & JOBCTL_STOP_DEQUEUED) ||
-		    unlikely(signal_group_exit(sig)))
+		    unlikely(signal_group_exit(sig))) {
+			__release(&current->sighand->siglock); // XXX sparse can't model conditional release
 			return false;
+		}
 		/*
 		 * There is no group stop already in progress.  We must
 		 * initiate one now.
@@ -2110,6 +2113,7 @@ static bool do_signal_stop(int signr)
 		 * Schedule it and let the caller deal with it.
 		 */
 		task_set_jobctl_pending(current, JOBCTL_TRAP_STOP);
+		__release(&current->sighand->siglock); // XXX sparse can't model conditional release
 		return false;
 	}
 }

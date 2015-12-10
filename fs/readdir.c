@@ -317,8 +317,7 @@ SYSCALL_DEFINE3(getdents64, unsigned int, fd,
 		error = buf.error;
 	lastdirent = buf.previous;
 	if (lastdirent) {
-		typeof(lastdirent->d_off) d_off = buf.ctx.pos;
-		if (__put_user(d_off, &lastdirent->d_off))
+		if (__put_user(buf.ctx.pos, &lastdirent->d_off))
 			error = -EFAULT;
 		else
 			error = count - buf.count;

@@ -59,7 +59,7 @@ static int snd_seq_call_port_info_ioctl(struct snd_seq_client *client, unsigned 
 	data->kernel = NULL;
 
 	fs = snd_enter_user();
-	err = snd_seq_do_ioctl(client, cmd, data);
+	err = snd_seq_do_ioctl(client, cmd, (void __force_user *)data);
 	snd_leave_user(fs);
 	if (err < 0)
 		goto error;

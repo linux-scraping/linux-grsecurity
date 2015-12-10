@@ -99,6 +99,8 @@ static int proc_ipc_auto_msgmni(struct ctl_table *table, int write,
 static int zero;
 static int one = 1;
 static int int_max = INT_MAX;
+static unsigned long long_zero = 0;
+static unsigned long long_max = LONG_MAX;
 
 static struct ctl_table ipc_kern_table[] = {
 	{
@@ -107,6 +109,8 @@ static struct ctl_table ipc_kern_table[] = {
 		.maxlen		= sizeof(init_ipc_ns.shm_ctlmax),
 		.mode		= 0644,
 		.proc_handler	= proc_ipc_doulongvec_minmax,
+		.extra1		= &long_zero,
+		.extra2		= &long_max,
 	},
 	{
 		.procname	= "shmall",
@@ -114,6 +118,8 @@ static struct ctl_table ipc_kern_table[] = {
 		.maxlen		= sizeof(init_ipc_ns.shm_ctlall),
 		.mode		= 0644,
 		.proc_handler	= proc_ipc_doulongvec_minmax,
+		.extra1		= &long_zero,
+		.extra2		= &long_max,
 	},
 	{
 		.procname	= "shmmni",

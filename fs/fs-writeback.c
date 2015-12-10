@@ -869,9 +869,9 @@ restart:
 #else	/* CONFIG_CGROUP_WRITEBACK */
 
 static struct bdi_writeback *
+locked_inode_to_wb_and_lock_list(struct inode *inode) __releases(&inode->i_lock) __acquires(&wb->list_lock);
+static struct bdi_writeback *
 locked_inode_to_wb_and_lock_list(struct inode *inode)
-	__releases(&inode->i_lock)
-	__acquires(&wb->list_lock)
 {
 	struct bdi_writeback *wb = inode_to_wb(inode);
 
@@ -880,8 +880,8 @@ locked_inode_to_wb_and_lock_list(struct inode *inode)
 	return wb;
 }
 
+static struct bdi_writeback *inode_to_wb_and_lock_list(struct inode *inode) __acquires(&wb->list_lock);
 static struct bdi_writeback *inode_to_wb_and_lock_list(struct inode *inode)
-	__acquires(&wb->list_lock)
 {
 	struct bdi_writeback *wb = inode_to_wb(inode);
 
@@ -1127,9 +1127,8 @@ static int write_inode(struct inode *inode, struct writeback_control *wbc)
  * Wait for writeback on an inode to complete. Called with i_lock held.
  * Caller must make sure inode cannot go away when we drop i_lock.
  */
+static void __inode_wait_for_writeback(struct inode *inode) __must_hold(&inode->i_lock);
 static void __inode_wait_for_writeback(struct inode *inode)
-	__releases(inode->i_lock)
-	__acquires(inode->i_lock)
 {
 	DEFINE_WAIT_BIT(wq, &inode->i_state, __I_SYNC);
 	wait_queue_head_t *wqh;
@@ -1158,8 +1157,8 @@ void inode_wait_for_writeback(struct inode *inode)
  * held and drops it. It is aimed for callers not holding any inode reference
  * so once i_lock is dropped, inode can go away.
  */
+static void inode_sleep_on_writeback(struct inode *inode) __releases(&inode->i_lock);
 static void inode_sleep_on_writeback(struct inode *inode)
-	__releases(inode->i_lock)
 {
 	DEFINE_WAIT(wait);
 	wait_queue_head_t *wqh = bit_waitqueue(&inode->i_state, __I_SYNC);

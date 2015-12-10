@@ -663,7 +663,7 @@ void do_coredump(const siginfo_t *siginfo)
 			 * If it doesn't exist, that's fine. If there's some
 			 * other problem, we'll catch it at the filp_open().
 			 */
-			(void) sys_unlink((const char __user *)cn.corename);
+			(void) sys_unlink((const char __force_user *)cn.corename);
 			set_fs(old_fs);
 		}
 

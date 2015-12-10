@@ -341,8 +341,9 @@ static inline void dentry_rcuwalk_invalidate(struct dentry *dentry)
  * and is unhashed.
  */
 static void dentry_iput(struct dentry * dentry)
-	__releases(dentry->d_lock)
-	__releases(dentry->d_inode->i_lock)
+	__releases(&dentry->d_lock)
+	__releases(&dentry->d_inode->i_lock);
+static void dentry_iput(struct dentry * dentry)
 {
 	struct inode *inode = dentry->d_inode;
 	if (inode) {
@@ -366,8 +367,9 @@ static void dentry_iput(struct dentry * dentry)
  * d_iput() operation if defined. dentry remains in-use.
  */
 static void dentry_unlink_inode(struct dentry * dentry)
-	__releases(dentry->d_lock)
-	__releases(dentry->d_inode->i_lock)
+	__releases(&dentry->d_lock)
+	__releases(&dentry->d_inode->i_lock);
+static void dentry_unlink_inode(struct dentry * dentry)
 {
 	struct inode *inode = dentry->d_inode;
 	__d_clear_type_and_inode(dentry);
@@ -567,7 +569,8 @@ static void __dentry_kill(struct dentry *dentry)
  * Returns dentry requiring refcount drop, or NULL if we're done.
  */
 static struct dentry *dentry_kill(struct dentry *dentry)
-	__releases(dentry->d_lock)
+	__releases(&dentry->d_lock);
+static struct dentry *dentry_kill(struct dentry *dentry)
 {
 	struct inode *inode = dentry->d_inode;
 	struct dentry *parent = NULL;

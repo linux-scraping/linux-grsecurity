@@ -263,8 +263,8 @@ static int rpm_check_suspend_allowed(struct device *dev)
  * @cb: Runtime PM callback to run.
  * @dev: Device to run the callback for.
  */
+static int __rpm_callback(int (*cb)(struct device *), struct device *dev) __must_hold(&dev->power.lock);
 static int __rpm_callback(int (*cb)(struct device *), struct device *dev)
-	__releases(&dev->power.lock) __acquires(&dev->power.lock)
 {
 	int retval;
 
@@ -412,8 +412,8 @@ static int rpm_callback(int (*cb)(struct device *), struct device *dev)
  *
  * This function must be called under dev->power.lock with interrupts disabled.
  */
+static int rpm_suspend(struct device *dev, int rpmflags) __must_hold(&dev->power.lock);
 static int rpm_suspend(struct device *dev, int rpmflags)
-	__releases(&dev->power.lock) __acquires(&dev->power.lock)
 {
 	int (*callback)(struct device *);
 	struct device *parent = NULL;
@@ -594,8 +594,8 @@ static int rpm_suspend(struct device *dev, int rpmflags)
  *
  * This function must be called under dev->power.lock with interrupts disabled.
  */
+static int rpm_resume(struct device *dev, int rpmflags) __must_hold(&dev->power.lock);
 static int rpm_resume(struct device *dev, int rpmflags)
-	__releases(&dev->power.lock) __acquires(&dev->power.lock)
 {
 	int (*callback)(struct device *);
 	struct device *parent = NULL;

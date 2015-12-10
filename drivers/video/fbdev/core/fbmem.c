@@ -1435,10 +1435,7 @@ fb_mmap(struct file *file, struct vm_area_struct * vma)
 	return vm_iomap_memory(vma, start, len);
 }
 
-static int
-fb_open(struct inode *inode, struct file *file)
-__acquires(&info->lock)
-__releases(&info->lock)
+static int fb_open(struct inode *inode, struct file *file)
 {
 	int fbidx = iminor(inode);
 	struct fb_info *info;
@@ -1476,10 +1473,7 @@ out:
 	return res;
 }
 
-static int 
-fb_release(struct inode *inode, struct file *file)
-__acquires(&info->lock)
-__releases(&info->lock)
+static int fb_release(struct inode *inode, struct file *file)
 {
 	struct fb_info * const info = file->private_data;
 

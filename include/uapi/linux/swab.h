@@ -43,7 +43,7 @@
  * ___swab16, ___swab32, ___swab64, ___swahw32, ___swahb32
  */
 
-static inline __intentional_overflow(-1) __attribute_const__ __u16 __fswab16(__u16 val)
+static inline __intentional_overflow(0) __attribute_const__ __u16 __fswab16(__u16 val)
 {
 #ifdef __HAVE_BUILTIN_BSWAP16__
 	return __builtin_bswap16(val);
@@ -54,7 +54,7 @@ static inline __intentional_overflow(-1) __attribute_const__ __u16 __fswab16(__u
 #endif
 }
 
-static inline __intentional_overflow(-1) __attribute_const__ __u32 __fswab32(__u32 val)
+static inline __intentional_overflow(0) __attribute_const__ __u32 __fswab32(__u32 val)
 {
 #ifdef __HAVE_BUILTIN_BSWAP32__
 	return __builtin_bswap32(val);
@@ -65,7 +65,7 @@ static inline __intentional_overflow(-1) __attribute_const__ __u32 __fswab32(__u
 #endif
 }
 
-static inline __intentional_overflow(-1) __attribute_const__ __u64 __fswab64(__u64 val)
+static inline __intentional_overflow(0) __attribute_const__ __u64 __fswab64(__u64 val)
 {
 #ifdef __HAVE_BUILTIN_BSWAP64__
 	return __builtin_bswap64(val);

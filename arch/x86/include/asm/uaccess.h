@@ -303,10 +303,10 @@ extern void __put_user_8(void);
 #define put_user(x, ptr)					\
 ({								\
 	int __ret_pu;						\
-	__typeof__(*(ptr)) __pu_val;				\
+	__inttype(*(ptr)) __pu_val;				\
 	__chk_user_ptr(ptr);					\
 	might_fault();						\
-	__pu_val = (x);						\
+	__pu_val = (__inttype(*(ptr)))(x);			\
 	pax_open_userland();					\
 	switch (sizeof(*(ptr))) {				\
 	case 1:							\
@@ -389,10 +389,10 @@ do {									\
 	__chk_user_ptr(ptr);						\
 	switch (size) {							\
 	case 1:								\
-		__get_user_asm(x, ptr, retval, "b", "b", "=q", errret);	\
+		__get_user_asm(x, ptr, retval, "zbl", "k", "=r", errret);\
 		break;							\
 	case 2:								\
-		__get_user_asm(x, ptr, retval, "w", "w", "=r", errret);	\
+		__get_user_asm(x, ptr, retval, "zwl", "k", "=r", errret);\
 		break;							\
 	case 4:								\
 		__get_user_asm(x, ptr, retval, "l", "k", "=r", errret);	\
@@ -413,7 +413,7 @@ do {									\
 		     "2: " ASM_CLAC "\n"				\
 		     ".section .fixup,\"ax\"\n"				\
 		     "3:	mov %3,%0\n"				\
-		     "	xor"itype" %"rtype"1,%"rtype"1\n"		\
+		     "	xorl %k1,%k1\n"					\
 		     "	jmp 2b\n"					\
 		     ".previous\n"					\
 		     _ASM_EXTABLE(1b, 3b)				\
@@ -427,10 +427,10 @@ do {									\
 	__chk_user_ptr(ptr);						\
 	switch (size) {							\
 	case 1:								\
-		__get_user_asm_ex(x, ptr, "b", "b", "=q");		\
+		__get_user_asm_ex(x, ptr, "zbl", "k", "=r");		\
 		break;							\
 	case 2:								\
-		__get_user_asm_ex(x, ptr, "w", "w", "=r");		\
+		__get_user_asm_ex(x, ptr, "zwl", "k", "=r");		\
 		break;							\
 	case 4:								\
 		__get_user_asm_ex(x, ptr, "l", "k", "=r");		\
@@ -621,9 +621,9 @@ extern void __cmpxchg_wrong_size(void)
 #define __user_atomic_cmpxchg_inatomic(uval, ptr, old, new, size)	\
 ({									\
 	int __ret = 0;							\
-	__typeof__(ptr) __uval = (uval);				\
-	__typeof__(*(ptr)) __old = (old);				\
-	__typeof__(*(ptr)) __new = (new);				\
+	__typeof__(uval) __uval = (uval);				\
+	__typeof__(*(uval)) __old = (old);				\
+	__typeof__(*(uval)) __new = (new);				\
 	pax_open_userland();						\
 	switch (size) {							\
 	case 1:								\

@@ -200,7 +200,7 @@ static ssize_t process_vm_rw_core(pid_t pid, struct iov_iter *iter,
 		goto put_task_struct;
 	}
 
-	mm = mm_access(task, PTRACE_MODE_ATTACH);
+	mm = mm_access(task, PTRACE_MODE_ATTACH_REALCREDS);
 	if (!mm || IS_ERR(mm)) {
 		rc = IS_ERR(mm) ? PTR_ERR(mm) : -ESRCH;
 		/*

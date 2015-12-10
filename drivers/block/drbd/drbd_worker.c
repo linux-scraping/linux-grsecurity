@@ -94,7 +94,8 @@ void drbd_md_endio(struct bio *bio, int error)
 /* reads on behalf of the partner,
  * "submitted" by the receiver
  */
-static void drbd_endio_read_sec_final(struct drbd_peer_request *peer_req) __releases(local)
+static void drbd_endio_read_sec_final(struct drbd_peer_request *peer_req) __releases(local);
+static void drbd_endio_read_sec_final(struct drbd_peer_request *peer_req)
 {
 	unsigned long flags = 0;
 	struct drbd_peer_device *peer_device = peer_req->peer_device;
@@ -115,7 +116,8 @@ static void drbd_endio_read_sec_final(struct drbd_peer_request *peer_req) __rele
 
 /* writes on behalf of the partner, or resync writes,
  * "submitted" by the receiver, final stage.  */
-void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(local)
+void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req) __releases(local);
+void drbd_endio_write_sec_final(struct drbd_peer_request *peer_req)
 {
 	unsigned long flags = 0;
 	struct drbd_peer_device *peer_device = peer_req->peer_device;

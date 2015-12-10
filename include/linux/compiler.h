@@ -34,10 +34,34 @@ extern void __chk_user_ptr(const volatile void __user *);
 extern void __chk_io_ptr(const volatile void __iomem *);
 #else
 # ifdef CHECKER_PLUGIN
+#  ifdef CHECKER_PLUGIN_USER
 //#  define __user
 //#  define __force_user
 //#  define __kernel
 //#  define __force_kernel
+#  else
+#  define __user
+#  define __force_user
+#  define __kernel
+#  define __force_kernel
+#  endif
+#  ifdef CHECKER_PLUGIN_CONTEXT
+#  define __must_hold(x)	__attribute__((context(#x,1,1)))
+#  define __acquires(x)	__attribute__((context(#x,0,1)))
+#  define __releases(x)	__attribute__((context(#x,1,0)))
+#  define __acquire(x)	__context__(#x,1)
+#  define __release(x)	__context__(#x,-1)
+#  define __cond_lock(x,c)	((c) ? ({ __acquire(x); 1; }) : 0)
+#  define __cond_unlock(x,c)	((c) ? ({ __release(x); 1; }) : 0)
+#  else
+#  define __must_hold(x)
+#  define __acquires(x)
+#  define __releases(x)
+#  define __acquire(x) (void)0
+#  define __release(x) (void)0
+#  define __cond_lock(x,c) (c)
+#  define __cond_unlock(x,c) (c)
+#  endif
 # else
 #  ifdef STRUCTLEAK_PLUGIN
 #   define __user __attribute__((user))
@@ -47,6 +71,12 @@ extern void __chk_io_ptr(const volatile void __iomem *);
 #  define __force_user
 #  define __kernel
 #  define __force_kernel
+#  define __must_hold(x)
+#  define __acquires(x)
+#  define __releases(x)
+#  define __acquire(x) (void)0
+#  define __release(x) (void)0
+#  define __cond_lock(x,c) (c)
 # endif
 # define __safe
 # define __force
@@ -56,12 +86,6 @@ extern void __chk_io_ptr(const volatile void __iomem *);
 # define __chk_user_ptr(x) (void)0
 # define __chk_io_ptr(x) (void)0
 # define __builtin_warning(x, y...) (1)
-# define __must_hold(x)
-# define __acquires(x)
-# define __releases(x)
-# define __acquire(x) (void)0
-# define __release(x) (void)0
-# define __cond_lock(x,c) (c)
 # define __percpu
 # define __force_percpu
 # define __rcu

@@ -892,7 +892,7 @@ struct mm_struct *mm_access(struct task_struct *task, unsigned int mode)
 
 	mm = get_task_mm(task);
 	if (mm && ((mm != current->mm && !ptrace_may_access(task, mode)) ||
-		  (mode == PTRACE_MODE_ATTACH && (gr_handle_proc_ptrace(task) || gr_acl_handle_procpidmem(task))))) {
+		  ((mode & PTRACE_MODE_ATTACH) && (gr_handle_proc_ptrace(task) || gr_acl_handle_procpidmem(task))))) {
 		mmput(mm);
 		mm = ERR_PTR(-EACCES);
 	}

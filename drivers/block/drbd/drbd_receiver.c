@@ -1780,7 +1780,9 @@ static int e_end_resync_block(struct drbd_work *w, int unused)
 }
 
 static int recv_resync_read(struct drbd_peer_device *peer_device, sector_t sector,
-			    struct packet_info *pi) __releases(local)
+			    struct packet_info *pi) __releases(local);
+static int recv_resync_read(struct drbd_peer_device *peer_device, sector_t sector,
+			    struct packet_info *pi)
 {
 	struct drbd_device *device = peer_device->device;
 	struct drbd_peer_request *peer_req;

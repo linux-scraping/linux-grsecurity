@@ -142,7 +142,7 @@ static char *ovl_read_symlink(struct dentry *realdentry)
 	set_fs(get_ds());
 	/* The cast to a user pointer is valid due to the set_fs() */
 	res = inode->i_op->readlink(realdentry,
-				    (char __user *)buf, PAGE_SIZE - 1);
+				    (char __force_user *)buf, PAGE_SIZE - 1);
 	set_fs(old_fs);
 	if (res < 0) {
 		free_page((unsigned long) buf);

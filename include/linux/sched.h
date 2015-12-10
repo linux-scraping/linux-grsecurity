@@ -2575,7 +2575,7 @@ extern void proc_caches_init(void);
 extern void flush_signals(struct task_struct *);
 extern void ignore_signals(struct task_struct *);
 extern void flush_signal_handlers(struct task_struct *, int force_default);
-extern int dequeue_signal(struct task_struct *tsk, sigset_t *mask, siginfo_t *info);
+extern int dequeue_signal(struct task_struct *tsk, sigset_t *mask, siginfo_t *info) __must_hold(&tsk->sighand->siglock);
 
 static inline int dequeue_signal_lock(struct task_struct *tsk, sigset_t *mask, siginfo_t *info)
 {
@@ -2836,11 +2836,13 @@ static inline int thread_group_empty(struct task_struct *p)
  * It must not be nested with write_lock_irq(&tasklist_lock),
  * neither inside nor outside.
  */
+static inline void task_lock(struct task_struct *p) __acquires(&p->alloc_lock);
 static inline void task_lock(struct task_struct *p)
 {
 	spin_lock(&p->alloc_lock);
 }
 
+static inline void task_unlock(struct task_struct *p) __releases(&p->alloc_lock);
 static inline void task_unlock(struct task_struct *p)
 {
 	spin_unlock(&p->alloc_lock);

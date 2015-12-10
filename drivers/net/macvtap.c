@@ -137,7 +137,7 @@ static const struct proto_ops macvtap_socket_ops;
 #define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
 		      NETIF_F_TSO6 | NETIF_F_UFO)
 #define RX_OFFLOADS (NETIF_F_GRO | NETIF_F_LRO)
-#define TAP_FEATURES (NETIF_F_GSO | NETIF_F_SG)
+#define TAP_FEATURES (NETIF_F_GSO | NETIF_F_SG | NETIF_F_FRAGLIST)
 
 static struct macvlan_dev *macvtap_get_vlan_rcu(const struct net_device *dev)
 {
@@ -1173,8 +1173,8 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
 		}
 		ret = 0;
 		u = vlan->dev->type;
-		if (copy_to_user(&ifr->ifr_name, vlan->dev->name, IFNAMSIZ) ||
-		    copy_to_user(&ifr->ifr_hwaddr.sa_data, vlan->dev->dev_addr, ETH_ALEN) ||
+		if (copy_to_user(ifr->ifr_name, vlan->dev->name, IFNAMSIZ) ||
+		    copy_to_user(ifr->ifr_hwaddr.sa_data, vlan->dev->dev_addr, ETH_ALEN) ||
 		    put_user(u, &ifr->ifr_hwaddr.sa_family))
 			ret = -EFAULT;
 		macvtap_put_vlan(vlan);

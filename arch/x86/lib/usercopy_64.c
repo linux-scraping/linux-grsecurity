@@ -85,6 +85,6 @@ copy_user_handle_tail(char __user *to, char __user *from, unsigned long len)
 
 	/* If the destination is a kernel buffer, we always clear the end */
 	if (!__addr_ok(to) && (unsigned long)to >= TASK_SIZE_MAX + pax_user_shadow_base)
-		memset(to, 0, len);
+		memset((void __force_kernel *)to, 0, len);
 	return len;
 }

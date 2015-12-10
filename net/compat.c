@@ -58,7 +58,7 @@ int get_compat_msghdr(struct msghdr *kmsg,
 
 	if (kmsg->msg_namelen > sizeof(struct sockaddr_storage))
 		kmsg->msg_namelen = sizeof(struct sockaddr_storage);
-	kmsg->msg_control = compat_ptr(tmp3);
+	kmsg->msg_control = (void __force_kernel *)compat_ptr(tmp3);
 
 	if (save_addr)
 		*save_addr = compat_ptr(uaddr);

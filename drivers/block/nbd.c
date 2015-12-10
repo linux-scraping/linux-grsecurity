@@ -538,8 +538,8 @@ static int nbd_thread(void *data)
  *   { printk( "Warning: Ignoring result!\n"); nbd_end_request( req ); }
  */
 
+static void do_nbd_request(struct request_queue *q) __must_hold(q->queue_lock);
 static void do_nbd_request(struct request_queue *q)
-		__releases(q->queue_lock) __acquires(q->queue_lock)
 {
 	struct request *req;
 	

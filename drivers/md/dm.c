@@ -705,14 +705,16 @@ static void queue_io(struct mapped_device *md, struct bio *bio)
  * function to access the md->map field, and make sure they call
  * dm_put_live_table() when finished.
  */
-struct dm_table *dm_get_live_table(struct mapped_device *md, int *srcu_idx) __acquires(md->io_barrier)
+struct dm_table *dm_get_live_table(struct mapped_device *md, int *srcu_idx) __acquires(&md->io_barrier);
+struct dm_table *dm_get_live_table(struct mapped_device *md, int *srcu_idx)
 {
 	*srcu_idx = srcu_read_lock(&md->io_barrier);
 
 	return srcu_dereference(md->map, &md->io_barrier);
 }
 
-void dm_put_live_table(struct mapped_device *md, int srcu_idx) __releases(md->io_barrier)
+void dm_put_live_table(struct mapped_device *md, int srcu_idx) __releases(&md->io_barrier);
+void dm_put_live_table(struct mapped_device *md, int srcu_idx)
 {
 	srcu_read_unlock(&md->io_barrier, srcu_idx);
 }
@@ -727,13 +729,15 @@ void dm_sync_table(struct mapped_device *md)
  * A fast alternative to dm_get_live_table/dm_put_live_table.
  * The caller must not block between these two functions.
  */
-static struct dm_table *dm_get_live_table_fast(struct mapped_device *md) __acquires(RCU)
+static struct dm_table *dm_get_live_table_fast(struct mapped_device *md) __acquires(RCU);
+static struct dm_table *dm_get_live_table_fast(struct mapped_device *md)
 {
 	rcu_read_lock();
 	return rcu_dereference(md->map);
 }
 
-static void dm_put_live_table_fast(struct mapped_device *md) __releases(RCU)
+static void dm_put_live_table_fast(struct mapped_device *md) __releases(RCU);
+static void dm_put_live_table_fast(struct mapped_device *md)
 {
 	rcu_read_unlock();
 }

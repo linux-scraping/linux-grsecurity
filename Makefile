@@ -1,6 +1,6 @@
 VERSION = 4
 PATCHLEVEL = 2
-SUBLEVEL = 6
+SUBLEVEL = 7
 EXTRAVERSION =
 NAME = Hurr durr I'ma sheep
 
@@ -648,6 +648,12 @@ endif
 ifdef CONFIG_CHECKER_PLUGIN
 ifeq ($(call cc-ifversion, -ge, 0406, y), y)
 CHECKER_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/checker_plugin.so -DCHECKER_PLUGIN
+ifdef CONFIG_CHECKER_PLUGIN_USER
+CHECKER_PLUGIN_CFLAGS += -fplugin-arg-checker_plugin-user -DCHECKER_PLUGIN_USER
+endif
+ifdef CONFIG_CHECKER_PLUGIN_CONTEXT
+CHECKER_PLUGIN_CFLAGS += -fplugin-arg-checker_plugin-context -DCHECKER_PLUGIN_CONTEXT
+endif
 endif
 endif
 COLORIZE_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/colorize_plugin.so
