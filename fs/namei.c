@@ -597,6 +597,24 @@ static int __nd_alloc_stack(struct nameidata *nd)
 	return 0;
 }
 
+/**
+ * path_connected - Verify that a path->dentry is below path->mnt.mnt_root
+ * @path: nameidate to verify
+ *
+ * Rename can sometimes move a file or directory outside of a bind
+ * mount, path_connected allows those cases to be detected.
+ */
+static bool path_connected(const struct path *path)
+{
+	struct vfsmount *mnt = path->mnt;
+
+	/* Only bind mounts can have disconnected paths */
+	if (mnt->mnt_root == mnt->mnt_sb->s_root)
+		return true;
+
+	return is_subdir(path->dentry, mnt->mnt_root);
+}
+
 #ifdef CONFIG_GRKERNSEC_SYMLINKOWN
 static int nd_alloc_symlinkown_stack(struct nameidata *nd)
 {
@@ -615,24 +633,6 @@ static int nd_alloc_symlinkown_stack(struct nameidata *nd)
 	return 0;
 }
 #endif
-
-/**
- * path_connected - Verify that a path->dentry is below path->mnt.mnt_root
- * @path: nameidate to verify
- *
- * Rename can sometimes move a file or directory outside of a bind
- * mount, path_connected allows those cases to be detected.
- */
-static bool path_connected(const struct path *path)
-{
-	struct vfsmount *mnt = path->mnt;
-
-	/* Only bind mounts can have disconnected paths */
-	if (mnt->mnt_root == mnt->mnt_sb->s_root)
-		return true;
-
-	return is_subdir(path->dentry, mnt->mnt_root);
-}
 
 static inline int nd_alloc_stack(struct nameidata *nd)
 {
@@ -2542,7 +2542,7 @@ done:
 
 /**
  * path_mountpoint - look up a path to be umounted
- * @nameidata:	lookup context
+ * @nd:		lookup context
  * @flags:	lookup flags
  * @path:	pointer to container for result
  *

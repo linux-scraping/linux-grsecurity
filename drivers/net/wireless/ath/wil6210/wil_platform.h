@@ -27,7 +27,7 @@ struct wil_platform_ops {
 	int (*suspend)(void *handle);
 	int (*resume)(void *handle);
 	void (*uninit)(void *handle);
-};
+} __no_const;
 
 void *wil_platform_init(struct device *dev, struct wil_platform_ops *ops);
 

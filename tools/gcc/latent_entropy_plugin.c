@@ -26,7 +26,7 @@ int plugin_is_GPL_compatible;
 static GTY(()) tree latent_entropy_decl;
 
 static struct plugin_info latent_entropy_plugin_info = {
-	.version	= "201504282240",
+	.version	= "201512150000",
 	.help		= NULL
 };
 
@@ -322,18 +322,22 @@ static unsigned int execute_latent_entropy(void)
 	mark_sym_for_renaming(local_entropy);
 
 	// 2. initialize local entropy variable
-	bb = split_block_after_labels(ENTRY_BLOCK_PTR_FOR_FN(cfun))->dest;
-	if (dom_info_available_p(CDI_DOMINATORS))
-		set_immediate_dominator(CDI_DOMINATORS, bb, ENTRY_BLOCK_PTR_FOR_FN(cfun));
-	gsi = gsi_start_bb(bb);
+	gcc_assert(single_succ_p(ENTRY_BLOCK_PTR_FOR_FN(cfun)));
+	bb = single_succ(ENTRY_BLOCK_PTR_FOR_FN(cfun));
+	if (!single_pred_p(bb)) {
+//		gcc_assert(bb_loop_depth(bb) || (bb->flags & BB_IRREDUCIBLE_LOOP));
+		split_edge(single_succ_edge(ENTRY_BLOCK_PTR_FOR_FN(cfun)));
+		gcc_assert(single_succ_p(ENTRY_BLOCK_PTR_FOR_FN(cfun)));
+		bb = single_succ(ENTRY_BLOCK_PTR_FOR_FN(cfun));
+	}
+	gsi = gsi_after_labels(bb);
 
 	assign = gimple_build_assign(local_entropy, build_int_cstu(unsigned_intDI_type_node, get_random_const()));
 //	gimple_set_location(assign, loc);
-	gsi_insert_after(&gsi, assign, GSI_NEW_STMT);
+	gsi_insert_before(&gsi, assign, GSI_NEW_STMT);
 	update_stmt(assign);
 //debug_bb(bb);
-	gcc_assert(single_succ_p(bb));
-	bb = single_succ(bb);
+	bb = bb->next_bb;
 
 	// 3. instrument each BB with an operation on the local entropy variable
 	while (bb != EXIT_BLOCK_PTR_FOR_FN(cfun)) {

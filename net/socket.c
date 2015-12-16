@@ -1626,7 +1626,7 @@ SYSCALL_DEFINE3(getsockname, int, fd, struct sockaddr __user *, usockaddr,
 		int __user *, usockaddr_len)
 {
 	struct socket *sock;
-	struct sockaddr_storage address;
+	struct sockaddr_storage address = { };
 	int len, err, fput_needed;
 
 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
@@ -1657,7 +1657,7 @@ SYSCALL_DEFINE3(getpeername, int, fd, struct sockaddr __user *, usockaddr,
 		int __user *, usockaddr_len)
 {
 	struct socket *sock;
-	struct sockaddr_storage address;
+	struct sockaddr_storage address = { };
 	int len, err, fput_needed;
 
 	sock = sockfd_lookup_light(fd, &err, &fput_needed);

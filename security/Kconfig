@@ -835,6 +835,7 @@ config PAX_MEMORY_UDEREF
 	default y if GRKERNSEC_CONFIG_AUTO && !(X86_64 && GRKERNSEC_CONFIG_PRIORITY_PERF) && !(X86_64 && GRKERNSEC_CONFIG_VIRT_HOST && GRKERNSEC_CONFIG_VIRT_VIRTUALBOX) && (!X86 || GRKERNSEC_CONFIG_VIRT_NONE || GRKERNSEC_CONFIG_VIRT_EPT)
 	depends on (X86 || (ARM && (CPU_V6 || CPU_V6K || CPU_V7) && !ARM_LPAE)) && !UML_X86 && !XEN
 	select PAX_PER_CPU_PGD if X86_64
+	select CPU_SW_DOMAIN_PAN if ARM
 	help
 	  By saying Y here the kernel will be prevented from dereferencing
 	  userland pointers in contexts where the kernel expects only kernel
@@ -1106,7 +1107,6 @@ choice
 	default DEFAULT_SECURITY_SMACK if SECURITY_SMACK
 	default DEFAULT_SECURITY_TOMOYO if SECURITY_TOMOYO
 	default DEFAULT_SECURITY_APPARMOR if SECURITY_APPARMOR
-	default DEFAULT_SECURITY_YAMA if SECURITY_YAMA
 	default DEFAULT_SECURITY_DAC
 
 	help
@@ -1125,9 +1125,6 @@ choice
 	config DEFAULT_SECURITY_APPARMOR
 		bool "AppArmor" if SECURITY_APPARMOR=y
 
-	config DEFAULT_SECURITY_YAMA
-		bool "Yama" if SECURITY_YAMA=y
-
 	config DEFAULT_SECURITY_DAC
 		bool "Unix Discretionary Access Controls"
 
@@ -1139,7 +1136,6 @@ config DEFAULT_SECURITY
 	default "smack" if DEFAULT_SECURITY_SMACK
 	default "tomoyo" if DEFAULT_SECURITY_TOMOYO
 	default "apparmor" if DEFAULT_SECURITY_APPARMOR
-	default "yama" if DEFAULT_SECURITY_YAMA
 	default "" if DEFAULT_SECURITY_DAC
 
 endmenu

@@ -32,7 +32,7 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info structleak_plugin_info = {
-	.version	= "201401260140",
+	.version	= "201512150035",
 	.help		= "disable\tdo not activate plugin\n",
 };
 
@@ -117,8 +117,7 @@ static void initialize(tree var)
 	gimple init_stmt;
 
 	// this is the original entry bb before the forced split
-	// TODO: check further BBs in case more splits occured before us
-	bb = ENTRY_BLOCK_PTR_FOR_FN(cfun)->next_bb->next_bb;
+	bb = single_succ(ENTRY_BLOCK_PTR_FOR_FN(cfun));
 
 	// first check if the variable is already initialized, warn otherwise
 	for (gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
@@ -150,7 +149,7 @@ static void initialize(tree var)
 
 	// build the initializer stmt
 	init_stmt = gimple_build_assign(var, initializer);
-	gsi = gsi_start_bb(ENTRY_BLOCK_PTR_FOR_FN(cfun)->next_bb);
+	gsi = gsi_after_labels(single_succ(ENTRY_BLOCK_PTR_FOR_FN(cfun)));
 	gsi_insert_before(&gsi, init_stmt, GSI_NEW_STMT);
 	update_stmt(init_stmt);
 }
@@ -163,9 +162,13 @@ static unsigned int handle_function(void)
 	unsigned int i;
 
 	// split the first bb where we can put the forced initializers
-	bb = split_block_after_labels(ENTRY_BLOCK_PTR_FOR_FN(cfun))->dest;
-	if (dom_info_available_p(CDI_DOMINATORS))
-		set_immediate_dominator(CDI_DOMINATORS, bb, ENTRY_BLOCK_PTR_FOR_FN(cfun));
+	gcc_assert(single_succ_p(ENTRY_BLOCK_PTR_FOR_FN(cfun)));
+	bb = single_succ(ENTRY_BLOCK_PTR_FOR_FN(cfun));
+	if (!single_pred_p(bb)) {
+//		gcc_assert(bb_loop_depth(bb) || (bb->flags & BB_IRREDUCIBLE_LOOP));
+		split_edge(single_succ_edge(ENTRY_BLOCK_PTR_FOR_FN(cfun)));
+		gcc_assert(single_succ_p(ENTRY_BLOCK_PTR_FOR_FN(cfun)));
+	}
 
 	// enumarate all local variables and forcibly initialize our targets
 	FOR_EACH_LOCAL_DECL(cfun, i, var) {
@@ -215,7 +218,7 @@ static struct gimple_opt_pass structleak_pass = {
 		.properties_provided	= 0,
 		.properties_destroyed	= 0,
 		.todo_flags_start	= 0,
-		.todo_flags_finish	= TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_remove_unused_locals | TODO_update_ssa | TODO_ggc_collect | TODO_verify_flow
+		.todo_flags_finish	= TODO_verify_il | TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_remove_unused_locals | TODO_update_ssa | TODO_ggc_collect | TODO_verify_flow
 #if BUILDING_GCC_VERSION < 4009
 	}
 #endif
@@ -264,7 +267,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	}
 
 	if (strncmp(lang_hooks.name, "GNU C", 5) && !strncmp(lang_hooks.name, "GNU C+", 6)) {
-		inform(UNKNOWN_LOCATION, G_("%s supports C only"), plugin_name);
+		inform(UNKNOWN_LOCATION, G_("%s supports C only, not %s"), plugin_name, lang_hooks.name);
 		enable = false;
 	}
 

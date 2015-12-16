@@ -23,28 +23,28 @@
 #if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
 	@ save regs
 	stmdb	sp!, {r1, r2}
-        @ read DACR from cpu_domain into r1
-        mov     r2, sp
-        @ assume 8K pages, since we have to split the immediate in two
-        bic     r2, r2, #(0x1fc0)
-        bic     r2, r2, #(0x3f)
-        ldr     r1, [r2, #TI_CPU_DOMAIN]
+	@ read DACR from cpu_domain into r1
+	mov     r2, sp
+	@ assume 8K pages, since we have to split the immediate in two
+	bic     r2, r2, #(0x1fc0)
+	bic     r2, r2, #(0x3f)
+	ldr     r1, [r2, #TI_CPU_DOMAIN]
 #ifdef CONFIG_PAX_KERNEXEC
-        @ set type of DOMAIN_KERNEL to DOMAIN_KERNELCLIENT
-        bic     r1, r1, #(domain_val(DOMAIN_KERNEL, 3))
-        orr     r1, r1, #(domain_val(DOMAIN_KERNEL, DOMAIN_KERNELCLIENT))
+	@ set type of DOMAIN_KERNEL to DOMAIN_KERNELCLIENT
+	bic     r1, r1, #(domain_val(DOMAIN_KERNEL, 3))
+	orr     r1, r1, #(domain_val(DOMAIN_KERNEL, DOMAIN_KERNELCLIENT))
 #endif
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-        @ set current DOMAIN_USER to DOMAIN_UDEREF
-        bic     r1, r1, #(domain_val(DOMAIN_USER, 3))
-        orr     r1, r1, #(domain_val(DOMAIN_USER, DOMAIN_UDEREF))
+	@ set current DOMAIN_USER to DOMAIN_UDEREF
+	bic     r1, r1, #(domain_val(DOMAIN_USER, 3))
+	orr     r1, r1, #(domain_val(DOMAIN_USER, DOMAIN_UDEREF))
 #endif
-        @ write r1 to current_thread_info()->cpu_domain
-        str     r1, [r2, #TI_CPU_DOMAIN]
-        @ write r1 to DACR
-        mcr     p15, 0, r1, c3, c0, 0
-        @ instruction sync
-        instr_sync
+	@ write r1 to current_thread_info()->cpu_domain
+	str     r1, [r2, #TI_CPU_DOMAIN]
+	@ write r1 to DACR
+	mcr     p15, 0, r1, c3, c0, 0
+	@ instruction sync
+	instr_sync
 	@ restore regs
 	ldmia	sp!, {r1, r2}
 #endif
@@ -52,35 +52,55 @@
 #endif
 
 	.align	5
+#if !(IS_ENABLED(CONFIG_TRACE_IRQFLAGS) || IS_ENABLED(CONFIG_CONTEXT_TRACKING))
 /*
- * This is the fast syscall return path.  We do as little as
- * possible here, and this includes saving r0 back into the SVC
- * stack.
+ * This is the fast syscall return path.  We do as little as possible here,
+ * such as avoiding writing r0 to the stack.  We only use this path if we
+ * have tracing and context tracking disabled - the overheads from those
+ * features make this path too inefficient.
  */
 ret_fast_syscall:
  UNWIND(.fnstart	)
  UNWIND(.cantunwind	)
-	disable_irq				@ disable interrupts
+	disable_irq_notrace			@ disable interrupts
 	ldr	r1, [tsk, #TI_FLAGS]		@ re-check for syscall tracing
-	tst	r1, #_TIF_SYSCALL_WORK
-	bne	__sys_trace_return
-	tst	r1, #_TIF_WORK_MASK
+	tst	r1, #_TIF_SYSCALL_WORK | _TIF_WORK_MASK
 	bne	fast_work_pending
-	asm_trace_hardirqs_on
 
 	/* perform architecture specific actions before user return */
 	arch_ret_to_user r1, lr
-	ct_user_enter
 
 	restore_user_regs fast = 1, offset = S_OFF
  UNWIND(.fnend		)
+ENDPROC(ret_fast_syscall)
 
-/*
- * Ok, we need to do extra processing, enter the slow path.
- */
+	/* Ok, we need to do extra processing, enter the slow path. */
 fast_work_pending:
 	str	r0, [sp, #S_R0+S_OFF]!		@ returned r0
-work_pending:
+	/* fall through to work_pending */
+#else
+/*
+ * The "replacement" ret_fast_syscall for when tracing or context tracking
+ * is enabled.  As we will need to call out to some C functions, we save
+ * r0 first to avoid needing to save registers around each C function call.
+ */
+ret_fast_syscall:
+ UNWIND(.fnstart	)
+ UNWIND(.cantunwind	)
+	str	r0, [sp, #S_R0 + S_OFF]!	@ save returned r0
+	disable_irq_notrace			@ disable interrupts
+	ldr	r1, [tsk, #TI_FLAGS]		@ re-check for syscall tracing
+	tst	r1, #_TIF_SYSCALL_WORK | _TIF_WORK_MASK
+	beq	no_work_pending
+ UNWIND(.fnend		)
+ENDPROC(ret_fast_syscall)
+
+	/* Slower path - fall through to work_pending */
+#endif
+
+	tst	r1, #_TIF_SYSCALL_WORK
+	bne	__sys_trace_return_nosave
+slow_work_pending:
 	mov	r0, sp				@ 'regs'
 	mov	r2, why				@ 'syscall'
 	bl	do_work_pending
@@ -93,16 +113,19 @@ ENDPROC(ret_fast_syscall)
 
 /*
  * "slow" syscall return path.  "why" tells us if this was a real syscall.
+ * IRQs may be enabled here, so always disable them.  Note that we use the
+ * "notrace" version to avoid calling into the tracing code unnecessarily.
+ * do_work_pending() will update this state if necessary.
  */
 ENTRY(ret_to_user)
 ret_slow_syscall:
-	disable_irq				@ disable interrupts
+	disable_irq_notrace			@ disable interrupts
 ENTRY(ret_to_user_from_irq)
 	ldr	r1, [tsk, #TI_FLAGS]
 	tst	r1, #_TIF_WORK_MASK
-	bne	work_pending
+	bne	slow_work_pending
 no_work_pending:
-	asm_trace_hardirqs_on
+	asm_trace_hardirqs_on save = 0
 
 	/* perform architecture specific actions before user return */
 	arch_ret_to_user r1, lr
@@ -202,6 +225,8 @@ ENTRY(vector_swi)
  USER(	ldr	scno, [lr, #-4]		)	@ get SWI instruction
 #endif
 
+	uaccess_disable tbl
+
 	/*
 	 * do this here to avoid a performance hit of wrapping the code above
 	 * that directly dereferences userland to parse the SWI instruction
@@ -282,6 +307,12 @@ __sys_trace:
 
 __sys_trace_return:
 	str	r0, [sp, #S_R0 + S_OFF]!	@ save returned r0
+	mov	r0, sp
+	bl	syscall_trace_exit
+	b	ret_slow_syscall
+
+__sys_trace_return_nosave:
+	enable_irq_notrace
 	mov	r0, sp
 	bl	syscall_trace_exit
 	b	ret_slow_syscall

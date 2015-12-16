@@ -518,6 +518,7 @@ source "drivers/sn/Kconfig"
 config KEXEC
 	bool "kexec system call"
 	depends on !IA64_HP_SIM && (!SMP || HOTPLUG_CPU)
+	select KEXEC_CORE
 	depends on !GRKERNSEC_KMEM
 	help
 	  kexec is a system call that implements the ability to shutdown your

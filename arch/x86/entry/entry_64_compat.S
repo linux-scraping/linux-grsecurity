@@ -24,8 +24,8 @@
 #define __AUDIT_ARCH_LE		0x40000000
 
 #ifndef CONFIG_AUDITSYSCALL
-# define sysexit_audit		ia32_ret_from_sys_call
-# define sysretl_audit		ia32_ret_from_sys_call
+# define sysexit_audit		ia32_ret_from_sys_call_irqs_off
+# define sysretl_audit		ia32_ret_from_sys_call_irqs_off
 #endif
 
 	.section .entry.text, "ax"
@@ -196,7 +196,13 @@ sysexit_from_sys_call:
 	andl	$~TS_COMPAT, TI_status(%r11)
 	movl	RIP(%rsp), %ecx		/* User %eip */
 	movq    RAX(%rsp), %rax
-	RESTORE_RSI_RDI
+	movl	RSI(%rsp), %esi
+	movl	RDI(%rsp), %edi
+
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
+	movq	R12(%rsp), %r12
+#endif
+
 	xorl	%edx, %edx		/* Do not leak kernel information */
 	xorq	%r8, %r8
 	xorq	%r9, %r9
@@ -266,10 +272,10 @@ sysexit_from_sys_call:
 	.endm
 
 	.macro auditsys_exit exit
-	testl	$(_TIF_ALLWORK_MASK & ~_TIF_SYSCALL_AUDIT), TI_flags(%r11)
-	jnz	ia32_ret_from_sys_call
 	TRACE_IRQS_ON
 	ENABLE_INTERRUPTS(CLBR_NONE)
+	testl	$(_TIF_ALLWORK_MASK & ~_TIF_SYSCALL_AUDIT), TI_flags(%r11)
+	jnz	ia32_ret_from_sys_call
 	movl	%eax, %esi		/* second arg, syscall return value */
 	cmpl	$-MAX_ERRNO, %eax	/* is it an error ? */
 	jbe	1f
@@ -288,7 +294,7 @@ sysexit_from_sys_call:
 	movq	%rax, R10(%rsp)
 	movq	%rax, R9(%rsp)
 	movq	%rax, R8(%rsp)
-	jmp	int_with_check
+	jmp	int_ret_from_sys_call_irqs_off
 	.endm
 
 sysenter_auditsys:
@@ -409,9 +415,8 @@ ENTRY(entry_SYSCALL_compat)
 	 */
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
+	addq	pax_user_shadow_base, %r8
 	ASM_PAX_OPEN_USERLAND
-	movq	pax_user_shadow_base, %r8
-	addq	RSP(%rsp), %r8
 #endif
 
 	ASM_STAC
@@ -453,10 +458,17 @@ sysretl_from_sys_call:
 	pax_exit_kernel_user
 	pax_erase_kstack
 	andl	$~TS_COMPAT, TI_status(%r11)
-	RESTORE_RSI_RDI_RDX
+	movl	RDX(%rsp), %edx
+	movl	RSI(%rsp), %esi
+	movl	RDI(%rsp), %edi
 	movl	RIP(%rsp), %ecx
 	movl	EFLAGS(%rsp), %r11d
-	movq    RAX(%rsp), %rax
+	movq	RAX(%rsp), %rax
+
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
+	movq	R12(%rsp), %r12
+#endif
+
 	xorq	%r10, %r10
 	xorq	%r9, %r9
 	xorq	%r8, %r8
@@ -521,13 +533,53 @@ cstar_tracesys:
 END(entry_SYSCALL_compat)
 
 ia32_badarg:
-	ASM_CLAC
+	/*
+	 * So far, we've entered kernel mode, set AC, turned on IRQs, and
+	 * saved C regs except r8-r11.  We haven't done any of the other
+	 * standard entry work, though.  We want to bail, but we shouldn't
+	 * treat this as a syscall entry since we don't even know what the
+	 * args are.  Instead, treat this as a non-syscall entry, finish
+	 * the entry work, and immediately exit after setting AX = -EFAULT.
+	 *
+	 * We're really just being polite here.  Killing the task outright
+	 * would be a reasonable action, too.  Given that the only valid
+	 * way to have gotten here is through the vDSO, and we already know
+	 * that the stack pointer is bad, the task isn't going to survive
+	 * for long no matter what we do.
+	 */
+
+	ASM_CLAC			/* undo STAC */
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	ASM_PAX_CLOSE_USERLAND
 #endif
 
-	movq	$-EFAULT, RAX(%rsp)
+	movq	$-EFAULT, RAX(%rsp)	/* return -EFAULT if possible */
+
+	/* Fill in the rest of pt_regs */
+	xorl	%eax, %eax
+	movq	%rax, R11(%rsp)
+	movq	%rax, R10(%rsp)
+	movq	%rax, R9(%rsp)
+	movq	%rax, R8(%rsp)
+	SAVE_EXTRA_REGS
+
+	/* Turn IRQs back off. */
+	DISABLE_INTERRUPTS(CLBR_NONE)
+	TRACE_IRQS_OFF
+
+	/* Now finish entering normal kernel mode. */
+#ifdef CONFIG_CONTEXT_TRACKING
+	call enter_from_user_mode
+#endif
+
+	/* And exit again. */
+	jmp retint_user
+
+ia32_ret_from_sys_call_irqs_off:
+	TRACE_IRQS_ON
+	ENABLE_INTERRUPTS(CLBR_NONE)
+
 ia32_ret_from_sys_call:
 	xorl	%eax, %eax		/* Do not leak kernel information */
 	movq	%rax, R11(%rsp)

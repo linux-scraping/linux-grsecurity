@@ -1249,16 +1249,22 @@ static int cci_pmu_init_attrs(struct cci_pmu *cci_pmu, struct platform_device *p
 						model->event_attrs);
 		if (!attrs)
 			return -ENOMEM;
-		pmu_event_attr_group.attrs = attrs;
+		pax_open_kernel();
+		*(struct attribute ***)&pmu_event_attr_group.attrs = attrs;
+		pax_close_kernel();
 	}
 	if (model->nformat_attrs) {
 		attrs = alloc_attrs(pdev, model->nformat_attrs,
 						 model->format_attrs);
 		if (!attrs)
 			return -ENOMEM;
-		pmu_format_attr_group.attrs = attrs;
+		pax_open_kernel();
+		*(struct attribute ***)&pmu_format_attr_group.attrs = attrs;
+		pax_close_kernel();
 	}
-	pmu_cpumask_attr.var = cci_pmu;
+	pax_open_kernel();
+	*(void **)&pmu_cpumask_attr.var = cci_pmu;
+	pax_close_kernel();
 
 	return 0;
 }

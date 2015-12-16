@@ -211,7 +211,6 @@ ENTRY(secondary_startup_64)
 	call verify_cpu
 
 	orq	$-1, %rbp
-
 	movq	$(init_level4_pgt - __START_KERNEL_map), %rax
 1:
 

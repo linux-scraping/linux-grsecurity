@@ -25,7 +25,7 @@
 static struct apic apic_physflat;
 static struct apic apic_flat;
 
-struct apic __read_mostly *apic = &apic_flat;
+struct apic *apic __read_only = &apic_flat;
 EXPORT_SYMBOL_GPL(apic);
 
 static int flat_acpi_madt_oem_check(char *oem_id, char *oem_table_id)
@@ -191,7 +191,6 @@ static struct apic apic_flat __read_only =  {
 	.send_IPI_all			= flat_send_IPI_all,
 	.send_IPI_self			= apic_send_IPI_self,
 
-	.wait_for_init_deassert		= false,
 	.inquire_remote_apic		= default_inquire_remote_apic,
 
 	.read				= native_apic_mem_read,
@@ -299,7 +298,6 @@ static struct apic apic_physflat __read_only =  {
 	.send_IPI_all			= physflat_send_IPI_all,
 	.send_IPI_self			= apic_send_IPI_self,
 
-	.wait_for_init_deassert		= false,
 	.inquire_remote_apic		= default_inquire_remote_apic,
 
 	.read				= native_apic_mem_read,

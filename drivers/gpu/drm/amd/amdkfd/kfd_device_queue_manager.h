@@ -154,8 +154,8 @@ struct device_queue_manager_asic_ops {
  */
 
 struct device_queue_manager {
-	struct device_queue_manager_ops *ops;
-	struct device_queue_manager_asic_ops *ops_asic_specific;
+	const struct device_queue_manager_ops *ops;
+	const struct device_queue_manager_asic_ops *ops_asic_specific;
 
 	struct mqd_manager	*mqds[KFD_MQD_TYPE_MAX];
 	struct packet_manager	packets;

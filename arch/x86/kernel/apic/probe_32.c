@@ -111,7 +111,6 @@ static struct apic apic_default __read_only = {
 	.send_IPI_all			= default_send_IPI_all,
 	.send_IPI_self			= default_send_IPI_self,
 
-	.wait_for_init_deassert		= true,
 	.inquire_remote_apic		= default_inquire_remote_apic,
 
 	.read				= native_apic_mem_read,
@@ -127,7 +126,7 @@ static struct apic apic_default __read_only = {
 
 apic_driver(apic_default);
 
-struct apic *apic = &apic_default;
+struct apic *apic __read_only = &apic_default;
 EXPORT_SYMBOL_GPL(apic);
 
 static int cmdline_apic __initdata;

@@ -18,6 +18,7 @@ unsigned long convert_ip_to_linear(struct task_struct *child, struct pt_regs *re
 		return addr;
 	}
 
+#ifdef CONFIG_MODIFY_LDT_SYSCALL
 	/*
 	 * We'll assume that the code segments in the GDT
 	 * are all zero-based. That is largely true: the
@@ -46,6 +47,7 @@ unsigned long convert_ip_to_linear(struct task_struct *child, struct pt_regs *re
 		mutex_unlock(&child->mm->context.lock);
 	} else if (seg == __KERNEL_CS || seg == __KERNEXEC_KERNEL_CS)
 		addr = ktla_ktva(addr);
+#endif
 
 	return addr;
 }

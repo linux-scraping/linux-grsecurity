@@ -18,7 +18,7 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info initify_plugin_info = {
-	.version	= "20151209",
+	.version	= "20151213",
 	.help		= "initify_plugin\n",
 };
 
@@ -233,12 +233,17 @@ static bool compare_vardecls(const_tree vardecl, tree op)
 #if BUILDING_GCC_VERSION >= 4006
 	case MEM_REF:
 #endif
+	case INDIRECT_REF:
 	case TARGET_MEM_REF:
 		decl = TREE_OPERAND(decl, 0);
+		if (decl == NULL_TREE)
+			return false;
 		break;
 	default:
 		break;
 	}
+
+	gcc_assert(decl != NULL_TREE);
 
 	if (TREE_CODE(decl) == ADDR_EXPR)
 		decl = TREE_OPERAND(decl, 0);
@@ -302,7 +307,7 @@ static bool search_capture_use(const_tree vardecl, gimple stmt)
 
 static bool is_in_capture_init(const_tree vardecl)
 {
-	unsigned int i;
+	unsigned int i __unused;
 	tree var;
 
 	FOR_EACH_LOCAL_DECL(cfun, i, var) {
@@ -347,7 +352,7 @@ static bool has_capture_use_local_var(const_tree vardecl)
 
 static void search_local_strs(bool initexit)
 {
-	unsigned int i;
+	unsigned int i __unused;
 	tree var;
 
 	FOR_EACH_LOCAL_DECL(cfun, i, var) {

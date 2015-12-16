@@ -1408,8 +1408,8 @@ int intel_gmch_probe(struct pci_dev *bridge_pdev, struct pci_dev *gpu_pdev,
 }
 EXPORT_SYMBOL(intel_gmch_probe);
 
-void intel_gtt_get(uint64_t *gtt_total, uint64_t *stolen_size,
-		   uint64_t *mappable_base, uint64_t *mappable_end)
+void intel_gtt_get(u64 *gtt_total, u64 *stolen_size,
+		   u64 *mappable_base, u64 *mappable_end)
 {
 	*gtt_total = intel_private.gtt_total_entries << PAGE_SHIFT;
 	*stolen_size = intel_private.stolen_size;

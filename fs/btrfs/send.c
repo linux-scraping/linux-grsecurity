@@ -1920,10 +1920,12 @@ static int did_overwrite_ref(struct send_ctx *sctx,
 	/*
 	 * We know that it is or will be overwritten. Check this now.
 	 * The current inode being processed might have been the one that caused
-	 * inode 'ino' to be orphanized, therefore ow_inode can actually be the
-	 * same as sctx->send_progress.
+	 * inode 'ino' to be orphanized, therefore check if ow_inode matches
+	 * the current inode being processed.
 	 */
-	if (ow_inode <= sctx->send_progress)
+	if ((ow_inode < sctx->send_progress) ||
+	    (ino != sctx->cur_ino && ow_inode == sctx->cur_ino &&
+	     gen == sctx->cur_inode_gen))
 		ret = 1;
 	else
 		ret = 0;
@@ -2351,8 +2353,14 @@ static int send_subvol_begin(struct send_ctx *sctx)
 	}
 
 	TLV_PUT_STRING(sctx, BTRFS_SEND_A_PATH, name, namelen);
-	TLV_PUT_UUID(sctx, BTRFS_SEND_A_UUID,
-			sctx->send_root->root_item.uuid);
+
+	if (!btrfs_is_empty_uuid(sctx->send_root->root_item.received_uuid))
+		TLV_PUT_UUID(sctx, BTRFS_SEND_A_UUID,
+			    sctx->send_root->root_item.received_uuid);
+	else
+		TLV_PUT_UUID(sctx, BTRFS_SEND_A_UUID,
+			    sctx->send_root->root_item.uuid);
+
 	TLV_PUT_U64(sctx, BTRFS_SEND_A_CTRANSID,
 		    le64_to_cpu(sctx->send_root->root_item.ctransid));
 	if (parent_root) {

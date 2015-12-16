@@ -18,6 +18,23 @@
 /* Temparory solution for building, will be removed later */
 #include <linux/pci.h>
 
+struct msi_desc *alloc_msi_entry(struct device *dev)
+{
+	struct msi_desc *desc = kzalloc(sizeof(*desc), GFP_KERNEL);
+	if (!desc)
+		return NULL;
+
+	INIT_LIST_HEAD(&desc->list);
+	desc->dev = dev;
+
+	return desc;
+}
+
+void free_msi_entry(struct msi_desc *entry)
+{
+	kfree(entry);
+}
+
 void __get_cached_msi_msg(struct msi_desc *entry, struct msi_msg *msg)
 {
 	*msg = entry->msg;
@@ -213,15 +230,12 @@ static void msi_domain_update_chip_ops(struct msi_domain_info *info)
 {
 	struct irq_chip *chip = info->chip;
 
-	BUG_ON(!chip);
-	pax_open_kernel();
-	if (!chip->irq_mask)
-		*(void **)&chip->irq_mask = pci_msi_mask_irq;
-	if (!chip->irq_unmask)
-		*(void **)&chip->irq_unmask = pci_msi_unmask_irq;
-	if (!chip->irq_set_affinity)
+	BUG_ON(!chip || !chip->irq_mask || !chip->irq_unmask);
+	if (!chip->irq_set_affinity) {
+		pax_open_kernel();
 		*(void **)&chip->irq_set_affinity = msi_domain_set_affinity;
-	pax_close_kernel();
+		pax_close_kernel();
+	}
 }
 
 /**

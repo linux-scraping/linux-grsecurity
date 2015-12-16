@@ -246,6 +246,42 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
 
 #include <uapi/linux/types.h>
 
+#ifdef CONFIG_KASAN
+/*
+ * Use READ_ONCE_NOCHECK() instead of READ_ONCE() if you need
+ * to hide memory access from KASAN.
+ */
+#define READ_ONCE_NOCHECK(x)					\
+({								\
+	union { typeof(x) __val; char __c[sizeof(x)]; } __u;	\
+	__read_once_size_nocheck(&(x), __u.__c, sizeof(x));	\
+	__u.__val;						\
+})
+
+/*
+ * This function is not 'inline' because __no_sanitize_address conflicts
+ * with inlining. Attempt to inline it may cause a build failure.
+ * 	https://gcc.gnu.org/bugzilla/show_bug.cgi?id=67368
+ * '__maybe_unused' allows us to avoid defined-but-not-used warnings.
+ */
+static __no_sanitize_address __maybe_unused
+void __read_once_size_nocheck(const volatile void *p, void *res, int size)
+{
+	switch (size) {
+	case 1: *(__u8 *)res = *(const volatile __u8 *)p; break;
+	case 2: *(__u16 *)res = *(const volatile __u16 *)p; break;
+	case 4: *(__u32 *)res = *(const volatile __u32 *)p; break;
+	case 8: *(__u64 *)res = *(const volatile __u64 *)p; break;
+	default:
+		barrier();
+		__builtin_memcpy(res, (const void *)p, size);
+		barrier();
+	}
+}
+#else
+#define READ_ONCE_NOCHECK(x) READ_ONCE(x)
+#endif
+
 /*
  * Prevent the compiler from merging or refetching reads or writes. The
  * compiler is also forbidden from reordering successive instances of

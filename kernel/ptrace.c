@@ -219,7 +219,6 @@ static int ptrace_has_cap(struct user_namespace *ns, unsigned int mode)
 static int __ptrace_may_access(struct task_struct *task, unsigned int mode)
 {
 	const struct cred *cred = current_cred(), *tcred;
-	int dumpable = 0;
 	kuid_t caller_uid;
 	kgid_t caller_gid;
 
@@ -236,6 +235,7 @@ static int __ptrace_may_access(struct task_struct *task, unsigned int mode)
 	 * because setting up the necessary parent/child relationship
 	 * or halting the specified task is impossible.
 	 */
+	int dumpable = 0;
 	/* Don't let security modules deny introspection */
 	if (same_thread_group(task, current))
 		return 0;
@@ -577,6 +577,19 @@ static int ptrace_setoptions(struct task_struct *child, unsigned long data)
 
 	if (data & ~(unsigned long)PTRACE_O_MASK)
 		return -EINVAL;
+
+	if (unlikely(data & PTRACE_O_SUSPEND_SECCOMP)) {
+		if (!config_enabled(CONFIG_CHECKPOINT_RESTORE) ||
+		    !config_enabled(CONFIG_SECCOMP))
+			return -EINVAL;
+
+		if (!capable(CAP_SYS_ADMIN))
+			return -EPERM;
+
+		if (seccomp_mode(&current->seccomp) != SECCOMP_MODE_DISABLED ||
+		    current->ptrace & PT_SUSPEND_SECCOMP)
+			return -EPERM;
+	}
 
 	/* Avoid intermediate state when all opts are cleared */
 	flags = child->ptrace;

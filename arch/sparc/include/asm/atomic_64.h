@@ -53,6 +53,10 @@ long atomic64_##op##_return##suffix(long, atomic64##suffix##_t *);
 ATOMIC_OPS(add)
 ATOMIC_OPS(sub)
 
+ATOMIC_OP(and)
+ATOMIC_OP(or)
+ATOMIC_OP(xor)
+
 #undef ATOMIC_OPS
 #undef ATOMIC_OP_RETURN
 #undef __ATOMIC_OP_RETURN

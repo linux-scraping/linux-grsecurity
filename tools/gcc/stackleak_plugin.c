@@ -30,7 +30,7 @@ static GTY(()) tree check_function_decl;
 static bool init_locals;
 
 static struct plugin_info stackleak_plugin_info = {
-	.version	= "201504282245",
+	.version	= "201512150205",
 	.help		= "track-lowest-sp=nn\ttrack sp in functions whose frame size is at least nn bytes\n"
 //			  "initialize-locals\t\tforcibly initialize all stack frames\n"
 };
@@ -58,7 +58,7 @@ static void stackleak_check_alloca(gimple_stmt_iterator *gsi)
 	cgraph_create_edge(cgraph_get_node(current_function_decl), node, check_alloca, bb->count, frequency, bb->loop_depth);
 }
 
-static void stackleak_add_instrumentation(gimple_stmt_iterator *gsi)
+static void stackleak_add_instrumentation(gimple_stmt_iterator *gsi, bool after)
 {
 	gimple stmt;
 	gcall *track_stack;
@@ -69,7 +69,10 @@ static void stackleak_add_instrumentation(gimple_stmt_iterator *gsi)
 	// insert call to void pax_track_stack(void)
 	stmt = gimple_build_call(track_function_decl, 0);
 	track_stack = as_a_gcall(stmt);
-	gsi_insert_after(gsi, track_stack, GSI_CONTINUE_LINKING);
+	if (after)
+		gsi_insert_after(gsi, track_stack, GSI_CONTINUE_LINKING);
+	else
+		gsi_insert_before(gsi, track_stack, GSI_SAME_STMT);
 
 	// update the cgraph
 	bb = gimple_bb(track_stack);
@@ -119,7 +122,7 @@ static unsigned int execute_stackleak_tree_instrument(void)
 			stackleak_check_alloca(&gsi);
 
 			// 3. insert track call after each __builtin_alloca call
-			stackleak_add_instrumentation(&gsi);
+			stackleak_add_instrumentation(&gsi, true);
 			if (bb == entry_bb)
 				prologue_instrumented = true;
 		}
@@ -138,11 +141,16 @@ static unsigned int execute_stackleak_tree_instrument(void)
 	if (!prologue_instrumented) {
 		gimple_stmt_iterator gsi;
 
-		bb = split_block_after_labels(ENTRY_BLOCK_PTR_FOR_FN(cfun))->dest;
-		if (dom_info_available_p(CDI_DOMINATORS))
-			set_immediate_dominator(CDI_DOMINATORS, bb, ENTRY_BLOCK_PTR_FOR_FN(cfun));
-		gsi = gsi_start_bb(bb);
-		stackleak_add_instrumentation(&gsi);
+		gcc_assert(single_succ_p(ENTRY_BLOCK_PTR_FOR_FN(cfun)));
+		bb = single_succ(ENTRY_BLOCK_PTR_FOR_FN(cfun));
+		if (!single_pred_p(bb)) {
+//			gcc_assert(bb_loop_depth(bb) || (bb->flags & BB_IRREDUCIBLE_LOOP));
+			split_edge(single_succ_edge(ENTRY_BLOCK_PTR_FOR_FN(cfun)));
+			gcc_assert(single_succ_p(ENTRY_BLOCK_PTR_FOR_FN(cfun)));
+			bb = single_succ(ENTRY_BLOCK_PTR_FOR_FN(cfun));
+		}
+		gsi = gsi_after_labels(bb);
+		stackleak_add_instrumentation(&gsi, false);
 	}
 
 	return 0;

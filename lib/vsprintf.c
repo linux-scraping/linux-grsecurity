@@ -20,6 +20,7 @@
 #define __INCLUDED_BY_HIDESYM 1
 #endif
 #include <stdarg.h>
+#include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/module.h>	/* for KSYM_SYMBOL_LEN */
 #include <linux/types.h>

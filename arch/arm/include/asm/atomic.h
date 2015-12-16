@@ -105,12 +105,11 @@ static inline void atomic_##op##suffix(int i, atomic##suffix##_t *v)	\
 				    __ATOMIC_OP(op, , c_op, asm_op##s, __OVERFLOW_POST, __OVERFLOW_EXTABLE)
 
 #define __ATOMIC_OP_RETURN(op, suffix, c_op, asm_op, post_op, extable)	\
-static inline int atomic_##op##_return##suffix(int i, atomic##suffix##_t *v)\
+static inline int atomic_##op##_return##suffix##_relaxed(int i, atomic##suffix##_t *v)\
 {									\
 	unsigned long tmp;						\
 	int result;							\
 									\
-	smp_mb();							\
 	prefetchw(&v->counter);						\
 									\
 	__asm__ __volatile__("@ atomic_" #op "_return" #suffix "\n"	\
@@ -125,20 +124,20 @@ static inline int atomic_##op##_return##suffix(int i, atomic##suffix##_t *v)\
 	: "r" (&v->counter), "Ir" (i)					\
 	: "cc");							\
 									\
-	smp_mb();							\
-									\
 	return result;							\
 }
+
+#define atomic_add_return_relaxed	atomic_add_return_relaxed
+#define atomic_sub_return_relaxed	atomic_sub_return_relaxed
 
 #define ATOMIC_OP_RETURN(op, c_op, asm_op) __ATOMIC_OP_RETURN(op, _unchecked, c_op, asm_op, , )\
 					   __ATOMIC_OP_RETURN(op, , c_op, asm_op##s, __OVERFLOW_POST_RETURN, __OVERFLOW_EXTABLE)
 
-static inline int atomic_cmpxchg(atomic_t *ptr, int old, int new)
+static inline int atomic_cmpxchg_relaxed(atomic_t *ptr, int old, int new)
 {
 	int oldval;
 	unsigned long res;
 
-	smp_mb();
 	prefetchw(&ptr->counter);
 
 	do {
@@ -152,10 +151,9 @@ static inline int atomic_cmpxchg(atomic_t *ptr, int old, int new)
 		    : "cc");
 	} while (res);
 
-	smp_mb();
-
 	return oldval;
 }
+#define atomic_cmpxchg_relaxed		atomic_cmpxchg_relaxed
 
 static inline int __atomic_add_unless(atomic_t *v, int a, int u)
 {
@@ -292,6 +290,13 @@ static inline int __atomic_add_unless(atomic_t *v, int a, int u)
 ATOMIC_OPS(add, +=, add)
 ATOMIC_OPS(sub, -=, sub)
 
+#define atomic_andnot atomic_andnot
+
+ATOMIC_OP(and, &=, and)
+ATOMIC_OP(andnot, &= ~, bic)
+ATOMIC_OP(or,  |=, orr)
+ATOMIC_OP(xor, ^=, eor)
+
 #undef ATOMIC_OPS
 #undef ATOMIC_OP_RETURN
 #undef __ATOMIC_OP_RETURN
@@ -301,7 +306,7 @@ ATOMIC_OPS(sub, -=, sub)
 #define atomic_xchg(v, new) (xchg(&((v)->counter), new))
 static inline int atomic_xchg_unchecked(atomic_unchecked_t *v, int new)
 {
-	return xchg(&v->counter, new);
+	return xchg_relaxed(&v->counter, new);
 }
 
 #define atomic_inc(v)		atomic_add(1, v)
@@ -318,13 +323,13 @@ static inline void atomic_dec_unchecked(atomic_unchecked_t *v)
 #define atomic_inc_and_test(v)	(atomic_add_return(1, v) == 0)
 static inline int atomic_inc_and_test_unchecked(atomic_unchecked_t *v)
 {
-	return atomic_add_return_unchecked(1, v) == 0;
+	return atomic_add_return_unchecked_relaxed(1, v) == 0;
 }
 #define atomic_dec_and_test(v)	(atomic_sub_return(1, v) == 0)
 #define atomic_inc_return(v)    (atomic_add_return(1, v))
 static inline int atomic_inc_return_unchecked(atomic_unchecked_t *v)
 {
-	return atomic_add_return_unchecked(1, v);
+	return atomic_add_return_unchecked_relaxed(1, v);
 }
 #define atomic_dec_return(v)    (atomic_sub_return(1, v))
 #define atomic_sub_and_test(i, v) (atomic_sub_return(i, v) == 0)
@@ -481,12 +486,12 @@ static inline void atomic64_##op##suffix(long long i, atomic64##suffix##_t *v)\
 				  __ATOMIC64_OP(op, , op1, op2##s, __OVERFLOW_POST, __OVERFLOW_EXTABLE)
 
 #define __ATOMIC64_OP_RETURN(op, suffix, op1, op2, post_op, extable)	\
-static inline long long atomic64_##op##_return##suffix(long long i, atomic64##suffix##_t *v) \
+static inline long long							\
+atomic64_##op##_return##suffix##_relaxed(long long i, atomic64##suffix##_t *v) \
 {									\
 	long long result;						\
 	unsigned long tmp;						\
 									\
-	smp_mb();							\
 	prefetchw(&v->counter);						\
 									\
 	__asm__ __volatile__("@ atomic64_" #op "_return" #suffix "\n"	\
@@ -502,8 +507,6 @@ static inline long long atomic64_##op##_return##suffix(long long i, atomic64##su
 	: "r" (&v->counter), "r" (i)					\
 	: "cc");							\
 									\
-	smp_mb();							\
-									\
 	return result;							\
 }
 
@@ -517,6 +520,16 @@ static inline long long atomic64_##op##_return##suffix(long long i, atomic64##su
 ATOMIC64_OPS(add, adds, adc)
 ATOMIC64_OPS(sub, subs, sbc)
 
+#define atomic64_add_return_relaxed	atomic64_add_return_relaxed
+#define atomic64_sub_return_relaxed	atomic64_sub_return_relaxed
+
+#define atomic64_andnot atomic64_andnot
+
+ATOMIC64_OP(and, and, and)
+ATOMIC64_OP(andnot, bic, bic)
+ATOMIC64_OP(or,  orr, orr)
+ATOMIC64_OP(xor, eor, eor)
+
 #undef ATOMIC64_OPS
 #undef ATOMIC64_OP_RETURN
 #undef __ATOMIC64_OP_RETURN
@@ -526,13 +539,12 @@ ATOMIC64_OPS(sub, subs, sbc)
 #undef __OVERFLOW_POST_RETURN
 #undef __OVERFLOW_POST
 
-static inline long long atomic64_cmpxchg(atomic64_t *ptr, long long old,
-					long long new)
+static inline long long
+atomic64_cmpxchg_relaxed(atomic64_t *ptr, long long old, long long new)
 {
 	long long oldval;
 	unsigned long res;
 
-	smp_mb();
 	prefetchw(&ptr->counter);
 
 	do {
@@ -547,12 +559,12 @@ static inline long long atomic64_cmpxchg(atomic64_t *ptr, long long old,
 		: "cc");
 	} while (res);
 
-	smp_mb();
-
 	return oldval;
 }
+#define atomic64_cmpxchg_relaxed	atomic64_cmpxchg_relaxed
 
-static inline long long atomic64_cmpxchg_unchecked(atomic64_unchecked_t *ptr, long long old,
+static inline long long
+atomic64_cmpxchg_unchecked_relaxed(atomic64_unchecked_t *ptr, long long old,
 					long long new)
 {
 	long long oldval;
@@ -577,12 +589,11 @@ static inline long long atomic64_cmpxchg_unchecked(atomic64_unchecked_t *ptr, lo
 	return oldval;
 }
 
-static inline long long atomic64_xchg(atomic64_t *ptr, long long new)
+static inline long long atomic64_xchg_relaxed(atomic64_t *ptr, long long new)
 {
 	long long result;
 	unsigned long tmp;
 
-	smp_mb();
 	prefetchw(&ptr->counter);
 
 	__asm__ __volatile__("@ atomic64_xchg\n"
@@ -594,10 +605,9 @@ static inline long long atomic64_xchg(atomic64_t *ptr, long long new)
 	: "r" (&ptr->counter), "r" (new)
 	: "cc");
 
-	smp_mb();
-
 	return result;
 }
+#define atomic64_xchg_relaxed		atomic64_xchg_relaxed
 
 static inline long long atomic64_dec_if_positive(atomic64_t *v)
 {
