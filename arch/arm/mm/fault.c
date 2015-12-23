@@ -200,7 +200,7 @@ __do_user_fault(struct task_struct *tsk, unsigned long addr,
 #endif
 
 #ifdef CONFIG_PAX_PAGEEXEC
-	if (fsr & FSR_LNX_PF) {
+	if ((tsk->mm->pax_flags & MF_PAX_PAGEEXEC) && (fsr & FSR_LNX_PF)) {
 		pax_report_fault(regs, (void *)regs->ARM_pc, (void *)regs->ARM_sp);
 		do_group_exit(SIGKILL);
 	}

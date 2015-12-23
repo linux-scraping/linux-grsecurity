@@ -2709,6 +2709,11 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 			from the first 4GB of memory as the bootmem allocator
 			passes the memory pages to the buddy allocator.
 
+	pax_size_overflow_report_only
+			Enables rate-limited logging of size_overflow plugin
+			violations while disabling killing of the violating
+			task.
+
 	pax_weakuderef	[X86-64] enables the weaker but faster form of UDEREF
 			when the processor supports PCID.
 

@@ -1598,7 +1598,7 @@ static bool pax_is_fetch_fault(struct pt_regs *regs, unsigned long error_code, u
 
 #ifdef CONFIG_PAX_SEGMEXEC
 	if (mm->pax_flags & MF_PAX_SEGMEXEC) {
-	if (!(error_code & (PF_PROT | PF_WRITE)) && (ip + SEGMEXEC_TASK_SIZE == address))
+		if (!(error_code & (PF_PROT | PF_WRITE)) && (ip + SEGMEXEC_TASK_SIZE == address))
 			return true;
 		return false;
 	}

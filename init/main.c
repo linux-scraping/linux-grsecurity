@@ -191,6 +191,17 @@ static int __init setup_pax_softmode(char *str)
 __setup("pax_softmode=", setup_pax_softmode);
 #endif
 
+#ifdef CONFIG_PAX_SIZE_OVERFLOW
+bool pax_size_overflow_report_only __read_only;
+
+static int __init setup_pax_size_overflow_report_only(char *str)
+{
+	pax_size_overflow_report_only = true;
+	return 0;
+}
+early_param("pax_size_overflow_report_only", setup_pax_size_overflow_report_only);
+#endif
+
 static const char *argv_init[MAX_INIT_ARGS+2] = { "init", NULL, };
 const char *envp_init[MAX_INIT_ENVS+2] = { "HOME=/", "TERM=linux", NULL, };
 static const char *panic_later, *panic_param;
