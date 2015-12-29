@@ -1138,8 +1138,7 @@ int rndis_filter_device_add(struct hv_device *dev,
 	if (net_device->num_chn == 1)
 		goto out;
 
-	net_device->sub_cb_buf = vzalloc((net_device->num_chn - 1) *
-					 NETVSC_PACKET_SIZE);
+	net_device->sub_cb_buf = vzalloc(net_device->num_sc_offered * NETVSC_PACKET_SIZE);
 	if (!net_device->sub_cb_buf) {
 		net_device->num_chn = 1;
 		dev_info(&dev->device, "No memory for subchannels.\n");

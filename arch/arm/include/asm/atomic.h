@@ -128,6 +128,7 @@ static inline int atomic_##op##_return##suffix##_relaxed(int i, atomic##suffix##
 }
 
 #define atomic_add_return_relaxed	atomic_add_return_relaxed
+#define atomic_add_return_unchecked	atomic_add_return_unchecked_relaxed
 #define atomic_sub_return_relaxed	atomic_sub_return_relaxed
 
 #define ATOMIC_OP_RETURN(op, c_op, asm_op) __ATOMIC_OP_RETURN(op, _unchecked, c_op, asm_op, , )\
@@ -323,13 +324,13 @@ static inline void atomic_dec_unchecked(atomic_unchecked_t *v)
 #define atomic_inc_and_test(v)	(atomic_add_return(1, v) == 0)
 static inline int atomic_inc_and_test_unchecked(atomic_unchecked_t *v)
 {
-	return atomic_add_return_unchecked_relaxed(1, v) == 0;
+	return atomic_add_return_unchecked(1, v) == 0;
 }
 #define atomic_dec_and_test(v)	(atomic_sub_return(1, v) == 0)
 #define atomic_inc_return(v)    (atomic_add_return(1, v))
 static inline int atomic_inc_return_unchecked(atomic_unchecked_t *v)
 {
-	return atomic_add_return_unchecked_relaxed(1, v);
+	return atomic_add_return_unchecked(1, v);
 }
 #define atomic_dec_return(v)    (atomic_sub_return(1, v))
 #define atomic_sub_and_test(i, v) (atomic_sub_return(i, v) == 0)
@@ -521,6 +522,7 @@ ATOMIC64_OPS(add, adds, adc)
 ATOMIC64_OPS(sub, subs, sbc)
 
 #define atomic64_add_return_relaxed	atomic64_add_return_relaxed
+#define atomic64_add_return_unchecked	atomic64_add_return_unchecked_relaxed
 #define atomic64_sub_return_relaxed	atomic64_sub_return_relaxed
 
 #define atomic64_andnot atomic64_andnot
@@ -562,6 +564,7 @@ atomic64_cmpxchg_relaxed(atomic64_t *ptr, long long old, long long new)
 	return oldval;
 }
 #define atomic64_cmpxchg_relaxed	atomic64_cmpxchg_relaxed
+#define atomic64_cmpxchg_unchecked	atomic64_cmpxchg_unchecked_relaxed
 
 static inline long long
 atomic64_cmpxchg_unchecked_relaxed(atomic64_unchecked_t *ptr, long long old,

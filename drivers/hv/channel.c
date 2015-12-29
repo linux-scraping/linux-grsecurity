@@ -696,9 +696,7 @@ int vmbus_sendpacket_pagebuffer_ctl(struct vmbus_channel *channel,
 	 * Adjust the size down since vmbus_channel_packet_page_buffer is the
 	 * largest size we support
 	 */
-	descsize = sizeof(struct vmbus_channel_packet_page_buffer) -
-			  ((MAX_PAGE_BUFFER_COUNT - pagecount) *
-			  sizeof(struct hv_page_buffer));
+	descsize = offsetof(struct vmbus_channel_packet_page_buffer, range[pagecount]);
 	packetlen = descsize + bufferlen;
 	packetlen_aligned = ALIGN(packetlen, sizeof(u64));
 

@@ -18,7 +18,7 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info initify_plugin_info = {
-	.version	= "20151213",
+	.version	= "20151228",
 	.help		= "initify_plugin\n",
 };
 
@@ -222,6 +222,7 @@ static bool compare_vardecls(const_tree vardecl, tree op)
 	decl = get_inner_reference(op, &bitsize, &bitpos, &offset, &mode, &unsignedp, &reversep, &volatilep, true);
 
 	switch (TREE_CODE_CLASS(TREE_CODE(decl))) {
+	case tcc_comparison:
 	case tcc_constant:
 	case tcc_statement:
 		return false;
@@ -253,6 +254,7 @@ static bool compare_vardecls(const_tree vardecl, tree op)
 		return false;
 
 	if (!DECL_P(decl)) {
+		debug_tree(vardecl);
 		debug_tree(op);
 		debug_tree(decl);
 		gcc_unreachable();

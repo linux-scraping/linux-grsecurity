@@ -152,6 +152,10 @@ static int map_tboot_pages(unsigned long vaddr, unsigned long start_pfn,
 	if (!tboot_pg_dir)
 		return -1;
 
+	clone_pgd_range(tboot_pg_dir + KERNEL_PGD_BOUNDARY,
+			swapper_pg_dir + KERNEL_PGD_BOUNDARY,
+			KERNEL_PGD_PTRS);
+
 	for (; nr > 0; nr--, vaddr += PAGE_SIZE, start_pfn++) {
 		if (map_tboot_page(vaddr, start_pfn, PAGE_KERNEL_EXEC))
 			return -1;
@@ -222,8 +226,6 @@ static int tboot_setup_sleep(void)
 
 void tboot_shutdown(u32 shutdown_type)
 {
-	void (* __noreturn shutdown)(void);
-
 	if (!tboot_enabled())
 		return;
 
@@ -243,10 +245,12 @@ void tboot_shutdown(u32 shutdown_type)
 	tboot->shutdown_type = shutdown_type;
 
 	switch_to_tboot_pt();
-	cr4_clear_bits(X86_CR4_PCIDE);
+	__write_cr4(__read_cr4() & ~X86_CR4_PCIDE);
 
-	shutdown = (void *)(unsigned long)tboot->shutdown_entry;
-	shutdown();
+	/*
+	 * PaX: can't be a C indirect function call due to KERNEXEC
+	 */
+	asm volatile("jmp *%0" : : "r"((unsigned long)tboot->shutdown_entry));
 
 	/* should not reach here */
 	while (1)
