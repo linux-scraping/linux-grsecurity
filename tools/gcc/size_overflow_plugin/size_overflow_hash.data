@@ -3747,7 +3747,6 @@ enable_so_out_len_tso_state_11337 out_len tso_state 0 11337 NULL
 enable_so_charcount_console_font_11338 charcount console_font 0 11338 NULL
 enable_so_command_p_header100_11343 command p_header100 0 11343 NULL
 enable_so_s_sbbase_ufs_sb_private_info_11344 s_sbbase ufs_sb_private_info 0 11344 NULL
-enable_so_rcv_tsecr_tcp_options_received_11345 rcv_tsecr tcp_options_received 0 11345 NULL
 enable_so_hci_sock_setsockopt_fndecl_11346 hci_sock_setsockopt fndecl 5 11346 NULL
 enable_so_update_devnum_fndecl_11348 update_devnum fndecl 2 11348 NULL
 enable_so_buffer_length_usbdevfs_urb_11350 buffer_length usbdevfs_urb 0 11350 NULL
@@ -9240,7 +9239,6 @@ enable_so_mru_ppp_27697 mru ppp 0 27697 NULL
 enable_so_rx_buf_sz_de_private_27701 rx_buf_sz de_private 0 27701 NULL
 enable_so_snd_pcm_plugin_alloc_fndecl_27703 snd_pcm_plugin_alloc fndecl 2 27703 NULL
 enable_so_actual_size_mlx4_en_rx_ring_27705 actual_size mlx4_en_rx_ring 0 27705 NULL
-enable_so_dsack_tcp_options_received_27706 dsack tcp_options_received 0 27706 NULL
 enable_so_sequence_num_usb_ftdi_27707 sequence_num usb_ftdi 0 27707 NULL
 enable_so_niu_rx_skb_append_fndecl_27708 niu_rx_skb_append fndecl 4-3-5 27708 NULL
 enable_so_pcpu_extend_area_map_fndecl_27710 pcpu_extend_area_map fndecl 2 27710 NULL

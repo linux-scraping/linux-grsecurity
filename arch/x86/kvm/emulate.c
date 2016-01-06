@@ -1881,7 +1881,7 @@ static int em_push_sreg(struct x86_emulate_ctxt *ctxt)
 static int em_pop_sreg(struct x86_emulate_ctxt *ctxt)
 {
 	int seg = ctxt->src2.val;
-	unsigned long selector;
+	u16 selector;
 	int rc;
 
 	rc = emulate_pop(ctxt, &selector, 2);
@@ -1893,7 +1893,7 @@ static int em_pop_sreg(struct x86_emulate_ctxt *ctxt)
 	if (ctxt->op_bytes > 2)
 		rsp_increment(ctxt, ctxt->op_bytes - 2);
 
-	rc = load_segment_descriptor(ctxt, (u16)selector, seg);
+	rc = load_segment_descriptor(ctxt, selector, seg);
 	return rc;
 }
 

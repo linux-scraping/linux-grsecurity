@@ -341,7 +341,7 @@ SYSCALL_DEFINE1(brk, unsigned long, brk)
 	rlim = rlimit(RLIMIT_DATA);
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
 	/* force a minimum 16MB brk heap on setuid/setgid binaries */
-	if (rlim < PAGE_SIZE && (get_dumpable(mm) != SUID_DUMP_USER) && gr_is_global_nonroot(current_uid()))
+	if (rlim < (4096 * PAGE_SIZE) && (get_dumpable(mm) != SUID_DUMP_USER) && gr_is_global_nonroot(current_uid()))
 		rlim = 4096 * PAGE_SIZE;
 #endif
 	if (check_data_rlimit(rlim, brk, mm->start_brk,

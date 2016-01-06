@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2015 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011-2016 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2, or (at your option) v3
  *
  * Homepage:
@@ -18,7 +18,7 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info initify_plugin_info = {
-	.version	= "20151228",
+	.version	= "20160104",
 	.help		= "initify_plugin\n",
 };
 
@@ -202,74 +202,71 @@ static bool is_nocapture_param(const gcall *stmt, int fn_arg_count)
 	return false;
 }
 
-static bool compare_vardecls(const_tree vardecl, tree op)
+static bool is_same_vardecl(const_tree op, const_tree vardecl)
 {
-	tree decl, offset;
-	HOST_WIDE_INT bitsize, bitpos;
-	enum machine_mode mode;
-	int unsignedp, reversep __unused, volatilep;
-	enum tree_code code = TREE_CODE(op);
+	if (op == vardecl)
+		return true;
+	if (!DECL_P(op))
+		return false;
+	return DECL_NAME(op) && !strcmp(DECL_NAME_POINTER(op), DECL_NAME_POINTER(vardecl));
+}
 
-	if (TREE_CODE_CLASS(code) == tcc_exceptional && code != SSA_NAME)
+static bool search_same_vardecl(const_tree value, const_tree vardecl)
+{
+	int i;
+
+	for (i = 0; i < TREE_OPERAND_LENGTH(value); i++) {
+		const_tree op = TREE_OPERAND(value, i);
+
+		if (is_same_vardecl(op, vardecl))
+			return true;
+		return search_same_vardecl(op, vardecl);
+	}
+	return false;
+}
+
+static bool check_constructor(const_tree constructor, const_tree vardecl)
+{
+	unsigned HOST_WIDE_INT cnt __unused;
+	tree value;
+
+	FOR_EACH_CONSTRUCTOR_VALUE(CONSTRUCTOR_ELTS(constructor), cnt, value) {
+		if (TREE_CODE(value) == CONSTRUCTOR)
+			return check_constructor(value, vardecl);
+		if (is_gimple_constant(value))
+			continue;
+
+		gcc_assert(TREE_OPERAND_LENGTH(value) > 0);
+		if (search_same_vardecl(value, vardecl))
+			return true;
+	}
+	return false;
+}
+
+static bool compare_ops(const_tree vardecl, tree op)
+{
+	if (TREE_CODE(op) == TREE_LIST)
+		op = TREE_VALUE(op);
+	if (TREE_CODE(op) == SSA_NAME)
+		op = SSA_NAME_VAR(op);
+	if (op == NULL_TREE)
 		return false;
 
-	if (code == ADDR_EXPR)
-		op = TREE_OPERAND(op, 0);
-
-	if (TREE_CODE(op) == COMPONENT_REF)
-		return false;
-
-	decl = get_inner_reference(op, &bitsize, &bitpos, &offset, &mode, &unsignedp, &reversep, &volatilep, true);
-
-	switch (TREE_CODE_CLASS(TREE_CODE(decl))) {
-	case tcc_comparison:
+	switch (TREE_CODE_CLASS(TREE_CODE(op))) {
+	case tcc_declaration:
+		return is_same_vardecl(op, vardecl);
+	case tcc_exceptional:
+		return check_constructor(op, vardecl);
 	case tcc_constant:
 	case tcc_statement:
+	case tcc_comparison:
 		return false;
 	default:
 		break;
 	}
 
-	switch (TREE_CODE(decl)) {
-#if BUILDING_GCC_VERSION >= 4006
-	case MEM_REF:
-#endif
-	case INDIRECT_REF:
-	case TARGET_MEM_REF:
-		decl = TREE_OPERAND(decl, 0);
-		if (decl == NULL_TREE)
-			return false;
-		break;
-	default:
-		break;
-	}
-
-	gcc_assert(decl != NULL_TREE);
-
-	if (TREE_CODE(decl) == ADDR_EXPR)
-		decl = TREE_OPERAND(decl, 0);
-	if (TREE_CODE(decl) == SSA_NAME)
-		decl = SSA_NAME_VAR(decl);
-	if (decl == NULL_TREE)
-		return false;
-
-	if (!DECL_P(decl)) {
-		debug_tree(vardecl);
-		debug_tree(op);
-		debug_tree(decl);
-		gcc_unreachable();
-	}
-
-	if (!VAR_P(decl))
-		return false;
-	if (!DECL_NAME(decl))
-		return false;
-
-	if (decl != vardecl && strcmp(DECL_NAME_POINTER(decl), DECL_NAME_POINTER(vardecl)))
-		return false;
-
-	gcc_assert(TREE_CODE(op) != SSA_NAME);
-	return true;
+	gcc_assert(TREE_OPERAND_LENGTH(op) > 0);
+	return search_same_vardecl(op, vardecl);
 }
 
 static bool search_capture_use(const_tree vardecl, gimple stmt)
@@ -286,7 +283,7 @@ static bool search_capture_use(const_tree vardecl, gimple stmt)
 		if (is_gimple_constant(op))
 			continue;
 
-		if (!compare_vardecls(vardecl, op))
+		if (!compare_ops(vardecl, op))
 			continue;
 
 		if (!is_gimple_call(stmt))
@@ -313,23 +310,19 @@ static bool is_in_capture_init(const_tree vardecl)
 	tree var;
 
 	FOR_EACH_LOCAL_DECL(cfun, i, var) {
-		unsigned HOST_WIDE_INT cnt;
-		tree index __unused, value;
 		const_tree initial = DECL_INITIAL(var);
 
+		if (DECL_EXTERNAL(var))
+			continue;
 		if (initial == NULL_TREE)
 			continue;
 		if (TREE_CODE(initial) != CONSTRUCTOR)
 			continue;
 
-		FOR_EACH_CONSTRUCTOR_ELT(CONSTRUCTOR_ELTS(initial), cnt, index, value) {
-			if (TREE_CODE(value) != ADDR_EXPR)
-				continue;
-			if (TREE_OPERAND(value, 0) == vardecl)
-				return true;
-		}
+		gcc_assert(TREE_CODE(TREE_TYPE(var)) == RECORD_TYPE || DECL_P(var));
+		if (check_constructor(initial, vardecl))
+			return true;
 	}
-
 	return false;
 }
 

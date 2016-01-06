@@ -934,11 +934,19 @@ ENDPROC(irq_entries_start)
 	 * tracking that we're in kernel mode.
 	 */
 	SWAPGS
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	pax_enter_kernel_user
+#else
+	pax_enter_kernel
+#endif
+
 #ifdef CONFIG_CONTEXT_TRACKING
 	call enter_from_user_mode
 #endif
 
-1:
+	jmp	2f
+1:	pax_enter_kernel
+2:
 	/*
 	 * Save previous stack pointer, optionally switch to interrupt stack.
 	 * irq_count is used to check if a CPU is already on an interrupt stack
@@ -950,17 +958,6 @@ ENDPROC(irq_entries_start)
 	incl	PER_CPU_VAR(irq_count)
 	cmovzq	PER_CPU_VAR(irq_stack_ptr), %rsp
 	pushq	%rdi
-
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	testb	$3, CS(%rdi)
-	jnz	1f
-	pax_enter_kernel
-	jmp	2f
-1:	pax_enter_kernel_user
-2:
-#else
-	pax_enter_kernel
-#endif
 
 	/* We entered an interrupt context - irqs are off: */
 	TRACE_IRQS_OFF
@@ -1463,14 +1460,12 @@ ENTRY(paranoid_entry)
 1:
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	testb	$3, CS+8(%rsp)
-	jnz	1f
-	pax_enter_kernel
+	jz	1f
+	pax_enter_kernel_user
 	jmp	2f
-1:	pax_enter_kernel_user
-2:
-#else
-	pax_enter_kernel
 #endif
+1:	pax_enter_kernel
+2:
 	pax_force_retaddr
 	ret
 ENDPROC(paranoid_entry)
@@ -1539,12 +1534,17 @@ ENTRY(error_entry)
 	testb	$3, CS+8(%rsp)
 	jz	.Lerror_kernelspace
 
-.Lerror_entry_from_usermode_swapgs:
 	/*
 	 * We entered from user mode or we're pretending to have entered
 	 * from user mode due to an IRET fault.
 	 */
 	SWAPGS
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	pax_enter_kernel_user
+#else
+	pax_enter_kernel
+#endif
 
 .Lerror_entry_from_usermode_after_swapgs:
 #ifdef CONFIG_CONTEXT_TRACKING
@@ -1552,16 +1552,6 @@ ENTRY(error_entry)
 #endif
 
 .Lerror_entry_done:
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	testb	$3, CS+8(%rsp)
-	jnz	1f
-	pax_enter_kernel
-	jmp	2f
-1:	pax_enter_kernel_user
-2:
-#else
-	pax_enter_kernel
-#endif
 	TRACE_IRQS_OFF
 	pax_force_retaddr
 	ret
@@ -1581,14 +1571,16 @@ ENTRY(error_entry)
 	cmpq	%rax, RIP+8(%rsp)
 	je	.Lbstep_iret
 	cmpq	$gs_change, RIP+8(%rsp)
-	jne	.Lerror_entry_done
+	jne	1f
 
 	/*
 	 * hack: gs_change can fail with user gsbase.  If this happens, fix up
 	 * gsbase and proceed.  We'll fix up the exception and land in
 	 * gs_change's error handler with kernel gsbase.
 	 */
-	jmp	.Lerror_entry_from_usermode_swapgs
+	SWAPGS
+1:	pax_enter_kernel
+	jmp	.Lerror_entry_done
 
 .Lbstep_iret:
 	/* Fix truncated RIP */
@@ -1601,6 +1593,12 @@ ENTRY(error_entry)
 	 * Switch to kernel gsbase:
 	 */
 	SWAPGS
+
+#ifdef CONFIG_PAX_MEMORY_UDEREF
+	pax_enter_kernel_user
+#else
+	pax_enter_kernel
+#endif
 
 	/*
 	 * Pretend that the exception came from user mode: set up pt_regs

@@ -440,7 +440,7 @@ void __init_or_module apply_alternatives(struct alt_instr *start,
 
 		/* 0xe8 is a relative jump; fix the offset. */
 		if (*insnbuf == 0xe8 && a->replacementlen == 5) {
-			*(s32 *)(insnbuf + 1) += vreplacement - vinstr;
+			*(s32 *)(insnbuf + 1) += vreplacement - instr;
 			DPRINTK("Fix CALL offset: 0x%x, CALL 0x%lx",
 				*(s32 *)(insnbuf + 1),
 				(unsigned long)vinstr + *(s32 *)(insnbuf + 1) + 5);
