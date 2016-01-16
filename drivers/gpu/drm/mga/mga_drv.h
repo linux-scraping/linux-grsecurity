@@ -152,7 +152,7 @@ typedef struct drm_mga_private {
 } drm_mga_private_t;
 
 extern const struct drm_ioctl_desc mga_ioctls[];
-extern int mga_max_ioctl;
+extern const int mga_max_ioctl;
 
 				/* mga_dma.c */
 extern int mga_dma_bootstrap(struct drm_device *dev, void *data,

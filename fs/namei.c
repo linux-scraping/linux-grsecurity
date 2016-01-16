@@ -3187,9 +3187,6 @@ static int do_last(struct nameidata *nd,
 		if (error)
 			return error;
 
-		if (!gr_acl_handle_hidden_file(dir, nd->path.mnt))
-			return -ENOENT;
-
 		audit_inode(nd->name, dir, LOOKUP_PARENT);
 		/* trailing slashes? */
 		if (unlikely(nd->last.name[nd->last.len]))

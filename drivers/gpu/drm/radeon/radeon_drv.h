@@ -336,7 +336,7 @@ typedef struct drm_radeon_kcmd_buffer {
 
 extern int radeon_no_wb;
 extern struct drm_ioctl_desc radeon_ioctls[];
-extern int radeon_max_ioctl;
+extern const int radeon_max_ioctl;
 
 extern u32 radeon_get_ring_head(drm_radeon_private_t *dev_priv);
 extern void radeon_set_ring_head(drm_radeon_private_t *dev_priv, u32 val);

@@ -152,6 +152,7 @@ void gr_handle_brute_check(void)
 void gr_handle_kernel_exploit(void)
 {
 #ifdef CONFIG_GRKERNSEC_KERN_LOCKOUT
+	static unsigned int num_banned_users __read_only;
 	const struct cred *cred;
 	struct task_struct *tsk, *tsk2;
 	struct user_struct *user;
@@ -165,6 +166,12 @@ void gr_handle_kernel_exploit(void)
 	if (gr_is_global_root(uid))
 		panic("grsec: halting the system due to suspicious kernel crash caused by root");
 	else {
+		pax_open_kernel();
+		num_banned_users++;
+		pax_close_kernel();
+		if (num_banned_users > 8)
+			panic("grsec: halting the system due to suspicious kernel crash caused by a large number of different users");
+
 		/* kill all the processes of this user, hold a reference
 		   to their creds struct, and prevent them from creating
 		   another process until system reset

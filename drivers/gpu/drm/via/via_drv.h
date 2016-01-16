@@ -117,7 +117,7 @@ enum via_family {
 #define VIA_WRITE8(reg, val)	DRM_WRITE8(VIA_BASE, reg, val)
 
 extern const struct drm_ioctl_desc via_ioctls[];
-extern int via_max_ioctl;
+extern const int via_max_ioctl;
 
 extern int via_fb_init(struct drm_device *dev, void *data, struct drm_file *file_priv);
 extern int via_mem_alloc(struct drm_device *dev, void *data, struct drm_file *file_priv);

@@ -2601,7 +2601,7 @@ struct drm_i915_cmd_table {
 #include "i915_trace.h"
 
 extern const struct drm_ioctl_desc i915_ioctls[];
-extern int i915_max_ioctl;
+extern const int i915_max_ioctl;
 
 extern int i915_suspend_legacy(struct drm_device *dev, pm_message_t state);
 extern int i915_resume_legacy(struct drm_device *dev);

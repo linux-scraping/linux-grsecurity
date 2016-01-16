@@ -1697,25 +1697,27 @@ static struct pci_driver i915_pci_driver = {
 
 static int __init i915_init(void)
 {
-	driver.num_ioctls = i915_max_ioctl;
+	pax_open_kernel();
+	*(int *)&driver.num_ioctls = i915_max_ioctl;
 
 	/*
 	 * Enable KMS by default, unless explicitly overriden by
 	 * either the i915.modeset prarameter or by the
 	 * vga_text_mode_force boot option.
 	 */
-	driver.driver_features |= DRIVER_MODESET;
+	*(u32 *)&driver.driver_features |= DRIVER_MODESET;
 
 	if (i915.modeset == 0)
-		driver.driver_features &= ~DRIVER_MODESET;
+		*(u32 *)&driver.driver_features &= ~DRIVER_MODESET;
 
 #ifdef CONFIG_VGA_CONSOLE
 	if (vgacon_text_force() && i915.modeset == -1)
-		driver.driver_features &= ~DRIVER_MODESET;
+		*(u32 *)&driver.driver_features &= ~DRIVER_MODESET;
 #endif
 
 	if (!(driver.driver_features & DRIVER_MODESET)) {
-		driver.get_vblank_timestamp = NULL;
+		*(void **)&driver.get_vblank_timestamp = NULL;
+		pax_close_kernel();
 		/* Silently fail loading to not upset userspace. */
 		DRM_DEBUG_DRIVER("KMS and UMS disabled.\n");
 		return 0;
@@ -1727,7 +1729,8 @@ static int __init i915_init(void)
 	 * a single CRTC will actually work.
 	 */
 	if (driver.driver_features & DRIVER_MODESET)
-		driver.driver_features |= DRIVER_ATOMIC;
+		*(u32 *)&driver.driver_features |= DRIVER_ATOMIC;
+	pax_close_kernel();
 
 	return drm_pci_init(&driver, &i915_pci_driver);
 }

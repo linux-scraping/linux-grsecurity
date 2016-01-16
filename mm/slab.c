@@ -1696,7 +1696,7 @@ static void store_stackinfo(struct kmem_cache *cachep, unsigned long *addr,
 
 		while (!kstack_end(sptr)) {
 			svalue = *sptr++;
-			if (kernel_text_address(svalue)) {
+			if (kernel_text_address(ktva_ktla(svalue))) {
 				*addr++ = svalue;
 				size -= sizeof(unsigned long);
 				if (size <= sizeof(unsigned long))

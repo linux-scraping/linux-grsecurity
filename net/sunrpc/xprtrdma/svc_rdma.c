@@ -87,17 +87,17 @@ static int read_reset_stat(struct ctl_table *table, int write,
 			   void __user *buffer, size_t *lenp,
 			   loff_t *ppos)
 {
-	atomic_t *stat = (atomic_t *)table->data;
+	atomic_unchecked_t *stat = (atomic_unchecked_t *)table->data;
 
 	if (!stat)
 		return -EINVAL;
 
 	if (write)
-		atomic_set(stat, 0);
+		atomic_set_unchecked(stat, 0);
 	else {
 		char str_buf[32];
 		char *data;
-		int len = snprintf(str_buf, 32, "%d\n", atomic_read(stat));
+		int len = snprintf(str_buf, 32, "%d\n", atomic_read_unchecked(stat));
 		if (len >= 32)
 			return -EFAULT;
 		len = strlen(str_buf);

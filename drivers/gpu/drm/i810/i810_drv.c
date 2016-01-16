@@ -87,7 +87,11 @@ static int __init i810_init(void)
 		pr_err("drm/i810 does not support SMP\n");
 		return -EINVAL;
 	}
-	driver.num_ioctls = i810_max_ioctl;
+
+	pax_open_kernel();
+	*(int *)&driver.num_ioctls = i810_max_ioctl;
+	pax_close_kernel();
+
 	return drm_pci_init(&driver, &i810_pci_driver);
 }
 

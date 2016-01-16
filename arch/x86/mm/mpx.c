@@ -193,7 +193,7 @@ static int mpx_insn_decode(struct insn *insn,
 	 */
 	if (!nr_copied)
 		return -EFAULT;
-	insn_init(insn, buf, nr_copied, x86_64);
+	insn_init(insn, (void *)ktva_ktla((unsigned long)buf), nr_copied, x86_64);
 	insn_get_length(insn);
 	/*
 	 * copy_from_user() tries to get as many bytes as we could see in

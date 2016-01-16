@@ -135,7 +135,7 @@ typedef struct drm_r128_buf_priv {
 } drm_r128_buf_priv_t;
 
 extern const struct drm_ioctl_desc r128_ioctls[];
-extern int r128_max_ioctl;
+extern const int r128_max_ioctl;
 
 				/* r128_cce.c */
 extern int r128_cce_init(struct drm_device *dev, void *data, struct drm_file *file_priv);

@@ -12431,3 +12431,4 @@ enable_so_rate_n_flags_iwl_rx_phy_info_45542 rate_n_flags iwl_rx_phy_info 0 4554
 enable_so_deh_location_reiserfs_de_head_7682 deh_location reiserfs_de_head 0 7682 NULL
 enable_so_deh_offset_reiserfs_de_head_42314 deh_offset reiserfs_de_head 0 42314 NULL
 enable_so_dsack_tcp_options_received_27706 dsack tcp_options_received 0 27706 NULL
+enable_so_inbufBits_bunzip_data_13788 inbufBits bunzip_data 0 13788 NULL
