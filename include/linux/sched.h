@@ -866,8 +866,8 @@ struct user_struct {
 	unsigned char kernel_banned;
 #endif
 #ifdef CONFIG_GRKERNSEC_BRUTE
-	unsigned char suid_banned;
-	unsigned long suid_ban_expires;
+	unsigned char sugid_banned;
+	unsigned long sugid_ban_expires;
 #endif
 
 	/* Hash table maintenance information */

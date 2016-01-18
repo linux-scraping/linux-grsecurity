@@ -108,7 +108,8 @@ int asix_rx_fixup_internal(struct usbnet *dev, struct sk_buff *skb,
 		}
 
 		if (rx->size > skb->len - offset) {
-			remaining = rx->size - (skb->len - offset);
+			remaining = skb->len - offset;
+			remaining = rx->size - remaining;
 			rx->size = skb->len - offset;
 		}
 

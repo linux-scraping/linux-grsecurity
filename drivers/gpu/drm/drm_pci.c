@@ -340,7 +340,10 @@ int drm_pci_init(struct drm_driver *driver, struct pci_driver *pdriver)
 		return pci_register_driver(pdriver);
 
 	/* If not using KMS, fall back to stealth mode manual scanning. */
+	pax_open_kernel();
 	INIT_LIST_HEAD((struct list_head *)&driver->legacy_dev_list);
+	pax_close_kernel();
+
 	for (i = 0; pdriver->id_table[i].vendor != 0; i++) {
 		pid = &pdriver->id_table[i];
 

@@ -566,7 +566,7 @@ static struct drm_driver kms_driver = {
 	.driver_features =
 	    DRIVER_USE_AGP |
 	    DRIVER_HAVE_IRQ | DRIVER_IRQ_SHARED | DRIVER_GEM |
-	    DRIVER_PRIME | DRIVER_RENDER,
+	    DRIVER_PRIME | DRIVER_RENDER | DRIVER_MODESET,
 	.load = radeon_driver_load_kms,
 	.open = radeon_driver_open_kms,
 	.preclose = radeon_driver_preclose_kms,
@@ -652,7 +652,6 @@ static int __init radeon_init(void)
 		pdriver = &radeon_kms_pci_driver;
 
 		pax_open_kernel();
-		*(u32 *)&driver->driver_features |= DRIVER_MODESET;
 		*(int *)&driver->num_ioctls = radeon_max_kms_ioctl;
 		pax_close_kernel();
 
@@ -665,7 +664,6 @@ static int __init radeon_init(void)
 		pdriver = &radeon_pci_driver;
 
 		pax_open_kernel();
-		*(u32 *)&driver->driver_features &= ~DRIVER_MODESET;
 		*(int *)&driver->num_ioctls = radeon_max_ioctl;
 		pax_close_kernel();
 #else

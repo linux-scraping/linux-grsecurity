@@ -96,7 +96,7 @@ static LIST_HEAD(formats);
 static DEFINE_RWLOCK(binfmt_lock);
 
 extern int gr_process_kernel_exec_ban(void);
-extern int gr_process_suid_exec_ban(const struct linux_binprm *bprm);
+extern int gr_process_sugid_exec_ban(const struct linux_binprm *bprm);
 
 void __register_binfmt(struct linux_binfmt * fmt, int insert)
 {
@@ -1711,7 +1711,7 @@ static int do_execveat_common(int fd, struct filename *filename,
 		current->signal->rlim[RLIMIT_STACK].rlim_cur = 8 * 1024 * 1024;
 #endif
 
-	if (gr_process_kernel_exec_ban() || gr_process_suid_exec_ban(bprm)) {
+	if (gr_process_kernel_exec_ban() || gr_process_sugid_exec_ban(bprm)) {
 		retval = -EPERM;
 		goto out_fail;
 	}

@@ -377,10 +377,6 @@ static int psb_driver_load(struct drm_device *dev, unsigned long flags)
 	dev->vblank_disable_allowed = true;
 	dev->max_vblank_count = 0xffffff; /* only 24 bits of frame count */
 
-	pax_open_kernel();
-	*(void **)&dev->driver->get_vblank_counter = psb_get_vblank_counter;
-	pax_close_kernel();
-
 	psb_modeset_init(dev);
 	psb_fbdev_init(dev);
 	drm_kms_helper_poll_init(dev);

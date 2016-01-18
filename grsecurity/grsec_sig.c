@@ -107,10 +107,10 @@ void gr_handle_brute_attach(int dumpable)
 			user = find_user(uid);
 			if (user == NULL)
 				goto unlock;
-			user->suid_banned = 1;
-			user->suid_ban_expires = get_seconds() + GR_USER_BAN_TIME;
-			if (user->suid_ban_expires == ~0UL)
-				user->suid_ban_expires--;
+			user->sugid_banned = 1;
+			user->sugid_ban_expires = get_seconds() + GR_USER_BAN_TIME;
+			if (user->sugid_ban_expires == ~0UL)
+				user->sugid_ban_expires--;
 
 			/* only kill other threads of the same binary, from the same user */
 			do_each_thread(tsk2, tsk) {
@@ -196,11 +196,11 @@ void gr_handle_kernel_exploit(void)
 }
 
 #ifdef CONFIG_GRKERNSEC_BRUTE
-static bool suid_ban_expired(struct user_struct *user)
+static bool sugid_ban_expired(struct user_struct *user)
 {
-	if (user->suid_ban_expires != ~0UL && time_after_eq(get_seconds(), user->suid_ban_expires)) {
-		user->suid_banned = 0;
-		user->suid_ban_expires = 0;
+	if (user->sugid_ban_expires != ~0UL && time_after_eq(get_seconds(), user->sugid_ban_expires)) {
+		user->sugid_banned = 0;
+		user->sugid_ban_expires = 0;
 		free_uid(user);
 		return true;
 	}
@@ -227,15 +227,16 @@ int gr_process_kernel_setuid_ban(struct user_struct *user)
 	return 0;
 }
 
-int gr_process_suid_exec_ban(const struct linux_binprm *bprm)
+int gr_process_sugid_exec_ban(const struct linux_binprm *bprm)
 {
 #ifdef CONFIG_GRKERNSEC_BRUTE
 	struct user_struct *user = current->cred->user;
-	if (unlikely(user->suid_banned)) {
-		if (suid_ban_expired(user))
+	if (unlikely(user->sugid_banned)) {
+		if (sugid_ban_expired(user))
 			return 0;
-		/* disallow execution of suid binaries only */
-		else if (!uid_eq(bprm->cred->euid, current->cred->uid))
+		/* disallow execution of suid/sgid binaries only */
+		else if (!uid_eq(bprm->cred->euid, current->cred->uid) ||
+			 !gid_eq(bprm->cred->egid, current->cred->gid))
 			return -EPERM;
 	}
 #endif

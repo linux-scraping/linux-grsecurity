@@ -634,6 +634,7 @@ struct drm_driver {
 	/* List of devices hanging off this driver with stealth attach. */
 	struct list_head legacy_dev_list;
 } __do_const;
+typedef struct drm_driver __no_const drm_driver_no_const;
 
 enum drm_minor_type {
 	DRM_MINOR_LEGACY,

@@ -77,7 +77,7 @@ int nouveau_runtime_pm = -1;
 module_param_named(runpm, nouveau_runtime_pm, int, 0400);
 
 static struct drm_driver driver_pci;
-static struct drm_driver driver_platform;
+static drm_driver_no_const driver_platform __read_only;
 
 static u64
 nouveau_pci_name(struct pci_dev *pdev)
@@ -1067,8 +1067,8 @@ static int __init
 nouveau_drm_init(void)
 {
 	pax_open_kernel();
-	memcpy((void *)&driver_platform, &driver_pci, sizeof driver_pci);
-	*(void **)&driver_platform.set_busid = drm_platform_set_busid;
+	driver_platform = driver_pci;
+	driver_platform.set_busid = drm_platform_set_busid;
 	pax_close_kernel();
 
 	nouveau_display_options();
