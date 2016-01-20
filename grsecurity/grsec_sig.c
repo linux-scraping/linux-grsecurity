@@ -5,6 +5,7 @@
 #include <linux/grsecurity.h>
 #include <linux/grinternal.h>
 #include <linux/hardirq.h>
+#include <asm/pgtable.h>
 
 char *signames[] = {
 	[SIGSEGV] = "Segmentation fault",
