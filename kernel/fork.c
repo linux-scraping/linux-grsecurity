@@ -589,11 +589,16 @@ static __latent_entropy int dup_mmap(struct mm_struct *mm, struct mm_struct *old
 	if (oldmm->pax_flags & MF_PAX_SEGMEXEC) {
 		struct vm_area_struct *mpnt_m;
 
-		for (mpnt = oldmm->mmap, mpnt_m = mm->mmap; mpnt; mpnt = mpnt->vm_next, mpnt_m = mpnt_m->vm_next) {
+		for (mpnt = oldmm->mmap, mpnt_m = mm->mmap; mpnt; mpnt = mpnt->vm_next) {
+			if (mpnt->vm_flags & VM_DONTCOPY)
+				continue;
+
 			BUG_ON(!mpnt_m || mpnt_m->vm_mirror || mpnt->vm_mm != oldmm || mpnt_m->vm_mm != mm);
 
-			if (!mpnt->vm_mirror)
+			if (!mpnt->vm_mirror) {
+				mpnt_m = mpnt_m->vm_next;
 				continue;
+			}
 
 			if (mpnt->vm_end <= SEGMEXEC_TASK_SIZE) {
 				BUG_ON(mpnt->vm_mirror->vm_mirror != mpnt);
@@ -604,6 +609,8 @@ static __latent_entropy int dup_mmap(struct mm_struct *mm, struct mm_struct *old
 				mpnt_m->vm_mirror->vm_mirror = mpnt_m;
 				mpnt->vm_mirror->vm_mirror = mpnt;
 			}
+
+			mpnt_m = mpnt_m->vm_next;
 		}
 		BUG_ON(mpnt_m);
 	}

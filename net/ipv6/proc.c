@@ -151,7 +151,7 @@ static const struct snmp_mib snmp6_udplite6_list[] = {
 	SNMP_MIB_SENTINEL
 };
 
-static void snmp6_seq_show_icmpv6msg(struct seq_file *seq, atomic_long_t *smib)
+static void snmp6_seq_show_icmpv6msg(struct seq_file *seq, atomic_long_unchecked_t *smib)
 {
 	char name[32];
 	int i;
@@ -168,14 +168,14 @@ static void snmp6_seq_show_icmpv6msg(struct seq_file *seq, atomic_long_t *smib)
 		snprintf(name, sizeof(name), "Icmp6%s%s",
 			i & 0x100 ? "Out" : "In", p);
 		seq_printf(seq, "%-32s\t%lu\n", name,
-			   atomic_long_read(smib + i));
+			   atomic_long_read_unchecked(smib + i));
 	}
 
 	/* print by number (nonzero only) - ICMPMsgStat format */
 	for (i = 0; i < ICMP6MSG_MIB_MAX; i++) {
 		unsigned long val;
 
-		val = atomic_long_read(smib + i);
+		val = atomic_long_read_unchecked(smib + i);
 		if (!val)
 			continue;
 		snprintf(name, sizeof(name), "Icmp6%sType%u",
@@ -188,7 +188,7 @@ static void snmp6_seq_show_icmpv6msg(struct seq_file *seq, atomic_long_t *smib)
  * or shared one (smib != NULL)
  */
 static void snmp6_seq_show_item(struct seq_file *seq, void __percpu *pcpumib,
-				atomic_long_t *smib,
+				atomic_long_unchecked_t *smib,
 				const struct snmp_mib *itemlist)
 {
 	int i;
@@ -197,7 +197,7 @@ static void snmp6_seq_show_item(struct seq_file *seq, void __percpu *pcpumib,
 	for (i = 0; itemlist[i].name; i++) {
 		val = pcpumib ?
 			snmp_fold_field(pcpumib, itemlist[i].entry) :
-			atomic_long_read(smib + itemlist[i].entry);
+			atomic_long_read_unchecked(smib + itemlist[i].entry);
 		seq_printf(seq, "%-32s\t%lu\n", itemlist[i].name, val);
 	}
 }

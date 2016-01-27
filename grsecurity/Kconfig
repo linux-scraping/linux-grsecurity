@@ -21,6 +21,9 @@ config GRKERNSEC_KMEM
 	  you use the RBAC system, as it is still possible for an attacker to
 	  modify the running kernel through other more obscure methods.
 
+	  Enabling this feature will prevent the "cpupower" and "powertop" tools
+	  from working and excludes debugfs from being compiled into the kernel.
+
 	  It is highly recommended that you say Y here if you meet all the
 	  conditions above.
 

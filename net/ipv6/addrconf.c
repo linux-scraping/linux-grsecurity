@@ -4695,7 +4695,7 @@ static inline size_t inet6_if_nlmsg_size(void)
 	       + nla_total_size(inet6_ifla6_size()); /* IFLA_PROTINFO */
 }
 
-static inline void __snmp6_fill_statsdev(u64 *stats, atomic_long_t *mib,
+static inline void __snmp6_fill_statsdev(u64 *stats, atomic_long_unchecked_t *mib,
 				      int items, int bytes)
 {
 	int i;
@@ -4705,7 +4705,7 @@ static inline void __snmp6_fill_statsdev(u64 *stats, atomic_long_t *mib,
 	/* Use put_unaligned() because stats may not be aligned for u64. */
 	put_unaligned(items, &stats[0]);
 	for (i = 1; i < items; i++)
-		put_unaligned(atomic_long_read(&mib[i]), &stats[i]);
+		put_unaligned(atomic_long_read_unchecked(&mib[i]), &stats[i]);
 
 	memset(&stats[items], 0, pad);
 }
