@@ -183,9 +183,6 @@ static interesting_stmts_t search_interesting_stmt(interesting_stmts_t head, nex
 
 	if (skip_types(orig_node))
 		return head;
-	// !!! temporarily ignore bitfield types
-	if (orig_code == FIELD_DECL && DECL_BIT_FIELD_TYPE(orig_node))
-		return head;
 
 	// find a defining marked caller argument or struct field for arg
 	if (check_intentional_size_overflow_asm_and_attribute(orig_node) != MARK_NO)
@@ -544,8 +541,7 @@ static interesting_stmts_t search_interesting_structs_vardecls(interesting_stmts
 	if (DECL_NAME(decl) == NULL_TREE)
 		return head;
 
-	// !!! temporarily ignore bitfield types
-	if (TREE_CODE(decl) == FIELD_DECL && DECL_BIT_FIELD_TYPE(decl))
+	if (is_bitfield_unnamed_cast(decl, assign))
 		return head;
 
 	next_node = get_interesting_function_next_node(decl, 0);

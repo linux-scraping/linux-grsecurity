@@ -205,9 +205,6 @@ enum intentional_mark get_intentional_attr_type(const_tree node)
 	switch (TREE_CODE(node)) {
 	case COMPONENT_REF:
 		cur_decl = search_field_decl(node);
-		// !!! temporarily ignore bitfield types
-		if (DECL_BIT_FIELD_TYPE(cur_decl))
-			return MARK_YES;
 		if (is_turn_off_intentional_attr(cur_decl))
 			return MARK_TURN_OFF;
 		if (is_end_intentional_intentional_attr(cur_decl))
@@ -236,9 +233,6 @@ enum intentional_mark get_intentional_attr_type(const_tree node)
 		break;
 	}
 	case FIELD_DECL:
-		// !!! temporarily ignore bitfield types
-		if (DECL_BIT_FIELD_TYPE(node))
-			return MARK_YES;
 	case VAR_DECL:
 		if (is_end_intentional_intentional_attr(node))
 			return MARK_END_INTENTIONAL;
@@ -1029,4 +1023,94 @@ bool neg_short_add_intentional_overflow(gassign *unary_stmt)
 		return true;
 	add_rhs2 = gimple_assign_rhs2(add_stmt);
 	return check_add_stmt(add_rhs2);
+}
+
+/* True:
+ * _25 = (<unnamed-unsigned:1>) _24;
+ * r_5(D)->stereo = _25;
+ */
+bool is_bitfield_unnamed_cast(const_tree decl, gassign *assign)
+{
+	const_tree rhs, type;
+	gimple def_stmt;
+
+	if (TREE_CODE(decl) != FIELD_DECL)
+		return false;
+	if (!DECL_BIT_FIELD_TYPE(decl))
+		return false;
+	if (gimple_num_ops(assign) != 2)
+		return false;
+
+	rhs = gimple_assign_rhs1(assign);
+	if (is_gimple_constant(rhs))
+		return false;
+	type = TREE_TYPE(rhs);
+	if (TREE_CODE(type) == BOOLEAN_TYPE)
+		return false;
+
+	def_stmt = get_def_stmt(rhs);
+	if (!gimple_assign_cast_p(def_stmt))
+		return false;
+	return TYPE_PRECISION(type) < CHAR_TYPE_SIZE;
+}
+
+static bool is_mult_const(const_tree lhs)
+{
+	const_gimple def_stmt;
+	const_tree rhs1, rhs2;
+
+	def_stmt = get_def_stmt(lhs);
+	if (!def_stmt || gimple_assign_rhs_code(def_stmt) != MULT_EXPR)
+		return false;
+
+	rhs1 = gimple_assign_rhs1(def_stmt);
+	rhs2 = gimple_assign_rhs2(def_stmt);
+	if (is_gimple_constant(rhs1))
+		return !is_lt_signed_type_max(rhs1);
+	else if (is_gimple_constant(rhs2))
+		return !is_lt_signed_type_max(rhs2);
+	return false;
+}
+
+/* True:
+ * fs/cifs/file.c cifs_write_from_iter()
+ * u32 = u64 - (u64 - constant) * constant
+ * wdata->tailsz = cur_len - (nr_pages - 1) * PAGE_SIZE;
+ *
+ * _51 = _50 * 4294963200;
+ * _52 = _49 + _51;
+ * _53 = _52 + 4096;
+ */
+
+bool uconst_neg_intentional_overflow(struct visited *visited, const gassign *stmt)
+{
+	const_gimple def_stmt;
+	const_tree noconst_rhs;
+	tree rhs1, rhs2;
+
+	// _53 = _52 + const;
+	if (gimple_assign_rhs_code(stmt) != PLUS_EXPR)
+		return false;
+	rhs1 = gimple_assign_rhs1(stmt);
+	rhs2 = gimple_assign_rhs2(stmt);
+	if (is_gimple_constant(rhs1))
+		noconst_rhs = rhs2;
+	else if (is_gimple_constant(rhs2))
+		noconst_rhs = rhs1;
+	else
+		return false;
+	def_stmt = get_def_stmt(noconst_rhs);
+
+	// _52 = _49 + _51;
+	if (!def_stmt)
+		return false;
+	if (gimple_assign_rhs_code(def_stmt) != PLUS_EXPR)
+		return false;
+	rhs1 = gimple_assign_rhs1(def_stmt);
+	rhs2 = gimple_assign_rhs2(def_stmt);
+	if (is_gimple_constant(rhs1) || is_gimple_constant(rhs2))
+		return false;
+
+	// _51 = _50 * gt signed type max;
+	return is_mult_const(rhs1) || is_mult_const(rhs2);
 }
