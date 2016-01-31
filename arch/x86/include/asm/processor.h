@@ -479,6 +479,7 @@ static inline unsigned long current_top_of_stack(unsigned int cpu)
 #else
 #define __cpuid			native_cpuid
 #define paravirt_enabled()	0
+#define paravirt_has(x) 	0
 
 static inline void load_sp0(struct tss_struct *tss,
 			    struct thread_struct *thread)

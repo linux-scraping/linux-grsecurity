@@ -1340,7 +1340,10 @@ static inline int mlock_future_check(struct mm_struct *mm,
 		locked += mm->locked_vm;
 		lock_limit = rlimit(RLIMIT_MEMLOCK);
 		lock_limit >>= PAGE_SHIFT;
-		gr_learn_resource(current, RLIMIT_MEMLOCK, locked << PAGE_SHIFT, 1);
+		if (locked > (ULONG_MAX >> PAGE_SHIFT))
+			gr_learn_resource(current, RLIMIT_MEMLOCK, ULONG_MAX, 1);
+		else
+			gr_learn_resource(current, RLIMIT_MEMLOCK, locked << PAGE_SHIFT, 1);
 		if (locked > lock_limit && !capable(CAP_IPC_LOCK))
 			return -EAGAIN;
 	}
@@ -2429,7 +2432,10 @@ static int acct_stack_growth(struct vm_area_struct *vma, unsigned long size, uns
 		locked = mm->locked_vm + grow;
 		limit = READ_ONCE(rlim[RLIMIT_MEMLOCK].rlim_cur);
 		limit >>= PAGE_SHIFT;
-		gr_learn_resource(current, RLIMIT_MEMLOCK, locked << PAGE_SHIFT, 1);
+		if (locked > (ULONG_MAX >> PAGE_SHIFT))
+			gr_learn_resource(current, RLIMIT_MEMLOCK, ULONG_MAX, 1);
+		else
+			gr_learn_resource(current, RLIMIT_MEMLOCK, locked << PAGE_SHIFT, 1);
 		if (locked > limit && !capable(CAP_IPC_LOCK))
 			return -ENOMEM;
 	}
@@ -3542,7 +3548,11 @@ int may_expand_vm(struct mm_struct *mm, unsigned long npages)
 
 	lim = rlimit(RLIMIT_AS) >> PAGE_SHIFT;
 
-	gr_learn_resource(current, RLIMIT_AS, (cur + npages) << PAGE_SHIFT, 1);
+	if ((cur + npages) > (ULONG_MAX >> PAGE_SHIFT))
+		gr_learn_resource(current, RLIMIT_AS, ULONG_MAX, 1);
+	else
+		gr_learn_resource(current, RLIMIT_AS, (cur + npages) << PAGE_SHIFT, 1);
+
 	if (cur + npages > lim)
 		return 0;
 	return 1;

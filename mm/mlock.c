@@ -637,7 +637,10 @@ SYSCALL_DEFINE2(mlock, unsigned long, start, size_t, len)
 	locked += current->mm->locked_vm;
 
 	/* check against resource limits */
-	gr_learn_resource(current, RLIMIT_MEMLOCK, (current->mm->locked_vm << PAGE_SHIFT) + len, 1);
+	if (locked > (ULONG_MAX >> PAGE_SHIFT))
+		gr_learn_resource(current, RLIMIT_MEMLOCK, ULONG_MAX, 1);
+	else
+		gr_learn_resource(current, RLIMIT_MEMLOCK, locked << PAGE_SHIFT, 1);
 	if ((locked <= lock_limit) || capable(CAP_IPC_LOCK))
 		error = do_mlock(start, len, 1);
 
@@ -716,9 +719,11 @@ SYSCALL_DEFINE1(mlockall, int, flags)
 
 	ret = -ENOMEM;
 
-	gr_learn_resource(current, RLIMIT_MEMLOCK, current->mm->total_vm << PAGE_SHIFT, 1);
-
 	down_write(&current->mm->mmap_sem);
+	if (current->mm->total_vm > (ULONG_MAX >> PAGE_SHIFT))
+		gr_learn_resource(current, RLIMIT_MEMLOCK, ULONG_MAX, 1);
+	else
+		gr_learn_resource(current, RLIMIT_MEMLOCK, current->mm->total_vm << PAGE_SHIFT, 1);
 	if (!(flags & MCL_CURRENT) || (current->mm->total_vm <= lock_limit) ||
 	    capable(CAP_IPC_LOCK))
 		ret = do_mlockall(flags);
