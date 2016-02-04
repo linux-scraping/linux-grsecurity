@@ -100,7 +100,7 @@ static ssize_t key_tx_spec_read(struct file *file, char __user *userbuf,
 	case WLAN_CIPHER_SUITE_BIP_GMAC_256:
 	case WLAN_CIPHER_SUITE_GCMP:
 	case WLAN_CIPHER_SUITE_GCMP_256:
-		pn = atomic64_read(&key->conf.tx_pn);
+		pn = atomic64_read_unchecked(&key->conf.tx_pn);
 		len = scnprintf(buf, sizeof(buf), "%02x%02x%02x%02x%02x%02x\n",
 				(u8)(pn >> 40), (u8)(pn >> 32), (u8)(pn >> 24),
 				(u8)(pn >> 16), (u8)(pn >> 8), (u8)pn);

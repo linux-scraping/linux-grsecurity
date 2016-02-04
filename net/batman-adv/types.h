@@ -529,7 +529,7 @@ enum batadv_counters {
  * @work: work queue callback item for translation table purging
  */
 struct batadv_priv_tt {
-	atomic_t vn;
+	atomic_unchecked_t vn;
 	atomic_t ogm_append_cnt;
 	atomic_t local_changes;
 	struct list_head changes_list;

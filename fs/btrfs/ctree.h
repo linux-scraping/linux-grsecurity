@@ -1542,7 +1542,7 @@ struct btrfs_fs_info {
 
 	/* this protects tree_mod_seq_list */
 	spinlock_t tree_mod_seq_lock;
-	atomic64_t tree_mod_seq;
+	atomic64_unchecked_t tree_mod_seq;
 	struct list_head tree_mod_seq_list;
 
 	/* this protects tree_mod_log */
@@ -1847,7 +1847,7 @@ struct btrfs_root {
 	struct list_head log_ctxs[2];
 	atomic_t log_writers;
 	atomic_t log_commit[2];
-	atomic_t log_batch;
+	atomic_unchecked_t log_batch;
 	int log_transid;
 	/* No matter the commit succeeds or not*/
 	int log_transid_committed;

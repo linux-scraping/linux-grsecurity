@@ -250,7 +250,7 @@ cttimeout_get_timeout(struct sock *ctnl, struct sk_buff *skb,
 	struct ctnl_timeout *cur;
 
 	if (nlh->nlmsg_flags & NLM_F_DUMP) {
-		struct netlink_dump_control c = {
+		static struct netlink_dump_control c = {
 			.dump = ctnl_timeout_dump,
 		};
 		return netlink_dump_start(ctnl, skb, nlh, &c);

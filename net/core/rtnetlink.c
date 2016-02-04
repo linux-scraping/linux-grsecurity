@@ -3339,7 +3339,7 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
 		__rtnl_unlock();
 		rtnl = net->rtnl;
 		{
-			struct netlink_dump_control c = {
+			netlink_dump_control_no_const c = {
 				.dump		= dumpit,
 				.min_dump_alloc	= min_dump_alloc,
 			};

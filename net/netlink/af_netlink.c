@@ -2876,7 +2876,9 @@ errout_skb:
 
 int __netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
 			 const struct nlmsghdr *nlh,
-			 struct netlink_dump_control *control)
+			 struct netlink_dump_control *control,
+			 void *data,
+			 struct module *module)
 {
 	struct netlink_callback *cb;
 	struct sock *sk;
@@ -2908,7 +2910,7 @@ int __netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
 		goto error_unlock;
 	}
 	/* add reference of module which cb->dump belongs to */
-	if (!try_module_get(control->module)) {
+	if (!try_module_get(module)) {
 		ret = -EPROTONOSUPPORT;
 		goto error_unlock;
 	}
@@ -2918,8 +2920,8 @@ int __netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
 	cb->dump = control->dump;
 	cb->done = control->done;
 	cb->nlh = nlh;
-	cb->data = control->data;
-	cb->module = control->module;
+	cb->data = data;
+	cb->module = module;
 	cb->min_dump_alloc = control->min_dump_alloc;
 	cb->skb = skb;
 

@@ -530,7 +530,7 @@ void bch_prio_write(struct cache *ca)
 
 	ca->disk_buckets->seq++;
 
-	atomic_long_add(ca->sb.bucket_size * prio_buckets(ca),
+	atomic_long_add_unchecked(ca->sb.bucket_size * prio_buckets(ca),
 			&ca->meta_sectors_written);
 
 	//pr_debug("free %zu, free_inc %zu, unused %zu", fifo_used(&ca->free),

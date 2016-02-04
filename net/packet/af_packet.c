@@ -1392,9 +1392,9 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
 		    packet_rcv_has_room(po_next, skb) == ROOM_NORMAL) {
 			if (i != j)
 				po->rollover->sock = i;
-			atomic_long_inc(&po->rollover->num);
+			atomic_long_inc_unchecked(&po->rollover->num);
 			if (room == ROOM_LOW)
-				atomic_long_inc(&po->rollover->num_huge);
+				atomic_long_inc_unchecked(&po->rollover->num_huge);
 			return i;
 		}
 
@@ -1402,7 +1402,7 @@ static unsigned int fanout_demux_rollover(struct packet_fanout *f,
 			i = 0;
 	} while (i != j);
 
-	atomic_long_inc(&po->rollover->num_failed);
+	atomic_long_inc_unchecked(&po->rollover->num_failed);
 	return idx;
 }
 
@@ -1657,9 +1657,9 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
 		po->rollover = kzalloc(sizeof(*po->rollover), GFP_KERNEL);
 		if (!po->rollover)
 			return -ENOMEM;
-		atomic_long_set(&po->rollover->num, 0);
-		atomic_long_set(&po->rollover->num_huge, 0);
-		atomic_long_set(&po->rollover->num_failed, 0);
+		atomic_long_set_unchecked(&po->rollover->num, 0);
+		atomic_long_set_unchecked(&po->rollover->num_huge, 0);
+		atomic_long_set_unchecked(&po->rollover->num_failed, 0);
 	}
 
 	mutex_lock(&fanout_mutex);
@@ -3797,9 +3797,9 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
 	case PACKET_ROLLOVER_STATS:
 		if (!po->rollover)
 			return -EINVAL;
-		rstats.tp_all = atomic_long_read(&po->rollover->num);
-		rstats.tp_huge = atomic_long_read(&po->rollover->num_huge);
-		rstats.tp_failed = atomic_long_read(&po->rollover->num_failed);
+		rstats.tp_all = atomic_long_read_unchecked(&po->rollover->num);
+		rstats.tp_huge = atomic_long_read_unchecked(&po->rollover->num_huge);
+		rstats.tp_failed = atomic_long_read_unchecked(&po->rollover->num_failed);
 		data = &rstats;
 		lv = sizeof(rstats);
 		break;

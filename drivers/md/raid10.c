@@ -1974,7 +1974,7 @@ static void sync_request_write(struct mddev *mddev, struct r10bio *r10_bio)
 			}
 			if (j == vcnt)
 				continue;
-			atomic64_add(r10_bio->sectors, &mddev->resync_mismatches);
+			atomic64_add_unchecked(r10_bio->sectors, &mddev->resync_mismatches);
 			if (test_bit(MD_RECOVERY_CHECK, &mddev->recovery))
 				/* Don't fix anything. */
 				continue;

@@ -211,7 +211,7 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 		 * We need to prevent an outcome in which CPU 1 observes
 		 * the new PTE value and CPU 0 observes bit 1 clear in
 		 * mm_cpumask.  (If that occurs, then the IPI will never
-		 * be sent, and CPU 0's TLB will contain a stale entry.)
+		 * be sent, and CPU 1's TLB will contain a stale entry.)
 		 *
 		 * The bad outcome can occur if either CPU's load is
 		 * reordered before that CPU's store, so both CPUs must

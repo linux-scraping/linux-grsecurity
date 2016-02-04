@@ -379,7 +379,7 @@ static int ieee80211_get_key(struct wiphy *wiphy, struct net_device *dev,
 			drv_get_key_seq(sdata->local, key, &kseq);
 			memcpy(seq, kseq.ccmp.pn, 6);
 		} else {
-			pn64 = atomic64_read(&key->conf.tx_pn);
+			pn64 = atomic64_read_unchecked(&key->conf.tx_pn);
 			seq[0] = pn64;
 			seq[1] = pn64 >> 8;
 			seq[2] = pn64 >> 16;

@@ -1975,7 +1975,7 @@ static void process_checks(struct r1bio *r1_bio)
 		} else
 			j = 0;
 		if (j >= 0)
-			atomic64_add(r1_bio->sectors, &mddev->resync_mismatches);
+			atomic64_add_unchecked(r1_bio->sectors, &mddev->resync_mismatches);
 		if (j < 0 || (test_bit(MD_RECOVERY_CHECK, &mddev->recovery)
 			      && !error)) {
 			/* No need to write to this device. */

@@ -145,13 +145,28 @@ extern rtx emit_move_insn(rtx x, rtx y);
 extern void debug_dominance_info(enum cdi_direction dir);
 extern void debug_dominance_tree(enum cdi_direction dir, basic_block root);
 
+#if BUILDING_GCC_VERSION == 4006
+extern void debug_gimple_stmt(gimple);
+extern void debug_gimple_seq(gimple_seq);
+extern void print_gimple_seq(FILE *, gimple_seq, int, int);
+extern void print_gimple_stmt(FILE *, gimple, int, int);
+extern void print_gimple_expr(FILE *, gimple, int, int);
+extern void dump_gimple_stmt(pretty_printer *, gimple, int, int);
+#endif
+
 #ifdef __cplusplus
 static inline void debug_tree(const_tree t)
 {
 	debug_tree(CONST_CAST_TREE(t));
 }
+
+static inline void debug_gimple_stmt(const_gimple s)
+{
+	debug_gimple_stmt(CONST_CAST_GIMPLE(s));
+}
 #else
 #define debug_tree(t) debug_tree(CONST_CAST_TREE(t))
+#define debug_gimple_stmt(s) debug_gimple_stmt(CONST_CAST_GIMPLE(s))
 #endif
 
 #define __unused __attribute__((__unused__))
@@ -309,15 +324,6 @@ static inline void varpool_add_new_variable(tree decl)
 {
 	varpool_finalize_decl(decl);
 }
-#endif
-
-#if BUILDING_GCC_VERSION == 4006
-extern void debug_gimple_stmt(gimple);
-extern void debug_gimple_seq(gimple_seq);
-extern void print_gimple_seq(FILE *, gimple_seq, int, int);
-extern void print_gimple_stmt(FILE *, gimple, int, int);
-extern void print_gimple_expr(FILE *, gimple, int, int);
-extern void dump_gimple_stmt(pretty_printer *, gimple, int, int);
 #endif
 
 #if BUILDING_GCC_VERSION <= 4007

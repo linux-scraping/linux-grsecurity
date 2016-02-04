@@ -189,6 +189,7 @@ union fpregs_state {
 	struct fxregs_state		fxsave;
 	struct swregs_state		soft;
 	struct xregs_state		xsave;
+	u8 __padding[PAGE_SIZE];
 };
 
 /*

@@ -799,7 +799,7 @@ static int batadv_softif_init_late(struct net_device *dev)
 
 	atomic_set(&bat_priv->mesh_state, BATADV_MESH_INACTIVE);
 	atomic_set_unchecked(&bat_priv->bcast_seqno, 1);
-	atomic_set(&bat_priv->tt.vn, 0);
+	atomic_set_unchecked(&bat_priv->tt.vn, 0);
 	atomic_set(&bat_priv->tt.local_changes, 0);
 	atomic_set(&bat_priv->tt.ogm_append_cnt, 0);
 #ifdef CONFIG_BATMAN_ADV_BLA

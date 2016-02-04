@@ -621,7 +621,7 @@ static void journal_write_unlocked(struct closure *cl)
 		ca = PTR_CACHE(c, k, i);
 		bio = &ca->journal.bio;
 
-		atomic_long_add(sectors, &ca->meta_sectors_written);
+		atomic_long_add_unchecked(sectors, &ca->meta_sectors_written);
 
 		bio_reset(bio);
 		bio->bi_iter.bi_sector	= PTR_OFFSET(k, i);

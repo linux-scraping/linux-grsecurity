@@ -914,7 +914,7 @@ void ieee80211_get_key_tx_seq(struct ieee80211_key_conf *keyconf,
 	case WLAN_CIPHER_SUITE_GCMP_256:
 		BUILD_BUG_ON(offsetof(typeof(*seq), ccmp) !=
 			     offsetof(typeof(*seq), gcmp));
-		pn64 = atomic64_read(&key->conf.tx_pn);
+		pn64 = atomic64_read_unchecked(&key->conf.tx_pn);
 		seq->ccmp.pn[5] = pn64;
 		seq->ccmp.pn[4] = pn64 >> 8;
 		seq->ccmp.pn[3] = pn64 >> 16;
@@ -1014,7 +1014,7 @@ void ieee80211_set_key_tx_seq(struct ieee80211_key_conf *keyconf,
 		       ((u64)seq->ccmp.pn[2] << 24) |
 		       ((u64)seq->ccmp.pn[1] << 32) |
 		       ((u64)seq->ccmp.pn[0] << 40);
-		atomic64_set(&key->conf.tx_pn, pn64);
+		atomic64_set_unchecked(&key->conf.tx_pn, pn64);
 		break;
 	default:
 		WARN_ON(1);

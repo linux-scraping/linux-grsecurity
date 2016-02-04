@@ -1057,7 +1057,7 @@ static int ipr_get_hrrq_index(struct ipr_ioa_cfg *ioa_cfg)
 	if (ioa_cfg->hrrq_num == 1)
 		hrrq = 0;
 	else {
-		hrrq = atomic_add_return(1, &ioa_cfg->hrrq_index);
+		hrrq = atomic_add_return_unchecked(1, &ioa_cfg->hrrq_index);
 		hrrq = (hrrq % (ioa_cfg->hrrq_num - 1)) + 1;
 	}
 	return hrrq;
@@ -8010,9 +8010,9 @@ static void ipr_init_ioa_mem(struct ipr_ioa_cfg *ioa_cfg)
 
 	ioa_cfg->identify_hrrq_index = 0;
 	if (ioa_cfg->hrrq_num == 1)
-		atomic_set(&ioa_cfg->hrrq_index, 0);
+		atomic_set_unchecked(&ioa_cfg->hrrq_index, 0);
 	else
-		atomic_set(&ioa_cfg->hrrq_index, 1);
+		atomic_set_unchecked(&ioa_cfg->hrrq_index, 1);
 
 	/* Zero out config table */
 	memset(ioa_cfg->u.cfg_table, 0, ioa_cfg->cfg_table_size);

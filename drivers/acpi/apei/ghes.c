@@ -535,7 +535,7 @@ static int ghes_estatus_cached(struct acpi_hest_generic_status *estatus)
 		cache_estatus = GHES_ESTATUS_FROM_CACHE(cache);
 		if (memcmp(estatus, cache_estatus, len))
 			continue;
-		atomic_inc(&cache->count);
+		atomic_inc_unchecked(&cache->count);
 		now = sched_clock();
 		if (now - cache->time_in < GHES_ESTATUS_IN_CACHE_MAX_NSEC)
 			cached = 1;
@@ -569,7 +569,7 @@ static struct ghes_estatus_cache *ghes_estatus_cache_alloc(
 	cache_estatus = GHES_ESTATUS_FROM_CACHE(cache);
 	memcpy(cache_estatus, estatus, len);
 	cache->estatus_len = len;
-	atomic_set(&cache->count, 0);
+	atomic_set_unchecked(&cache->count, 0);
 	cache->generic = generic;
 	cache->time_in = sched_clock();
 	return cache;
@@ -619,7 +619,7 @@ static void ghes_estatus_cache_add(
 			slot_cache = cache;
 			break;
 		}
-		count = atomic_read(&cache->count);
+		count = atomic_read_unchecked(&cache->count);
 		period = duration;
 		do_div(period, (count + 1));
 		if (period > max_period) {

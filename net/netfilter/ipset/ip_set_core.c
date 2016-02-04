@@ -1423,7 +1423,7 @@ ip_set_dump(struct sock *ctnl, struct sk_buff *skb,
 		return -IPSET_ERR_PROTOCOL;
 
 	{
-		struct netlink_dump_control c = {
+		static struct netlink_dump_control c = {
 			.dump = ip_set_dump_start,
 			.done = ip_set_dump_done,
 		};

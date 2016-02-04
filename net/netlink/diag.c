@@ -209,7 +209,7 @@ static int netlink_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
 		return -EINVAL;
 
 	if (h->nlmsg_flags & NLM_F_DUMP) {
-		struct netlink_dump_control c = {
+		static struct netlink_dump_control c = {
 			.dump = netlink_diag_dump,
 		};
 		return netlink_dump_start(net->diag_nlsk, skb, h, &c);

@@ -416,7 +416,7 @@ static ssize_t snd_seq_read(struct file *file, char __user *buf, size_t count,
 	if (!client->accept_input || (fifo = client->data.user.fifo) == NULL)
 		return -ENXIO;
 
-	if (atomic_read(&fifo->overflow) > 0) {
+	if (atomic_read_unchecked(&fifo->overflow) > 0) {
 		/* buffer overflow is detected */
 		snd_seq_fifo_clear(fifo);
 		/* return error code */

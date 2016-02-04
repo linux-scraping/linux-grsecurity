@@ -279,7 +279,7 @@ static void iwl_mvm_wowlan_program_keys(struct ieee80211_hw *hw,
 			aes_sc = data->rsc_tsc->all_tsc_rsc.aes.unicast_rsc;
 			aes_tx_sc = &data->rsc_tsc->all_tsc_rsc.aes.tsc;
 
-			pn64 = atomic64_read(&key->tx_pn);
+			pn64 = atomic64_read_unchecked(&key->tx_pn);
 			aes_tx_sc->pn = cpu_to_le64(pn64);
 		} else {
 			aes_sc = data->rsc_tsc->all_tsc_rsc.aes.multicast_rsc;
@@ -1449,7 +1449,7 @@ static void iwl_mvm_d3_update_gtks(struct ieee80211_hw *hw,
 		switch (key->cipher) {
 		case WLAN_CIPHER_SUITE_CCMP:
 			iwl_mvm_set_aes_rx_seq(sc->aes.unicast_rsc, key);
-			atomic64_set(&key->tx_pn, le64_to_cpu(sc->aes.tsc.pn));
+			atomic64_set_unchecked(&key->tx_pn, le64_to_cpu(sc->aes.tsc.pn));
 			break;
 		case WLAN_CIPHER_SUITE_TKIP:
 			iwl_mvm_tkip_sc_to_seq(&sc->tkip.tsc, &seq);

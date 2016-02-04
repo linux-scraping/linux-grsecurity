@@ -142,7 +142,7 @@ struct neighbour {
 	unsigned int		arp_queue_len_bytes;
 	struct timer_list	timer;
 	unsigned long		used;
-	atomic_t		probes;
+	atomic_unchecked_t	probes;
 	__u8			flags;
 	__u8			nud_state;
 	__u8			type;

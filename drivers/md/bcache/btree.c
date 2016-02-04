@@ -468,7 +468,7 @@ void __bch_btree_node_write(struct btree *b, struct closure *parent)
 
 	do_btree_node_write(b);
 
-	atomic_long_add(set_blocks(i, block_bytes(b->c)) * b->c->sb.block_size,
+	atomic_long_add_unchecked(set_blocks(i, block_bytes(b->c)) * b->c->sb.block_size,
 			&PTR_CACHE(b->c, &b->key, 0)->btree_sectors_written);
 
 	b->written += set_blocks(i, block_bytes(b->c));
