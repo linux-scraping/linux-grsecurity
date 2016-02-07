@@ -73,6 +73,9 @@ struct thread_info {
 	.flags		= 0,						\
 	.preempt_count	= INIT_PREEMPT_COUNT,				\
 	.addr_limit	= KERNEL_DS,					\
+	.cpu_domain	= domain_val(DOMAIN_USER, DOMAIN_USERCLIENT) |	\
+			  domain_val(DOMAIN_KERNEL, DOMAIN_KERNELCLIENT) | \
+			  domain_val(DOMAIN_IO, DOMAIN_KERNELCLIENT),	\
 }
 
 #define init_thread_info	(init_thread_union.thread_info)

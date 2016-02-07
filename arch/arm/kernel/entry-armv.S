@@ -257,7 +257,7 @@ ENDPROC(__und_invalid)
 	mov	r6, #-1			@  ""  ""      ""       ""
 #if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
 	@ offset sp by 8 as done in pax_enter_kernel
-	add	r2, sp, #(S_FRAME_SIZE + \stack_hole + 4)
+	add	r2, sp, #(S_FRAME_SIZE + 8 + \stack_hole + 4)
 #else
 	add	r2, sp, #(S_FRAME_SIZE + 8 + \stack_hole - 4)
 #endif

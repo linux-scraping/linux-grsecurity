@@ -216,12 +216,10 @@ union offset_union {
 #define __get16_unaligned_check(ins,val,addr)			\
 	do {							\
 		unsigned int err = 0, v, a = addr;		\
-		pax_open_userland();				\
 		__get8_unaligned_check(ins,v,a,err);		\
 		val =  v << ((BE) ? 8 : 0);			\
 		__get8_unaligned_check(ins,v,a,err);		\
 		val |= v << ((BE) ? 0 : 8);			\
-		pax_close_userland();				\
 		if (err)					\
 			goto fault;				\
 	} while (0)
@@ -235,7 +233,6 @@ union offset_union {
 #define __get32_unaligned_check(ins,val,addr)			\
 	do {							\
 		unsigned int err = 0, v, a = addr;		\
-		pax_open_userland();				\
 		__get8_unaligned_check(ins,v,a,err);		\
 		val =  v << ((BE) ? 24 :  0);			\
 		__get8_unaligned_check(ins,v,a,err);		\
@@ -244,7 +241,6 @@ union offset_union {
 		val |= v << ((BE) ?  8 : 16);			\
 		__get8_unaligned_check(ins,v,a,err);		\
 		val |= v << ((BE) ?  0 : 24);			\
-		pax_close_userland();				\
 		if (err)					\
 			goto fault;				\
 	} while (0)
@@ -258,7 +254,6 @@ union offset_union {
 #define __put16_unaligned_check(ins,val,addr)			\
 	do {							\
 		unsigned int err = 0, v = val, a = addr;	\
-		pax_open_userland();				\
 		__asm__( FIRST_BYTE_16				\
 	 ARM(	"1:	"ins"	%1, [%2], #1\n"	)		\
 	 THUMB(	"1:	"ins"	%1, [%2]\n"	)		\
@@ -278,7 +273,6 @@ union offset_union {
 		"	.popsection\n"				\
 		: "=r" (err), "=&r" (v), "=&r" (a)		\
 		: "0" (err), "1" (v), "2" (a));			\
-		pax_close_userland();				\
 		if (err)					\
 			goto fault;				\
 	} while (0)
@@ -292,7 +286,6 @@ union offset_union {
 #define __put32_unaligned_check(ins,val,addr)			\
 	do {							\
 		unsigned int err = 0, v = val, a = addr;	\
-		pax_open_userland();				\
 		__asm__( FIRST_BYTE_32				\
 	 ARM(	"1:	"ins"	%1, [%2], #1\n"	)		\
 	 THUMB(	"1:	"ins"	%1, [%2]\n"	)		\
@@ -322,7 +315,6 @@ union offset_union {
 		"	.popsection\n"				\
 		: "=r" (err), "=&r" (v), "=&r" (a)		\
 		: "0" (err), "1" (v), "2" (a));			\
-		pax_close_userland();				\
 		if (err)					\
 			goto fault;				\
 	} while (0)

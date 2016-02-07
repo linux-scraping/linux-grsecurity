@@ -1708,6 +1708,7 @@ config HIGHPTE
 config CPU_SW_DOMAIN_PAN
 	bool "Enable use of CPU domains to implement privileged no-access"
 	depends on MMU && !ARM_LPAE
+	depends on !PAX_KERNEXEC && !PAX_MEMORY_UDEREF
 	default y
 	help
 	  Increase kernel security by ensuring that normal kernel accesses

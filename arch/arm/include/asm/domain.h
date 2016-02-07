@@ -81,11 +81,17 @@
 	 domain_val(DOMAIN_KERNEL, DOMAIN_MANAGER) | \
 	 domain_val(DOMAIN_IO, DOMAIN_KERNELCLIENT) | \
 	 domain_val(DOMAIN_VECTORS, DOMAIN_CLIENT))
+#elif CONFIG_PAX_MEMORY_UDEREF
+	/* DOMAIN_VECTORS is defined to DOMAIN_KERNEL */
+#define DACR_INIT \
+	(domain_val(DOMAIN_USER, DOMAIN_USERCLIENT) | \
+	 domain_val(DOMAIN_KERNEL, DOMAIN_MANAGER) | \
+	 domain_val(DOMAIN_IO, DOMAIN_KERNELCLIENT))
 #else
 #define DACR_INIT \
-	(domain_val(DOMAIN_USER, DOMAIN_CLIENT) | \
+	(domain_val(DOMAIN_USER, DOMAIN_USERCLIENT) | \
 	 domain_val(DOMAIN_KERNEL, DOMAIN_MANAGER) | \
-	 domain_val(DOMAIN_IO, DOMAIN_CLIENT) | \
+	 domain_val(DOMAIN_IO, DOMAIN_KERNELCLIENT) | \
 	 domain_val(DOMAIN_VECTORS, DOMAIN_CLIENT))
 #endif
 
@@ -127,6 +133,17 @@ static inline void set_domain(unsigned val)
 		unsigned int domain = get_domain();		\
 		domain &= ~domain_mask(dom);			\
 		domain = domain | domain_val(dom, type);	\
+		set_domain(domain);				\
+	} while (0)
+
+#elif defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
+#define modify_domain(dom,type)					\
+	do {							\
+		struct thread_info *thread = current_thread_info(); \
+		unsigned int domain = get_domain();		\
+		domain &= ~domain_mask(dom);			\
+		domain = domain | domain_val(dom, type);	\
+		thread->cpu_domain = domain;			\
 		set_domain(domain);				\
 	} while (0)
 

@@ -52,8 +52,6 @@ futex_atomic_cmpxchg_inatomic(u32 *uval, u32 __user *uaddr,
 	if (!access_ok(VERIFY_WRITE, uaddr, sizeof(u32)))
 		return -EFAULT;
 
-	pax_open_userland();
-
 	smp_mb();
 	/* Prefetching cannot fault */
 	prefetchw(uaddr);
@@ -72,8 +70,6 @@ futex_atomic_cmpxchg_inatomic(u32 *uval, u32 __user *uaddr,
 	: "cc", "memory");
 	uaccess_restore(__ua_flags);
 	smp_mb();
-
-	pax_close_userland();
 
 	*uval = val;
 	return ret;
@@ -111,7 +107,6 @@ futex_atomic_cmpxchg_inatomic(u32 *uval, u32 __user *uaddr,
 		return -EFAULT;
 
 	preempt_disable();
-	pax_open_userland();
 
 	__ua_flags = uaccess_save_and_enable();
 	__asm__ __volatile__("@futex_atomic_cmpxchg_inatomic\n"
@@ -124,8 +119,6 @@ futex_atomic_cmpxchg_inatomic(u32 *uval, u32 __user *uaddr,
 	: "r" (oldval), "r" (newval), "r" (uaddr), "Ir" (-EFAULT)
 	: "cc", "memory");
 	uaccess_restore(__ua_flags);
-
-	pax_close_userland();
 
 	*uval = val;
 	preempt_enable();
@@ -154,7 +147,6 @@ futex_atomic_op_inuser (int encoded_op, u32 __user *uaddr)
 	preempt_disable();
 #endif
 	pagefault_disable();
-	pax_open_userland();
 
 	switch (op) {
 	case FUTEX_OP_SET:
@@ -176,7 +168,6 @@ futex_atomic_op_inuser (int encoded_op, u32 __user *uaddr)
 		ret = -ENOSYS;
 	}
 
-	pax_close_userland();
 	pagefault_enable();
 #ifndef CONFIG_SMP
 	preempt_enable();
