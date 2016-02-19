@@ -703,7 +703,7 @@ static void handle_local_var_initializers(void)
  * to a pointer of a structure of a different type, or a
  * structure pointer type is cast to a different structure pointer type
  */
-static unsigned int find_bad_casts(void)
+static unsigned int find_bad_casts_execute(void)
 {
 	basic_block bb;
 
@@ -813,61 +813,10 @@ static unsigned int find_bad_casts(void)
 	return 0;
 }
 
-#if BUILDING_GCC_VERSION >= 4009
-static const struct pass_data randomize_layout_bad_cast_data = {
-#else
-static struct gimple_opt_pass randomize_layout_bad_cast = {
-	.pass = {
-#endif
-		.type			= GIMPLE_PASS,
-		.name			= "randomize_layout_bad_cast",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-#if BUILDING_GCC_VERSION >= 5000
-#elif BUILDING_GCC_VERSION >= 4009
-		.has_gate		= false,
-		.has_execute		= true,
-#else
-		.gate			= NULL,
-		.execute		= find_bad_casts,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-#endif
-		.tv_id			= TV_NONE,
-		.properties_required	= PROP_cfg,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0,
-		.todo_flags_finish	= TODO_dump_func
-#if BUILDING_GCC_VERSION < 4009
-	}
-#endif
-};
-
-#if BUILDING_GCC_VERSION >= 4009
-namespace {
-class randomize_layout_bad_cast : public gimple_opt_pass {
-public:
-	randomize_layout_bad_cast() : gimple_opt_pass(randomize_layout_bad_cast_data, g) {}
-#if BUILDING_GCC_VERSION >= 5000
-	virtual unsigned int execute(function *) { return find_bad_casts(); }
-#else
-	unsigned int execute() { return find_bad_casts(); }
-#endif
-};
-}
-#endif
-
-static struct opt_pass *make_randomize_layout_bad_cast(void)
-{
-#if BUILDING_GCC_VERSION >= 4009
-	return new randomize_layout_bad_cast();
-#else
-	return &randomize_layout_bad_cast.pass;
-#endif
-}
+#define PASS_NAME find_bad_casts
+#define NO_GATE
+#define TODO_FLAGS_FINISH TODO_dump_func
+#include "gcc-generate-gimple-pass.h"
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
@@ -877,12 +826,12 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	const struct plugin_argument * const argv = plugin_info->argv;
 	bool enable = true;
 	int obtained_seed = 0;
-	struct register_pass_info randomize_layout_bad_cast_info;
+	struct register_pass_info find_bad_casts_pass_info;
 
-	randomize_layout_bad_cast_info.pass			= make_randomize_layout_bad_cast();
-	randomize_layout_bad_cast_info.reference_pass_name	= "ssa";
-	randomize_layout_bad_cast_info.ref_pass_instance_number	= 1;
-	randomize_layout_bad_cast_info.pos_op			= PASS_POS_INSERT_AFTER;
+	find_bad_casts_pass_info.pass			= make_find_bad_casts_pass();
+	find_bad_casts_pass_info.reference_pass_name	= "ssa";
+	find_bad_casts_pass_info.ref_pass_instance_number	= 1;
+	find_bad_casts_pass_info.pos_op			= PASS_POS_INSERT_AFTER;
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));
@@ -920,7 +869,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	register_callback(plugin_name, PLUGIN_INFO, NULL, &randomize_layout_plugin_info);
 	if (enable) {
 		register_callback(plugin_name, PLUGIN_ALL_IPA_PASSES_START, check_global_variables, NULL);
-		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &randomize_layout_bad_cast_info);
+		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &find_bad_casts_pass_info);
 		register_callback(plugin_name, PLUGIN_FINISH_TYPE, finish_type, NULL);
 		register_callback(plugin_name, PLUGIN_FINISH_DECL, randomize_layout_finish_decl, NULL);
 	}

@@ -48,12 +48,12 @@
  */
 static inline int atomic_read(const atomic_t *v)
 {
-	return ACCESS_ONCE(v->counter);
+	return READ_ONCE(v->counter);
 }
 
 static inline int atomic_read_unchecked(const atomic_unchecked_t *v)
 {
-	return ACCESS_ONCE(v->counter);
+	return READ_ONCE(v->counter);
 }
 
 /*
@@ -65,12 +65,12 @@ static inline int atomic_read_unchecked(const atomic_unchecked_t *v)
  */
 static inline void atomic_set(atomic_t *v, int i)
 {
-	v->counter = i;
+	WRITE_ONCE(v->counter, i);
 }
 
 static inline void atomic_set_unchecked(atomic_unchecked_t *v, int i)
 {
-	v->counter = i;
+	WRITE_ONCE(v->counter, i);
 }
 
 #ifdef CONFIG_PAX_REFCOUNT
@@ -420,12 +420,12 @@ static __inline__ void atomic_dec_unchecked(atomic_unchecked_t *v)
  */
 static inline long atomic64_read(const atomic64_t *v)
 {
-	return ACCESS_ONCE(v->counter);
+	return READ_ONCE(v->counter);
 }
 
 static inline long atomic64_read_unchecked(const atomic64_unchecked_t *v)
 {
-	return ACCESS_ONCE(v->counter);
+	return READ_ONCE(v->counter);
 }
 
 /*
@@ -435,12 +435,12 @@ static inline long atomic64_read_unchecked(const atomic64_unchecked_t *v)
  */
 static inline void atomic64_set(atomic64_t *v, long i)
 {
-	v->counter = i;
+	WRITE_ONCE(v->counter, i);
 }
 
 static inline void atomic64_set_unchecked(atomic64_unchecked_t *v, long i)
 {
-	v->counter = i;
+	WRITE_ONCE(v->counter, i);
 }
 
 #define __ATOMIC64_OP(op, suffix, asm_op, extable)			      \
@@ -669,7 +669,7 @@ static inline long atomic64_xchg_unchecked(atomic64_unchecked_t *v, long new)
  * @u: ...unless v is equal to u.
  *
  * Atomically adds @a to @v, so long as it was not @u.
- * Returns the old value of @v.
+ * Returns true iff @v was not @u.
  */
 static __inline__ int atomic64_add_unless(atomic64_t *v, long a, long u)
 {

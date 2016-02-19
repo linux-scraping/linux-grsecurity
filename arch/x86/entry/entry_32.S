@@ -3,7 +3,7 @@
  *
  * entry_32.S contains the system-call and low-level fault and trap handling routines.
  *
- * Stack layout in 'syscall_exit':
+ * Stack layout while running C code:
  *	ptrace needs to have all registers on the stack.
  *	If the order here is changed, it needs to be
  *	updated in fork.c:copy_process(), signal.c:do_signal(),
@@ -251,7 +251,9 @@ ENTRY(pax_erase_kstack)
 	pushl %edi
 	pushl %ecx
 	pushl %eax
+	pushl %ebp
 
+	GET_THREAD_INFO(%ebp)
 	mov TI_lowest_stack(%ebp), %edi
 	mov $-0xBEEF, %eax
 	std
@@ -287,6 +289,7 @@ ENTRY(pax_erase_kstack)
 	sub $128, %edi
 	mov %edi, TI_lowest_stack(%ebp)
 
+	popl %ebp
 	popl %eax
 	popl %ecx
 	popl %edi
@@ -294,13 +297,13 @@ ENTRY(pax_erase_kstack)
 ENDPROC(pax_erase_kstack)
 #endif
 
-.macro __SAVE_ALL _DS
+.macro __SAVE_ALL pt_regs_ax, _DS
 	cld
 	PUSH_GS
 	pushl	%fs
 	pushl	%es
 	pushl	%ds
-	pushl	%eax
+	pushl	\pt_regs_ax
 	pushl	%ebp
 	pushl	%edi
 	pushl	%esi
@@ -315,12 +318,12 @@ ENDPROC(pax_erase_kstack)
 	SET_KERNEL_GS %edx
 .endm
 
-.macro SAVE_ALL
+.macro SAVE_ALL pt_regs_ax=%eax
 #if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
-	__SAVE_ALL __KERNEL_DS
+	__SAVE_ALL \pt_regs_ax, __KERNEL_DS
 	pax_enter_kernel
 #else
-	__SAVE_ALL __USER_DS
+	__SAVE_ALL \pt_regs_ax, __USER_DS
 #endif
 .endm
 
@@ -361,7 +364,11 @@ ENTRY(ret_from_fork)
 	popl	%eax
 	pushl	$0x0202				# Reset kernel eflags
 	popfl
-	jmp	syscall_exit
+
+	/* When we fork, we trace the syscall return in the child, too. */
+	movl    %esp, %eax
+	call    syscall_return_slowpath
+	jmp     restore_all
 ENDPROC(ret_from_fork)
 
 ENTRY(ret_from_kernel_thread)
@@ -374,7 +381,15 @@ ENTRY(ret_from_kernel_thread)
 	movl	PT_EBP(%esp), %eax
 	call	*PT_EBX(%esp)
 	movl	$0, PT_EAX(%esp)
-	jmp	syscall_exit
+
+	/*
+	 * Kernel threads return to userspace as if returning from a syscall.
+	 * We should check whether anything actually uses this path and, if so,
+	 * consider switching it over to ret_from_fork.
+	 */
+	movl    %esp, %eax
+	call    syscall_return_slowpath
+	jmp     restore_all
 ENDPROC(ret_from_kernel_thread)
 
 /*
@@ -413,12 +428,11 @@ ret_from_intr:
 #endif
 
 ENTRY(resume_userspace)
-	LOCKDEP_SYS_EXIT
 	DISABLE_INTERRUPTS(CLBR_ANY)
 	TRACE_IRQS_OFF
 	movl	%esp, %eax
 	call	prepare_exit_to_usermode
-	jmp	restore_all_pax
+	jmp	.Lsyscall_32_done
 ENDPROC(ret_from_exception)
 
 #ifdef CONFIG_PREEMPT
@@ -434,100 +448,61 @@ need_resched:
 ENDPROC(resume_kernel)
 #endif
 
-/*
- * SYSENTER_RETURN points to after the SYSENTER instruction
- * in the vsyscall page.  See vsyscall-sysentry.S, which defines
- * the symbol.
- */
-
 	# SYSENTER  call handler stub
 ENTRY(entry_SYSENTER_32)
 	movl	TSS_sysenter_sp0(%esp), %esp
 sysenter_past_esp:
-	/*
-	 * Interrupts are disabled here, but we can't trace it until
-	 * enough kernel state to call TRACE_IRQS_OFF can be called - but
-	 * we immediately enable interrupts at that point anyway.
-	 */
-	pushl	$__USER_DS
-	pushl	%ebp
-	pushfl
-	orl	$X86_EFLAGS_IF, (%esp)
-	pushl	$__USER_CS
-	/*
-	 * Push current_thread_info()->sysenter_return to the stack.
-	 */
-	pushl	$0
-
-	pushl	%eax
-	SAVE_ALL
-	GET_THREAD_INFO(%ebp)
-	movl	TI_sysenter_return(%ebp), %ebp
-	movl	%ebp, PT_EIP(%esp)
-	ENABLE_INTERRUPTS(CLBR_NONE)
-
-/*
- * Load the potential sixth argument from user stack.
- * Careful about security.
- */
-	movl	PT_OLDESP(%esp),%ebp
-
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	mov	PT_OLDSS(%esp), %ds
-1:	movl	%ds:(%ebp), %ebp
-	push	%ss
-	pop	%ds
-#else
-	cmpl	$__PAGE_OFFSET-3, %ebp
-	jae	syscall_fault
-	ASM_STAC
-1:	movl	(%ebp), %ebp
-	ASM_CLAC
-#endif
-
-	movl	%ebp, PT_EBP(%esp)
-	_ASM_EXTABLE(1b, syscall_fault)
-
-	GET_THREAD_INFO(%ebp)
+	pushl	$__USER_DS		/* pt_regs->ss */
+	pushl	%ebp			/* pt_regs->sp (stashed in bp) */
+	pushfl				/* pt_regs->flags (except IF = 0) */
+	orl	$X86_EFLAGS_IF, (%esp)	/* Fix IF */
+	pushl	$__USER_CS		/* pt_regs->cs */
+	pushl	$0			/* pt_regs->ip = 0 (placeholder) */
+	pushl	%eax			/* pt_regs->orig_ax */
+	SAVE_ALL pt_regs_ax=$-ENOSYS	/* save rest */
 
 #ifdef CONFIG_PAX_RANDKSTACK
 	pax_erase_kstack
 #endif
 
-	testl	$_TIF_WORK_SYSCALL_ENTRY, TI_flags(%ebp)
-	jnz	syscall_trace_entry
-sysenter_do_call:
-	cmpl	$(NR_syscalls), %eax
-	jae	sysenter_badsys
-	call	*sys_call_table(, %eax, 4)
-sysenter_after_call:
-	movl	%eax, PT_EAX(%esp)
-	LOCKDEP_SYS_EXIT
-	DISABLE_INTERRUPTS(CLBR_ANY)
+	/*
+	 * User mode is traced as though IRQs are on, and SYSENTER
+	 * turned them off.
+	 */
 	TRACE_IRQS_OFF
-	movl	TI_flags(%ebp), %ecx
-	testl	$_TIF_ALLWORK_MASK, %ecx
-	jnz	syscall_exit_work_irqs_off
-sysenter_exit:
+
+	movl	%esp, %eax
+	call	do_fast_syscall_32
+	/* XEN PV guests always use IRET path */
+	ALTERNATIVE "testl %eax, %eax; jz .Lsyscall_32_done", \
+		    "jmp .Lsyscall_32_done", X86_FEATURE_XENPV
 
 #ifdef CONFIG_PAX_RANDKSTACK
-	pushl	%eax
 	movl	%esp, %eax
 	call	pax_randomize_kstack
-	popl	%eax
 #endif
 
 	pax_erase_kstack
 
-/* if something modifies registers it must also disable sysexit */
-	movl	PT_EIP(%esp), %edx
-	movl	PT_OLDESP(%esp), %ecx
-	xorl	%ebp, %ebp
-	TRACE_IRQS_ON
+/* Opportunistic SYSEXIT */
+	TRACE_IRQS_ON			/* User mode traces as IRQs on. */
+	movl	PT_EIP(%esp), %edx	/* pt_regs->ip */
+	movl	PT_OLDESP(%esp), %ecx	/* pt_regs->sp */
 1:	mov	PT_FS(%esp), %fs
 2:	mov	PT_DS(%esp), %ds
 3:	mov	PT_ES(%esp), %es
 	PTGS_TO_GS
+	popl	%ebx			/* pt_regs->bx */
+	addl	$2*4, %esp		/* skip pt_regs->cx and pt_regs->dx */
+	popl	%esi			/* pt_regs->si */
+	popl	%edi			/* pt_regs->di */
+	popl	%ebp			/* pt_regs->bp */
+	popl	%eax			/* pt_regs->ax */
+
+	/*
+	 * Return back to the vDSO, which will pop ecx and edx.
+	 * Don't bother with DS and ES (they already contain __USER_DS).
+	 */
 	ENABLE_INTERRUPTS_SYSEXIT
 
 .pushsection .fixup, "ax"
@@ -547,28 +522,22 @@ ENDPROC(entry_SYSENTER_32)
 	# system call handler stub
 ENTRY(entry_INT80_32)
 	ASM_CLAC
-	pushl	%eax				# save orig_eax
-	SAVE_ALL
-	GET_THREAD_INFO(%ebp)
+	pushl	%eax			/* pt_regs->orig_ax */
+	SAVE_ALL pt_regs_ax=$-ENOSYS	/* save rest */
 
 #ifdef CONFIG_PAX_RANDKSTACK
 	pax_erase_kstack
 #endif
 
-						# system call tracing in operation / emulation
-	testl	$_TIF_WORK_SYSCALL_ENTRY, TI_flags(%ebp)
-	jnz	syscall_trace_entry
-	cmpl	$(NR_syscalls), %eax
-	jae	syscall_badsys
-syscall_call:
-	call	*sys_call_table(, %eax, 4)
-syscall_after_call:
-	movl	%eax, PT_EAX(%esp)		# store the return value
-syscall_exit:
-	LOCKDEP_SYS_EXIT
-	jmp	syscall_exit_work
+	/*
+	 * User mode is traced as though IRQs are on.  Unlike the 64-bit
+	 * case, INT80 is a trap gate on 32-bit kernels, so interrupts
+	 * are already on (unless user code is messing around with iopl).
+	 */
 
-restore_all_pax:
+	movl	%esp, %eax
+	call	do_syscall_32_irqs_on
+.Lsyscall_32_done:
 
 #ifdef CONFIG_PAX_RANDKSTACK
 	movl	%esp, %eax
@@ -671,54 +640,6 @@ ldt_ss:
 	jmp	restore_nocheck
 #endif
 ENDPROC(entry_INT80_32)
-
-	# perform syscall exit tracing
-	ALIGN
-syscall_trace_entry:
-	movl	$-ENOSYS, PT_EAX(%esp)
-	movl	%esp, %eax
-	call	syscall_trace_enter
-
-	pax_erase_kstack
-
-	/* What it returned is what we'll actually use.  */
-	cmpl	$(NR_syscalls), %eax
-	jnae	syscall_call
-	jmp	syscall_exit
-ENDPROC(syscall_trace_entry)
-
-	# perform syscall exit tracing
-	ALIGN
-syscall_exit_work_irqs_off:
-	TRACE_IRQS_ON
-	ENABLE_INTERRUPTS(CLBR_ANY)
-
-syscall_exit_work:
-	movl	%esp, %eax
-	call	syscall_return_slowpath
-	jmp	restore_all_pax
-ENDPROC(syscall_exit_work)
-
-syscall_fault:
-#ifdef CONFIG_PAX_MEMORY_UDEREF
-	push	%ss
-	pop	%ds
-#endif
-	ASM_CLAC
-	GET_THREAD_INFO(%ebp)
-	movl	$-EFAULT, PT_EAX(%esp)
-	jmp	resume_userspace
-ENDPROC(syscall_fault)
-
-syscall_badsys:
-	movl	$-ENOSYS, %eax
-	jmp	syscall_after_call
-ENDPROC(syscall_badsys)
-
-sysenter_badsys:
-	movl	$-ENOSYS, %eax
-	jmp	sysenter_after_call
-ENDPROC(sysenter_badsys)
 
 .macro FIXUP_ESPFIX_STACK
 /*
@@ -1201,7 +1122,7 @@ ENTRY(trace_page_fault)
 	ASM_CLAC
 	pushl	$trace_do_page_fault
 	jmp	error_code
-END(trace_page_fault)
+ENDPROC(trace_page_fault)
 #endif
 
 ENTRY(page_fault)

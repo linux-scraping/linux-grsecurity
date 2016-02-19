@@ -203,7 +203,7 @@ extern enum intentional_overflow_type add_mul_intentional_overflow(const gassign
 extern void unsigned_signed_cast_intentional_overflow(struct visited *visited, gassign *stmt);
 extern bool neg_short_add_intentional_overflow(gassign *stmt);
 extern bool is_bitfield_unnamed_cast(const_tree decl, gassign *assign);
-extern bool uconst_neg_intentional_overflow(struct visited *visited, const gassign *stmt);
+extern bool uconst_neg_intentional_overflow(const gassign *stmt);
 
 
 // insert_size_overflow_asm.c
@@ -248,7 +248,7 @@ struct interesting_stmts {
 	unsigned int num;
 };
 
-extern unsigned int size_overflow_transform(struct cgraph_node *node);
+extern unsigned int size_overflow_function_transform(struct cgraph_node *node);
 extern tree handle_fnptr_assign(const_gimple stmt);
 
 
@@ -285,9 +285,9 @@ extern next_interesting_function_t get_global_next_interesting_function_entry(st
 extern next_interesting_function_t get_global_next_interesting_function_entry_with_hash(struct fn_raw_data *raw_data);
 extern void size_overflow_register_hooks(void);
 #if BUILDING_GCC_VERSION >= 4009
-extern opt_pass *make_size_overflow_functions_pass(void);
+extern opt_pass *make_size_overflow_pass(void);
 #else
-extern struct opt_pass *make_size_overflow_functions_pass(void);
+extern struct opt_pass *make_size_overflow_pass(void);
 #endif
 extern void size_overflow_node_removal_hook(struct cgraph_node *node, void *data);
 extern next_interesting_function_t get_and_create_next_node_from_global_next_nodes(struct fn_raw_data *raw_data, next_interesting_function_t orig_next_node);
@@ -296,13 +296,17 @@ extern next_interesting_function_t create_new_next_interesting_entry(struct fn_r
 
 
 // size_overflow_lto.c
-extern void size_overflow_read_summary_lto(void);
+extern void size_overflow_read_summary(void);
+extern void size_overflow_read_optimization_summary(void);
 #if BUILDING_GCC_VERSION >= 4008
-extern void size_overflow_write_summary_lto(void);
+extern void size_overflow_write_summary(void);
+extern void size_overflow_write_optimization_summary(void);
 #elif BUILDING_GCC_VERSION >= 4006
-extern void size_overflow_write_summary_lto(cgraph_node_set set, varpool_node_set vset);
+extern void size_overflow_write_summary(cgraph_node_set set, varpool_node_set vset);
+extern void size_overflow_write_optimization_summary(cgraph_node_set set, varpool_node_set vset);
 #else
-extern void size_overflow_write_summary_lto(cgraph_node_set set);
+extern void size_overflow_write_summary(cgraph_node_set set);
+extern void size_overflow_write_optimization_summary(cgraph_node_set set);
 #endif
 
 // size_overflow_fnptrs.c

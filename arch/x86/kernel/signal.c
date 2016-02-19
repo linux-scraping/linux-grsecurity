@@ -63,6 +63,7 @@
 
 int restore_sigcontext(struct pt_regs *regs, struct sigcontext __user *sc)
 {
+	unsigned long buf_val;
 	void __user *buf;
 	unsigned int tmpflags;
 	unsigned int err = 0;
@@ -107,7 +108,8 @@ int restore_sigcontext(struct pt_regs *regs, struct sigcontext __user *sc)
 		regs->flags = (regs->flags & ~FIX_EFLAGS) | (tmpflags & FIX_EFLAGS);
 		regs->orig_ax = -1;		/* disable syscall checks */
 
-		get_user_ex(buf, &sc->fpstate);
+		get_user_ex(buf_val, &sc->fpstate);
+		buf = (void __user *)buf_val;
 	} get_user_catch(err);
 
 	err |= fpu__restore_sig(buf, config_enabled(CONFIG_X86_32));
@@ -196,7 +198,7 @@ static unsigned long align_sigframe(unsigned long sp)
 	return sp;
 }
 
-static inline void __user *
+static void __user *
 get_sigframe(struct k_sigaction *ka, struct pt_regs *regs, size_t frame_size,
 	     void __user **fpstate)
 {
@@ -298,9 +300,9 @@ __setup_frame(int sig, struct ksignal *ksig, sigset_t *set,
 	}
 
 	if (current->mm->context.vdso)
-		restorer = (void __force_user *)(current->mm->context.vdso + selected_vdso32->sym___kernel_sigreturn);
+		restorer = (void __force_user *)(current->mm->context.vdso + vdso_image_32.sym___kernel_sigreturn);
 	else
-		restorer = (void __user *)&frame->retcode;
+		restorer = frame->retcode;
 	if (ksig->ka.sa.sa_flags & SA_RESTORER)
 		restorer = ksig->ka.sa.sa_restorer;
 
@@ -362,7 +364,7 @@ static int __setup_rt_frame(int sig, struct ksignal *ksig,
 
 		/* Set up to return from userspace.  */
 		if (current->mm->context.vdso)
-			restorer = (void __force_user *)(current->mm->context.vdso + selected_vdso32->sym___kernel_rt_sigreturn);
+			restorer = (void __force_user *)(current->mm->context.vdso + vdso_image_32.sym___kernel_rt_sigreturn);
 		else
 			restorer = (void __user *)&frame->retcode;
 		if (ksig->ka.sa.sa_flags & SA_RESTORER)

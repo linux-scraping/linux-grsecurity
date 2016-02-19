@@ -1116,7 +1116,7 @@ void bpf_int_jit_compile(struct bpf_prog *prog)
 	if (image) {
 		bpf_flush_icache(header, image + proglen);
 		prog->bpf_func = (void *)image;
-		prog->jited = true;
+		prog->jited = 1;
 	}
 out:
 	kfree(addrs);

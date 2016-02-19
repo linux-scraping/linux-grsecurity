@@ -935,6 +935,13 @@ static enum si_sm_result smi_event_handler(struct smi_info *smi_info,
 		}
 		goto restart;
 	}
+
+	if (si_sm_result == SI_SM_IDLE && smi_info->timer_running) {
+		/* Ok it if fails, the timer will just go off. */
+		if (del_timer(&smi_info->si_timer))
+			smi_info->timer_running = false;
+	}
+
  out:
 	return si_sm_result;
 }
@@ -2575,6 +2582,7 @@ static const struct of_device_id of_ipmi_match[] = {
 	  .data = (void *)(unsigned long) SI_BT },
 	{},
 };
+MODULE_DEVICE_TABLE(of, of_ipmi_match);
 
 static int of_ipmi_probe(struct platform_device *dev)
 {
@@ -2661,7 +2669,6 @@ static int of_ipmi_probe(struct platform_device *dev)
 	}
 	return 0;
 }
-MODULE_DEVICE_TABLE(of, of_ipmi_match);
 #else
 #define of_ipmi_match NULL
 static int of_ipmi_probe(struct platform_device *dev)

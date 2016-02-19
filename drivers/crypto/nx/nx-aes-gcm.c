@@ -21,6 +21,7 @@
 
 #include <crypto/internal/aead.h>
 #include <crypto/aes.h>
+#include <crypto/algapi.h>
 #include <crypto/scatterwalk.h>
 #include <linux/module.h>
 #include <linux/types.h>

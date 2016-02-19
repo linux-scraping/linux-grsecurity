@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2015 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2016 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -28,7 +28,7 @@ extern rtx default_addr_space_legitimize_address(rtx x, rtx oldx, enum machine_m
 int plugin_is_GPL_compatible;
 
 static struct plugin_info checker_plugin_info = {
-	.version	= "201512100145",
+	.version	= "201602181345",
 	.help		= "user\tturn on user/kernel address space checking\n"
 			  "context\tturn on locking context checking\n"
 };
@@ -234,7 +234,7 @@ static void context_start_unit(void __unused *gcc_data, void __unused *user_data
 	decl_attributes(&context_error_decl, attr, 0);
 }
 
-static bool gate_context(void)
+static bool context_gate(void)
 {
 	tree context_attr;
 
@@ -366,7 +366,7 @@ static bool bb_any_loop(basic_block bb)
 	return bb_loop_depth(bb) || (bb->flags & BB_IRREDUCIBLE_LOOP);
 }
 
-static unsigned int execute_context(void)
+static unsigned int context_execute(void)
 {
 	basic_block bb;
 	gimple assign;
@@ -423,64 +423,11 @@ static unsigned int execute_context(void)
 	return 0;
 }
 
-#if BUILDING_GCC_VERSION >= 4009
-namespace {
-static const struct pass_data context_pass_data = {
-#else
-static struct gimple_opt_pass context_pass = {
-	.pass = {
-#endif
-		.type			= GIMPLE_PASS,
-		.name			= "context",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-#if BUILDING_GCC_VERSION >= 5000
-#elif BUILDING_GCC_VERSION == 4009
-		.has_gate		= true,
-		.has_execute		= true,
-#else
-		.gate			= gate_context,
-		.execute		= execute_context,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-#endif
-		.tv_id			= TV_NONE,
-		.properties_required	= PROP_gimple_leh | PROP_cfg,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0, //TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts,
-		.todo_flags_finish	= TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_verify_flow | TODO_update_ssa
-#if BUILDING_GCC_VERSION < 4009
-	}
-#endif
-};
-
-#if BUILDING_GCC_VERSION >= 4009
-class context_pass : public gimple_opt_pass {
-public:
-	context_pass() : gimple_opt_pass(context_pass_data, g) {}
-#if BUILDING_GCC_VERSION >= 5000
-	virtual bool gate(function *) { return gate_context(); }
-	virtual unsigned int execute(function *) { return execute_context(); }
-#else
-	bool gate() { return gate_context(); }
-	unsigned int execute() { return execute_context(); }
-#endif
-};
-}
-
-static opt_pass *make_context_pass(void)
-{
-	return new context_pass();
-}
-#else
-static struct opt_pass *make_context_pass(void)
-{
-	return &context_pass.pass;
-}
-#endif
+#define PASS_NAME context
+#define PROPERTIES_REQUIRED PROP_gimple_leh | PROP_cfg
+//#define TODO_FLAGS_START TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts
+#define TODO_FLAGS_FINISH TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_verify_flow | TODO_update_ssa
+#include "gcc-generate-gimple-pass.h"
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {

@@ -293,20 +293,20 @@ static struct dentry *proc_lookupfd(struct inode *dir, struct dentry *dentry,
  */
 int proc_fd_permission(struct inode *inode, int mask)
 {
-	struct task_struct *task;
-	int rv = generic_permission(inode, mask);
+	struct task_struct *p;
+	int rv;
 
-	if (task_tgid(current) == proc_pid(inode))
-		rv = 0;
+	rv = generic_permission(inode, mask);
 
-	task = get_proc_task(inode);
-	if (task == NULL)
-		return rv;
-
-	if (gr_acl_handle_procpidmem(task))
-		rv = -EACCES;
-
-	put_task_struct(task);
+	rcu_read_lock();
+	p = pid_task(proc_pid(inode), PIDTYPE_PID);
+	if (p) {
+		if (same_thread_group(p, current))
+			rv = 0;
+		if (gr_acl_handle_procpidmem(p))
+			rv = -EACCES;
+	}
+	rcu_read_unlock();
 
 	return rv;
 }

@@ -214,7 +214,7 @@ static void set_so_asm_input_target_stmt(struct asm_data *asm_data)
  *   __asm__("# size_overflow MARK_END_INTENTIONAL" : =rm" D.3344_8 : "0" cicus.4_16);
  *   __asm__("# size_overflow MARK_NO" : =rm" cicus.4_16 : "0" size_1(D));
  */
-static void insert_size_overflow_asm(gimple stmt, unsigned int argnum, enum intentional_mark intentional_mark)
+static void __insert_size_overflow_asm(gimple stmt, unsigned int argnum, enum intentional_mark intentional_mark)
 {
 	struct asm_data asm_data;
 
@@ -249,12 +249,12 @@ static void insert_size_overflow_asm(gimple stmt, unsigned int argnum, enum inte
 static void insert_so_asm_by_so_attr(gimple stmt, unsigned int orig_argnum)
 {
 	if (orig_argnum == 0 && gimple_code(stmt) == GIMPLE_RETURN) {
-		insert_size_overflow_asm(stmt, 0, MARK_NO);
+		__insert_size_overflow_asm(stmt, 0, MARK_NO);
 		return;
 	}
 
 	if (orig_argnum != 0 && gimple_code(stmt) == GIMPLE_CALL)
-		insert_size_overflow_asm(stmt, orig_argnum, MARK_NO);
+		__insert_size_overflow_asm(stmt, orig_argnum, MARK_NO);
 }
 
 // If a function arg or the return value is marked by the size_overflow attribute then set its index in the array.
@@ -294,7 +294,7 @@ static enum intentional_mark handle_intentional_attr(gimple stmt, unsigned int a
 		fndecl = gimple_call_fndecl(stmt);
 	if (fndecl == NULL_TREE && !get_size_overflow_hash_entry_tree(fndecl, argnum, DISABLE_SIZE_OVERFLOW))
 		return MARK_NO;
-	insert_size_overflow_asm(stmt, argnum, mark);
+	__insert_size_overflow_asm(stmt, argnum, mark);
 	return mark;
 }
 
@@ -334,7 +334,7 @@ static void handle_size_overflow_attr_call(gcall *stmt)
 }
 
 // Iterate over all the stmts and search for call stmts and mark them if they have size_overflow attribute
-static unsigned int search_interesting_functions(void)
+static unsigned int insert_size_overflow_asm_execute(void)
 {
 	basic_block bb;
 
@@ -358,59 +358,12 @@ static unsigned int search_interesting_functions(void)
  * this pass inserts asm stmts to mark the interesting args
  * that the ipa pass will detect and insert the size overflow checks for.
  */
-#if BUILDING_GCC_VERSION >= 4009
-static const struct pass_data insert_size_overflow_asm_pass_data = {
-#else
-static struct gimple_opt_pass insert_size_overflow_asm_pass = {
-	.pass = {
-#endif
-		.type			= GIMPLE_PASS,
-		.name			= "insert_size_overflow_asm",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-#if BUILDING_GCC_VERSION >= 5000
-#elif BUILDING_GCC_VERSION >= 4009
-		.has_gate		= false,
-		.has_execute		= true,
-#else
-		.gate			= NULL,
-		.execute		= search_interesting_functions,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-#endif
-		.tv_id			= TV_NONE,
-		.properties_required	= PROP_cfg,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0,
-		.todo_flags_finish	= TODO_dump_func | TODO_verify_ssa | TODO_verify_stmts | TODO_remove_unused_locals | TODO_update_ssa_no_phi | TODO_cleanup_cfg | TODO_ggc_collect | TODO_verify_flow
-#if BUILDING_GCC_VERSION < 4009
-	}
-#endif
-};
 
-#if BUILDING_GCC_VERSION >= 4009
-namespace {
-class insert_size_overflow_asm_pass : public gimple_opt_pass {
-public:
-	insert_size_overflow_asm_pass() : gimple_opt_pass(insert_size_overflow_asm_pass_data, g) {}
-#if BUILDING_GCC_VERSION >= 5000
-	virtual unsigned int execute(function *) { return search_interesting_functions(); }
-#else
-	unsigned int execute() { return search_interesting_functions(); }
-#endif
-};
-}
+#define PASS_NAME insert_size_overflow_asm
 
-opt_pass *make_insert_size_overflow_asm_pass(void)
-{
-	return new insert_size_overflow_asm_pass();
-}
-#else
-struct opt_pass *make_insert_size_overflow_asm_pass(void)
-{
-	return &insert_size_overflow_asm_pass.pass;
-}
-#endif
+#define NO_GATE
+
+#define PROPERTIES_REQUIRED PROP_cfg
+#define TODO_FLAGS_FINISH TODO_dump_func | TODO_verify_ssa | TODO_verify_stmts | TODO_remove_unused_locals | TODO_update_ssa_no_phi | TODO_cleanup_cfg | TODO_ggc_collect | TODO_verify_flow
+
+#include "gcc-generate-gimple-pass.h"

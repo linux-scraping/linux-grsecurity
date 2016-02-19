@@ -715,7 +715,7 @@ static void remove_all_size_overflow_asm(void)
 	}
 }
 
-unsigned int size_overflow_transform(struct cgraph_node *node __unused)
+unsigned int size_overflow_function_transform(struct cgraph_node *node __unused)
 {
 	struct visited *visited;
 

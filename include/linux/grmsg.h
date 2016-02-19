@@ -115,4 +115,5 @@
 #define GR_BRUTE_DAEMON_MSG "bruteforce prevention initiated for the next 30 minutes or until service restarted, stalling each fork 30 seconds.  Please investigate the crash report for "
 #define GR_BRUTE_SUID_MSG "bruteforce prevention initiated due to crash of %.950s against uid %u, banning suid/sgid execs for %u minutes.  Please investigate the crash report for "
 #define GR_IPC_DENIED_MSG "denied %s of overly-permissive IPC object with creator uid %u by "
+#define GR_TIOCSTI_MSG "denied unprivileged use of TIOCSTI by "
 #define GR_MSRWRITE_MSG "denied write to CPU MSR by "

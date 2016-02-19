@@ -13,6 +13,11 @@
  *
  * Safely read from address @src to the buffer at @dst.  If a kernel fault
  * happens, handle that and return -EFAULT.
+ *
+ * We ensure that the copy_from_user is executed in atomic context so that
+ * do_page_fault() doesn't attempt to take mmap_sem.  This makes
+ * probe_kernel_read() suitable for use within regions where the caller
+ * already holds mmap_sem, or other locks which nest inside mmap_sem.
  */
 
 long __weak probe_kernel_read(void *dst, const void *src, size_t size)
@@ -23,12 +28,12 @@ long __probe_kernel_read(void *dst, const void *src, size_t size)
 	long ret;
 	mm_segment_t old_fs = get_fs();
 
-	set_fs(KERNEL_DS);
 	pagefault_disable();
+	set_fs(KERNEL_DS);
 	ret = __copy_from_user_inatomic(dst,
 			(const void __force_user *)src, size);
-	pagefault_enable();
 	set_fs(old_fs);
+	pagefault_enable();
 
 	return ret ? -EFAULT : 0;
 }
@@ -51,11 +56,11 @@ long __probe_kernel_write(void *dst, const void *src, size_t size)
 	long ret;
 	mm_segment_t old_fs = get_fs();
 
-	set_fs(KERNEL_DS);
 	pagefault_disable();
+	set_fs(KERNEL_DS);
 	ret = __copy_to_user_inatomic((void __force_user *)dst, src, size);
-	pagefault_enable();
 	set_fs(old_fs);
+	pagefault_enable();
 
 	return ret ? -EFAULT : 0;
 }
@@ -99,5 +104,5 @@ long strncpy_from_unsafe(char *dst, const void *unsafe_addr, long count)
 	pagefault_enable();
 	set_fs(old_fs);
 
-	return ret < 0 ? ret : src - unsafe_addr;
+	return ret ? -EFAULT : src - unsafe_addr;
 }

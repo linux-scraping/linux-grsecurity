@@ -35,6 +35,7 @@
 #include <linux/utsname.h>
 #include <linux/coredump.h>
 #include <linux/sched.h>
+#include <linux/dax.h>
 #include <linux/xattr.h>
 #include <asm/uaccess.h>
 #include <asm/param.h>
@@ -514,7 +515,7 @@ static inline int arch_elf_pt_proc(struct elfhdr *ehdr,
 }
 
 /**
- * arch_check_elf() - check a PT_LOPROC..PT_HIPROC ELF program header
+ * arch_check_elf() - check an ELF executable
  * @ehdr:	The main ELF header
  * @has_interp:	True if the ELF has an interpreter, else false.
  * @state:	Architecture-specific state preserved throughout the process
@@ -1716,6 +1717,15 @@ static unsigned long vma_dump_size(struct vm_area_struct *vma,
 
 	if (vma->vm_flags & VM_DONTDUMP)
 		return 0;
+
+	/* support for DAX */
+	if (vma_is_dax(vma)) {
+		if ((vma->vm_flags & VM_SHARED) && FILTER(DAX_SHARED))
+			goto whole;
+		if (!(vma->vm_flags & VM_SHARED) && FILTER(DAX_PRIVATE))
+			goto whole;
+		return 0;
+	}
 
 	/* Hugetlb memory check */
 	if (vma->vm_flags & VM_HUGETLB) {

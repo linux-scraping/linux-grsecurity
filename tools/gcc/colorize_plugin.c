@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2015 by PaX Team <pageexec@freemail.hu>
+ * Copyright 2012-2016 by PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -16,7 +16,7 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info colorize_plugin_info = {
-	.version	= "201404202350",
+	.version	= "201602181345",
 	.help		= "color=[never|always|auto]\tdetermine when to colorize\n",
 };
 
@@ -82,7 +82,7 @@ static void colorize_arm(void)
 	diagnostic_finalizer(global_dc) = finalize_colorize;
 }
 
-static unsigned int execute_colorize_rearm(void)
+static unsigned int colorize_rearm_execute(void)
 {
 	if (diagnostic_starter(global_dc) == start_colorize)
 		return 0;
@@ -91,62 +91,9 @@ static unsigned int execute_colorize_rearm(void)
 	return 0;
 }
 
-#if BUILDING_GCC_VERSION >= 4009
-namespace {
-static const struct pass_data colorize_rearm_pass_data = {
-#else
-struct simple_ipa_opt_pass colorize_rearm_pass = {
-	.pass = {
-#endif
-		.type			= SIMPLE_IPA_PASS,
-		.name			= "colorize_rearm",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-#if BUILDING_GCC_VERSION >= 5000
-#elif BUILDING_GCC_VERSION == 4009
-		.has_gate		= false,
-		.has_execute		= true,
-#else
-		.gate			= NULL,
-		.execute		= execute_colorize_rearm,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-#endif
-		.tv_id			= TV_NONE,
-		.properties_required	= 0,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0,
-		.todo_flags_finish	= 0
-#if BUILDING_GCC_VERSION < 4009
-	}
-#endif
-};
-
-#if BUILDING_GCC_VERSION >= 4009
-class colorize_rearm_pass : public simple_ipa_opt_pass {
-public:
-	colorize_rearm_pass() : simple_ipa_opt_pass(colorize_rearm_pass_data, g) {}
-#if BUILDING_GCC_VERSION >= 5000
-	virtual unsigned int execute(function *) { return execute_colorize_rearm(); }
-#else
-	unsigned int execute() { return execute_colorize_rearm(); }
-#endif
-};
-}
-
-static opt_pass *make_colorize_rearm_pass(void)
-{
-	return new colorize_rearm_pass();
-}
-#else
-static struct opt_pass *make_colorize_rearm_pass(void)
-{
-	return &colorize_rearm_pass.pass;
-}
-#endif
+#define PASS_NAME colorize_rearm
+#define NO_GATE
+#include "gcc-generate-gimple-pass.h"
 
 static void colorize_start_unit(void *gcc_data, void *user_data)
 {

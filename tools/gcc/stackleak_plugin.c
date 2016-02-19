@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2015 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2016 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -30,7 +30,7 @@ static GTY(()) tree check_function_decl;
 static bool init_locals;
 
 static struct plugin_info stackleak_plugin_info = {
-	.version	= "201512150205",
+	.version	= "201602181345",
 	.help		= "track-lowest-sp=nn\ttrack sp in functions whose frame size is at least nn bytes\n"
 //			  "initialize-locals\t\tforcibly initialize all stack frames\n"
 };
@@ -95,7 +95,7 @@ static bool is_alloca(gimple stmt)
 	return false;
 }
 
-static unsigned int execute_stackleak_tree_instrument(void)
+static unsigned int stackleak_tree_instrument_execute(void)
 {
 	basic_block bb, entry_bb;
 	bool prologue_instrumented = false, is_leaf = true;
@@ -156,7 +156,7 @@ static unsigned int execute_stackleak_tree_instrument(void)
 	return 0;
 }
 
-static unsigned int execute_stackleak_final(void)
+static unsigned int stackleak_final_execute(void)
 {
 	rtx_insn *insn, *next;
 
@@ -206,7 +206,7 @@ static unsigned int execute_stackleak_final(void)
 	return 0;
 }
 
-static bool gate_stackleak_track_stack(void)
+static bool stackleak_track_stack_gate(void)
 {
 	tree section;
 
@@ -255,119 +255,25 @@ static void stackleak_start_unit(void *gcc_data, void *user_data)
 	DECL_PRESERVE_P(check_function_decl) = 1;
 }
 
-#if BUILDING_GCC_VERSION >= 4009
-namespace {
-static const struct pass_data stackleak_tree_instrument_pass_data = {
-#else
-static struct gimple_opt_pass stackleak_tree_instrument_pass = {
-	.pass = {
-#endif
-		.type			= GIMPLE_PASS,
-		.name			= "stackleak_tree_instrument",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-#if BUILDING_GCC_VERSION >= 5000
-#elif BUILDING_GCC_VERSION == 4009
-		.has_gate		= true,
-		.has_execute		= true,
-#else
-		.gate			= gate_stackleak_track_stack,
-		.execute		= execute_stackleak_tree_instrument,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-#endif
-		.tv_id			= TV_NONE,
-		.properties_required	= PROP_gimple_leh | PROP_cfg,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0, //TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts,
-		.todo_flags_finish	= TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_update_ssa | TODO_rebuild_cgraph_edges
-#if BUILDING_GCC_VERSION < 4009
-	}
-#endif
-};
-
-#if BUILDING_GCC_VERSION >= 4009
-static const struct pass_data stackleak_final_rtl_opt_pass_data = {
-#else
-static struct rtl_opt_pass stackleak_final_rtl_opt_pass = {
-	.pass = {
-#endif
-		.type			= RTL_PASS,
-		.name			= "stackleak_final",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-#if BUILDING_GCC_VERSION >= 5000
-#elif BUILDING_GCC_VERSION == 4009
-		.has_gate		= true,
-		.has_execute		= true,
-#else
-		.gate			= gate_stackleak_track_stack,
-		.execute		= execute_stackleak_final,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-#endif
-		.tv_id			= TV_NONE,
-		.properties_required	= 0,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0,
-		.todo_flags_finish	= TODO_dump_func
-#if BUILDING_GCC_VERSION < 4009
-	}
-#endif
-};
-
-#if BUILDING_GCC_VERSION >= 4009
-class stackleak_tree_instrument_pass : public gimple_opt_pass {
-public:
-	stackleak_tree_instrument_pass() : gimple_opt_pass(stackleak_tree_instrument_pass_data, g) {}
-#if BUILDING_GCC_VERSION >= 5000
-	virtual bool gate(function *) { return gate_stackleak_track_stack(); }
-	virtual unsigned int execute(function *) { return execute_stackleak_tree_instrument(); }
-#else
-	bool gate() { return gate_stackleak_track_stack(); }
-	unsigned int execute() { return execute_stackleak_tree_instrument(); }
-#endif
-};
-
-class stackleak_final_rtl_opt_pass : public rtl_opt_pass {
-public:
-	stackleak_final_rtl_opt_pass() : rtl_opt_pass(stackleak_final_rtl_opt_pass_data, g) {}
-#if BUILDING_GCC_VERSION >= 5000
-	virtual bool gate(function *) { return gate_stackleak_track_stack(); }
-	virtual unsigned int execute(function *) { return execute_stackleak_final(); }
-#else
-	bool gate() { return gate_stackleak_track_stack(); }
-	unsigned int execute() { return execute_stackleak_final(); }
-#endif
-};
-}
-
-static opt_pass *make_stackleak_tree_instrument_pass(void)
+static bool stackleak_tree_instrument_gate(void)
 {
-	return new stackleak_tree_instrument_pass();
+	return stackleak_track_stack_gate();
 }
 
-static opt_pass *make_stackleak_final_rtl_opt_pass(void)
+#define PASS_NAME stackleak_tree_instrument
+#define PROPERTIES_REQUIRED PROP_gimple_leh | PROP_cfg
+#define TODO_FLAGS_START TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts
+#define TODO_FLAGS_FINISH TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_update_ssa | TODO_rebuild_cgraph_edges
+#include "gcc-generate-gimple-pass.h"
+
+static bool stackleak_final_gate(void)
 {
-	return new stackleak_final_rtl_opt_pass();
-}
-#else
-static struct opt_pass *make_stackleak_tree_instrument_pass(void)
-{
-	return &stackleak_tree_instrument_pass.pass;
+	return stackleak_track_stack_gate();
 }
 
-static struct opt_pass *make_stackleak_final_rtl_opt_pass(void)
-{
-	return &stackleak_final_rtl_opt_pass.pass;
-}
-#endif
+#define PASS_NAME stackleak_final
+#define TODO_FLAGS_FINISH TODO_dump_func
+#include "gcc-generate-rtl-pass.h"
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
@@ -401,7 +307,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	stackleak_tree_instrument_pass_info.ref_pass_instance_number	= 1;
 	stackleak_tree_instrument_pass_info.pos_op 			= PASS_POS_INSERT_BEFORE;
 
-	stackleak_final_pass_info.pass				= make_stackleak_final_rtl_opt_pass();
+	stackleak_final_pass_info.pass				= make_stackleak_final_pass();
 	stackleak_final_pass_info.reference_pass_name		= "final";
 	stackleak_final_pass_info.ref_pass_instance_number	= 1;
 	stackleak_final_pass_info.pos_op 			= PASS_POS_INSERT_BEFORE;

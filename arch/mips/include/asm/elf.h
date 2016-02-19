@@ -8,6 +8,7 @@
 #ifndef _ASM_ELF_H
 #define _ASM_ELF_H
 
+#include <linux/auxvec.h>
 #include <linux/fs.h>
 #include <uapi/linux/elf.h>
 
@@ -425,6 +426,12 @@ extern const char *__elf_platform;
 #define PAX_DELTA_MMAP_LEN	(TASK_IS_32BIT_ADDR ? 27-PAGE_SHIFT : 36-PAGE_SHIFT)
 #define PAX_DELTA_STACK_LEN	(TASK_IS_32BIT_ADDR ? 27-PAGE_SHIFT : 36-PAGE_SHIFT)
 #endif
+
+#define ARCH_DLINFO							\
+do {									\
+	NEW_AUX_ENT(AT_SYSINFO_EHDR,					\
+		    (unsigned long)current->mm->context.vdso);		\
+} while (0)
 
 #define ARCH_HAS_SETUP_ADDITIONAL_PAGES 1
 struct linux_binprm;

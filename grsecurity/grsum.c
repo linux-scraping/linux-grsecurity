@@ -5,7 +5,7 @@
 #include <linux/scatterlist.h>
 #include <linux/crypto.h>
 #include <linux/gracl.h>
-
+#include <crypto/algapi.h>
 
 #if !defined(CONFIG_CRYPTO) || defined(CONFIG_CRYPTO_MODULE) || !defined(CONFIG_CRYPTO_SHA256) || defined(CONFIG_CRYPTO_SHA256_MODULE)
 #error "crypto and sha256 must be built into the kernel"
@@ -22,9 +22,6 @@ chkpw(struct gr_arg *entry, unsigned char *salt, unsigned char *sum)
 	unsigned long *sumptr = (unsigned long *)sum;
 	int cryptres;
 	int retval = 1;
-	volatile int mismatched = 0;
-	volatile int dummy = 0;
-	unsigned int i;
 
 	tfm = crypto_alloc_hash("sha256", 0, CRYPTO_ALG_ASYNC);
 	if (IS_ERR(tfm)) {
@@ -48,15 +45,8 @@ chkpw(struct gr_arg *entry, unsigned char *salt, unsigned char *sum)
 	if (cryptres)
 		goto out;
 
-	for (i = 0; i < GR_SHA_LEN/sizeof(tmpsumptr[0]); i++)
-		if (sumptr[i] != tmpsumptr[i])
-			mismatched = 1;
-		else
-			dummy = 1;	// waste a cycle
-
-	if (!mismatched)
-		retval = dummy - 1;
-
+	if (!crypto_memneq(sumptr, tmpsumptr, GR_SHA_LEN))
+		retval = 0;
 out:
 	crypto_free_hash(tfm);
 

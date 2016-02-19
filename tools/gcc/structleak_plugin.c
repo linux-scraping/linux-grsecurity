@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2015 by PaX Team <pageexec@freemail.hu>
+ * Copyright 2013-2016 by PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -32,7 +32,7 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info structleak_plugin_info = {
-	.version	= "201512150035",
+	.version	= "201602181345",
 	.help		= "disable\tdo not activate plugin\n",
 };
 
@@ -154,7 +154,7 @@ static void initialize(tree var)
 	update_stmt(init_stmt);
 }
 
-static unsigned int handle_function(void)
+static unsigned int structleak_execute(void)
 {
 	basic_block bb;
 	unsigned int ret = 0;
@@ -190,62 +190,11 @@ static unsigned int handle_function(void)
 	return ret;
 }
 
-#if BUILDING_GCC_VERSION >= 4009
-namespace {
-static const struct pass_data structleak_pass_data = {
-#else
-static struct gimple_opt_pass structleak_pass = {
-	.pass = {
-#endif
-		.type			= GIMPLE_PASS,
-		.name			= "structleak",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-#if BUILDING_GCC_VERSION >= 5000
-#elif BUILDING_GCC_VERSION == 4009
-		.has_gate		= false,
-		.has_execute		= true,
-#else
-		.gate			= NULL,
-		.execute		= handle_function,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-#endif
-		.tv_id			= TV_NONE,
-		.properties_required	= PROP_cfg,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0,
-		.todo_flags_finish	= TODO_verify_il | TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_remove_unused_locals | TODO_update_ssa | TODO_ggc_collect | TODO_verify_flow
-#if BUILDING_GCC_VERSION < 4009
-	}
-#endif
-};
-
-#if BUILDING_GCC_VERSION >= 4009
-class structleak_pass : public gimple_opt_pass {
-public:
-	structleak_pass() : gimple_opt_pass(structleak_pass_data, g) {}
-#if BUILDING_GCC_VERSION >= 5000
-	virtual unsigned int execute(function *) { return handle_function(); }
-#else
-	unsigned int execute() { return handle_function(); }
-#endif
-};
-}
-
-static opt_pass *make_structleak_pass(void)
-{
-	return new structleak_pass();
-}
-#else
-static struct opt_pass *make_structleak_pass(void)
-{
-	return &structleak_pass.pass;
-}
-#endif
+#define PASS_NAME structleak
+#define NO_GATE
+#define PROPERTIES_REQUIRED PROP_cfg
+#define TODO_FLAGS_FINISH TODO_verify_il | TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_remove_unused_locals | TODO_update_ssa | TODO_ggc_collect | TODO_verify_flow
+#include "gcc-generate-gimple-pass.h"
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {

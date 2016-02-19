@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2015 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2012-2016 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -26,7 +26,7 @@ int plugin_is_GPL_compatible;
 static GTY(()) tree latent_entropy_decl;
 
 static struct plugin_info latent_entropy_plugin_info = {
-	.version	= "201512150000",
+	.version	= "201602181345",
 	.help		= NULL
 };
 
@@ -196,7 +196,7 @@ static void register_attributes(void *event_data, void *data)
 	register_attribute(&latent_entropy_attr);
 }
 
-static bool gate_latent_entropy(void)
+static bool latent_entropy_gate(void)
 {
 	// don't bother with noreturn functions for now
 	if (TREE_THIS_VOLATILE(current_function_decl))
@@ -287,7 +287,7 @@ static void perturb_latent_entropy(basic_block bb, tree rhs)
 	update_stmt(assign);
 }
 
-static unsigned int execute_latent_entropy(void)
+static unsigned int latent_entropy_execute(void)
 {
 	basic_block bb;
 	gimple assign;
@@ -380,64 +380,11 @@ static void latent_entropy_start_unit(void *gcc_data, void *user_data)
 //	varpool_mark_needed_node(latent_entropy_decl);
 }
 
-#if BUILDING_GCC_VERSION >= 4009
-namespace {
-static const struct pass_data latent_entropy_pass_data = {
-#else
-static struct gimple_opt_pass latent_entropy_pass = {
-	.pass = {
-#endif
-		.type			= GIMPLE_PASS,
-		.name			= "latent_entropy",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-#if BUILDING_GCC_VERSION >= 5000
-#elif BUILDING_GCC_VERSION == 4009
-		.has_gate		= true,
-		.has_execute		= true,
-#else
-		.gate			= gate_latent_entropy,
-		.execute		= execute_latent_entropy,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-#endif
-		.tv_id			= TV_NONE,
-		.properties_required	= PROP_gimple_leh | PROP_cfg,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0, //TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts,
-		.todo_flags_finish	= TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_update_ssa
-#if BUILDING_GCC_VERSION < 4009
-	}
-#endif
-};
-
-#if BUILDING_GCC_VERSION >= 4009
-class latent_entropy_pass : public gimple_opt_pass {
-public:
-	latent_entropy_pass() : gimple_opt_pass(latent_entropy_pass_data, g) {}
-#if BUILDING_GCC_VERSION >= 5000
-	virtual bool gate(function *) { return gate_latent_entropy(); }
-	virtual unsigned int execute(function *) { return execute_latent_entropy(); }
-#else
-	bool gate() { return gate_latent_entropy(); }
-	unsigned int execute() { return execute_latent_entropy(); }
-#endif
-};
-}
-
-static opt_pass *make_latent_entropy_pass(void)
-{
-	return new latent_entropy_pass();
-}
-#else
-static struct opt_pass *make_latent_entropy_pass(void)
-{
-	return &latent_entropy_pass.pass;
-}
-#endif
+#define PASS_NAME latent_entropy
+#define PROPERTIES_REQUIRED PROP_gimple_leh | PROP_cfg
+//#define TODO_FLAGS_START TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts
+#define TODO_FLAGS_FINISH TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_update_ssa
+#include "gcc-generate-gimple-pass.h"
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {

@@ -18,7 +18,7 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info initify_plugin_info = {
-	.version	= "20160130",
+	.version	= "20160217",
 	.help		= "initify_plugin\n",
 };
 
@@ -474,7 +474,7 @@ static void search_const_strs(bool initexit)
 	}
 }
 
-static unsigned int handle_function(void)
+static unsigned int initify_execute(void)
 {
 	bool initexit;
 	const char *section = get_init_exit_section(current_function_decl);
@@ -489,62 +489,12 @@ static unsigned int handle_function(void)
 	return 0;
 }
 
-#if BUILDING_GCC_VERSION >= 4009
-namespace {
-static const struct pass_data initify_plugin_pass_data = {
-#else
-static struct gimple_opt_pass initify_plugin_pass = {
-	.pass = {
-#endif
-		.type			= GIMPLE_PASS,
-		.name			= "initify_plugin",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-#if BUILDING_GCC_VERSION >= 5000
-#elif BUILDING_GCC_VERSION >= 4009
-		.has_gate		= false,
-		.has_execute		= true,
-#else
-		.gate			= NULL,
-		.execute		= handle_function,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-#endif
-		.tv_id			= TV_NONE,
-		.properties_required	= 0,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0,
-		.todo_flags_finish	= TODO_dump_func | TODO_verify_ssa | TODO_verify_stmts | TODO_remove_unused_locals | TODO_update_ssa_no_phi | TODO_cleanup_cfg | TODO_ggc_collect | TODO_verify_flow
-#if BUILDING_GCC_VERSION < 4009
-	}
-#endif
-};
+#define PASS_NAME initify
 
-#if BUILDING_GCC_VERSION >= 4009
-class initify_plugin_pass : public gimple_opt_pass {
-public:
-	initify_plugin_pass() : gimple_opt_pass(initify_plugin_pass_data, g) {}
-#if BUILDING_GCC_VERSION >= 5000
-	virtual unsigned int execute(function *) { return handle_function(); }
-#else
-	unsigned int execute() { return handle_function(); }
-#endif
-};
-}
+#define NO_GATE
+#define TODO_FLAGS_FINISH TODO_dump_func | TODO_verify_ssa | TODO_verify_stmts | TODO_remove_unused_locals | TODO_update_ssa_no_phi | TODO_cleanup_cfg | TODO_ggc_collect | TODO_verify_flow
 
-static struct opt_pass *make_initify_plugin_pass(void)
-{
-	return new initify_plugin_pass();
-}
-#else
-static struct opt_pass *make_initify_plugin_pass(void)
-{
-	return &initify_plugin_pass.pass;
-}
-#endif
+#include "gcc-generate-gimple-pass.h"
 
 static unsigned int (*old_section_type_flags)(tree decl, const char *name, int reloc);
 
@@ -570,12 +520,12 @@ static void initify_start_unit(void __unused *gcc_data, void __unused *user_data
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
 	const char * const plugin_name = plugin_info->base_name;
-	struct register_pass_info initify_plugin_pass_info;
+	struct register_pass_info initify_pass_info;
 
-	initify_plugin_pass_info.pass				= make_initify_plugin_pass();
-	initify_plugin_pass_info.reference_pass_name		= "nrv";
-	initify_plugin_pass_info.ref_pass_instance_number	= 1;
-	initify_plugin_pass_info.pos_op				= PASS_POS_INSERT_AFTER;
+	initify_pass_info.pass				= make_initify_pass();
+	initify_pass_info.reference_pass_name		= "nrv";
+	initify_pass_info.ref_pass_instance_number	= 1;
+	initify_pass_info.pos_op				= PASS_POS_INSERT_AFTER;
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));
@@ -583,7 +533,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	}
 
 	register_callback(plugin_name, PLUGIN_INFO, NULL, &initify_plugin_info);
-	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &initify_plugin_pass_info);
+	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &initify_pass_info);
 	register_callback(plugin_name, PLUGIN_ATTRIBUTES, register_attributes, NULL);
 	register_callback(plugin_name, PLUGIN_START_UNIT, initify_start_unit, NULL);
 

@@ -104,7 +104,7 @@ extern void __chk_io_ptr(const volatile void __iomem *);
 #include <linux/compiler-gcc.h>
 #endif
 
-#ifdef CC_USING_HOTPATCH
+#if defined(CC_USING_HOTPATCH) && !defined(__CHECKER__)
 #define notrace __attribute__((hotpatch(0,0)))
 #else
 #define notrace __attribute__((no_instrument_function))
@@ -315,22 +315,6 @@ void __read_once_size_nocheck(const volatile void *p, void *res, int size)
 	__val;						\
 })
 
-/**
- * READ_ONCE_CTRL - Read a value heading a control dependency
- * @x: The value to be read, heading the control dependency
- *
- * Control dependencies are tricky.  See Documentation/memory-barriers.txt
- * for important information on how to use them.  Note that in many cases,
- * use of smp_load_acquire() will be much simpler.  Control dependencies
- * should be avoided except on the hottest of hotpaths.
- */
-#define READ_ONCE_CTRL(x) \
-({ \
-	typeof(x) __val = READ_ONCE(x); \
-	smp_read_barrier_depends(); /* Enforce control dependency. */ \
-	__val; \
-})
-
 #endif /* __KERNEL__ */
 
 #endif /* __ASSEMBLY__ */
@@ -496,6 +480,14 @@ void __read_once_size_nocheck(const volatile void *p, void *res, int size)
 #ifndef __visible
 #define __visible
 #endif
+
+/*
+ * Assume alignment of return value.
+ */
+#ifndef __assume_aligned
+#define __assume_aligned(a, ...)
+#endif
+
 
 /* Are two types/vars the same type (ignoring qualifiers)? */
 #ifndef __same_type

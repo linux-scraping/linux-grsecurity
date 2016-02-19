@@ -899,6 +899,9 @@ int kernel_read(struct file *file, loff_t offset,
 	loff_t pos = offset;
 	int result;
 
+	if (count > INT_MAX)
+		return -EINVAL;
+
 	old_fs = get_fs();
 	set_fs(get_ds());
 	/* The cast to a user pointer is valid due to the set_fs() */

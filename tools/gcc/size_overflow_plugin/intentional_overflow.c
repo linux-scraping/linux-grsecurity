@@ -1060,7 +1060,7 @@ static bool is_mult_const(const_tree lhs)
 	const_tree rhs1, rhs2;
 
 	def_stmt = get_def_stmt(lhs);
-	if (!def_stmt || gimple_assign_rhs_code(def_stmt) != MULT_EXPR)
+	if (!def_stmt || !is_gimple_assign(def_stmt) || gimple_assign_rhs_code(def_stmt) != MULT_EXPR)
 		return false;
 
 	rhs1 = gimple_assign_rhs1(def_stmt);
@@ -1082,7 +1082,7 @@ static bool is_mult_const(const_tree lhs)
  * _53 = _52 + 4096;
  */
 
-bool uconst_neg_intentional_overflow(struct visited *visited, const gassign *stmt)
+bool uconst_neg_intentional_overflow(const gassign *stmt)
 {
 	const_gimple def_stmt;
 	const_tree noconst_rhs;
@@ -1103,6 +1103,8 @@ bool uconst_neg_intentional_overflow(struct visited *visited, const gassign *stm
 
 	// _52 = _49 + _51;
 	if (!def_stmt)
+		return false;
+	if (!is_gimple_assign(def_stmt))
 		return false;
 	if (gimple_assign_rhs_code(def_stmt) != PLUS_EXPR)
 		return false;

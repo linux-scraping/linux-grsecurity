@@ -82,7 +82,7 @@ extern int gr_chroot_shmat(const pid_t shm_cprid, const pid_t shm_lapid,
 
 void shm_init_ns(struct ipc_namespace *ns)
 {
-	ns->shm_ctlmax = SHMMAX;
+	ns->shm_ctlmax = BITS_PER_LONG == 32 ? SHMMAX : LONG_MAX;
 	ns->shm_ctlall = SHMALL;
 	ns->shm_ctlmni = SHMMNI;
 	ns->shm_rmid_forced = 0;

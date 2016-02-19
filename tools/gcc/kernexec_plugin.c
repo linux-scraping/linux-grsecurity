@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2015 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2016 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -20,7 +20,7 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info kernexec_plugin_info = {
-	.version	= "201401260140",
+	.version	= "201602181345",
 	.help		= "method=[bts|or]\tinstrumentation method\n"
 };
 
@@ -46,7 +46,7 @@ static void kernexec_reload_fptr_mask(gimple_stmt_iterator *gsi)
 /*
  * find all asm() stmts that clobber r12 and add a reload of r12
  */
-static unsigned int execute_kernexec_reload(void)
+static unsigned int kernexec_reload_execute(void)
 {
 	basic_block bb;
 
@@ -178,7 +178,7 @@ static void kernexec_instrument_fptr_or(gimple_stmt_iterator *gsi)
 /*
  * find all C level function pointer dereferences and forcibly set the highest bit of the pointer
  */
-static unsigned int execute_kernexec_fptr(void)
+static unsigned int kernexec_fptr_execute(void)
 {
 	basic_block bb;
 
@@ -265,7 +265,7 @@ static void kernexec_instrument_retaddr_or(rtx insn)
 /*
  * find all asm level function returns and forcibly set the highest bit of the return address
  */
-static unsigned int execute_kernexec_retaddr(void)
+static unsigned int kernexec_retaddr_execute(void)
 {
 	rtx_insn *insn;
 
@@ -314,174 +314,32 @@ static bool kernexec_cmodel_check(void)
 	return false;
 }
 
-#if BUILDING_GCC_VERSION >= 4009
-namespace {
-static const struct pass_data kernexec_reload_pass_data = {
-#else
-static struct gimple_opt_pass kernexec_reload_pass = {
-	.pass = {
-#endif
-		.type			= GIMPLE_PASS,
-		.name			= "kernexec_reload",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-#if BUILDING_GCC_VERSION >= 5000
-#elif BUILDING_GCC_VERSION == 4009
-		.has_gate		= true,
-		.has_execute		= true,
-#else
-		.gate			= kernexec_cmodel_check,
-		.execute		= execute_kernexec_reload,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-#endif
-		.tv_id			= TV_NONE,
-		.properties_required	= 0,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0,
-		.todo_flags_finish	= TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_remove_unused_locals | TODO_update_ssa_no_phi
-#if BUILDING_GCC_VERSION < 4009
-	}
-#endif
-};
-
-#if BUILDING_GCC_VERSION >= 4009
-static const struct pass_data kernexec_fptr_pass_data = {
-#else
-static struct gimple_opt_pass kernexec_fptr_pass = {
-	.pass = {
-#endif
-		.type			= GIMPLE_PASS,
-		.name			= "kernexec_fptr",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-#if BUILDING_GCC_VERSION >= 5000
-#elif BUILDING_GCC_VERSION == 4009
-		.has_gate		= true,
-		.has_execute		= true,
-#else
-		.gate			= kernexec_cmodel_check,
-		.execute		= execute_kernexec_fptr,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-#endif
-		.tv_id			= TV_NONE,
-		.properties_required	= 0,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0,
-		.todo_flags_finish	= TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_remove_unused_locals | TODO_update_ssa_no_phi
-#if BUILDING_GCC_VERSION < 4009
-	}
-#endif
-};
-
-#if BUILDING_GCC_VERSION >= 4009
-static const struct pass_data kernexec_retaddr_pass_data = {
-#else
-static struct rtl_opt_pass kernexec_retaddr_pass = {
-	.pass = {
-#endif
-		.type			= RTL_PASS,
-		.name			= "kernexec_retaddr",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-#if BUILDING_GCC_VERSION >= 5000
-#elif BUILDING_GCC_VERSION == 4009
-		.has_gate		= true,
-		.has_execute		= true,
-#else
-		.gate			= kernexec_cmodel_check,
-		.execute		= execute_kernexec_retaddr,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-#endif
-		.tv_id			= TV_NONE,
-		.properties_required	= 0,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0,
-		.todo_flags_finish	= TODO_dump_func | TODO_ggc_collect
-#if BUILDING_GCC_VERSION < 4009
-	}
-#endif
-};
-
-#if BUILDING_GCC_VERSION >= 4009
-class kernexec_reload_pass : public gimple_opt_pass {
-public:
-	kernexec_reload_pass() : gimple_opt_pass(kernexec_reload_pass_data, g) {}
-#if BUILDING_GCC_VERSION >= 5000
-	virtual bool gate(function *) { return kernexec_cmodel_check(); }
-	virtual unsigned int execute(function *) { return execute_kernexec_reload(); }
-#else
-	bool gate() { return kernexec_cmodel_check(); }
-	unsigned int execute() { return execute_kernexec_reload(); }
-#endif
-};
-
-class kernexec_fptr_pass : public gimple_opt_pass {
-public:
-	kernexec_fptr_pass() : gimple_opt_pass(kernexec_fptr_pass_data, g) {}
-#if BUILDING_GCC_VERSION >= 5000
-	virtual bool gate(function *) { return kernexec_cmodel_check(); }
-	virtual unsigned int execute(function *) { return execute_kernexec_fptr(); }
-#else
-	bool gate() { return kernexec_cmodel_check(); }
-	unsigned int execute() { return execute_kernexec_fptr(); }
-#endif
-};
-
-class kernexec_retaddr_pass : public rtl_opt_pass {
-public:
-	kernexec_retaddr_pass() : rtl_opt_pass(kernexec_retaddr_pass_data, g) {}
-#if BUILDING_GCC_VERSION >= 5000
-	virtual bool gate(function *) { return kernexec_cmodel_check(); }
-	virtual unsigned int execute(function *) { return execute_kernexec_retaddr(); }
-#else
-	bool gate() { return kernexec_cmodel_check(); }
-	unsigned int execute() { return execute_kernexec_retaddr(); }
-#endif
-};
-}
-
-static opt_pass *make_kernexec_reload_pass(void)
+static bool kernexec_reload_gate(void)
 {
-	return new kernexec_reload_pass();
+	return kernexec_cmodel_check();
 }
 
-static opt_pass *make_kernexec_fptr_pass(void)
+#define PASS_NAME kernexec_reload
+#define TODO_FLAGS_FINISH TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_remove_unused_locals | TODO_update_ssa_no_phi
+#include "gcc-generate-gimple-pass.h"
+
+static bool kernexec_fptr_gate(void)
 {
-	return new kernexec_fptr_pass();
+	return kernexec_cmodel_check();
 }
 
-static opt_pass *make_kernexec_retaddr_pass(void)
+#define PASS_NAME kernexec_fptr
+#define TODO_FLAGS_FINISH TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_remove_unused_locals | TODO_update_ssa_no_phi
+#include "gcc-generate-gimple-pass.h"
+
+static bool kernexec_retaddr_gate(void)
 {
-	return new kernexec_retaddr_pass();
-}
-#else
-static struct opt_pass *make_kernexec_reload_pass(void)
-{
-	return &kernexec_reload_pass.pass;
+	return kernexec_cmodel_check();
 }
 
-static struct opt_pass *make_kernexec_fptr_pass(void)
-{
-	return &kernexec_fptr_pass.pass;
-}
-
-static struct opt_pass *make_kernexec_retaddr_pass(void)
-{
-	return &kernexec_retaddr_pass.pass;
-}
-#endif
+#define PASS_NAME kernexec_retaddr
+#define TODO_FLAGS_FINISH TODO_dump_func | TODO_ggc_collect
+#include "gcc-generate-rtl-pass.h"
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {

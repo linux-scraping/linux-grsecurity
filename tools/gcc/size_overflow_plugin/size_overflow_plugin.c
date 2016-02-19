@@ -29,7 +29,7 @@ tree size_overflow_type_DI;
 tree size_overflow_type_TI;
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20160128",
+	.version	= "20160217",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
@@ -251,7 +251,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	const struct plugin_argument * const argv = plugin_info->argv;
 	bool enable = true;
 	struct register_pass_info insert_size_overflow_asm_pass_info;
-	struct register_pass_info size_overflow_functions_pass_info;
+	struct register_pass_info size_overflow_pass_info;
 #if BUILDING_GCC_VERSION >= 4009
 	struct register_pass_info disable_ubsan_si_overflow_pass_info;
 #endif
@@ -272,10 +272,10 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	insert_size_overflow_asm_pass_info.ref_pass_instance_number	= 1;
 	insert_size_overflow_asm_pass_info.pos_op			= PASS_POS_INSERT_AFTER;
 
-	size_overflow_functions_pass_info.pass			= make_size_overflow_functions_pass();
-	size_overflow_functions_pass_info.reference_pass_name	= "inline";
-	size_overflow_functions_pass_info.ref_pass_instance_number	= 1;
-	size_overflow_functions_pass_info.pos_op			= PASS_POS_INSERT_AFTER;
+	size_overflow_pass_info.pass			= make_size_overflow_pass();
+	size_overflow_pass_info.reference_pass_name	= "inline";
+	size_overflow_pass_info.ref_pass_instance_number	= 1;
+	size_overflow_pass_info.pos_op			= PASS_POS_INSERT_AFTER;
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));
@@ -310,7 +310,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &disable_ubsan_si_overflow_pass_info);
 #endif
 		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &insert_size_overflow_asm_pass_info);
-		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &size_overflow_functions_pass_info);
+		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &size_overflow_pass_info);
 	}
 	register_callback(plugin_name, PLUGIN_ATTRIBUTES, register_attributes, NULL);
 

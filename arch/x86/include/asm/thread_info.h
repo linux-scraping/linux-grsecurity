@@ -56,9 +56,7 @@ struct thread_info {
 	__u32			flags;		/* low level flags */
 	__u32			status;		/* thread synchronous flags */
 	__u32			cpu;		/* current CPU */
-	int			saved_preempt_count;
 	mm_segment_t		addr_limit;
-	void __user		*sysenter_return;
 	unsigned long		lowest_stack;
 	unsigned int		sig_on_uaccess_error:1;
 	unsigned int		uaccess_err:1;	/* uaccess failed */
@@ -68,7 +66,6 @@ struct thread_info {
 {						\
 	.flags		= 0,			\
 	.cpu		= 0,			\
-	.saved_preempt_count = INIT_PREEMPT_COUNT,	\
 	.addr_limit	= KERNEL_DS,		\
 }
 

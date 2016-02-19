@@ -38,7 +38,12 @@
 #define CREATE_TRACE_POINTS
 #include "vsyscall_trace.h"
 
-static enum { EMULATE, NONE } vsyscall_mode = EMULATE;
+static enum { EMULATE, NONE } vsyscall_mode =
+#if defined(CONFIG_LEGACY_VSYSCALL_NONE)
+	NONE;
+#else
+	EMULATE;
+#endif
 
 static int __init vsyscall_setup(char *str)
 {

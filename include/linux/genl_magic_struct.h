@@ -76,8 +76,8 @@ extern void CONCAT_(GENL_MAGIC_FAMILY, _genl_unregister)(void);
 	__field(attr_nr, attr_flag, name, NLA_U32, __u32, \
 			nla_get_u32, nla_put_u32, false)
 #define __s32_field(attr_nr, attr_flag, name)	\
-	__field(attr_nr, attr_flag, name, NLA_U32, __s32, \
-			nla_get_u32, nla_put_u32, true)
+	__field(attr_nr, attr_flag, name, NLA_S32, __s32, \
+			nla_get_s32, nla_put_s32, true)
 #define __u64_field(attr_nr, attr_flag, name)	\
 	__field(attr_nr, attr_flag, name, NLA_U64, __u64, \
 			nla_get_u64, nla_put_u64, false)

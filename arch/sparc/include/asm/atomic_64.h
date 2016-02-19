@@ -14,26 +14,26 @@
 #define ATOMIC_INIT(i)		{ (i) }
 #define ATOMIC64_INIT(i)	{ (i) }
 
-#define atomic_read(v)		ACCESS_ONCE((v)->counter)
+#define atomic_read(v)		READ_ONCE((v)->counter)
 static inline int atomic_read_unchecked(const atomic_unchecked_t *v)
 {
-	return ACCESS_ONCE(v->counter);
+	return READ_ONCE(v->counter);
 }
-#define atomic64_read(v)	ACCESS_ONCE((v)->counter)
+#define atomic64_read(v)	READ_ONCE((v)->counter)
 static inline long atomic64_read_unchecked(const atomic64_unchecked_t *v)
 {
-	return ACCESS_ONCE(v->counter);
+	return READ_ONCE(v->counter);
 }
 
-#define atomic_set(v, i)	(((v)->counter) = i)
+#define atomic_set(v, i)	WRITE_ONCE(((v)->counter), (i))
 static inline void atomic_set_unchecked(atomic_unchecked_t *v, int i)
 {
-	v->counter = i;
+	WRITE_ONCE(v->counter, i);
 }
-#define atomic64_set(v, i)	(((v)->counter) = i)
+#define atomic64_set(v, i)	WRITE_ONCE(((v)->counter), (i))
 static inline void atomic64_set_unchecked(atomic64_unchecked_t *v, long i)
 {
-	v->counter = i;
+	WRITE_ONCE(v->counter, i);
 }
 
 #define __ATOMIC_OP(op, suffix)						\

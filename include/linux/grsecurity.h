@@ -3,6 +3,7 @@
 #include <linux/fs.h>
 #include <linux/fs_struct.h>
 #include <linux/binfmts.h>
+#include <linux/tty.h>
 #include <linux/gracl.h>
 
 /* notify of brain-dead configs */
@@ -214,6 +215,8 @@ void gr_put_exec_file(struct task_struct *task);
 int gr_get_symlinkown_enabled(void);
 
 int gr_ptrace_readexec(struct file *file, int unsafe_flags);
+
+int gr_handle_tiocsti(struct tty_struct *tty);
 
 void gr_inc_chroot_refcnts(struct dentry *dentry, struct vfsmount *mnt);
 void gr_dec_chroot_refcnts(struct dentry *dentry, struct vfsmount *mnt);

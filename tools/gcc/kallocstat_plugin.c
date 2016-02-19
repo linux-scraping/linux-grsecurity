@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2015 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2016 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -20,7 +20,7 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info kallocstat_plugin_info = {
-	.version	= "201401260140",
+	.version	= "201602181345",
 	.help		= NULL
 };
 
@@ -46,7 +46,7 @@ static bool is_kalloc(const char *fnname)
 	return false;
 }
 
-static unsigned int execute_kallocstat(void)
+static unsigned int kallocstat_execute(void)
 {
 	basic_block bb;
 
@@ -109,62 +109,9 @@ static unsigned int execute_kallocstat(void)
 	return 0;
 }
 
-#if BUILDING_GCC_VERSION >= 4009
-namespace {
-static const struct pass_data kallocstat_pass_data = {
-#else
-static struct gimple_opt_pass kallocstat_pass = {
-	.pass = {
-#endif
-		.type			= GIMPLE_PASS,
-		.name			= "kallocstat",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-#if BUILDING_GCC_VERSION >= 5000
-#elif BUILDING_GCC_VERSION == 4009
-		.has_gate		= false,
-		.has_execute		= true,
-#else
-		.gate			= NULL,
-		.execute		= execute_kallocstat,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-#endif
-		.tv_id			= TV_NONE,
-		.properties_required	= 0,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0,
-		.todo_flags_finish	= 0
-#if BUILDING_GCC_VERSION < 4009
-	}
-#endif
-};
-
-#if BUILDING_GCC_VERSION >= 4009
-class kallocstat_pass : public gimple_opt_pass {
-public:
-	kallocstat_pass() : gimple_opt_pass(kallocstat_pass_data, g) {}
-#if BUILDING_GCC_VERSION >= 5000
-	virtual unsigned int execute(function *) { return execute_kallocstat(); }
-#else
-	unsigned int execute() { return execute_kallocstat(); }
-#endif
-};
-}
-
-static opt_pass *make_kallocstat_pass(void)
-{
-	return new kallocstat_pass();
-}
-#else
-static struct opt_pass *make_kallocstat_pass(void)
-{
-	return &kallocstat_pass.pass;
-}
-#endif
+#define PASS_NAME kallocstat
+#define NO_GATE
+#include "gcc-generate-gimple-pass.h"
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {

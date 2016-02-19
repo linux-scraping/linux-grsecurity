@@ -26,8 +26,8 @@
 #include <linux/platform_device.h>
 
 struct gen_pci_cfg_bus_ops {
-	struct pci_ops ops;
 	u32 bus_shift;
+	struct pci_ops ops;
 } __do_const;
 
 struct gen_pci_cfg_windows {
@@ -35,7 +35,7 @@ struct gen_pci_cfg_windows {
 	struct resource				*bus_range;
 	void __iomem				**win;
 
-	const struct gen_pci_cfg_bus_ops	*ops;
+	struct gen_pci_cfg_bus_ops		*ops;
 };
 
 /*
@@ -64,12 +64,12 @@ static void __iomem *gen_pci_map_cfg_bus_cam(struct pci_bus *bus,
 }
 
 static struct gen_pci_cfg_bus_ops gen_pci_cfg_cam_bus_ops = {
-	.ops = {
+	.bus_shift	= 16,
+	.ops		= {
 		.map_bus	= gen_pci_map_cfg_bus_cam,
 		.read		= pci_generic_config_read,
 		.write		= pci_generic_config_write,
-	},
-	.bus_shift	= 16,
+	}
 };
 
 static void __iomem *gen_pci_map_cfg_bus_ecam(struct pci_bus *bus,
@@ -83,12 +83,12 @@ static void __iomem *gen_pci_map_cfg_bus_ecam(struct pci_bus *bus,
 }
 
 static struct gen_pci_cfg_bus_ops gen_pci_cfg_ecam_bus_ops = {
-	.ops = {
+	.bus_shift	= 20,
+	.ops		= {
 		.map_bus	= gen_pci_map_cfg_bus_ecam,
 		.read		= pci_generic_config_read,
 		.write		= pci_generic_config_write,
-	},
-	.bus_shift	= 20,
+	}
 };
 
 static const struct of_device_id gen_pci_of_match[] = {
@@ -169,6 +169,7 @@ static int gen_pci_parse_map_cfg_windows(struct gen_pci *pci)
 	struct resource *bus_range;
 	struct device *dev = pci->host.dev.parent;
 	struct device_node *np = dev->of_node;
+	u32 sz = 1 << pci->cfg.ops->bus_shift;
 
 	err = of_address_to_resource(np, 0, &pci->cfg.res);
 	if (err) {
@@ -196,10 +197,9 @@ static int gen_pci_parse_map_cfg_windows(struct gen_pci *pci)
 	bus_range = pci->cfg.bus_range;
 	for (busn = bus_range->start; busn <= bus_range->end; ++busn) {
 		u32 idx = busn - bus_range->start;
-		u32 sz = 1 << pci->cfg.ops->bus_shift;
 
 		pci->cfg.win[idx] = devm_ioremap(dev,
-						 pci->cfg.res.start + busn * sz,
+						 pci->cfg.res.start + idx * sz,
 						 sz);
 		if (!pci->cfg.win[idx])
 			return -ENOMEM;
@@ -213,7 +213,6 @@ static int gen_pci_probe(struct platform_device *pdev)
 	int err;
 	const char *type;
 	const struct of_device_id *of_id;
-	const int *prop;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	struct gen_pci *pci = devm_kzalloc(dev, sizeof(*pci), GFP_KERNEL);
@@ -228,16 +227,10 @@ static int gen_pci_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	prop = of_get_property(of_chosen, "linux,pci-probe-only", NULL);
-	if (prop) {
-		if (*prop)
-			pci_add_flags(PCI_PROBE_ONLY);
-		else
-			pci_clear_flags(PCI_PROBE_ONLY);
-	}
+	of_pci_check_probe_only();
 
 	of_id = of_match_node(gen_pci_of_match, np);
-	pci->cfg.ops = of_id->data;
+	pci->cfg.ops = (struct gen_pci_cfg_bus_ops *)of_id->data;
 	pci->host.dev.parent = dev;
 	INIT_LIST_HEAD(&pci->host.windows);
 	INIT_LIST_HEAD(&pci->resources);
@@ -258,7 +251,9 @@ static int gen_pci_probe(struct platform_device *pdev)
 	if (!pci_has_flag(PCI_PROBE_ONLY))
 		pci_add_flags(PCI_REASSIGN_ALL_RSRC | PCI_REASSIGN_ALL_BUS);
 
-	bus = pci_scan_root_bus(dev, 0, &pci->cfg.ops->ops, pci, &pci->resources);
+
+	bus = pci_scan_root_bus(dev, pci->cfg.bus_range->start,
+				&pci->cfg.ops->ops, pci, &pci->resources);
 	if (!bus) {
 		dev_err(dev, "Scanning rootbus failed");
 		return -ENODEV;

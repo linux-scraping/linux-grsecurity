@@ -1138,89 +1138,23 @@ static unsigned int size_overflow_execute(void)
 
 // Omit the IPA/LTO callbacks until https://gcc.gnu.org/bugzilla/show_bug.cgi?id=61311 gets fixed (license concerns)
 #if BUILDING_GCC_VERSION >= 4008
-void __attribute__((weak)) size_overflow_write_summary_lto(void) {}
+void __attribute__((weak)) size_overflow_write_summary(void) {}
+void __attribute__((weak)) size_overflow_write_optimization_summary(void) {}
 #elif BUILDING_GCC_VERSION >= 4006
-void __attribute__((weak)) size_overflow_write_summary_lto(cgraph_node_set set __unused, varpool_node_set vset __unused) {}
+void __attribute__((weak)) size_overflow_write_summary(cgraph_node_set set __unused, varpool_node_set vset __unused) {}
+void __attribute__((weak)) size_overflow_write_optimization_summary(cgraph_node_set set __unused, varpool_node_set vset __unused) {}
 #else
-void __attribute__((weak)) size_overflow_write_summary_lto(cgraph_node_set set __unused) {}
+void __attribute__((weak)) size_overflow_write_summary(cgraph_node_set set __unused) {}
+void __attribute__((weak)) size_overflow_write_optimization_summary(cgraph_node_set set __unused) {}
 #endif
 
-void __attribute__((weak)) size_overflow_read_summary_lto(void) {}
+void __attribute__((weak)) size_overflow_read_summary(void);
+void __attribute__((weak)) size_overflow_read_optimization_summary(void);
 
-#if BUILDING_GCC_VERSION >= 4009
-static const struct pass_data size_overflow_functions_pass_data = {
-#else
-static struct ipa_opt_pass_d size_overflow_functions_pass = {
-	.pass = {
-#endif
-		.type			= IPA_PASS,
-		.name			= "size_overflow_functions",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-#if BUILDING_GCC_VERSION >= 5000
-#elif BUILDING_GCC_VERSION >= 4009
-		.has_gate		= false,
-		.has_execute		= true,
-#else
-		.gate			= NULL,
-		.execute		= size_overflow_execute,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-#endif
-		.tv_id			= TV_NONE,
-		.properties_required	= 0,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0,
-		.todo_flags_finish	= 0,
-#if BUILDING_GCC_VERSION < 4009
-	},
-	.generate_summary		= size_overflow_generate_summary,
-	.write_summary			= size_overflow_write_summary_lto,
-	.read_summary			= size_overflow_read_summary_lto,
-#if BUILDING_GCC_VERSION >= 4006
-	.write_optimization_summary	= size_overflow_write_summary_lto,
-	.read_optimization_summary	= size_overflow_read_summary_lto,
-#endif
-	.stmt_fixup			= NULL,
-	.function_transform_todo_flags_start		= 0,
-	.function_transform		= size_overflow_transform,
-	.variable_transform		= NULL,
-#endif
-};
+#define PASS_NAME size_overflow
 
-#if BUILDING_GCC_VERSION >= 4009
-namespace {
-class size_overflow_functions_pass : public ipa_opt_pass_d {
-public:
-	size_overflow_functions_pass() : ipa_opt_pass_d(size_overflow_functions_pass_data,
-			 g,
-			 size_overflow_generate_summary,
-			 size_overflow_write_summary_lto,
-			 size_overflow_read_summary_lto,
-			 size_overflow_write_summary_lto,
-			 size_overflow_read_summary_lto,
-			 NULL,
-			 0,
-			 size_overflow_transform,
-			 NULL) {}
-#if BUILDING_GCC_VERSION >= 5000
-	virtual unsigned int execute(function *) { return size_overflow_execute(); }
-#else
-	unsigned int execute() { return size_overflow_execute(); }
-#endif
-};
-}
+#define NO_STMT_FIXUP
+#define NO_VARIABLE_TRANSFORM
+#define NO_GATE
 
-opt_pass *make_size_overflow_functions_pass(void)
-{
-	return new size_overflow_functions_pass();
-}
-#else
-struct opt_pass *make_size_overflow_functions_pass(void)
-{
-	return &size_overflow_functions_pass.pass;
-}
-#endif
+#include "gcc-generate-ipa-pass.h"

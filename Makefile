@@ -1,6 +1,6 @@
 VERSION = 4
-PATCHLEVEL = 3
-SUBLEVEL = 5
+PATCHLEVEL = 4
+SUBLEVEL = 2
 EXTRAVERSION =
 NAME = Blurry Fish Butt
 
@@ -552,6 +552,7 @@ drivers-y	:= drivers/ sound/ firmware/
 net-y		:= net/
 libs-y		:= lib/
 core-y		:= usr/
+virt-y		:= virt/
 endif # KBUILD_EXTMOD
 
 ifeq ($(dot-config),1)
@@ -617,84 +618,7 @@ endif
 # Tell gcc to never replace conditional load with a non-conditional one
 KBUILD_CFLAGS	+= $(call cc-option,--param=allow-store-data-races=0)
 
-ifndef DISABLE_PAX_PLUGINS
-ifeq ($(call cc-ifversion, -ge, 0408, y), y)
-PLUGINCC := $(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-plugin.sh "$(HOSTCXX)" "$(HOSTCXX)" "$(CC)")
-else
-PLUGINCC := $(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-plugin.sh "$(HOSTCC)" "$(HOSTCXX)" "$(CC)")
-endif
-ifneq ($(PLUGINCC),)
-ifdef CONFIG_PAX_CONSTIFY_PLUGIN
-CONSTIFY_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/constify_plugin.so -DCONSTIFY_PLUGIN
-endif
-ifdef CONFIG_PAX_MEMORY_STACKLEAK
-STACKLEAK_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/stackleak_plugin.so -DSTACKLEAK_PLUGIN
-STACKLEAK_PLUGIN_CFLAGS += -fplugin-arg-stackleak_plugin-track-lowest-sp=100
-endif
-ifdef CONFIG_KALLOCSTAT_PLUGIN
-KALLOCSTAT_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/kallocstat_plugin.so
-endif
-ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-KERNEXEC_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/kernexec_plugin.so
-KERNEXEC_PLUGIN_CFLAGS += -fplugin-arg-kernexec_plugin-method=$(CONFIG_PAX_KERNEXEC_PLUGIN_METHOD) -DKERNEXEC_PLUGIN
-KERNEXEC_PLUGIN_AFLAGS := -DKERNEXEC_PLUGIN
-endif
-ifdef CONFIG_GRKERNSEC_RANDSTRUCT
-RANDSTRUCT_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/randomize_layout_plugin.so -DRANDSTRUCT_PLUGIN
-ifdef CONFIG_GRKERNSEC_RANDSTRUCT_PERFORMANCE
-RANDSTRUCT_PLUGIN_CFLAGS += -fplugin-arg-randomize_layout_plugin-performance-mode
-endif
-endif
-ifdef CONFIG_CHECKER_PLUGIN
-ifeq ($(call cc-ifversion, -ge, 0406, y), y)
-CHECKER_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/checker_plugin.so -DCHECKER_PLUGIN
-ifdef CONFIG_CHECKER_PLUGIN_USER
-CHECKER_PLUGIN_CFLAGS += -fplugin-arg-checker_plugin-user -DCHECKER_PLUGIN_USER
-endif
-ifdef CONFIG_CHECKER_PLUGIN_CONTEXT
-CHECKER_PLUGIN_CFLAGS += -fplugin-arg-checker_plugin-context -DCHECKER_PLUGIN_CONTEXT
-endif
-endif
-endif
-COLORIZE_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/colorize_plugin.so
-ifdef CONFIG_PAX_SIZE_OVERFLOW
-SIZE_OVERFLOW_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/size_overflow_plugin/size_overflow_plugin.so -DSIZE_OVERFLOW_PLUGIN
-endif
-ifdef CONFIG_PAX_LATENT_ENTROPY
-LATENT_ENTROPY_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/latent_entropy_plugin.so -DLATENT_ENTROPY_PLUGIN
-endif
-ifdef CONFIG_PAX_MEMORY_STRUCTLEAK
-STRUCTLEAK_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/structleak_plugin.so -DSTRUCTLEAK_PLUGIN
-endif
-INITIFY_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/initify_plugin.so -DINITIFY_PLUGIN
-GCC_PLUGINS_CFLAGS := $(CONSTIFY_PLUGIN_CFLAGS) $(STACKLEAK_PLUGIN_CFLAGS) $(KALLOCSTAT_PLUGIN_CFLAGS)
-GCC_PLUGINS_CFLAGS += $(KERNEXEC_PLUGIN_CFLAGS) $(CHECKER_PLUGIN_CFLAGS) $(COLORIZE_PLUGIN_CFLAGS)
-GCC_PLUGINS_CFLAGS += $(SIZE_OVERFLOW_PLUGIN_CFLAGS) $(LATENT_ENTROPY_PLUGIN_CFLAGS) $(STRUCTLEAK_PLUGIN_CFLAGS)
-GCC_PLUGINS_CFLAGS += $(INITIFY_PLUGIN_CFLAGS)
-GCC_PLUGINS_CFLAGS += $(RANDSTRUCT_PLUGIN_CFLAGS)
-GCC_PLUGINS_AFLAGS := $(KERNEXEC_PLUGIN_AFLAGS)
-export PLUGINCC GCC_PLUGINS_CFLAGS GCC_PLUGINS_AFLAGS CONSTIFY_PLUGIN LATENT_ENTROPY_PLUGIN_CFLAGS
-ifeq ($(KBUILD_EXTMOD),)
-gcc-plugins:
-	$(Q)$(MAKE) $(build)=tools/gcc
-else
-gcc-plugins: ;
-endif
-else
-gcc-plugins:
-ifeq ($(call cc-ifversion, -ge, 0405, y), y)
-ifeq ($(call cc-ifversion, -ge, 0408, y), y)
-	$(CONFIG_SHELL) -x $(srctree)/scripts/gcc-plugin.sh "$(HOSTCXX)" "$(HOSTCXX)" "$(CC)"
-else
-	$(CONFIG_SHELL) -x $(srctree)/scripts/gcc-plugin.sh "$(HOSTCC)" "$(HOSTCXX)" "$(CC)"
-endif
-	$(error Your gcc installation does not support plugins.  If the necessary headers for plugin support are missing, they should be installed.  On Debian, apt-get install gcc-<ver>-plugin-dev.  If you choose to ignore this error and lessen the improvements provided by this patch, re-run make with the DISABLE_PAX_PLUGINS=y argument.))
-else
-	$(Q)echo "warning, your gcc version does not support plugins, you should upgrade it to gcc 4.5 at least"
-endif
-	$(Q)echo "PAX_MEMORY_STACKLEAK, constification, PAX_LATENT_ENTROPY and other features will be less secure.  PAX_SIZE_OVERFLOW will not be active."
-endif
-endif
+include scripts/Makefile.gcc-plugins
 
 ifdef CONFIG_READABLE_ASM
 # Disable optimizations that make assembler listings hard to read.
@@ -963,10 +887,10 @@ core-y		+= kernel/ certs/ mm/ fs/ ipc/ security/ crypto/ block/ grsecurity/
 
 vmlinux-dirs	:= $(patsubst %/,%,$(filter %/, $(init-y) $(init-m) \
 		     $(core-y) $(core-m) $(drivers-y) $(drivers-m) \
-		     $(net-y) $(net-m) $(libs-y) $(libs-m)))
+		     $(net-y) $(net-m) $(libs-y) $(libs-m) $(virt-y)))
 
 vmlinux-alldirs	:= $(sort $(vmlinux-dirs) $(patsubst %/,%,$(filter %/, \
-		     $(init-) $(core-) $(drivers-) $(net-) $(libs-))))
+		     $(init-) $(core-) $(drivers-) $(net-) $(libs-) $(virt-))))
 
 init-y		:= $(patsubst %/, %/built-in.o, $(init-y))
 core-y		:= $(patsubst %/, %/built-in.o, $(core-y))
@@ -975,14 +899,15 @@ net-y		:= $(patsubst %/, %/built-in.o, $(net-y))
 libs-y1		:= $(patsubst %/, %/lib.a, $(libs-y))
 libs-y2		:= $(patsubst %/, %/built-in.o, $(libs-y))
 libs-y		:= $(libs-y1) $(libs-y2)
+virt-y		:= $(patsubst %/, %/built-in.o, $(virt-y))
 
 # Externally visible symbols (used by link-vmlinux.sh)
 export KBUILD_VMLINUX_INIT := $(head-y) $(init-y)
-export KBUILD_VMLINUX_MAIN := $(core-y) $(libs-y) $(drivers-y) $(net-y)
+export KBUILD_VMLINUX_MAIN := $(core-y) $(libs-y) $(drivers-y) $(net-y) $(virt-y)
 export KBUILD_LDS          := arch/$(SRCARCH)/kernel/vmlinux.lds
 export LDFLAGS_vmlinux
 # used by scripts/pacmage/Makefile
-export KBUILD_ALLDIRS := $(sort $(filter-out arch/%,$(vmlinux-alldirs)) arch Documentation include samples scripts tools virt)
+export KBUILD_ALLDIRS := $(sort $(filter-out arch/%,$(vmlinux-alldirs)) arch Documentation include samples scripts tools)
 
 vmlinux-deps := $(KBUILD_LDS) $(KBUILD_VMLINUX_INIT) $(KBUILD_VMLINUX_MAIN)
 
@@ -1161,6 +1086,9 @@ PHONY += kselftest
 kselftest:
 	$(Q)$(MAKE) -C tools/testing/selftests run_tests
 
+kselftest-clean:
+	$(Q)$(MAKE) -C tools/testing/selftests clean
+
 # ---------------------------------------------------------------------------
 # Modules
 
@@ -1263,6 +1191,7 @@ MRPROPER_FILES += .config .config.old .version .old_version \
 		  signing_key.x509.signer vmlinux-gdb.py \
 		  tools/gcc/size_overflow_plugin/size_overflow_hash_aux.h \
 		  tools/gcc/size_overflow_plugin/size_overflow_hash.h \
+		  tools/gcc/size_overflow_plugin/disable_size_overflow_hash.h \
 		  tools/gcc/randomize_layout_seed.h
 
 # clean - Delete most, but leave enough to build external modules
@@ -1373,6 +1302,7 @@ help:
 	@echo  '  kselftest       - Build and run kernel selftest (run as root)'
 	@echo  '                    Build, install, and boot kernel before'
 	@echo  '                    running kselftest on it'
+	@echo  '  kselftest-clean - Remove all generated kselftest files'
 	@echo  ''
 	@echo  'Kernel packaging:'
 	@$(MAKE) $(build)=$(package-dir) help
@@ -1427,7 +1357,7 @@ $(help-board-dirs): help-%:
 # Documentation targets
 # ---------------------------------------------------------------------------
 %docs: scripts_basic FORCE
-	$(Q)$(MAKE) $(build)=scripts build_docproc
+	$(Q)$(MAKE) $(build)=scripts build_docproc build_check-lc_ctype
 	$(Q)$(MAKE) $(build)=Documentation/DocBook $@
 
 else # KBUILD_EXTMOD

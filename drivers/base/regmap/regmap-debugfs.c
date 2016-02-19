@@ -173,7 +173,7 @@ static inline void regmap_calc_tot_len(struct regmap *map,
 {
 	/* Calculate the length of a fixed format  */
 	if (!map->debugfs_tot_len) {
-		map->debugfs_reg_len = regmap_calc_reg_len(map->max_register);
+		map->debugfs_reg_len = regmap_calc_reg_len(map->max_register),
 		map->debugfs_val_len = 2 * map->format.val_bytes;
 		map->debugfs_tot_len = map->debugfs_reg_len +
 			map->debugfs_val_len + 3;      /* : \n */
@@ -337,6 +337,7 @@ static ssize_t regmap_reg_ranges_read_file(struct file *file,
 	char *buf;
 	char *entry;
 	int ret;
+	unsigned entry_len;
 
 	if (*ppos < 0 || !count)
 		return -EINVAL;
@@ -364,18 +365,15 @@ static ssize_t regmap_reg_ranges_read_file(struct file *file,
 	p = 0;
 	mutex_lock(&map->cache_lock);
 	list_for_each_entry(c, &map->debugfs_off_cache, list) {
-		snprintf(entry, PAGE_SIZE, "%x-%x",
-			 c->base_reg, c->max_reg);
+		entry_len = snprintf(entry, PAGE_SIZE, "%x-%x\n",
+				     c->base_reg, c->max_reg);
 		if (p >= *ppos) {
-			if (buf_pos + 1 + strlen(entry) > count)
+			if (buf_pos + entry_len > count)
 				break;
-			snprintf(buf + buf_pos, count - buf_pos,
-				 "%s", entry);
-			buf_pos += strlen(entry);
-			buf[buf_pos] = '\n';
-			buf_pos++;
+			memcpy(buf + buf_pos, entry, entry_len);
+			buf_pos += entry_len;
 		}
-		p += strlen(entry) + 1;
+		p += entry_len;
 	}
 	mutex_unlock(&map->cache_lock);
 

@@ -885,6 +885,24 @@ config GRKERNSEC_HARDEN_IPC
 	  If the sysctl option is enabled, a sysctl option with name
 	  "harden_ipc" is created.
 
+config GRKERNSEC_HARDEN_TTY
+	bool "Disallow unprivileged use of command injection"
+	default y if GRKERNSEC_CONFIG_AUTO
+	help
+	  If you say Y here, the ability to use the TIOCSTI ioctl for
+	  terminal command injection will be denied for unprivileged users.
+	  There are very few legitimate uses for this functionality and it
+	  has made vulnerabilities in several 'su'-like programs possible in
+	  the past.  Even without these vulnerabilities, it provides an
+	  attacker with an easy mechanism to move laterally among other
+	  processes within the same user's compromised session.
+	  By default, Linux allows unprivileged use of command injection as
+	  long as the injection is being performed into the same tty session.
+	  This feature makes that case the same as attempting to inject into
+	  another session, making any TIOCSTI use require CAP_SYS_ADMIN.
+	  If the sysctl option is enabled, a sysctl option with name
+	  "harden_tty" is created.
+
 config GRKERNSEC_TPE
 	bool "Trusted Path Execution (TPE)"
 	default y if GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_SERVER

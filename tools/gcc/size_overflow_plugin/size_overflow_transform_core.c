@@ -916,7 +916,7 @@ static tree handle_binary_ops(struct visited *visited, interesting_stmts_t expan
 	if (TREE_CODE_CLASS(gimple_assign_rhs_code(def_stmt)) == tcc_comparison)
 		return handle_comparison_code_class(visited, expand_from, def_stmt, new_rhs1, new_rhs2);
 
-	if (uconst_neg_intentional_overflow(visited, def_stmt)) {
+	if (uconst_neg_intentional_overflow(def_stmt)) {
 		inform(gimple_location(def_stmt), "%s: gcc intentional overflow", __func__);
 		gcc_unreachable();
 	}

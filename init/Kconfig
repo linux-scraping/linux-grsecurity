@@ -285,7 +285,8 @@ config FHANDLE
 
 config USELIB
 	bool "uselib syscall"
-	default y
+	default n
+	depends on !GRKERNSEC
 	help
 	  This option enables the uselib syscall, a system call used in the
 	  dynamic linker from libc5 and earlier.  glibc does not use this
@@ -2031,13 +2032,6 @@ config INIT_ALL_POSSIBLE
 	  with all 1s, and others with all 0s.  When they were centralised,
 	  it was better to provide this option than to break all the archs
 	  and have several arch maintainers pursuing me down dark alleys.
-
-config STOP_MACHINE
-	bool
-	default y
-	depends on (SMP && MODULE_UNLOAD) || HOTPLUG_CPU || GRKERNSEC
-	help
-	  Need stop_machine() primitive.
 
 source "block/Kconfig"
 

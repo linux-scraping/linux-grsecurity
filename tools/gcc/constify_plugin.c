@@ -1,6 +1,6 @@
 /*
  * Copyright 2011 by Emese Revfy <re.emese@gmail.com>
- * Copyright 2011-2015 by PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2016 by PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2, or (at your option) v3
  *
  * This gcc plugin constifies all structures which contain only function pointers or are explicitly marked for constification.
@@ -23,7 +23,7 @@ int plugin_is_GPL_compatible;
 static bool constify = true;
 
 static struct plugin_info const_plugin_info = {
-	.version	= "201511290250",
+	.version	= "201602181345",
 	.help		= "no-constify\tturn off constification\n",
 };
 
@@ -401,7 +401,7 @@ static void check_global_variables(void *event_data, void *data)
 	}
 }
 
-static unsigned int check_local_variables(void)
+static unsigned int check_local_variables_execute(void)
 {
 	unsigned int ret = 0;
 	tree var;
@@ -430,62 +430,9 @@ static unsigned int check_local_variables(void)
 	return ret;
 }
 
-#if BUILDING_GCC_VERSION >= 4009
-namespace {
-static const struct pass_data check_local_variables_pass_data = {
-#else
-static struct gimple_opt_pass check_local_variables_pass = {
-	.pass = {
-#endif
-		.type			= GIMPLE_PASS,
-		.name			= "check_local_variables",
-#if BUILDING_GCC_VERSION >= 4008
-		.optinfo_flags		= OPTGROUP_NONE,
-#endif
-#if BUILDING_GCC_VERSION >= 5000
-#elif BUILDING_GCC_VERSION == 4009
-		.has_gate		= false,
-		.has_execute		= true,
-#else
-		.gate			= NULL,
-		.execute		= check_local_variables,
-		.sub			= NULL,
-		.next			= NULL,
-		.static_pass_number	= 0,
-#endif
-		.tv_id			= TV_NONE,
-		.properties_required	= 0,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0,
-		.todo_flags_finish	= 0
-#if BUILDING_GCC_VERSION < 4009
-	}
-#endif
-};
-
-#if BUILDING_GCC_VERSION >= 4009
-class check_local_variables_pass : public gimple_opt_pass {
-public:
-	check_local_variables_pass() : gimple_opt_pass(check_local_variables_pass_data, g) {}
-#if BUILDING_GCC_VERSION >= 5000
-	virtual unsigned int execute(function *) { return check_local_variables(); }
-#else
-	unsigned int execute() { return check_local_variables(); }
-#endif
-};
-}
-
-static opt_pass *make_check_local_variables_pass(void)
-{
-	return new check_local_variables_pass();
-}
-#else
-static struct opt_pass *make_check_local_variables_pass(void)
-{
-	return &check_local_variables_pass.pass;
-}
-#endif
+#define PASS_NAME check_local_variables
+#define NO_GATE
+#include "gcc-generate-gimple-pass.h"
 
 static struct {
 	const char *name;
