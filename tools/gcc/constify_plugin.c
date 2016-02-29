@@ -207,7 +207,10 @@ static tree handle_no_const_attribute(tree *node, tree name, tree args, int flag
 	if (TYPE_P(*node)) {
 		type = *node;
 	} else {
-		gcc_assert(TREE_CODE(*node) == TYPE_DECL);
+		if (TREE_CODE(*node) != TYPE_DECL) {
+			error("%qE attribute does not apply to %qD (%qT)", name, *node, TREE_TYPE(*node));
+			return NULL_TREE;
+		}
 		type = TREE_TYPE(*node);
 	}
 

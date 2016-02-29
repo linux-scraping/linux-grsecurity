@@ -239,9 +239,9 @@ static bool ptrace_has_cap(const struct cred *tcred, unsigned int mode)
 static int __ptrace_may_access(struct task_struct *task, unsigned int mode)
 {
 	const struct cred *cred = current_cred(), *tcred;
+	int dumpable = 0;
 	kuid_t caller_uid;
 	kgid_t caller_gid;
-	int dumpable = 0;
 
 	if (!(mode & PTRACE_MODE_FSCREDS) == !(mode & PTRACE_MODE_REALCREDS)) {
 		WARN(1, "denying ptrace access check without PTRACE_MODE_*CREDS\n");

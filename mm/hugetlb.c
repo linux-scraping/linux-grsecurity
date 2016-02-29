@@ -39,7 +39,60 @@ int hugepages_treat_as_movable;
 
 int hugetlb_max_hstate __read_mostly;
 unsigned int default_hstate_idx;
-struct hstate hstates[HUGE_MAX_HSTATE];
+
+#ifdef CONFIG_CGROUP_HUGETLB
+static struct cftype hugetlb_files[HUGE_MAX_HSTATE][5] = {
+# define MEMFILE_PRIVATE(x, val)	(((x) << 16) | (val))
+# define CFTYPE_INIT(idx) \
+	{ /* Add the limit file */					\
+	  [0] = { .private = MEMFILE_PRIVATE(idx, RES_LIMIT),		\
+		  .read_u64 = hugetlb_cgroup_read_u64,			\
+		  .write = hugetlb_cgroup_write, },			\
+	  /* Add the usage file */					\
+	  [1] = { .private = MEMFILE_PRIVATE(idx, RES_USAGE),		\
+		  .read_u64 = hugetlb_cgroup_read_u64, },		\
+	  /* Add the MAX usage file */					\
+	  [2] = { .private = MEMFILE_PRIVATE(idx, RES_MAX_USAGE),	\
+		  .write = hugetlb_cgroup_reset,			\
+		  .read_u64 = hugetlb_cgroup_read_u64, },		\
+	  /* Add the failcntfile */					\
+	  [3] = { .private = MEMFILE_PRIVATE(idx, RES_FAILCNT),		\
+		  .write = hugetlb_cgroup_reset,			\
+		  .read_u64 = hugetlb_cgroup_read_u64, },		\
+	  [4] = { /* NULL terminator */ },				\
+	}
+
+# if HUGE_MAX_HSTATE > 0
+	[0] = CFTYPE_INIT(0),
+# endif
+# if HUGE_MAX_HSTATE > 1
+	[1] = CFTYPE_INIT(1),
+# endif
+# if HUGE_MAX_HSTATE > 2
+#  error PaX: add more initializers...
+# endif
+
+# undef CFTYPE_INIT
+};
+#endif
+
+struct hstate hstates[HUGE_MAX_HSTATE] = {
+#ifdef CONFIG_CGROUP_HUGETLB
+# define HSTATE_INIT(idx) [idx] = { .cgroup_files = &hugetlb_files[idx] }
+
+# if HUGE_MAX_HSTATE > 0
+	HSTATE_INIT(0),
+# endif
+# if HUGE_MAX_HSTATE > 1
+	HSTATE_INIT(1),
+# endif
+# if HUGE_MAX_HSTATE > 2
+#  error PaX: add more initializers...
+# endif
+
+# undef HSTATE_INIT
+#endif
+};
 /*
  * Minimum page order among possible hugepage sizes, set to a proper value
  * at boot time.

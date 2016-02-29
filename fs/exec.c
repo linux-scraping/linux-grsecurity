@@ -837,6 +837,7 @@ static struct file *do_open_execat(int fd, struct filename *name, int flags)
 {
 	struct file *file;
 	int err;
+	int unsafe_flags = 0;
 	struct open_flags open_exec_flags = {
 		.open_flag = O_LARGEFILE | O_RDONLY | __FMODE_EXEC,
 		.acc_mode = MAY_EXEC | MAY_OPEN,
@@ -861,6 +862,14 @@ static struct file *do_open_execat(int fd, struct filename *name, int flags)
 
 	if (path_noexec(&file->f_path))
 		goto exit;
+
+	if (current->ptrace && !(current->ptrace & PT_PTRACE_CAP))
+		unsafe_flags = LSM_UNSAFE_PTRACE;
+
+	if (gr_ptrace_readexec(file, unsafe_flags)) {
+		err = -EPERM;
+		goto exit;
+	}
 
 	err = deny_write_access(file);
 	if (err)
@@ -1645,11 +1654,6 @@ static int do_execveat_common(int fd, struct filename *filename,
 	retval = PTR_ERR(file);
 	if (IS_ERR(file))
 		goto out_unmark;
-
-	if (gr_ptrace_readexec(file, bprm->unsafe)) {
-		retval = -EPERM;
-		goto out_unmark;
-	}
 
 	sched_exec();
 

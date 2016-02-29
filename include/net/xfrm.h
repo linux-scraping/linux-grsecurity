@@ -602,7 +602,7 @@ struct xfrm_mgr {
 					   int num_bundles,
 					   const struct xfrm_kmaddress *k);
 	bool			(*is_alive)(const struct km_event *c);
-};
+} __do_const;
 
 int xfrm_register_km(struct xfrm_mgr *km);
 int xfrm_unregister_km(struct xfrm_mgr *km);

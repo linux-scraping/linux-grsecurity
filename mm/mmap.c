@@ -470,12 +470,16 @@ static void validate_mm(struct mm_struct *mm)
 	struct vm_area_struct *vma = mm->mmap;
 
 	while (vma) {
+		struct anon_vma *anon_vma = vma->anon_vma;
 		struct anon_vma_chain *avc;
 
-		vma_lock_anon_vma(vma);
-		list_for_each_entry(avc, &vma->anon_vma_chain, same_vma)
-			anon_vma_interval_tree_verify(avc);
-		vma_unlock_anon_vma(vma);
+		if (anon_vma) {
+			anon_vma_lock_read(anon_vma);
+			list_for_each_entry(avc, &vma->anon_vma_chain, same_vma)
+				anon_vma_interval_tree_verify(avc);
+			anon_vma_unlock_read(anon_vma);
+		}
+
 		highest_address = vma->vm_end;
 		vma = vma->vm_next;
 		i++;
@@ -2464,30 +2468,25 @@ static
 int expand_upwards(struct vm_area_struct *vma, unsigned long address)
 {
 	struct mm_struct *mm = vma->vm_mm;
-	int error;
+	int error = 0;
 	bool locknext;
 
 	if (!(vma->vm_flags & VM_GROWSUP))
 		return -EFAULT;
 
-	/* Also guard against wrapping around to address 0. */
+	/* Guard against wrapping around to address 0. */
 	if (address < PAGE_ALIGN(address+1))
 		address = PAGE_ALIGN(address+1);
 	else
 		return -ENOMEM;
 
-	/*
-	 * We must make sure the anon_vma is allocated
-	 * so that the anon_vma locking is not a noop.
-	 */
+	/* We must make sure the anon_vma is allocated. */
 	if (unlikely(anon_vma_prepare(vma)))
 		return -ENOMEM;
+
 	locknext = vma->vm_next && (vma->vm_next->vm_flags & VM_GROWSDOWN);
 	if (locknext && anon_vma_prepare(vma->vm_next))
 		return -ENOMEM;
-	vma_lock_anon_vma(vma);
-	if (locknext)
-		vma_lock_anon_vma(vma->vm_next);
 
 	/*
 	 * vma->vm_start/vm_end cannot change under us because the caller
@@ -2495,7 +2494,9 @@ int expand_upwards(struct vm_area_struct *vma, unsigned long address)
 	 * anon_vma locks to serialize against concurrent expand_stacks
 	 * and expand_upwards.
 	 */
-	error = 0;
+	anon_vma_lock_write(vma->anon_vma);
+	if (locknext)
+		anon_vma_lock_write(vma->vma_next->anon_vma);
 
 	/* Somebody else might have raced and expanded it already */
 	if (vma->vm_next && (vma->vm_next->vm_flags & (VM_READ | VM_WRITE | VM_EXEC)) && vma->vm_next->vm_start - address < sysctl_heap_stack_gap)
@@ -2515,7 +2516,7 @@ int expand_upwards(struct vm_area_struct *vma, unsigned long address)
 				 * updates, but we only hold a shared mmap_sem
 				 * lock here, so we need to protect against
 				 * concurrent vma expansions.
-				 * vma_lock_anon_vma() doesn't help here, as
+				 * anon_vma_lock_write() doesn't help here, as
 				 * we don't guarantee that all growable vmas
 				 * in a mm share the same root anon vma.
 				 * So, we reuse mm->page_table_lock to guard
@@ -2540,8 +2541,8 @@ int expand_upwards(struct vm_area_struct *vma, unsigned long address)
 		}
 	}
 	if (locknext)
-		vma_unlock_anon_vma(vma->vm_next);
-	vma_unlock_anon_vma(vma);
+		anon_vma_unlock_write(vma->vm_next->anon_vma);
+	anon_vma_unlock_write(vma->anon_vma);
 	khugepaged_enter_vma_merge(vma, vma->vm_flags);
 	validate_mm(mm);
 	return error;
@@ -2559,17 +2560,14 @@ int expand_downwards(struct vm_area_struct *vma,
 	bool lockprev = false;
 	struct vm_area_struct *prev;
 
-	/*
-	 * We must make sure the anon_vma is allocated
-	 * so that the anon_vma locking is not a noop.
-	 */
-	if (unlikely(anon_vma_prepare(vma)))
-		return -ENOMEM;
-
 	address &= PAGE_MASK;
 	error = security_mmap_addr(address);
 	if (error)
 		return error;
+
+	/* We must make sure the anon_vma is allocated. */
+	if (unlikely(anon_vma_prepare(vma)))
+		return -ENOMEM;
 
 	prev = vma->vm_prev;
 #if defined(CONFIG_STACK_GROWSUP) || defined(CONFIG_IA64)
@@ -2578,15 +2576,14 @@ int expand_downwards(struct vm_area_struct *vma,
 	if (lockprev && anon_vma_prepare(prev))
 		return -ENOMEM;
 	if (lockprev)
-		vma_lock_anon_vma(prev);
-
-	vma_lock_anon_vma(vma);
+		anon_vma_lock_write(prev->anon_vma);
 
 	/*
 	 * vma->vm_start/vm_end cannot change under us because the caller
 	 * is required to hold the mmap_sem in read mode.  We need the
 	 * anon_vma lock to serialize against concurrent expand_stacks.
 	 */
+	anon_vma_lock_write(vma->anon_vma);
 
 	/* Somebody else might have raced and expanded it already */
 	if (prev && (prev->vm_flags & (VM_READ | VM_WRITE | VM_EXEC)) && address - prev->vm_end < sysctl_heap_stack_gap)
@@ -2612,7 +2609,7 @@ int expand_downwards(struct vm_area_struct *vma,
 				 * updates, but we only hold a shared mmap_sem
 				 * lock here, so we need to protect against
 				 * concurrent vma expansions.
-				 * vma_lock_anon_vma() doesn't help here, as
+				 * anon_vma_lock_write() doesn't help here, as
 				 * we don't guarantee that all growable vmas
 				 * in a mm share the same root anon vma.
 				 * So, we reuse mm->page_table_lock to guard
@@ -2646,9 +2643,9 @@ int expand_downwards(struct vm_area_struct *vma,
 			}
 		}
 	}
-	vma_unlock_anon_vma(vma);
+	anon_vma_unlock_write(vma->anon_vma);
 	if (lockprev)
-		vma_unlock_anon_vma(prev);
+		anon_vma_unlock_write(prev->anon_vma);
 	khugepaged_enter_vma_merge(vma, vma->vm_flags);
 	validate_mm(mm);
 	return error;
@@ -3167,12 +3164,29 @@ SYSCALL_DEFINE5(remap_file_pages, unsigned long, start, unsigned long, size,
 	if (!vma || !(vma->vm_flags & VM_SHARED))
 		goto out;
 
-	if (start < vma->vm_start || start + size > vma->vm_end)
+	if (start < vma->vm_start)
 		goto out;
 
-	if (pgoff == linear_page_index(vma, start)) {
-		ret = 0;
-		goto out;
+	if (start + size > vma->vm_end) {
+		struct vm_area_struct *next;
+
+		for (next = vma->vm_next; next; next = next->vm_next) {
+			/* hole between vmas ? */
+			if (next->vm_start != next->vm_prev->vm_end)
+				goto out;
+
+			if (next->vm_file != vma->vm_file)
+				goto out;
+
+			if (next->vm_flags != vma->vm_flags)
+				goto out;
+
+			if (start + size <= next->vm_end)
+				break;
+		}
+
+		if (!next)
+			goto out;
 	}
 
 	prot |= vma->vm_flags & VM_READ ? PROT_READ : 0;
@@ -3182,9 +3196,16 @@ SYSCALL_DEFINE5(remap_file_pages, unsigned long, start, unsigned long, size,
 	flags &= MAP_NONBLOCK;
 	flags |= MAP_SHARED | MAP_FIXED | MAP_POPULATE;
 	if (vma->vm_flags & VM_LOCKED) {
+		struct vm_area_struct *tmp;
 		flags |= MAP_LOCKED;
+
 		/* drop PG_Mlocked flag for over-mapped range */
-		munlock_vma_pages_range(vma, start, start + size);
+		for (tmp = vma; tmp->vm_start >= start + size;
+				tmp = tmp->vm_next) {
+			munlock_vma_pages_range(tmp,
+					max(tmp->vm_start, start),
+					min(tmp->vm_end, start + size));
+		}
 	}
 
 	file = get_file(vma->vm_file);

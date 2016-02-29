@@ -91,7 +91,8 @@ void gr_handle_brute_attach(int dumpable)
 	rcu_read_lock();
 	read_lock(&tasklist_lock);
 	read_lock(&grsec_exec_file_lock);
-	if (p->real_parent && gr_is_same_file(p->real_parent->exec_file, p->exec_file)) {
+	if (p->real_parent && gr_is_same_file(p->real_parent->exec_file, p->exec_file) &&
+	    !is_privileged_binary(p->mm->exe_file->f_path.dentry)) {
 		p->real_parent->brute_expires = get_seconds() + GR_DAEMON_BRUTE_TIME;
 		p->real_parent->brute = 1;
 		daemon = 1;
@@ -236,8 +237,7 @@ int gr_process_sugid_exec_ban(const struct linux_binprm *bprm)
 		if (sugid_ban_expired(user))
 			return 0;
 		/* disallow execution of suid/sgid binaries only */
-		else if (!uid_eq(bprm->cred->euid, current->cred->uid) ||
-			 !gid_eq(bprm->cred->egid, current->cred->gid))
+		else if (is_privileged_binary(bprm->file->f_path.dentry))
 			return -EPERM;
 	}
 #endif

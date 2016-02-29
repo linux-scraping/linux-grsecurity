@@ -459,7 +459,8 @@ static int proc_pid_wchan(struct seq_file *m, struct pid_namespace *ns,
 
 	wchan = get_wchan(task);
 
-	if (wchan && !lookup_symbol_name(wchan, symname) && ptrace_may_access(task, PTRACE_MODE_READ_FSCREDS))
+	if (wchan && !lookup_symbol_name(wchan, symname)
+	    		&& ptrace_may_access(task, PTRACE_MODE_READ_FSCREDS))
 		seq_printf(m, "%s", symname);
 	else
 		seq_putc(m, '0');
@@ -788,7 +789,6 @@ static bool has_pid_permissions(struct pid_namespace *pid,
 		return true;
 	if (in_group_p(pid->pid_gid))
 		return true;
-
 	return ptrace_may_access(task, PTRACE_MODE_READ_FSCREDS);
 }
 
@@ -2857,7 +2857,9 @@ static const struct inode_operations proc_task_inode_operations;
 static const struct pid_entry tgid_base_stuff[] = {
 	DIR("task",       S_IRUGO|S_IXUGO, proc_task_inode_operations, proc_task_operations),
 	DIR("fd",         S_IRUSR|S_IXUSR, proc_fd_inode_operations, proc_fd_operations),
+#ifndef CONFIG_GRKERNSEC
 	DIR("map_files",  S_IRUSR|S_IXUSR, proc_map_files_inode_operations, proc_map_files_operations),
+#endif
 	DIR("fdinfo",     S_IRUSR|S_IXUSR, proc_fdinfo_inode_operations, proc_fdinfo_operations),
 	DIR("ns",	  S_IRUSR|S_IXUGO, proc_ns_dir_inode_operations, proc_ns_dir_operations),
 #ifdef CONFIG_NET

@@ -1,5 +1,5 @@
 /*
- * Generator for GIMPLE pass related boilerplate code/data
+ * Generator for SIMPLE_IPA pass related boilerplate code/data
  *
  * Supports gcc 4.5-6
  *
@@ -76,10 +76,10 @@
 namespace {
 static const pass_data _PASS_NAME_PASS_DATA = {
 #else
-static struct gimple_opt_pass _PASS_NAME_PASS = {
+static struct simple_ipa_opt_pass _PASS_NAME_PASS = {
 	.pass = {
 #endif
-		.type			= GIMPLE_PASS,
+		.type			= SIMPLE_IPA_PASS,
 		.name			= _PASS_NAME_NAME,
 #if BUILDING_GCC_VERSION >= 4008
 		.optinfo_flags		= OPTGROUP_NONE,
@@ -107,9 +107,9 @@ static struct gimple_opt_pass _PASS_NAME_PASS = {
 };
 
 #if BUILDING_GCC_VERSION >= 4009
-class _PASS_NAME_PASS : public gimple_opt_pass {
+class _PASS_NAME_PASS : public simple_ipa_opt_pass {
 public:
-	_PASS_NAME_PASS() : gimple_opt_pass(_PASS_NAME_PASS_DATA, g) {}
+	_PASS_NAME_PASS() : simple_ipa_opt_pass(_PASS_NAME_PASS_DATA, g) {}
 
 #ifndef NO_GATE
 #if BUILDING_GCC_VERSION >= 5000

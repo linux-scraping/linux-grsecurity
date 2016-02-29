@@ -164,19 +164,6 @@ out_unlock:
 	return ret;
 }
 
-static int
-proc_is_setxid(const struct cred *cred)
-{
-	if (!uid_eq(cred->uid, cred->euid) || !uid_eq(cred->uid, cred->suid) ||
-	    !uid_eq(cred->uid, cred->fsuid))
-		return 1;
-	if (!gid_eq(cred->gid, cred->egid) || !gid_eq(cred->gid, cred->sgid) ||
-	    !gid_eq(cred->gid, cred->fsgid))
-		return 1;
-
-	return 0;
-}
-
 extern int gr_fake_force_sig(int sig, struct task_struct *t);
 
 void
@@ -212,7 +199,7 @@ gr_handle_crash(struct task_struct *task, const int sig)
 	    time_after(curr->expires, get_seconds())) {
 		rcu_read_lock();
 		cred = __task_cred(task);
-		if (gr_is_global_nonroot(cred->uid) && proc_is_setxid(cred)) {
+		if (gr_is_global_nonroot(cred->uid) && is_privileged_binary(task->mm->exe_file->f_path.dentry)) {
 			gr_log_crash1(GR_DONT_AUDIT, GR_SEGVSTART_ACL_MSG, task, curr->res[GR_CRASH_RES].rlim_max);
 			spin_lock(&gr_uid_lock);
 			gr_insert_uid(cred->uid, curr->expires);

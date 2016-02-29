@@ -17,7 +17,8 @@
  *    NO_VARIABLE_TRANSFORM
  *    NO_GATE
  *    NO_EXECUTE
- * 3. before inclusion define PROPERTIES_* and *TODO_FLAGS_* to override the default 0 values
+ * 3. before inclusion define PROPERTIES_* and *TODO_FLAGS_* to override
+ *    the default 0 values
  * 4. for convenience, all the above will be undefined after inclusion!
  * 5. the only exported name is make_PASS_NAME_pass() to register with gcc
  */
@@ -27,73 +28,73 @@
 #else
 #define __GCC_PLUGIN_STRINGIFY(n)	#n
 #define _GCC_PLUGIN_STRINGIFY(n)	__GCC_PLUGIN_STRINGIFY(n)
-#define _GCC_PLUGIN_CONCAT2(x,y)	x ## y
-#define _GCC_PLUGIN_CONCAT3(x,y,z)	x ## y ## z
+#define _GCC_PLUGIN_CONCAT2(x, y)	x ## y
+#define _GCC_PLUGIN_CONCAT3(x, y, z)	x ## y ## z
 
-#define __PASS_NAME_PASS_DATA(n)	_GCC_PLUGIN_CONCAT2(n,_pass_data)
+#define __PASS_NAME_PASS_DATA(n)	_GCC_PLUGIN_CONCAT2(n, _pass_data)
 #define _PASS_NAME_PASS_DATA		__PASS_NAME_PASS_DATA(PASS_NAME)
 
-#define __PASS_NAME_PASS(n)		_GCC_PLUGIN_CONCAT2(n,_pass)
+#define __PASS_NAME_PASS(n)		_GCC_PLUGIN_CONCAT2(n, _pass)
 #define _PASS_NAME_PASS			__PASS_NAME_PASS(PASS_NAME)
 
 #define _PASS_NAME_NAME			_GCC_PLUGIN_STRINGIFY(PASS_NAME)
 
-#define __MAKE_PASS_NAME_PASS(n)	_GCC_PLUGIN_CONCAT3(make_,n,_pass)
+#define __MAKE_PASS_NAME_PASS(n)	_GCC_PLUGIN_CONCAT3(make_, n, _pass)
 #define _MAKE_PASS_NAME_PASS		__MAKE_PASS_NAME_PASS(PASS_NAME)
 
 #ifdef NO_GENERATE_SUMMARY
 #define _GENERATE_SUMMARY NULL
 #else
-#define __GENERATE_SUMMARY(n)		_GCC_PLUGIN_CONCAT2(n,_generate_summary)
+#define __GENERATE_SUMMARY(n)		_GCC_PLUGIN_CONCAT2(n, _generate_summary)
 #define _GENERATE_SUMMARY		__GENERATE_SUMMARY(PASS_NAME)
 #endif
 
 #ifdef NO_READ_SUMMARY
 #define _READ_SUMMARY NULL
 #else
-#define __READ_SUMMARY(n)		_GCC_PLUGIN_CONCAT2(n,_read_summary)
+#define __READ_SUMMARY(n)		_GCC_PLUGIN_CONCAT2(n, _read_summary)
 #define _READ_SUMMARY			__READ_SUMMARY(PASS_NAME)
 #endif
 
 #ifdef NO_WRITE_SUMMARY
 #define _WRITE_SUMMARY NULL
 #else
-#define __WRITE_SUMMARY(n)		_GCC_PLUGIN_CONCAT2(n,_write_summary)
+#define __WRITE_SUMMARY(n)		_GCC_PLUGIN_CONCAT2(n, _write_summary)
 #define _WRITE_SUMMARY			__WRITE_SUMMARY(PASS_NAME)
 #endif
 
 #ifdef NO_READ_OPTIMIZATION_SUMMARY
 #define _READ_OPTIMIZATION_SUMMARY NULL
 #else
-#define __READ_OPTIMIZATION_SUMMARY(n)	_GCC_PLUGIN_CONCAT2(n,_read_optimization_summary)
+#define __READ_OPTIMIZATION_SUMMARY(n)	_GCC_PLUGIN_CONCAT2(n, _read_optimization_summary)
 #define _READ_OPTIMIZATION_SUMMARY	__READ_OPTIMIZATION_SUMMARY(PASS_NAME)
 #endif
 
 #ifdef NO_WRITE_OPTIMIZATION_SUMMARY
 #define _WRITE_OPTIMIZATION_SUMMARY NULL
 #else
-#define __WRITE_OPTIMIZATION_SUMMARY(n)	_GCC_PLUGIN_CONCAT2(n,_write_optimization_summary)
+#define __WRITE_OPTIMIZATION_SUMMARY(n)	_GCC_PLUGIN_CONCAT2(n, _write_optimization_summary)
 #define _WRITE_OPTIMIZATION_SUMMARY	__WRITE_OPTIMIZATION_SUMMARY(PASS_NAME)
 #endif
 
 #ifdef NO_STMT_FIXUP
 #define _STMT_FIXUP NULL
 #else
-#define __STMT_FIXUP(n)			_GCC_PLUGIN_CONCAT2(n,_stmt_fixup)
+#define __STMT_FIXUP(n)			_GCC_PLUGIN_CONCAT2(n, _stmt_fixup)
 #define _STMT_FIXUP			__STMT_FIXUP(PASS_NAME)
 #endif
 
 #ifdef NO_FUNCTION_TRANSFORM
 #define _FUNCTION_TRANSFORM NULL
 #else
-#define __FUNCTION_TRANSFORM(n)		_GCC_PLUGIN_CONCAT2(n,_function_transform)
+#define __FUNCTION_TRANSFORM(n)		_GCC_PLUGIN_CONCAT2(n, _function_transform)
 #define _FUNCTION_TRANSFORM		__FUNCTION_TRANSFORM(PASS_NAME)
 #endif
 
 #ifdef NO_VARIABLE_TRANSFORM
 #define _VARIABLE_TRANSFORM NULL
 #else
-#define __VARIABLE_TRANSFORM(n)		_GCC_PLUGIN_CONCAT2(n,_variable_transform)
+#define __VARIABLE_TRANSFORM(n)		_GCC_PLUGIN_CONCAT2(n, _variable_transform)
 #define _VARIABLE_TRANSFORM		__VARIABLE_TRANSFORM(PASS_NAME)
 #endif
 
@@ -101,7 +102,7 @@
 #define _GATE NULL
 #define _HAS_GATE false
 #else
-#define __GATE(n)			_GCC_PLUGIN_CONCAT2(n,_gate)
+#define __GATE(n)			_GCC_PLUGIN_CONCAT2(n, _gate)
 #define _GATE				__GATE(PASS_NAME)
 #define _HAS_GATE true
 #endif
@@ -110,7 +111,7 @@
 #define _EXECUTE NULL
 #define _HAS_EXECUTE false
 #else
-#define __EXECUTE(n)			_GCC_PLUGIN_CONCAT2(n,_execute)
+#define __EXECUTE(n)			_GCC_PLUGIN_CONCAT2(n, _execute)
 #define _EXECUTE			__EXECUTE(PASS_NAME)
 #define _HAS_EXECUTE true
 #endif
@@ -203,7 +204,7 @@ public:
 #if BUILDING_GCC_VERSION >= 5000
 	virtual bool gate(function *) { return _GATE(); }
 #else
-	bool gate() { return _GATE(); }
+	bool gate(void) { return _GATE(); }
 #endif
 #endif
 
@@ -211,7 +212,7 @@ public:
 #if BUILDING_GCC_VERSION >= 5000
 	virtual unsigned int execute(function *) { return _EXECUTE(); }
 #else
-	unsigned int execute() { return _EXECUTE(); }
+	unsigned int execute(void) { return _EXECUTE(); }
 #endif
 #endif
 };
@@ -228,7 +229,7 @@ struct opt_pass *_MAKE_PASS_NAME_PASS(void)
 }
 #endif
 
-// clean up user provided defines
+/* clean up user provided defines */
 #undef PASS_NAME
 #undef NO_GENERATE_SUMMARY
 #undef NO_WRITE_SUMMARY
@@ -248,7 +249,7 @@ struct opt_pass *_MAKE_PASS_NAME_PASS(void)
 #undef TODO_FLAGS_FINISH
 #undef TODO_FLAGS_START
 
-// clean up generated defines
+/* clean up generated defines */
 #undef _EXECUTE
 #undef __EXECUTE
 #undef _FUNCTION_TRANSFORM
@@ -283,4 +284,4 @@ struct opt_pass *_MAKE_PASS_NAME_PASS(void)
 #undef _WRITE_SUMMARY
 #undef __WRITE_SUMMARY
 
-#endif // PASS_NAME
+#endif /* PASS_NAME */

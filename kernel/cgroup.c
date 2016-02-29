@@ -3345,7 +3345,7 @@ static int cgroup_add_file(struct cgroup_subsys_state *css, struct cgroup *cgrp,
 	key = &cft->lockdep_key;
 #endif
 	kn = __kernfs_create_file(cgrp->kn, cgroup_file_name(cgrp, cft, name),
-				  cgroup_file_mode(cft), 0, cft->kf_ops, cft,
+				  cgroup_file_mode(cft), 0, cft->kf_ops, (void *)cft,
 				  NULL, key);
 	if (IS_ERR(kn))
 		return PTR_ERR(kn);
@@ -3449,11 +3449,14 @@ static void cgroup_exit_cftypes(struct cftype *cfts)
 		/* free copy for custom atomic_write_len, see init_cftypes() */
 		if (cft->max_write_len && cft->max_write_len != PAGE_SIZE)
 			kfree(cft->kf_ops);
-		cft->kf_ops = NULL;
-		cft->ss = NULL;
+
+		pax_open_kernel();
+		*(void **)&cft->kf_ops = NULL;
+		*(void **)&cft->ss = NULL;
 
 		/* revert flags set by cgroup core while adding @cfts */
-		cft->flags &= ~(__CFTYPE_ONLY_ON_DFL | __CFTYPE_NOT_ON_DFL);
+		*(unsigned int *)&cft->flags &= ~(__CFTYPE_ONLY_ON_DFL | __CFTYPE_NOT_ON_DFL);
+		pax_close_kernel();
 	}
 }
 
@@ -3484,8 +3487,10 @@ static int cgroup_init_cftypes(struct cgroup_subsys *ss, struct cftype *cfts)
 			kf_ops->atomic_write_len = cft->max_write_len;
 		}
 
-		cft->kf_ops = kf_ops;
-		cft->ss = ss;
+		pax_open_kernel();
+		*(void **)&cft->kf_ops = kf_ops;
+		*(void **)&cft->ss = ss;
+		pax_close_kernel();
 	}
 
 	return 0;
@@ -3498,7 +3503,7 @@ static int cgroup_rm_cftypes_locked(struct cftype *cfts)
 	if (!cfts || !cfts[0].ss)
 		return -ENOENT;
 
-	list_del(&cfts->node);
+	pax_list_del((struct list_head *)&cfts->node);
 	cgroup_apply_cftypes(cfts, false);
 	cgroup_exit_cftypes(cfts);
 	return 0;
@@ -3555,7 +3560,7 @@ static int cgroup_add_cftypes(struct cgroup_subsys *ss, struct cftype *cfts)
 
 	mutex_lock(&cgroup_mutex);
 
-	list_add_tail(&cfts->node, &ss->cfts);
+	pax_list_add_tail((struct list_head *)&cfts->node, &ss->cfts);
 	ret = cgroup_apply_cftypes(cfts, true);
 	if (ret)
 		cgroup_rm_cftypes_locked(cfts);
@@ -3576,8 +3581,10 @@ int cgroup_add_dfl_cftypes(struct cgroup_subsys *ss, struct cftype *cfts)
 {
 	struct cftype *cft;
 
+	pax_open_kernel();
 	for (cft = cfts; cft && cft->name[0] != '\0'; cft++)
-		cft->flags |= __CFTYPE_ONLY_ON_DFL;
+		*(unsigned int *)&cft->flags |= __CFTYPE_ONLY_ON_DFL;
+	pax_close_kernel();
 	return cgroup_add_cftypes(ss, cfts);
 }
 
@@ -3593,8 +3600,10 @@ int cgroup_add_legacy_cftypes(struct cgroup_subsys *ss, struct cftype *cfts)
 {
 	struct cftype *cft;
 
+	pax_open_kernel();
 	for (cft = cfts; cft && cft->name[0] != '\0'; cft++)
-		cft->flags |= __CFTYPE_NOT_ON_DFL;
+		*(unsigned int *)&cft->flags |= __CFTYPE_NOT_ON_DFL;
+	pax_close_kernel();
 	return cgroup_add_cftypes(ss, cfts);
 }
 
