@@ -585,7 +585,7 @@ static int __meminit kcore_callback(struct notifier_block *self,
 	return NOTIFY_OK;
 }
 
-static struct notifier_block kcore_callback_nb __meminitconst = {
+static struct notifier_block kcore_callback_nb = {
 	.notifier_call = kcore_callback,
 	.priority = 0,
 };

@@ -43,7 +43,7 @@ struct hypervisor_x86 {
 
 	/* X2APIC detection (run once per boot) */
 	bool		(*x2apic_available)(void);
-};
+} __do_const;
 
 extern const struct hypervisor_x86 *x86_hyper;
 

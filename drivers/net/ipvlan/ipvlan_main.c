@@ -751,15 +751,15 @@ static int ipvlan_addr4_event(struct notifier_block *unused,
 	return NOTIFY_OK;
 }
 
-static struct notifier_block ipvlan_addr4_notifier_block __read_mostly = {
+static struct notifier_block ipvlan_addr4_notifier_block = {
 	.notifier_call = ipvlan_addr4_event,
 };
 
-static struct notifier_block ipvlan_notifier_block __read_mostly = {
+static struct notifier_block ipvlan_notifier_block = {
 	.notifier_call = ipvlan_device_event,
 };
 
-static struct notifier_block ipvlan_addr6_notifier_block __read_mostly = {
+static struct notifier_block ipvlan_addr6_notifier_block = {
 	.notifier_call = ipvlan_addr6_event,
 };
 

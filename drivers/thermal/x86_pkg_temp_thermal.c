@@ -567,7 +567,7 @@ static int pkg_temp_thermal_cpu_callback(struct notifier_block *nfb,
 	return NOTIFY_OK;
 }
 
-static struct notifier_block pkg_temp_thermal_notifier __refconst = {
+static struct notifier_block pkg_temp_thermal_notifier = {
 	.notifier_call = pkg_temp_thermal_cpu_callback,
 };
 

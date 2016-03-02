@@ -1915,7 +1915,7 @@ static int mlxsw_sp_netdevice_event(struct notifier_block *unused,
 	return NOTIFY_DONE;
 }
 
-static struct notifier_block mlxsw_sp_netdevice_nb __read_mostly = {
+static struct notifier_block mlxsw_sp_netdevice_nb = {
 	.notifier_call = mlxsw_sp_netdevice_event,
 };
 

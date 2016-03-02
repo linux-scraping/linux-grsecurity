@@ -451,7 +451,7 @@ static int mac802154_header_create(struct sk_buff *skb,
 	memset(&hdr.fc, 0, sizeof(hdr.fc));
 	hdr.fc.type = IEEE802154_FC_TYPE_DATA;
 	hdr.fc.ack_request = wpan_dev->ackreq;
-	hdr.seq = atomic_inc_return(&dev->ieee802154_ptr->dsn) & 0xFF;
+	hdr.seq = atomic_inc_return_unchecked(&dev->ieee802154_ptr->dsn) & 0xFF;
 
 	/* TODO currently a workaround to give zero cb block to set
 	 * security parameters defaults according MIB.

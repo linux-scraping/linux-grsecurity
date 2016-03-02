@@ -339,10 +339,10 @@ static void __init __hugetlb_cgroup_file_init(int idx)
 	snprintf(names[3], MAX_CFTYPE_NAME, "%s.failcnt", buf);
 
 	pax_open_kernel();
-	strncpy((void *)h->cgroup_files[0]->name, names[0], MAX_CFTYPE_NAME);
-	strncpy((void *)h->cgroup_files[1]->name, names[1], MAX_CFTYPE_NAME);
-	strncpy((void *)h->cgroup_files[2]->name, names[2], MAX_CFTYPE_NAME);
-	strncpy((void *)h->cgroup_files[3]->name, names[3], MAX_CFTYPE_NAME);
+	strncpy((void *)(*h->cgroup_files)[0].name, names[0], MAX_CFTYPE_NAME);
+	strncpy((void *)(*h->cgroup_files)[1].name, names[1], MAX_CFTYPE_NAME);
+	strncpy((void *)(*h->cgroup_files)[2].name, names[2], MAX_CFTYPE_NAME);
+	strncpy((void *)(*h->cgroup_files)[3].name, names[3], MAX_CFTYPE_NAME);
 	pax_close_kernel();
 
 	WARN_ON(cgroup_add_legacy_cftypes(&hugetlb_cgrp_subsys,
