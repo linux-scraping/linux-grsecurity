@@ -718,7 +718,7 @@ SYSCALL_DEFINE6(pselect6, int, n, fd_set __user *, inp, fd_set __user *, outp,
 
 #ifdef __ARCH_WANT_SYS_OLD_SELECT
 struct sel_arg_struct {
-	unsigned long n;
+	long n;
 	fd_set __user *inp, *outp, *exp;
 	struct timeval __user *tvp;
 };

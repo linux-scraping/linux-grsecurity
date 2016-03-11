@@ -543,7 +543,7 @@ static bool is_lt_signed_type_max(const_tree rhs)
 		new_type = intDI_type_node;
 		break;
 	default:
-		debug_tree((tree)type);
+		debug_tree(type);
 		gcc_unreachable();
 	}
 

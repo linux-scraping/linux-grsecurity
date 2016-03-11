@@ -1345,7 +1345,7 @@ COMPAT_SYSCALL_DEFINE5(select, int, n, compat_ulong_t __user *, inp,
 }
 
 struct compat_sel_arg_struct {
-	compat_ulong_t n;
+	compat_long_t n;
 	compat_uptr_t inp;
 	compat_uptr_t outp;
 	compat_uptr_t exp;

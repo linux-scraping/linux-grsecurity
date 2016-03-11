@@ -103,6 +103,11 @@
 #define  atomic_inc_return(...)						\
 	__atomic_op_fence(atomic_inc_return, __VA_ARGS__)
 #endif
+
+#ifndef atomic_inc_return_unchecked
+#define  atomic_inc_return_unchecked(...)				\
+	__atomic_op_fence(atomic_inc_return_unchecked, __VA_ARGS__)
+#endif
 #endif /* atomic_inc_return_relaxed */
 
 /* atomic_sub_return_relaxed */
@@ -254,6 +259,11 @@
 #ifndef atomic64_inc_return
 #define  atomic64_inc_return(...)					\
 	__atomic_op_fence(atomic64_inc_return, __VA_ARGS__)
+#endif
+
+#ifndef atomic64_inc_return_unchecked
+#define  atomic64_inc_return_unchecked(...)				\
+	__atomic_op_fence(atomic64_inc_return_unchecked, __VA_ARGS__)
 #endif
 #endif /* atomic64_inc_return_relaxed */
 

@@ -154,21 +154,6 @@ extern void print_gimple_expr(FILE *, gimple, int, int);
 extern void dump_gimple_stmt(pretty_printer *, gimple, int, int);
 #endif
 
-#ifdef __cplusplus
-static inline void debug_tree(const_tree t)
-{
-	debug_tree(CONST_CAST_TREE(t));
-}
-
-static inline void debug_gimple_stmt(const_gimple s)
-{
-	debug_gimple_stmt(CONST_CAST_GIMPLE(s));
-}
-#else
-#define debug_tree(t) debug_tree(CONST_CAST_TREE(t))
-#define debug_gimple_stmt(s) debug_gimple_stmt(CONST_CAST_GIMPLE(s))
-#endif
-
 #define __unused __attribute__((__unused__))
 
 #define DECL_NAME_POINTER(node) IDENTIFIER_POINTER(DECL_NAME(node))
@@ -292,6 +277,11 @@ static inline int ipa_reverse_postorder(struct cgraph_node **order)
 	return cgraph_postorder(order);
 }
 
+static inline struct cgraph_node *cgraph_create_node(tree decl)
+{
+	return cgraph_node(decl);
+}
+
 static inline struct cgraph_node *cgraph_get_create_node(tree decl)
 {
 	struct cgraph_node *node = cgraph_get_node(decl);
@@ -341,6 +331,7 @@ static inline void varpool_add_new_variable(tree decl)
 #define NODE_SYMBOL(node) (node)
 #define NODE_DECL(node) (node)->decl
 #define INSN_LOCATION(INSN) RTL_LOCATION(INSN)
+#define vNULL NULL
 
 static inline int bb_loop_depth(const_basic_block bb)
 {
@@ -352,6 +343,10 @@ static inline bool gimple_store_p(gimple gs)
 	tree lhs = gimple_get_lhs(gs);
 
 	return lhs && !is_gimple_reg(lhs);
+}
+
+static inline void gimple_init_singleton(gimple g __unused)
+{
 }
 #endif
 
@@ -528,7 +523,10 @@ typedef struct rtx_def rtx_insn;
 
 static inline void set_decl_section_name(tree node, const char *value)
 {
-	DECL_SECTION_NAME(node) = build_string(strlen(value) + 1, value);
+	if (value)
+		DECL_SECTION_NAME(node) = build_string(strlen(value) + 1, value);
+	else
+		DECL_SECTION_NAME(node) = NULL;
 }
 #endif
 
@@ -644,6 +642,7 @@ inline bool is_a_helper<const gassign *>::test(const_gimple gs)
 #define debug_cgraph_node(node) (node)->debug()
 #define cgraph_get_node(decl) cgraph_node::get(decl)
 #define cgraph_get_create_node(decl) cgraph_node::get_create(decl)
+#define cgraph_create_node(decl) cgraph_node::create(decl)
 #define cgraph_n_nodes symtab->cgraph_count
 #define cgraph_max_uid symtab->cgraph_max_uid
 #define varpool_get_node(decl) varpool_node::get(decl)
@@ -732,10 +731,23 @@ static inline void cgraph_remove_node_duplication_hook(struct cgraph_2node_hook_
 	symtab->remove_cgraph_duplication_hook(entry);
 }
 
+static inline void cgraph_call_node_duplication_hooks(cgraph_node_ptr node, cgraph_node_ptr node2)
+{
+	symtab->call_cgraph_duplication_hooks(node, node2);
+}
+
+static inline void cgraph_call_edge_duplication_hooks(cgraph_edge *cs1, cgraph_edge *cs2)
+{
+	symtab->call_edge_duplication_hooks(cs1, cs2);
+}
+
 #if BUILDING_GCC_VERSION >= 6000
 typedef gimple *gimple_ptr;
-typedef const gimple *const_gimple;
+typedef const gimple *const_gimple_ptr;
 #define gimple gimple_ptr
+#define const_gimple const_gimple_ptr
+#undef CONST_CAST_GIMPLE
+#define CONST_CAST_GIMPLE(X) CONST_CAST(gimple, (X))
 #endif
 
 /* gimple related */
@@ -826,6 +838,21 @@ static inline void ipa_remove_stmt_references(symtab_node *referring_node, gimpl
 
 #if BUILDING_GCC_VERSION >= 6000
 #define gen_rtx_set(ARG0, ARG1) gen_rtx_SET((ARG0), (ARG1))
+#endif
+
+#ifdef __cplusplus
+static inline void debug_tree(const_tree t)
+{
+	debug_tree(CONST_CAST_TREE(t));
+}
+
+static inline void debug_gimple_stmt(const_gimple s)
+{
+	debug_gimple_stmt(CONST_CAST_GIMPLE(s));
+}
+#else
+#define debug_tree(t) debug_tree(CONST_CAST_TREE(t))
+#define debug_gimple_stmt(s) debug_gimple_stmt(CONST_CAST_GIMPLE(s))
 #endif
 
 #endif

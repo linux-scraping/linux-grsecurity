@@ -34,7 +34,7 @@ struct cgraph_node *get_cnode(const_tree fndecl)
 {
 	gcc_assert(TREE_CODE(fndecl) == FUNCTION_DECL);
 #if BUILDING_GCC_VERSION <= 4005
-	return cgraph_get_node((tree)fndecl);
+	return cgraph_get_node(CONST_CAST_TREE(fndecl));
 #else
 	return cgraph_get_node(fndecl);
 #endif
@@ -86,7 +86,7 @@ const char* get_decl_context(const_tree decl)
 		if (!TREE_STATIC(decl) && !DECL_EXTERNAL(decl))
 			return NULL;
 	default:
-		debug_tree((tree)decl);
+		debug_tree(decl);
 		gcc_unreachable();
 	}
 }
@@ -228,6 +228,9 @@ static next_interesting_function_t create_orig_next_node_for_a_clone(struct fn_r
 	orig_raw_data.decl = get_orig_fndecl(clone_raw_data->decl);
 
 	if (DECL_BUILT_IN(orig_raw_data.decl) || DECL_BUILT_IN_CLASS(orig_raw_data.decl) == BUILT_IN_NORMAL)
+		return NULL;
+
+	if (made_by_compiler(orig_raw_data.decl))
 		return NULL;
 
 	decl_code = TREE_CODE(orig_raw_data.decl);
@@ -426,7 +429,7 @@ static void handle_struct_fields(struct walk_use_def_data *use_def_data, const_t
 	case IMAGPART_EXPR:
 		return;
 	default:
-		debug_tree((tree)node);
+		debug_tree(node);
 		gcc_unreachable();
 	}
 

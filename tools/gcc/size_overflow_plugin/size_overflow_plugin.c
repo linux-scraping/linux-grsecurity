@@ -29,7 +29,7 @@ tree size_overflow_type_DI;
 tree size_overflow_type_TI;
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20160217",
+	.version	= "20160306",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
@@ -201,47 +201,19 @@ static void size_overflow_start_unit(void __unused *gcc_data, void __unused *use
 	TREE_NOTHROW(report_size_overflow_decl) = 1;
 }
 
-#if BUILDING_GCC_VERSION >= 4009
-static bool gate_disable_ubsan_si_overflow(void)
+static bool disable_ubsan_si_overflow_gate(void)
 {
+#if BUILDING_GCC_VERSION >= 4009
 	flag_sanitize &= ~SANITIZE_SI_OVERFLOW;
+#endif
 	return true;
 }
 
-static const struct pass_data disable_ubsan_si_overflow_pass_data = {
-		.type			= GIMPLE_PASS,
-		.name			= "disable_ubsan_si_overflow",
-		.optinfo_flags		= OPTGROUP_NONE,
-#if BUILDING_GCC_VERSION >= 5000
-#else
-		.has_gate		= true,
-		.has_execute		= false,
-#endif
-		.tv_id			= TV_NONE,
-		.properties_required	= 0,
-		.properties_provided	= 0,
-		.properties_destroyed	= 0,
-		.todo_flags_start	= 0,
-		.todo_flags_finish	= 0
-};
+#define PASS_NAME disable_ubsan_si_overflow
 
-namespace {
-class disable_ubsan_si_overflow_pass : public gimple_opt_pass {
-public:
-	disable_ubsan_si_overflow_pass() : gimple_opt_pass(disable_ubsan_si_overflow_pass_data, g) {}
-#if BUILDING_GCC_VERSION >= 5000
-	virtual bool gate(function *) { return gate_disable_ubsan_si_overflow(); }
-#else
-	bool gate() { return gate_disable_ubsan_si_overflow(); }
-#endif
-};
-}
+#define NO_EXECUTE
 
-opt_pass *make_disable_ubsan_si_overflow_pass(void)
-{
-	return new disable_ubsan_si_overflow_pass();
-}
-#endif
+#include "gcc-generate-gimple-pass.h"
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {

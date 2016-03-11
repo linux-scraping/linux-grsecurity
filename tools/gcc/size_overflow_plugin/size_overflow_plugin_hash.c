@@ -63,7 +63,7 @@ static unsigned char get_tree_code(const_tree type)
 	case COMPLEX_TYPE:
 		return 13;
 	default:
-		debug_tree((tree)type);
+		debug_tree(type);
 		gcc_unreachable();
 	}
 }

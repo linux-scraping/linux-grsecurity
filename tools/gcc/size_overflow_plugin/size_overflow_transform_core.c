@@ -55,7 +55,7 @@ tree get_size_overflow_type(struct visited *visited, const_gimple stmt, const_tr
 		new_type = size_overflow_type_TI;
 		break;
 	default:
-		debug_tree((tree)node);
+		debug_tree(node);
 		error("%s: unsupported gcc configuration (%qE).", __func__, current_function_decl);
 		gcc_unreachable();
 	}

@@ -726,7 +726,7 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 #ifdef CONFIG_THUMB2_KERNEL
 		unsigned short bkpt;
 
-		if (!probe_kernel_address(pc, bkpt) && cpu_to_le16(bkpt) == 0xbef1) {
+		if (!probe_kernel_address((const unsigned short *)pc, bkpt) && cpu_to_le16(bkpt) == 0xbef1) {
 #else
 		unsigned int bkpt;
 

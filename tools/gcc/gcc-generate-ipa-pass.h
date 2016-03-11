@@ -196,7 +196,7 @@ public:
 			 _WRITE_OPTIMIZATION_SUMMARY,
 			 _READ_OPTIMIZATION_SUMMARY,
 			 _STMT_FIXUP,
-			 0,
+			 FUNCTION_TRANSFORM_TODO_FLAGS_START,
 			 _FUNCTION_TRANSFORM,
 			 _VARIABLE_TRANSFORM) {}
 
@@ -204,15 +204,17 @@ public:
 #if BUILDING_GCC_VERSION >= 5000
 	virtual bool gate(function *) { return _GATE(); }
 #else
-	bool gate(void) { return _GATE(); }
+	virtual bool gate(void) { return _GATE(); }
 #endif
 #endif
+
+	virtual opt_pass *clone() { return new _PASS_NAME_PASS(); }
 
 #ifndef NO_EXECUTE
 #if BUILDING_GCC_VERSION >= 5000
 	virtual unsigned int execute(function *) { return _EXECUTE(); }
 #else
-	unsigned int execute(void) { return _EXECUTE(); }
+	virtual unsigned int execute(void) { return _EXECUTE(); }
 #endif
 #endif
 };

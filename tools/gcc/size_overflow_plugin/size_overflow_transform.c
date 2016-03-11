@@ -80,13 +80,13 @@ static void change_field_write_rhs(gassign *assign, const_tree orig_rhs, tree ne
 
 	debug_gimple_stmt(assign);
 	fprintf(stderr, "orig_rhs:\n");
-	debug_tree((tree)orig_rhs);
+	debug_tree(orig_rhs);
 	fprintf(stderr, "rhs1:\n");
-	debug_tree((tree)rhs1);
+	debug_tree(rhs1);
 	fprintf(stderr, "rhs2:\n");
-	debug_tree((tree)rhs2);
+	debug_tree(rhs2);
 	fprintf(stderr, "rhs3:\n");
-	debug_tree((tree)rhs3);
+	debug_tree(rhs3);
 	gcc_unreachable();
 }
 

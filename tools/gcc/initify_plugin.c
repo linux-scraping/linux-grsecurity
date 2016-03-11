@@ -18,7 +18,7 @@
 int plugin_is_GPL_compatible;
 
 static struct plugin_info initify_plugin_info = {
-	.version	= "20160217",
+	.version	= "20160306",
 	.help		= "initify_plugin\n",
 };
 
@@ -383,15 +383,10 @@ static void search_local_strs(bool initexit)
 
 static tree create_tmp_assign(gcall *stmt, unsigned int num)
 {
-	tree str, type, decl, arg = gimple_call_arg(stmt, num);
+	tree str, decl, arg = gimple_call_arg(stmt, num);
 
 	str = get_string_cst(arg);
 	decl = build_decl(DECL_SOURCE_LOCATION(current_function_decl), VAR_DECL, create_tmp_var_name("cicus"), TREE_TYPE(str));
-
-	type = TREE_TYPE(TREE_TYPE(decl));
-	type = build_qualified_type(type, TYPE_QUALS(type) | TYPE_QUAL_CONST);
-	TYPE_READONLY(type) = 1;
-	TREE_PUBLIC(type) = 0;
 
 	DECL_INITIAL(decl) = str;
 	DECL_CONTEXT(decl) = current_function_decl;
