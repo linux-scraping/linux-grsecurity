@@ -45,6 +45,7 @@
 #define GR_CHMOD_CHROOT_MSG "denied chmod +s of %.950s by "
 #define GR_CHMOD_ACL_MSG "%s chmod of %.950s by "
 #define GR_CHROOT_FCHDIR_MSG "denied fchdir outside of chroot to %.950s by "
+#define GR_CHROOT_PATHAT_MSG "denied relative path access outside of chroot to %.950s by "
 #define GR_CHROOT_FHANDLE_MSG "denied use of file handles inside chroot by "
 #define GR_CHOWN_ACL_MSG "%s chown of %.950s by "
 #define GR_SETXATTR_ACL_MSG "%s setting extended attribute of %.950s by "

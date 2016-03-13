@@ -5,6 +5,7 @@
 #include <linux/fs.h>
 #include <linux/mount.h>
 #include <linux/types.h>
+#include <linux/namei.h>
 #include "../fs/mount.h"
 #include <linux/grsecurity.h>
 #include <linux/grinternal.h>
@@ -249,6 +250,44 @@ gr_chroot_fchdir(struct dentry *u_dentry, struct vfsmount *u_mnt)
 		gr_log_fs_generic(GR_DONT_AUDIT, GR_CHROOT_FCHDIR_MSG, u_dentry, u_mnt);
 		return 0;
 	}
+#endif
+	return 1;
+}
+
+int
+gr_chroot_pathat(int dfd, struct dentry *u_dentry, struct vfsmount *u_mnt, unsigned flags)
+{
+#ifdef CONFIG_GRKERNSEC_CHROOT_FCHDIR
+	struct fd f;
+	struct path fd_path;
+	struct path file_path;
+
+	if (!grsec_enable_chroot_fchdir)
+		return 1;
+
+	if (!proc_is_chrooted(current) || dfd == -1 || dfd == AT_FDCWD)
+		return 1;
+
+	if (flags & LOOKUP_RCU)
+		return -ECHILD;
+
+	f = fdget_raw(dfd);
+	if (!f.file)
+		return 1;
+
+	fd_path = f.file->f_path;
+	path_get(&fd_path);
+	fdput(f);
+
+	file_path.dentry = u_dentry;
+	file_path.mnt = u_mnt;
+
+	if (!gr_is_outside_chroot(u_dentry, u_mnt) && !path_is_under(&file_path, &fd_path)) {
+		path_put(&fd_path);
+		gr_log_fs_generic(GR_DONT_AUDIT, GR_CHROOT_PATHAT_MSG, u_dentry, u_mnt);
+		return 0;
+	}
+	path_put(&fd_path);
 #endif
 	return 1;
 }

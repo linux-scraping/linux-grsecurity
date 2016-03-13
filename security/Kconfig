@@ -515,21 +515,15 @@ config PAX_MPROTECT
 
 config PAX_MPROTECT_COMPAT
 	bool "Use legacy/compat protection demoting (read help)"
-	default y if (GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_DESKTOP)
 	depends on PAX_MPROTECT
+	default n
 	help
 	  The current implementation of PAX_MPROTECT denies RWX allocations/mprotects
-	  by sending the proper error code to the application.  For some broken 
-	  userland, this can cause problems with Python or other applications.  The
-	  current implementation however allows for applications like clamav to
-	  detect if JIT compilation/execution is allowed and to fall back gracefully
-	  to an interpreter-based mode if it does not.  While we encourage everyone
-	  to use the current implementation as-is and push upstream to fix broken
-	  userland (note that the RWX logging option can assist with this), in some
-	  environments this may not be possible.  Having to disable MPROTECT
-	  completely on certain binaries reduces the security benefit of PaX,
-	  so this option is provided for those environments to revert to the old
-	  behavior.
+	  by sending the proper error code to the application.  For some older
+	  userland, this can cause problems with applications that assume such
+	  allocations will not be prevented by PaX or SELinux and other access
+	  control systems and have no fallback mechanisms.  For modern distros,
+	  this option should generally be set to 'N'.
 	  
 config PAX_ELFRELOCS
 	bool "Allow ELF text relocations (read help)"

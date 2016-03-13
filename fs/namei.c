@@ -3498,6 +3498,15 @@ out2:
 				error = -ESTALE;
 		}
 		file = ERR_PTR(error);
+	} else {
+		error = gr_chroot_pathat(nd->dfd, file->f_path.dentry, file->f_path.mnt, flags);
+		if (error == -ECHILD) {
+			fput(file);
+			file = ERR_PTR(error);
+		} else if (!error) {
+			fput(file);
+			file = ERR_PTR(-ENOENT);
+		}
 	}
 	return file;
 }
