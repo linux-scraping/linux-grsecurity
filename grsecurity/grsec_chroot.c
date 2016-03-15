@@ -263,17 +263,17 @@ gr_chroot_pathat(int dfd, struct dentry *u_dentry, struct vfsmount *u_mnt, unsig
 	struct path file_path;
 
 	if (!grsec_enable_chroot_fchdir)
-		return 1;
+		return 0;
 
 	if (!proc_is_chrooted(current) || dfd == -1 || dfd == AT_FDCWD)
-		return 1;
+		return 0;
 
 	if (flags & LOOKUP_RCU)
 		return -ECHILD;
 
 	f = fdget_raw(dfd);
 	if (!f.file)
-		return 1;
+		return 0;
 
 	fd_path = f.file->f_path;
 	path_get(&fd_path);
@@ -285,11 +285,11 @@ gr_chroot_pathat(int dfd, struct dentry *u_dentry, struct vfsmount *u_mnt, unsig
 	if (!gr_is_outside_chroot(u_dentry, u_mnt) && !path_is_under(&file_path, &fd_path)) {
 		path_put(&fd_path);
 		gr_log_fs_generic(GR_DONT_AUDIT, GR_CHROOT_PATHAT_MSG, u_dentry, u_mnt);
-		return 0;
+		return -ENOENT;
 	}
 	path_put(&fd_path);
 #endif
-	return 1;
+	return 0;
 }
 
 int

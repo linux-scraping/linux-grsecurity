@@ -2234,6 +2234,9 @@ static int path_lookupat(struct nameidata *nd, unsigned flags, struct path *path
 	if (!err && !(nd->flags & LOOKUP_PARENT)) {
 		if (!gr_acl_handle_hidden_file(nd->path.dentry, nd->path.mnt))
 			err = -ENOENT;
+		if (!err)
+			err = gr_chroot_pathat(nd->dfd, nd->path.dentry,
+						nd->path.mnt, nd->flags);
 	}
 
 	if (!err && nd->flags & LOOKUP_DIRECTORY)
@@ -2287,6 +2290,10 @@ static int path_parentat(struct nameidata *nd, unsigned flags,
 
 	if (!err && gr_handle_nameidata_symlinkowner(nd, nd->inode))
 		err = -EACCES;
+
+	if (!err)
+		err = gr_chroot_pathat(nd->dfd, nd->path.dentry,
+					nd->path.mnt, nd->flags);
 
 	if (!err) {
 		*parent = nd->path;
@@ -3093,7 +3100,10 @@ static int lookup_open(struct nameidata *nd, struct path *path,
 	if (!dentry->d_inode && (op->open_flag & O_CREAT)) {
 		umode_t mode = op->mode;
 
-		
+		error = gr_chroot_pathat(nd->dfd, dentry, nd->path.mnt, nd->flags);
+		if (error)
+			goto out_dput;
+
 		if (gr_handle_nameidata_symlinkowner(nd, dir_inode)) {
 			error = -EACCES;
 			goto out_dput;
@@ -3308,6 +3318,10 @@ finish_open:
 		goto out;
 	}
 
+	error = gr_chroot_pathat(nd->dfd, nd->path.dentry, nd->path.mnt, nd->flags);
+	if (error)
+		goto out;
+
 	if (gr_handle_nameidata_symlinkowner(nd, inode)) {
 		error = -EACCES;
 		goto out;
@@ -3498,15 +3512,6 @@ out2:
 				error = -ESTALE;
 		}
 		file = ERR_PTR(error);
-	} else {
-		error = gr_chroot_pathat(nd->dfd, file->f_path.dentry, file->f_path.mnt, flags);
-		if (error == -ECHILD) {
-			fput(file);
-			file = ERR_PTR(error);
-		} else if (!error) {
-			fput(file);
-			file = ERR_PTR(-ENOENT);
-		}
 	}
 	return file;
 }
