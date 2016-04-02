@@ -773,9 +773,9 @@ ENTRY(empty_zero_page)
 .section .swapper_pg_dir,"a",@progbits
 ENTRY(swapper_pg_dir)
 #ifdef CONFIG_X86_PAE
-	.fill 4,8,0
+	.fill PTRS_PER_PGD,8,0
 #else
-	.fill 1024,4,0
+	.fill PTRS_PER_PGD,4,0
 #endif
 
 /*
@@ -805,7 +805,7 @@ ENTRY(initial_page_table)
 #ifdef CONFIG_PAX_PER_CPU_PGD
 ENTRY(cpu_pgd)
 	.rept 2*NR_CPUS
-	.fill	4,8,0
+	.fill	PTRS_PER_PGD,8,0
 	.endr
 #endif
 

@@ -160,7 +160,8 @@ static int tbf_segment(struct sk_buff *skb, struct Qdisc *sch)
 	struct tbf_sched_data *q = qdisc_priv(sch);
 	struct sk_buff *segs, *nskb;
 	netdev_features_t features = netif_skb_features(skb);
-	int ret, nb;
+	int ret;
+	unsigned int nb;
 
 	segs = skb_gso_segment(skb, features & ~NETIF_F_GSO_MASK);
 
@@ -182,8 +183,10 @@ static int tbf_segment(struct sk_buff *skb, struct Qdisc *sch)
 		segs = nskb;
 	}
 	sch->q.qlen += nb;
-	if (nb > 1)
-		qdisc_tree_decrease_qlen(sch, 1 - nb);
+	if (nb > 1) {
+		nb--;
+		qdisc_tree_decrease_qlen(sch, -nb);
+	}
 	consume_skb(skb);
 	return nb > 0 ? NET_XMIT_SUCCESS : NET_XMIT_DROP;
 }

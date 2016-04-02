@@ -482,7 +482,7 @@ void __tasklet_hi_schedule_first(struct tasklet_struct *t)
 }
 EXPORT_SYMBOL(__tasklet_hi_schedule_first);
 
-static void tasklet_action(void)
+static __latent_entropy void tasklet_action(void)
 {
 	struct tasklet_struct *list;
 

@@ -1,9 +1,6 @@
 ifndef DISABLE_PAX_PLUGINS
-ifeq ($(call cc-ifversion, -ge, 0408, y), y)
-PLUGINCC := $(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-plugin.sh "$(HOSTCXX)" "$(HOSTCXX)" "$(CC)")
-else
-PLUGINCC := $(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-plugin.sh "$(HOSTCC)" "$(HOSTCXX)" "$(CC)")
-endif
+__PLUGINCC := $(call cc-ifversion, -ge, 0408, $(HOSTCXX), $(HOSTCC))
+PLUGINCC := $(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-plugin.sh "$(__PLUGINCC)" "$(HOSTCXX)" "$(CC)")
 ifneq ($(PLUGINCC),)
 ifdef CONFIG_PAX_CONSTIFY_PLUGIN
 CONSTIFY_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/constify_plugin.so -DCONSTIFY_PLUGIN
@@ -64,12 +61,8 @@ endif
 else
 gcc-plugins:
 ifeq ($(call cc-ifversion, -ge, 0405, y), y)
-ifeq ($(call cc-ifversion, -ge, 0408, y), y)
-	$(CONFIG_SHELL) -x $(srctree)/scripts/gcc-plugin.sh "$(HOSTCXX)" "$(HOSTCXX)" "$(CC)"
-else
-	$(CONFIG_SHELL) -x $(srctree)/scripts/gcc-plugin.sh "$(HOSTCC)" "$(HOSTCXX)" "$(CC)"
-endif
 	$(error Your gcc installation does not support plugins.  If the necessary headers for plugin support are missing, they should be installed.  On Debian, apt-get install gcc-<ver>-plugin-dev.  If you choose to ignore this error and lessen the improvements provided by this patch, re-run make with the DISABLE_PAX_PLUGINS=y argument.)
+	$(CONFIG_SHELL) -x $(srctree)/scripts/gcc-plugin.sh "$(__PLUGINCC)" "$(HOSTCXX)" "$(CC)"
 else
 	$(warning Warning, your gcc version does not support plugins, you should upgrade it to gcc 4.5 at least.)
 endif

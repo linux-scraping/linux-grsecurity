@@ -2606,7 +2606,6 @@ static void add_kallsyms(struct module *mod, const struct load_info *info)
 	/* Make sure we get permanent strtab: don't use info->strtab. */
 	mod->kallsyms->strtab = (void *)info->sechdrs[info->index.str].sh_addr;
 
-
 	/* Set types up while we still have access to sections. */
 	for (i = 0; i < mod->kallsyms->num_symtab; i++)
 		mod->kallsyms->symtab[i].st_info
@@ -3128,7 +3127,7 @@ static int move_module(struct module *mod, struct load_info *info)
 	if (mod->init_size_rx) {
 		ptr = module_alloc_exec(mod->init_size_rx);
 		kmemleak_ignore(ptr);
-		if (!ptr && mod->init_size_rx) {
+		if (!ptr) {
 			module_memfree_exec(mod->module_core_rx);
 			if (mod->module_init_rw)
 				module_memfree(mod->module_init_rw);

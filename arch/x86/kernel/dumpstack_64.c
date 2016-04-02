@@ -191,13 +191,15 @@ void dump_trace(struct task_struct *task, struct pt_regs *regs,
 		done = 1;
 
 		switch (stype) {
-
-		/* Break out early if we are on the thread stack */
 		case STACK_IS_NORMAL:
+			/*
+			 * This handles the process stack:
+			 */
+			stack_start = (void *)((unsigned long)stack & ~(THREAD_SIZE-1));
+			bp = ops->walk_stack(task, stack_start, stack, bp, ops, data, NULL, &graph);
 			break;
 
 		case STACK_IS_EXCEPTION:
-
 			if (ops->stack(data, id) < 0)
 				break;
 
@@ -210,13 +212,12 @@ void dump_trace(struct task_struct *task, struct pt_regs *regs,
 			 * exception stack:
 			 */
 			if ((u16)stack_end[-1] != __KERNEL_DS)
-				goto out;
+				break;
 			stack = (unsigned long *) stack_end[-2];
 			done = 0;
 			break;
 
 		case STACK_IS_IRQ:
-
 			if (ops->stack(data, "IRQ") < 0)
 				break;
 			bp = ops->walk_stack(task, irq_stack, stack, bp,
@@ -238,12 +239,6 @@ void dump_trace(struct task_struct *task, struct pt_regs *regs,
 		}
 	}
 
-	/*
-	 * This handles the process stack:
-	 */
-	stack_start = (void *)((unsigned long)stack & ~(THREAD_SIZE-1));
-	bp = ops->walk_stack(task, stack_start, stack, bp, ops, data, NULL, &graph);
-out:
 	put_cpu();
 }
 EXPORT_SYMBOL(dump_trace);

@@ -172,8 +172,6 @@ static inline int atomic_##op##_return##suffix(int i, atomic##suffix##_t * v) \
 		: "=&r" (result), "=&r" (temp),				      \
 		  "+" GCC_OFF_SMALL_ASM() (v->counter)			      \
 		: "Ir" (i));						      \
-									      \
-		result = temp; result c_op i;				      \
 	} else {							      \
 		unsigned long flags;					      \
 									      \
@@ -529,8 +527,6 @@ static inline long atomic64_##op##_return##suffix(long i, atomic64##suffix##_t *
 		  "=" GCC_OFF_SMALL_ASM() (v->counter)			      \
 		: "Ir" (i), GCC_OFF_SMALL_ASM() (v->counter)		      \
 		: "memory");						      \
-									      \
-		result = temp; result c_op i;				      \
 	} else {							      \
 		unsigned long flags;					      \
 									      \

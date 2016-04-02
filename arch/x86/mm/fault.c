@@ -350,7 +350,7 @@ static noinline int vmalloc_fault(unsigned long address)
 
 #ifdef CONFIG_PAX_PER_CPU_PGD
 	BUG_ON(__pa(get_cpu_pgd(smp_processor_id(), kernel)) != (pgd_paddr & __PHYSICAL_MASK));
-	vmalloc_sync_one(__va(pgd_paddr + PAGE_SIZE), address);
+	vmalloc_sync_one(__va(pgd_paddr + PTRS_PER_PGD * sizeof(pgd_t)), address);
 #endif
 
 	pmd_k = vmalloc_sync_one(__va(pgd_paddr), address);

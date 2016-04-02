@@ -62,8 +62,7 @@ host-cxxobjs	:= $(sort $(foreach m,$(host-cxxmulti),$($(m)-cxxobjs)))
 
 # Shared libaries (only .c supported)
 # Shared libraries (.so) - all .so files referenced in "xxx-objs"
-host-cshlib	:= $(sort $(filter %.so, $(host-cobjs)))
-host-cshlib	+= $(sort $(filter %.so, $(__hostlibs)))
+host-cshlib	:= $(sort $(filter %.so, $(__hostlibs)))
 host-cxxshlib	:= $(sort $(filter %.so, $(__hostcxxlibs)))
 # Remove .so files from "xxx-objs"
 host-cobjs	:= $(filter-out %.so,$(host-cobjs))

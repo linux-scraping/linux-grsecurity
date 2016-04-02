@@ -316,7 +316,7 @@ static char *storenote(struct memelfnote *men, char *bufp)
  * store an ELF coredump header in the supplied buffer
  * nphdr is the number of elf_phdr to insert
  */
-static void elf_kcore_store_hdr(char *bufp, int nphdr, int dataoff)
+static void elf_kcore_store_hdr(char *bufp, int nphdr, size_t dataoff)
 {
 	struct elf_prstatus prstatus;	/* NT_PRSTATUS */
 	struct elf_prpsinfo prpsinfo;	/* NT_PRPSINFO */

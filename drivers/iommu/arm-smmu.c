@@ -1228,7 +1228,7 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 		dev_err(dev,
 			"iova to phys timed out on %pad. Falling back to software table walk.\n",
 			&iova);
-		return iop->ops->iova_to_phys(ops, iova);
+		return iop->ops->iova_to_phys(iop, iova);
 	}
 
 	phys = readl_relaxed(cb_base + ARM_SMMU_CB_PAR_LO);

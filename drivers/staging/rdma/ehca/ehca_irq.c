@@ -802,7 +802,7 @@ static void comp_task(unsigned int cpu)
 	spin_unlock_irq(&cct->task_lock);
 }
 
-static struct smp_hotplug_thread comp_pool_threads = {
+static struct smp_hotplug_thread comp_pool_threads __read_only = {
 	.thread_should_run	= comp_task_should_run,
 	.thread_fn		= comp_task,
 	.thread_comm		= "ehca_comp/%u",
