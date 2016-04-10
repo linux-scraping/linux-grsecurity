@@ -285,8 +285,8 @@ static bool is_flexible_array(const_tree field)
 		return true;
 
 	if (typesize != NULL_TREE && 
-	    (TREE_CONSTANT(typesize) && (!TREE_INT_CST_LOW(typesize) ||
-	     TREE_INT_CST_LOW(typesize) == TREE_INT_CST_LOW(elemsize))))
+	    (TREE_CONSTANT(typesize) && (!tree_to_uhwi(typesize) ||
+	     tree_to_uhwi(typesize) == tree_to_uhwi(elemsize))))
 		return true;
 
 	return false;
@@ -303,6 +303,7 @@ static int relayout_struct(tree type)
 	tree variant;
 	tree main_variant;
 	expanded_location xloc;
+	bool has_flexarray = false;
 
 	if (TYPE_FIELDS(type) == NULL_TREE)
 		return 0;
@@ -339,8 +340,10 @@ static int relayout_struct(tree type)
 	 * element of a struct if it's a 0 or 1-length array
 	 * or a proper flexible array
 	 */
-	if (is_flexible_array(newtree[num_fields - 1]))
+	if (is_flexible_array(newtree[num_fields - 1])) {
+		has_flexarray = true;
 		shuffle_length--;
+	}
 
 	shuffle(type, (tree *)newtree, shuffle_length);
 
@@ -369,6 +372,8 @@ static int relayout_struct(tree type)
 		TYPE_FIELDS(variant) = list;
 		TYPE_ATTRIBUTES(variant) = copy_list(TYPE_ATTRIBUTES(variant));
 		TYPE_ATTRIBUTES(variant) = tree_cons(get_identifier("randomize_performed"), NULL_TREE, TYPE_ATTRIBUTES(variant));
+		if (has_flexarray)
+			TYPE_ATTRIBUTES(type) = tree_cons(get_identifier("has_flexarray"), NULL_TREE, TYPE_ATTRIBUTES(type));
 	}
 
 	/*
@@ -449,6 +454,51 @@ static void randomize_type(tree type)
 #endif
 }
 
+static void update_decl_size(tree decl)
+{
+	tree lastval, lastidx, field, init, type, flexsize;
+	unsigned HOST_WIDE_INT len;
+
+	type = TREE_TYPE(decl);
+
+	if (!lookup_attribute("has_flexarray", TYPE_ATTRIBUTES(type)))
+		return;
+
+	init = DECL_INITIAL(decl);
+	if (init == NULL_TREE || init == error_mark_node)
+		return;
+
+	if (TREE_CODE(init) != CONSTRUCTOR)
+		return;
+
+	len = CONSTRUCTOR_NELTS(init);
+        if (!len)
+		return;
+
+	lastval = CONSTRUCTOR_ELT(init, CONSTRUCTOR_NELTS(init) - 1)->value;
+	lastidx = CONSTRUCTOR_ELT(init, CONSTRUCTOR_NELTS(init) - 1)->index;
+
+	for (field = TYPE_FIELDS(TREE_TYPE(decl)); TREE_CHAIN(field); field = TREE_CHAIN(field))
+		;
+
+	if (lastidx != field)
+		return;
+
+	if (TREE_CODE(lastval) != STRING_CST) {
+		error("Only string constants are supported as initializers "
+		      "for randomized structures with flexible arrays");
+		return;
+	}
+
+	flexsize = bitsize_int(TREE_STRING_LENGTH(lastval) *
+		tree_to_uhwi(TYPE_SIZE(TREE_TYPE(TREE_TYPE(lastval)))));
+
+	DECL_SIZE(decl) = size_binop(PLUS_EXPR, TYPE_SIZE(type), flexsize);
+
+	return;
+}
+
+
 static void randomize_layout_finish_decl(void *event_data, void *data)
 {
 	tree decl = (tree)event_data;
@@ -468,7 +518,13 @@ static void randomize_layout_finish_decl(void *event_data, void *data)
 	if (!lookup_attribute("randomize_performed", TYPE_ATTRIBUTES(type)))
 		return;
 
-	relayout_decl(decl);
+	DECL_SIZE(decl) = 0;
+	DECL_SIZE_UNIT(decl) = 0;
+	DECL_ALIGN(decl) = 0;
+	DECL_MODE (decl) = VOIDmode;
+	SET_DECL_RTL(decl, 0);
+	update_decl_size(decl);
+	layout_decl(decl, 0);
 }
 
 static void finish_type(void *event_data, void *data)
