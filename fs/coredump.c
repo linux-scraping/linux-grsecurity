@@ -35,7 +35,6 @@
 #include <linux/sched.h>
 #include <linux/fs.h>
 #include <linux/path.h>
-#include <linux/timekeeping.h>
 
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
