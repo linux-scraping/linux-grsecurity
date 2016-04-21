@@ -26,7 +26,7 @@ int plugin_is_GPL_compatible;
 static GTY(()) tree latent_entropy_decl;
 
 static struct plugin_info latent_entropy_plugin_info = {
-	.version	= "201602181345",
+	.version	= "201604022010",
 	.help		= NULL
 };
 
@@ -79,7 +79,8 @@ static tree handle_latent_entropy_attribute(tree *node, tree name, tree args, in
 		switch (TREE_CODE(type)) {
 		default:
 			*no_add_attrs = true;
-			error("variable %qD with %qE attribute must be an integer or a fixed length integer array type or a fixed sized structure with integer fields", *node, name);
+			error("variable %qD with %qE attribute must be an integer or a fixed length integer array type"
+				"or a fixed sized structure with integer fields", *node, name);
 			break;
 
 		case RECORD_TYPE: {
@@ -198,11 +199,11 @@ static void register_attributes(void *event_data, void *data)
 
 static bool latent_entropy_gate(void)
 {
-	// don't bother with noreturn functions for now
+	/* don't bother with noreturn functions for now */
 	if (TREE_THIS_VOLATILE(current_function_decl))
 		return false;
 
-	// gcc-4.5 doesn't discover some trivial noreturn functions
+	/* gcc-4.5 doesn't discover some trivial noreturn functions */
 	if (EDGE_COUNT(EXIT_BLOCK_PTR_FOR_FN(cfun)->preds) == 0)
 		return false;
 
@@ -260,11 +261,11 @@ static void perturb_latent_entropy(basic_block bb, tree rhs)
 	gimple assign;
 	tree addxorrol, temp;
 
-	// 1. create temporary copy of latent_entropy
+	/* 1. create temporary copy of latent_entropy */
 	temp = create_tmp_var(unsigned_intDI_type_node, "temp_latent_entropy");
 	add_referenced_var(temp);
 
-	// 2. read...
+	/* 2. read... */
 	temp = make_ssa_name(temp, NULL);
 	assign = gimple_build_assign(temp, latent_entropy_decl);
 	SSA_NAME_DEF_STMT(temp) = assign;
@@ -273,7 +274,7 @@ static void perturb_latent_entropy(basic_block bb, tree rhs)
 	gsi_insert_after(&gsi, assign, GSI_NEW_STMT);
 	update_stmt(assign);
 
-	// 3. ...modify...
+	/* 3. ...modify... */
 	addxorrol = fold_build2_loc(UNKNOWN_LOCATION, get_op(NULL), unsigned_intDI_type_node, temp, rhs);
 	temp = make_ssa_name(SSA_NAME_VAR(temp), NULL);
 	assign = gimple_build_assign(temp, addxorrol);
@@ -281,7 +282,7 @@ static void perturb_latent_entropy(basic_block bb, tree rhs)
 	gsi_insert_after(&gsi, assign, GSI_NEW_STMT);
 	update_stmt(assign);
 
-	// 4. ...write latent_entropy
+	/* 4. ...write latent_entropy */
 	assign = gimple_build_assign(latent_entropy_decl, temp);
 	gsi_insert_after(&gsi, assign, GSI_NEW_STMT);
 	update_stmt(assign);
@@ -316,12 +317,12 @@ static unsigned int latent_entropy_execute(void)
 
 //fprintf(stderr, "latent_entropy: %s\n", IDENTIFIER_POINTER(DECL_NAME(current_function_decl)));
 
-	// 1. create local entropy variable
+	/* 1. create local entropy variable */
 	local_entropy = create_tmp_var(unsigned_intDI_type_node, "local_entropy");
 	add_referenced_var(local_entropy);
 	mark_sym_for_renaming(local_entropy);
 
-	// 2. initialize local entropy variable
+	/* 2. initialize local entropy variable */
 	gcc_assert(single_succ_p(ENTRY_BLOCK_PTR_FOR_FN(cfun)));
 	bb = single_succ(ENTRY_BLOCK_PTR_FOR_FN(cfun));
 	if (!single_pred_p(bb)) {
@@ -339,14 +340,14 @@ static unsigned int latent_entropy_execute(void)
 //debug_bb(bb);
 	bb = bb->next_bb;
 
-	// 3. instrument each BB with an operation on the local entropy variable
+	/* 3. instrument each BB with an operation on the local entropy variable */
 	while (bb != EXIT_BLOCK_PTR_FOR_FN(cfun)) {
 		perturb_local_entropy(bb, local_entropy);
 //debug_bb(bb);
 		bb = bb->next_bb;
 	};
 
-	// 4. mix local entropy into the global entropy variable
+	/* 4. mix local entropy into the global entropy variable */
 	gcc_assert(single_pred_p(EXIT_BLOCK_PTR_FOR_FN(cfun)));
 	perturb_latent_entropy(single_pred(EXIT_BLOCK_PTR_FOR_FN(cfun)), local_entropy);
 //debug_bb(single_pred(EXIT_BLOCK_PTR_FOR_FN(cfun)));
@@ -362,7 +363,7 @@ static void latent_entropy_start_unit(void *gcc_data, void *user_data)
 	if (in_lto_p)
 		return;
 
-	// extern volatile u64 latent_entropy
+	/* extern volatile u64 latent_entropy */
 	gcc_assert(TYPE_PRECISION(long_long_unsigned_type_node) == 64);
 	latent_entropy_type = build_qualified_type(long_long_unsigned_type_node, TYPE_QUALS(long_long_unsigned_type_node) | TYPE_QUAL_VOLATILE);
 	latent_entropy_decl = build_decl(UNKNOWN_LOCATION, VAR_DECL, get_identifier("latent_entropy"), latent_entropy_type);
@@ -394,7 +395,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	latent_entropy_pass_info.pass				= make_latent_entropy_pass();
 	latent_entropy_pass_info.reference_pass_name		= "optimized";
 	latent_entropy_pass_info.ref_pass_instance_number	= 1;
-	latent_entropy_pass_info.pos_op 			= PASS_POS_INSERT_BEFORE;
+	latent_entropy_pass_info.pos_op				= PASS_POS_INSERT_BEFORE;
 	static const struct ggc_root_tab gt_ggc_r_gt_latent_entropy[] = {
 		{
 			.base = &latent_entropy_decl,
