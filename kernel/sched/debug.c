@@ -490,7 +490,11 @@ static int __init init_sched_debug_procfs(void)
 {
 	struct proc_dir_entry *pe;
 
+#ifdef CONFIG_GRKERNSEC_PROC_ADD
+	pe = proc_create("sched_debug", 0400, NULL, &sched_debug_fops);
+#else
 	pe = proc_create("sched_debug", 0444, NULL, &sched_debug_fops);
+#endif
 	if (!pe)
 		return -ENOMEM;
 	return 0;

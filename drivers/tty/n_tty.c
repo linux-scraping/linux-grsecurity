@@ -1723,15 +1723,16 @@ n_tty_receive_buf_common(struct tty_struct *tty, const unsigned char *cp,
 		room = N_TTY_BUF_SIZE - (ldata->read_head - tail);
 		if (I_PARMRK(tty))
 			room = (room + 2) / 3;
-		room--;
-		if (room <= 0) {
+		if (room <= 1) {
 			overflow = ldata->icanon && ldata->canon_head == tail;
-			if (overflow && room < 0)
+			if (overflow && room == 0)
 				ldata->read_head--;
 			room = overflow;
 			ldata->no_room = flow && !room;
-		} else
+		} else {
+			room--;
 			overflow = 0;
+		}
 
 		n = min(count, room);
 		if (!n)

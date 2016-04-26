@@ -1034,7 +1034,7 @@ static ssize_t environ_read(struct file *file, char __user *buf,
 	int ret = 0;
 	struct mm_struct *mm = file->private_data;
 
-	if (!mm)
+	if (!mm || !mm->env_end)
 		return 0;
 
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
