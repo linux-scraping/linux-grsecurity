@@ -418,7 +418,7 @@ static enum AMDGPU_UCODE_ID iceland_convert_fw_type(uint32_t fw_type)
 	}
 }
 
-static uint32_t iceland_smu_get_mask_for_fw_type(uint32_t fw_type)
+static uint32_t iceland_smu_get_mask_for_fw_type(enum AMDGPU_UCODE_ID fw_type)
 {
 	switch (fw_type) {
 		case AMDGPU_UCODE_ID_SDMA0:
@@ -556,7 +556,7 @@ static int iceland_smu_request_load_fw(struct amdgpu_device *adev)
 }
 
 static int iceland_smu_check_fw_load_finish(struct amdgpu_device *adev,
-					    uint32_t fw_type)
+					    enum AMDGPU_UCODE_ID fw_type)
 {
 	uint32_t fw_mask = iceland_smu_get_mask_for_fw_type(fw_type);
 	int i;

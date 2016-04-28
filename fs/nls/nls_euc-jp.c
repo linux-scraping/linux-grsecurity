@@ -406,7 +406,7 @@ static inline int sjisnec2sjisibm(unsigned char *sjisibm,
 	return 2;
 }
 
-static int uni2char(const wchar_t uni,
+static int uni2char(wchar_t uni,
 		    unsigned char *out, int boundlen)
 {
 	int n;

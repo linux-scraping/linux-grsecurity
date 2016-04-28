@@ -42,9 +42,9 @@
  *      We are not doing SEGREL32 handling correctly. According to the ABI, we
  *      should do a value offset, like this:
  *			if (in_init(me, (void *)val))
- *				val -= (uint32_t)me->module_init;
+ *				val -= (uint32_t)me->init_layout.base;
  *			else
- *				val -= (uint32_t)me->module_core;
+ *				val -= (uint32_t)me->core_layout.base;
  *	However, SEGREL32 is used only for PARISC unwind entries, and we want
  *	those entries to have an absolute address, and not just an offset.
  *
@@ -98,38 +98,14 @@
 
 /* three functions to determine where in the module core
  * or init pieces the location is */
-static inline int in_init_rx(struct module *me, void *loc)
-{
-	return (loc >= me->module_init_rx &&
-		loc < (me->module_init_rx + me->init_size_rx));
-}
-
-static inline int in_init_rw(struct module *me, void *loc)
-{
-	return (loc >= me->module_init_rw &&
-		loc < (me->module_init_rw + me->init_size_rw));
-}
-
 static inline int in_init(struct module *me, void *loc)
 {
-	return in_init_rx(me, loc) || in_init_rw(me, loc);
-}
-
-static inline int in_core_rx(struct module *me, void *loc)
-{
-	return (loc >= me->module_core_rx &&
-		loc < (me->module_core_rx + me->core_size_rx));
-}
-
-static inline int in_core_rw(struct module *me, void *loc)
-{
-	return (loc >= me->module_core_rw &&
-		loc < (me->module_core_rw + me->core_size_rw));
+	within_module_init((unsigned long)loc, me);
 }
 
 static inline int in_core(struct module *me, void *loc)
 {
-	return in_core_rx(me, loc) || in_core_rw(me, loc);
+	within_module_core((unsigned long)loc, me);
 }
 
 static inline int in_local(struct module *me, void *loc)
@@ -389,13 +365,13 @@ int module_frob_arch_sections(CONST Elf_Ehdr *hdr,
 	}
 
 	/* align things a bit */
-	me->core_size_rw = ALIGN(me->core_size_rw, 16);
-	me->arch.got_offset = me->core_size_rw;
-	me->core_size_rw += gots * sizeof(struct got_entry);
+	me->core_layout.size_rw = ALIGN(me->core_layout.size_rw, 16);
+	me->arch.got_offset = me->core_layout.size_rw;
+	me->core_layout.size_rw += gots * sizeof(struct got_entry);
 
-	me->core_size_rw = ALIGN(me->core_size_rw, 16);
-	me->arch.fdesc_offset = me->core_size_rw;
-	me->core_size_rw += fdescs * sizeof(Elf_Fdesc);
+	me->core_layout.size_rw = ALIGN(me->core_layout.size_rw, 16);
+	me->arch.fdesc_offset = me->core_layout.size_rw;
+	me->core_layout.size_rw += fdescs * sizeof(Elf_Fdesc);
 
 	me->arch.got_max = gots;
 	me->arch.fdesc_max = fdescs;
@@ -413,7 +389,7 @@ static Elf64_Word get_got(struct module *me, unsigned long value, long addend)
 
 	BUG_ON(value == 0);
 
-	got = me->module_core_rw + me->arch.got_offset;
+	got = me->core_layout.base_rw + me->arch.got_offset;
 	for (i = 0; got[i].addr; i++)
 		if (got[i].addr == value)
 			goto out;
@@ -431,7 +407,7 @@ static Elf64_Word get_got(struct module *me, unsigned long value, long addend)
 #ifdef CONFIG_64BIT
 static Elf_Addr get_fdesc(struct module *me, unsigned long value)
 {
-	Elf_Fdesc *fdesc = me->module_core_rw + me->arch.fdesc_offset;
+	Elf_Fdesc *fdesc = me->core_layout.base_rw + me->arch.fdesc_offset;
 
 	if (!value) {
 		printk(KERN_ERR "%s: zero OPD requested!\n", me->name);
@@ -449,7 +425,7 @@ static Elf_Addr get_fdesc(struct module *me, unsigned long value)
 
 	/* Create new one */
 	fdesc->addr = value;
-	fdesc->gp = (Elf_Addr)me->module_core_rw + me->arch.got_offset;
+	fdesc->gp = (Elf_Addr)me->core_layout.base_rw + me->arch.got_offset;
 	return (Elf_Addr)fdesc;
 }
 #endif /* CONFIG_64BIT */
@@ -861,7 +837,7 @@ register_unwind_table(struct module *me,
 
 	table = (unsigned char *)sechdrs[me->arch.unwind_section].sh_addr;
 	end = table + sechdrs[me->arch.unwind_section].sh_size;
-	gp = (Elf_Addr)me->module_core_rw + me->arch.got_offset;
+	gp = (Elf_Addr)me->core_layout.base_rw + me->arch.got_offset;
 
 	DEBUGP("register_unwind_table(), sect = %d at 0x%p - 0x%p (gp=0x%lx)\n",
 	       me->arch.unwind_section, table, end, gp);

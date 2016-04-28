@@ -396,13 +396,13 @@ gr_acl_handle_procpidmem(const struct task_struct *task)
 }
 
 int
-gr_search_udp_recvmsg(const struct sock *sk, const struct sk_buff *skb)
+gr_search_udp_recvmsg(struct sock *sk, const struct sk_buff *skb)
 {
 	return 0;
 }
 
 int
-gr_search_udp_sendmsg(const struct sock *sk, const struct sockaddr_in *addr)
+gr_search_udp_sendmsg(struct sock *sk, struct sockaddr_in *addr)
 {
 	return 0;
 }

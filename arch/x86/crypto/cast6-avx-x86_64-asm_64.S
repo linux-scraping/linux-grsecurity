@@ -346,7 +346,7 @@ __cast6_dec_blk8:
 	ret;
 ENDPROC(__cast6_dec_blk8)
 
-ENTRY(cast6_ecb_enc_8way)
+RAP_ENTRY(cast6_ecb_enc_8way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -365,7 +365,7 @@ ENTRY(cast6_ecb_enc_8way)
 	ret;
 ENDPROC(cast6_ecb_enc_8way)
 
-ENTRY(cast6_ecb_dec_8way)
+RAP_ENTRY(cast6_ecb_dec_8way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -384,7 +384,7 @@ ENTRY(cast6_ecb_dec_8way)
 	ret;
 ENDPROC(cast6_ecb_dec_8way)
 
-ENTRY(cast6_cbc_dec_8way)
+RAP_ENTRY(cast6_cbc_dec_8way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -408,7 +408,7 @@ ENTRY(cast6_cbc_dec_8way)
 	ret;
 ENDPROC(cast6_cbc_dec_8way)
 
-ENTRY(cast6_ctr_8way)
+RAP_ENTRY(cast6_ctr_8way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -434,7 +434,7 @@ ENTRY(cast6_ctr_8way)
 	ret;
 ENDPROC(cast6_ctr_8way)
 
-ENTRY(cast6_xts_enc_8way)
+RAP_ENTRY(cast6_xts_enc_8way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -457,7 +457,7 @@ ENTRY(cast6_xts_enc_8way)
 	ret;
 ENDPROC(cast6_xts_enc_8way)
 
-ENTRY(cast6_xts_dec_8way)
+RAP_ENTRY(cast6_xts_dec_8way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst

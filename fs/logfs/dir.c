@@ -174,7 +174,7 @@ static struct page *logfs_get_dd_page(struct inode *dir, struct dentry *dentry)
 		if (!logfs_exist_block(dir, index))
 			continue;
 		page = read_cache_page(dir->i_mapping, index,
-				(filler_t *)logfs_readpage, NULL);
+				logfs_readpage, NULL);
 		if (IS_ERR(page))
 			return page;
 		dd = kmap_atomic(page);
@@ -306,7 +306,7 @@ static int logfs_readdir(struct file *file, struct dir_context *ctx)
 			continue;
 		}
 		page = read_cache_page(dir->i_mapping, pos,
-				(filler_t *)logfs_readpage, NULL);
+				logfs_readpage, NULL);
 		if (IS_ERR(page))
 			return PTR_ERR(page);
 		dd = kmap(page);
@@ -528,7 +528,8 @@ static int logfs_symlink(struct inode *dir, struct dentry *dentry,
 	if (IS_ERR(inode))
 		return PTR_ERR(inode);
 
-	inode->i_op = &logfs_symlink_iops;
+	inode->i_op = &page_symlink_inode_operations;
+	inode_nohighmem(inode);
 	inode->i_mapping->a_ops = &logfs_reg_aops;
 
 	return __logfs_create(dir, dentry, inode, target, destlen);
@@ -775,12 +776,6 @@ fail:
 	LOGFS_BUG(sb);
 	return -EIO;
 }
-
-const struct inode_operations logfs_symlink_iops = {
-	.readlink	= generic_readlink,
-	.follow_link	= page_follow_link_light,
-	.put_link	= page_put_link,
-};
 
 const struct inode_operations logfs_dir_iops = {
 	.create		= logfs_create,

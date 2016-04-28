@@ -65,11 +65,10 @@ struct acl_object_label *fakefs_obj_rwx;
 
 extern int gr_init_uidset(void);
 extern void gr_free_uidset(void);
-extern void gr_remove_uid(uid_t uid);
-extern int gr_find_uid(uid_t uid);
+extern int gr_find_and_remove_uid(uid_t uid);
 
 extern struct acl_subject_label *__gr_get_subject_for_task(const struct gr_policy_state *state, struct task_struct *task, const char *filename, int fallback);
-extern void __gr_apply_subject_to_task(struct gr_policy_state *state, struct task_struct *task, struct acl_subject_label *subj);
+extern void __gr_apply_subject_to_task(const struct gr_policy_state *state, struct task_struct *task, struct acl_subject_label *subj);
 extern int gr_streq(const char *a, const char *b, const unsigned int lena, const unsigned int lenb);
 extern void __insert_inodev_entry(const struct gr_policy_state *state, struct inodev_entry *entry);
 extern struct acl_role_label *__lookup_acl_role_label(const struct gr_policy_state *state, const struct task_struct *task, const uid_t uid, const gid_t gid);
@@ -1636,9 +1635,8 @@ write_grsec_handler(struct file *file, const char __user * buf, size_t count, lo
 					segvacl->crashes = 0;
 					segvacl->expires = 0;
 				}
-			} else if (gr_find_uid(gr_usermode->segv_uid) >= 0) {
-				gr_remove_uid(gr_usermode->segv_uid);
-			}
+			} else
+				gr_find_and_remove_uid(gr_usermode->segv_uid);
 		} else {
 			gr_log_noargs(GR_DONT_AUDIT, GR_SEGVMODF_ACL_MSG);
 			error = -EPERM;

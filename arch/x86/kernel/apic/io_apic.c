@@ -1878,7 +1878,7 @@ static struct irq_chip ioapic_chip = {
 	.flags			= IRQCHIP_SKIP_SET_WAKE,
 };
 
-static struct irq_chip ioapic_ir_chip __read_mostly = {
+static struct irq_chip ioapic_ir_chip = {
 	.name			= "IR-IO-APIC",
 	.irq_startup		= startup_ioapic_irq,
 	.irq_mask		= mask_ioapic_irq,

@@ -775,7 +775,7 @@ void pci_disable_link_state(struct pci_dev *pdev, int state)
 }
 EXPORT_SYMBOL(pci_disable_link_state);
 
-static int pcie_aspm_set_policy(const char *val, struct kernel_param *kp)
+static int pcie_aspm_set_policy(const char *val, const struct kernel_param *kp)
 {
 	int i;
 	struct pcie_link_state *link;
@@ -802,7 +802,7 @@ static int pcie_aspm_set_policy(const char *val, struct kernel_param *kp)
 	return 0;
 }
 
-static int pcie_aspm_get_policy(char *buffer, struct kernel_param *kp)
+static int pcie_aspm_get_policy(char *buffer, const struct kernel_param *kp)
 {
 	int i, cnt = 0;
 	for (i = 0; i < ARRAY_SIZE(policy_str); i++)
@@ -834,21 +834,15 @@ static ssize_t link_state_store(struct device *dev,
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct pcie_link_state *link, *root = pdev->link_state->root;
-	u32 val, state = 0;
-
-	if (kstrtouint(buf, 10, &val))
-		return -EINVAL;
+	u32 state;
 
 	if (aspm_disabled)
 		return -EPERM;
-	if (n < 1 || val > 3)
-		return -EINVAL;
 
-	/* Convert requested state to ASPM state */
-	if (val & PCIE_LINK_STATE_L0S)
-		state |= ASPM_STATE_L0S;
-	if (val & PCIE_LINK_STATE_L1)
-		state |= ASPM_STATE_L1;
+	if (kstrtouint(buf, 10, &state))
+		return -EINVAL;
+	if ((state & ~ASPM_STATE_ALL) != 0)
+		return -EINVAL;
 
 	down_read(&pci_bus_sem);
 	mutex_lock(&aspm_lock);

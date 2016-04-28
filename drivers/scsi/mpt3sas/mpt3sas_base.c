@@ -100,7 +100,7 @@ _base_get_ioc_facts(struct MPT3SAS_ADAPTER *ioc, int sleep_flag);
  *
  */
 static int
-_scsih_set_fwfault_debug(const char *val, struct kernel_param *kp)
+_scsih_set_fwfault_debug(const char *val, const struct kernel_param *kp)
 {
 	int ret = param_set_int(val, kp);
 	struct MPT3SAS_ADAPTER *ioc;
@@ -2020,8 +2020,10 @@ mpt3sas_base_unmap_resources(struct MPT3SAS_ADAPTER *ioc)
 	_base_free_irq(ioc);
 	_base_disable_msix(ioc);
 
-	if (ioc->msix96_vector)
+	if (ioc->msix96_vector) {
 		kfree(ioc->replyPostRegisterIndex);
+		ioc->replyPostRegisterIndex = NULL;
+	}
 
 	if (ioc->chip_phys) {
 		iounmap(ioc->chip);

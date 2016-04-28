@@ -165,10 +165,12 @@ static void encode_clone(struct xdr_stream *xdr,
 /*
  * Encode ALLOCATE request
  */
-static void nfs4_xdr_enc_allocate(struct rpc_rqst *req,
+static void nfs4_xdr_enc_allocate(void *_req,
 				  struct xdr_stream *xdr,
-				  struct nfs42_falloc_args *args)
+				  void *_args)
 {
+	struct rpc_rqst *req = _req;
+	struct nfs42_falloc_args *args = _args;
 	struct compound_hdr hdr = {
 		.minorversion = nfs4_xdr_minorversion(&args->seq_args),
 	};
@@ -184,10 +186,12 @@ static void nfs4_xdr_enc_allocate(struct rpc_rqst *req,
 /*
  * Encode DEALLOCATE request
  */
-static void nfs4_xdr_enc_deallocate(struct rpc_rqst *req,
+static void nfs4_xdr_enc_deallocate(void *_req,
 				    struct xdr_stream *xdr,
-				    struct nfs42_falloc_args *args)
+				    void *_args)
 {
+	struct rpc_rqst *req = _req;
+	struct nfs42_falloc_args *args = _args;
 	struct compound_hdr hdr = {
 		.minorversion = nfs4_xdr_minorversion(&args->seq_args),
 	};
@@ -203,10 +207,12 @@ static void nfs4_xdr_enc_deallocate(struct rpc_rqst *req,
 /*
  * Encode SEEK request
  */
-static void nfs4_xdr_enc_seek(struct rpc_rqst *req,
+static void nfs4_xdr_enc_seek(void *_req,
 			      struct xdr_stream *xdr,
-			      struct nfs42_seek_args *args)
+			      void *_args)
 {
+	struct rpc_rqst *req = _req;
+	struct nfs42_seek_args *args = _args;
 	struct compound_hdr hdr = {
 		.minorversion = nfs4_xdr_minorversion(&args->seq_args),
 	};
@@ -221,10 +227,12 @@ static void nfs4_xdr_enc_seek(struct rpc_rqst *req,
 /*
  * Encode LAYOUTSTATS request
  */
-static void nfs4_xdr_enc_layoutstats(struct rpc_rqst *req,
+static void nfs4_xdr_enc_layoutstats(void *_req,
 				     struct xdr_stream *xdr,
-				     struct nfs42_layoutstat_args *args)
+				     void *_args)
 {
+	struct rpc_rqst *req = _req;
+	struct nfs42_layoutstat_args *args = _args;
 	int i;
 
 	struct compound_hdr hdr = {
@@ -243,10 +251,12 @@ static void nfs4_xdr_enc_layoutstats(struct rpc_rqst *req,
 /*
  * Encode CLONE request
  */
-static void nfs4_xdr_enc_clone(struct rpc_rqst *req,
+static void nfs4_xdr_enc_clone(void *_req,
 			       struct xdr_stream *xdr,
-			       struct nfs42_clone_args *args)
+			       void *_args)
 {
+	struct rpc_rqst *req = _req;
+	struct nfs42_clone_args *args = _args;
 	struct compound_hdr hdr = {
 		.minorversion = nfs4_xdr_minorversion(&args->seq_args),
 	};
@@ -306,10 +316,12 @@ static int decode_clone(struct xdr_stream *xdr)
 /*
  * Decode ALLOCATE request
  */
-static int nfs4_xdr_dec_allocate(struct rpc_rqst *rqstp,
+static int nfs4_xdr_dec_allocate(void *_rqstp,
 				 struct xdr_stream *xdr,
-				 struct nfs42_falloc_res *res)
+				 void *_res)
 {
+	struct rpc_rqst *rqstp = _rqstp;
+	struct nfs42_falloc_res *res = _res;
 	struct compound_hdr hdr;
 	int status;
 
@@ -333,10 +345,12 @@ out:
 /*
  * Decode DEALLOCATE request
  */
-static int nfs4_xdr_dec_deallocate(struct rpc_rqst *rqstp,
+static int nfs4_xdr_dec_deallocate(void *_rqstp,
 				   struct xdr_stream *xdr,
-				   struct nfs42_falloc_res *res)
+				   void *_res)
 {
+	struct rpc_rqst *rqstp = _rqstp;
+	struct nfs42_falloc_res *res = _res;
 	struct compound_hdr hdr;
 	int status;
 
@@ -360,10 +374,12 @@ out:
 /*
  * Decode SEEK request
  */
-static int nfs4_xdr_dec_seek(struct rpc_rqst *rqstp,
+static int nfs4_xdr_dec_seek(void *_rqstp,
 			     struct xdr_stream *xdr,
-			     struct nfs42_seek_res *res)
+			     void *_res)
 {
+	struct rpc_rqst *rqstp = _rqstp;
+	struct nfs42_seek_res *res = _res;
 	struct compound_hdr hdr;
 	int status;
 
@@ -384,10 +400,12 @@ out:
 /*
  * Decode LAYOUTSTATS request
  */
-static int nfs4_xdr_dec_layoutstats(struct rpc_rqst *rqstp,
+static int nfs4_xdr_dec_layoutstats(void *_rqstp,
 				    struct xdr_stream *xdr,
-				    struct nfs42_layoutstat_res *res)
+				    void *_res)
 {
+	struct rpc_rqst *rqstp = _rqstp;
+	struct nfs42_layoutstat_res *res = _res;
 	struct compound_hdr hdr;
 	int status, i;
 
@@ -414,10 +432,12 @@ out:
 /*
  * Decode CLONE request
  */
-static int nfs4_xdr_dec_clone(struct rpc_rqst *rqstp,
+static int nfs4_xdr_dec_clone(void *_rqstp,
 			      struct xdr_stream *xdr,
-			      struct nfs42_clone_res *res)
+			      void *_res)
 {
+	struct rpc_rqst *rqstp = _rqstp;
+	struct nfs42_clone_res *res = _res;
 	struct compound_hdr hdr;
 	int status;
 

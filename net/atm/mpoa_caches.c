@@ -534,7 +534,7 @@ static void eg_destroy_cache(struct mpoa_client *mpc)
 }
 
 
-static struct in_cache_ops ingress_ops = {
+static const struct in_cache_ops ingress_ops = {
 	.add_entry = in_cache_add_entry,
 	.get = in_cache_get,
 	.get_with_mask = in_cache_get_with_mask,
@@ -548,7 +548,7 @@ static struct in_cache_ops ingress_ops = {
 	.destroy_cache = in_destroy_cache
 };
 
-static struct eg_cache_ops egress_ops = {
+static const struct eg_cache_ops egress_ops = {
 	.add_entry = eg_cache_add_entry,
 	.get_by_cache_id = eg_cache_get_by_cache_id,
 	.get_by_tag = eg_cache_get_by_tag,
@@ -560,7 +560,6 @@ static struct eg_cache_ops egress_ops = {
 	.clear_expired = clear_expired,
 	.destroy_cache = eg_destroy_cache
 };
-
 
 void atm_mpoa_init_cache(struct mpoa_client *mpc)
 {

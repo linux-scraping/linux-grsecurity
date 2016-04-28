@@ -206,8 +206,8 @@ __ATTR(_name, 0644, show_##_name, store_##_name)
 struct global_attr {
 	struct attribute attr;
 	ssize_t (*show)(struct kobject *kobj,
-			struct attribute *attr, char *buf);
-	ssize_t (*store)(struct kobject *a, struct attribute *b,
+			struct kobj_attribute *attr, char *buf);
+	ssize_t (*store)(struct kobject *a, struct kobj_attribute *b,
 			 const char *c, size_t count);
 };
 typedef struct global_attr __no_const global_attr_no_const;
@@ -279,7 +279,6 @@ struct cpufreq_driver {
 	struct freq_attr **attr;
 
 	/* platform specific boost support code */
-	bool		boost_supported;
 	bool		boost_enabled;
 	int		(*set_boost)(int state);
 } __do_const;
@@ -575,16 +574,11 @@ ssize_t cpufreq_show_cpus(const struct cpumask *mask, char *buf);
 
 #ifdef CONFIG_CPU_FREQ
 int cpufreq_boost_trigger_state(int state);
-int cpufreq_boost_supported(void);
 int cpufreq_boost_enabled(void);
 int cpufreq_enable_boost_support(void);
 bool policy_has_boost_freq(struct cpufreq_policy *policy);
 #else
 static inline int cpufreq_boost_trigger_state(int state)
-{
-	return 0;
-}
-static inline int cpufreq_boost_supported(void)
 {
 	return 0;
 }

@@ -208,6 +208,11 @@ do_trap_no_signal(struct task_struct *tsk, int trapnr, const char *str,
 				str = "PAX: suspicious stack segment fault";
 #endif
 
+#ifdef CONFIG_PAX_RAP
+			if (trapnr == X86_TRAP_UD)
+				str = "PAX: overwritten function pointer or return address detected";
+#endif
+
 			die(str, regs, error_code);
 		}
 
@@ -849,7 +854,7 @@ void __init early_trap_init(void)
 	 * since we don't have trace_debug and it will be reset to
 	 * 'debug' in trap_init() by set_intr_gate_ist().
 	 */
-	set_intr_gate_notrace(X86_TRAP_DB, debug);
+	set_intr_gate_notrace(X86_TRAP_DB, int1);
 	/* int3 can be called from all */
 	set_system_intr_gate(X86_TRAP_BP, &int3);
 #ifdef CONFIG_X86_32
@@ -934,7 +939,7 @@ void __init trap_init(void)
 	 * in early_trap_init(). However, ITS works only after
 	 * cpu_init() loads TSS. See comments in early_trap_init().
 	 */
-	set_intr_gate_ist(X86_TRAP_DB, &debug, DEBUG_STACK);
+	set_intr_gate_ist(X86_TRAP_DB, &int1, DEBUG_STACK);
 	/* int3 can be called from all */
 	set_system_intr_gate_ist(X86_TRAP_BP, &int3, DEBUG_STACK);
 
@@ -942,7 +947,7 @@ void __init trap_init(void)
 
 #ifdef CONFIG_X86_64
 	memcpy(&debug_idt_table, &idt_table, IDT_ENTRIES * 16);
-	set_nmi_gate(X86_TRAP_DB, &debug);
+	set_nmi_gate(X86_TRAP_DB, &int1);
 	set_nmi_gate(X86_TRAP_BP, &int3);
 #endif
 }

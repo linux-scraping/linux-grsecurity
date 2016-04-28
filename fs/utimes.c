@@ -110,9 +110,9 @@ retry_deleg:
 		goto mnt_drop_write_and_out;
 	}
 
-	mutex_lock(&inode->i_mutex);
+	inode_lock(inode);
 	error = notify_change(path->dentry, &newattrs, &delegated_inode);
-	mutex_unlock(&inode->i_mutex);
+	inode_unlock(inode);
 	if (delegated_inode) {
 		error = break_deleg_wait(&delegated_inode);
 		if (!error)

@@ -670,7 +670,7 @@ __serpent_dec_blk16:
 	ret;
 ENDPROC(__serpent_dec_blk16)
 
-ENTRY(serpent_ecb_enc_16way)
+RAP_ENTRY(serpent_ecb_enc_16way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -691,7 +691,7 @@ ENTRY(serpent_ecb_enc_16way)
 	ret;
 ENDPROC(serpent_ecb_enc_16way)
 
-ENTRY(serpent_ecb_dec_16way)
+RAP_ENTRY(serpent_ecb_dec_16way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -712,7 +712,7 @@ ENTRY(serpent_ecb_dec_16way)
 	ret;
 ENDPROC(serpent_ecb_dec_16way)
 
-ENTRY(serpent_cbc_dec_16way)
+RAP_ENTRY(serpent_cbc_dec_16way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -734,7 +734,7 @@ ENTRY(serpent_cbc_dec_16way)
 	ret;
 ENDPROC(serpent_cbc_dec_16way)
 
-ENTRY(serpent_ctr_16way)
+RAP_ENTRY(serpent_ctr_16way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst (16 blocks)
@@ -758,7 +758,7 @@ ENTRY(serpent_ctr_16way)
 	ret;
 ENDPROC(serpent_ctr_16way)
 
-ENTRY(serpent_xts_enc_16way)
+RAP_ENTRY(serpent_xts_enc_16way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst (16 blocks)
@@ -783,7 +783,7 @@ ENTRY(serpent_xts_enc_16way)
 	ret;
 ENDPROC(serpent_xts_enc_16way)
 
-ENTRY(serpent_xts_dec_16way)
+RAP_ENTRY(serpent_xts_dec_16way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst (16 blocks)

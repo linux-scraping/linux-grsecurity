@@ -348,8 +348,7 @@ a = TMP_
 ## arg 3 : Num blocks
 ########################################################################
 .text
-ENTRY(sha256_transform_avx)
-.align 32
+RAP_ENTRY(sha256_transform_avx)
 	pushq   %rbx
 	pushq   %rbp
 	pushq   %r13

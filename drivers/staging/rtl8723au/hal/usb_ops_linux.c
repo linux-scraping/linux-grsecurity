@@ -487,7 +487,7 @@ _exit_recvbuf2recvframe:
 	return _SUCCESS;
 }
 
-void rtl8723au_recv_tasklet(void *priv)
+void rtl8723au_recv_tasklet(unsigned long priv)
 {
 	struct sk_buff *pskb;
 	struct rtw_adapter *padapter = (struct rtw_adapter *)priv;
@@ -662,7 +662,7 @@ int rtl8723au_read_port(struct rtw_adapter *adapter, u32 cnt,
 	return ret;
 }
 
-void rtl8723au_xmit_tasklet(void *priv)
+void rtl8723au_xmit_tasklet(unsigned long priv)
 {
 	int ret;
 	struct rtw_adapter *padapter = (struct rtw_adapter *)priv;

@@ -513,7 +513,7 @@ struct pid *find_get_pid(pid_t nr)
 }
 EXPORT_SYMBOL_GPL(find_get_pid);
 
-pid_t pid_nr_ns(struct pid *pid, struct pid_namespace *ns)
+pid_t pid_nr_ns(const struct pid *pid, const struct pid_namespace *ns)
 {
 	struct upid *upid;
 	pid_t nr = 0;
@@ -527,7 +527,7 @@ pid_t pid_nr_ns(struct pid *pid, struct pid_namespace *ns)
 }
 EXPORT_SYMBOL_GPL(pid_nr_ns);
 
-pid_t pid_vnr(struct pid *pid)
+pid_t pid_vnr(const struct pid *pid)
 {
 	return pid_nr_ns(pid, task_active_pid_ns(current));
 }
@@ -604,7 +604,7 @@ void __init pidhash_init(void)
 
 void __init pidmap_init(void)
 {
-	/* Veryify no one has done anything silly */
+	/* Verify no one has done anything silly: */
 	BUILD_BUG_ON(PID_MAX_LIMIT >= PIDNS_HASH_ADDING);
 
 	/* bump default and minimum pid_max based on number of cpus */
@@ -620,5 +620,5 @@ void __init pidmap_init(void)
 	atomic_dec(&init_pid_ns.pidmap[0].nr_free);
 
 	init_pid_ns.pid_cachep = KMEM_CACHE(pid,
-			SLAB_HWCACHE_ALIGN | SLAB_PANIC);
+			SLAB_HWCACHE_ALIGN | SLAB_PANIC | SLAB_ACCOUNT);
 }

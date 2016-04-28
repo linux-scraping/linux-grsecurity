@@ -20,8 +20,6 @@
 
 #include <linux/module.h>
 #include <linux/uaccess.h>
-#include <asm/cacheflush.h>
-#include <asm/page_types.h>
 #include <asm/elf.h>
 #include <asm/livepatch.h>
 
@@ -38,13 +36,12 @@
 int klp_write_module_reloc(struct module *mod, unsigned long type,
 			   unsigned long loc, unsigned long value)
 {
-	int ret, numpages, size = 4;
-	bool readonly;
+	size_t size = 4;
 	unsigned long val;
-	unsigned long core_rx = (unsigned long)mod->module_core_rx;
-	unsigned long core_rw = (unsigned long)mod->module_core_rw;
-	unsigned long core_size_rx = mod->core_size_rx;
-	unsigned long core_size_rw = mod->core_size_rw;
+	unsigned long core_rx = (unsigned long)mod->core_layout.base_rx;
+	unsigned long core_rw = (unsigned long)mod->core_layout.base_rw;
+	unsigned long core_size_rx = mod->core_layout.size_rx;
+	unsigned long core_size_rw = mod->core_layout.size_rw;
 
 	switch (type) {
 	case R_X86_64_NONE:
@@ -72,23 +69,5 @@ int klp_write_module_reloc(struct module *mod, unsigned long type,
 		/* loc does not point to any symbol inside the module */
 		return -EINVAL;
 
-	readonly = false;
-
-#ifdef CONFIG_DEBUG_SET_MODULE_RONX
-	if (loc < core_rx + core_size_rx)
-		readonly = true;
-#endif
-
-	/* determine if the relocation spans a page boundary */
-	numpages = ((loc & PAGE_MASK) == ((loc + size) & PAGE_MASK)) ? 1 : 2;
-
-	if (readonly)
-		set_memory_rw(loc & PAGE_MASK, numpages);
-
-	ret = probe_kernel_write((void *)loc, &val, size);
-
-	if (readonly)
-		set_memory_ro(loc & PAGE_MASK, numpages);
-
-	return ret;
+	return probe_kernel_write((void *)loc, &val, size);
 }

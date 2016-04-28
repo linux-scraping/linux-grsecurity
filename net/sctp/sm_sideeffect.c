@@ -259,12 +259,6 @@ void sctp_generate_t3_rtx_event(unsigned long peer)
 		goto out_unlock;
 	}
 
-	/* Is this transport really dead and just waiting around for
-	 * the timer to let go of the reference?
-	 */
-	if (transport->dead)
-		goto out_unlock;
-
 	/* Run through the state machine.  */
 	error = sctp_do_sm(net, SCTP_EVENT_T_TIMEOUT,
 			   SCTP_ST_TIMEOUT(SCTP_EVENT_TIMEOUT_T3_RTX),
@@ -380,12 +374,6 @@ void sctp_generate_heartbeat_event(unsigned long data)
 		goto out_unlock;
 	}
 
-	/* Is this structure just waiting around for us to actually
-	 * get destroyed?
-	 */
-	if (transport->dead)
-		goto out_unlock;
-
 	error = sctp_do_sm(net, SCTP_EVENT_T_TIMEOUT,
 			   SCTP_ST_TIMEOUT(SCTP_EVENT_TIMEOUT_HEARTBEAT),
 			   asoc->state, asoc->ep, asoc,
@@ -477,6 +465,8 @@ static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
 					 struct sctp_transport *transport,
 					 int is_hb)
 {
+	struct net *net = sock_net(asoc->base.sk);
+
 	/* The check for association's overall error counter exceeding the
 	 * threshold is done in the state function.
 	 */
@@ -503,7 +493,8 @@ static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
 	 * is SCTP_ACTIVE, then mark this transport as Partially Failed,
 	 * see SCTP Quick Failover Draft, section 5.1
 	 */
-	if ((transport->state == SCTP_ACTIVE) &&
+	if (net->sctp.pf_enable &&
+	   (transport->state == SCTP_ACTIVE) &&
 	   (asoc->pf_retrans < transport->pathmaxrxt) &&
 	   (transport->error_count > asoc->pf_retrans)) {
 
@@ -863,7 +854,6 @@ static void sctp_cmd_delete_tcb(sctp_cmd_seq_t *cmds,
 	    (!asoc->temp) && (sk->sk_shutdown != SHUTDOWN_MASK))
 		return;
 
-	sctp_unhash_established(asoc);
 	sctp_association_free(asoc);
 }
 
@@ -1105,7 +1095,7 @@ int sctp_do_sm(struct net *net, sctp_event_t event_type, sctp_subtype_t subtype,
 	const sctp_sm_table_entry_t *state_fn;
 	sctp_disposition_t status;
 	int error = 0;
-	typedef const char *(printfn_t)(sctp_subtype_t);
+	typedef const char *(printfn_t)(const sctp_subtype_t);
 	static printfn_t *table[] = {
 		NULL, sctp_cname, sctp_tname, sctp_oname, sctp_pname,
 	};
@@ -1267,7 +1257,6 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
 			asoc = cmd->obj.asoc;
 			BUG_ON(asoc->peer.primary_path == NULL);
 			sctp_endpoint_add_asoc(ep, asoc);
-			sctp_hash_established(asoc);
 			break;
 
 		case SCTP_CMD_UPDATE_ASSOC:

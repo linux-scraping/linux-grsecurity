@@ -492,7 +492,7 @@ static int stuffed_readpage(struct gfs2_inode *ip, struct page *page)
  *
  */
 
-static int __gfs2_readpage(void *file, struct page *page)
+static int __gfs2_readpage(struct file *file, struct page *page)
 {
 	struct gfs2_inode *ip = GFS2_I(page->mapping->host);
 	struct gfs2_sbd *sdp = GFS2_SB(page->mapping->host);
@@ -914,7 +914,7 @@ static int gfs2_write_end(struct file *file, struct address_space *mapping,
 failed:
 	gfs2_trans_end(sdp);
 	gfs2_inplace_release(ip);
-	if (ip->i_res->rs_qa_qd_num)
+	if (ip->i_qadata && ip->i_qadata->qa_qd_num)
 		gfs2_quota_unlock(ip);
 	if (inode == sdp->sd_rindex) {
 		gfs2_glock_dq(&m_ip->i_gh);

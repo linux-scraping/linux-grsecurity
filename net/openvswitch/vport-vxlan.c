@@ -91,6 +91,8 @@ static struct vport *vxlan_tnl_create(const struct vport_parms *parms)
 	struct vxlan_config conf = {
 		.no_share = true,
 		.flags = VXLAN_F_COLLECT_METADATA | VXLAN_F_UDP_ZERO_CSUM6_RX,
+		/* Don't restrict the packets that can be sent by MTU */
+		.mtu = IP_MAX_MTU,
 	};
 
 	if (!options) {
@@ -146,12 +148,17 @@ static struct vport *vxlan_create(const struct vport_parms *parms)
 	return ovs_netdev_link(vport, parms->name);
 }
 
+static netdev_tx_t vxlan_send(struct sk_buff *skb)
+{
+	return dev_queue_xmit(skb);
+}
+
 static struct vport_ops ovs_vxlan_netdev_vport_ops = {
 	.type			= OVS_VPORT_TYPE_VXLAN,
 	.create			= vxlan_create,
 	.destroy		= ovs_netdev_tunnel_destroy,
 	.get_options		= vxlan_get_options,
-	.send			= dev_queue_xmit,
+	.send			= vxlan_send,
 };
 
 static int __init ovs_vxlan_tnl_init(void)

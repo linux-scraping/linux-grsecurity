@@ -25,7 +25,7 @@
 #include "drmP.h"
 #include "amdgpu.h"
 #include "fiji_ppsmc.h"
-#include "fiji_smumgr.h"
+#include "fiji_smum.h"
 #include "smu_ucode_xfer_vi.h"
 #include "amdgpu_ucode.h"
 
@@ -513,7 +513,7 @@ static int fiji_smu_request_load_fw(struct amdgpu_device *adev)
 	return 0;
 }
 
-static uint32_t fiji_smu_get_mask_for_fw_type(uint32_t fw_type)
+static uint32_t fiji_smu_get_mask_for_fw_type(enum AMDGPU_UCODE_ID fw_type)
 {
 	switch (fw_type) {
 		case AMDGPU_UCODE_ID_SDMA0:
@@ -539,7 +539,7 @@ static uint32_t fiji_smu_get_mask_for_fw_type(uint32_t fw_type)
 }
 
 static int fiji_smu_check_fw_load_finish(struct amdgpu_device *adev,
-					uint32_t fw_type)
+					enum AMDGPU_UCODE_ID fw_type)
 {
 	uint32_t fw_mask = fiji_smu_get_mask_for_fw_type(fw_type);
 	int i;

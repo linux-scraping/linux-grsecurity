@@ -889,7 +889,7 @@ __camellia_dec_blk16:
 	jmp .Ldec_max24;
 ENDPROC(__camellia_dec_blk16)
 
-ENTRY(camellia_ecb_enc_16way)
+RAP_ENTRY(camellia_ecb_enc_16way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst (16 blocks)
@@ -913,7 +913,7 @@ ENTRY(camellia_ecb_enc_16way)
 	ret;
 ENDPROC(camellia_ecb_enc_16way)
 
-ENTRY(camellia_ecb_dec_16way)
+RAP_ENTRY(camellia_ecb_dec_16way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst (16 blocks)
@@ -942,7 +942,7 @@ ENTRY(camellia_ecb_dec_16way)
 	ret;
 ENDPROC(camellia_ecb_dec_16way)
 
-ENTRY(camellia_cbc_dec_16way)
+RAP_ENTRY(camellia_cbc_dec_16way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst (16 blocks)
@@ -998,7 +998,7 @@ ENDPROC(camellia_cbc_dec_16way)
 	vpslldq $8, tmp, tmp; \
 	vpsubq tmp, x, x;
 
-ENTRY(camellia_ctr_16way)
+RAP_ENTRY(camellia_ctr_16way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst (16 blocks)
@@ -1247,7 +1247,7 @@ camellia_xts_crypt_16way:
 	ret;
 ENDPROC(camellia_xts_crypt_16way)
 
-ENTRY(camellia_xts_enc_16way)
+RAP_ENTRY(camellia_xts_enc_16way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst (16 blocks)
@@ -1261,7 +1261,7 @@ ENTRY(camellia_xts_enc_16way)
 	jmp camellia_xts_crypt_16way;
 ENDPROC(camellia_xts_enc_16way)
 
-ENTRY(camellia_xts_dec_16way)
+RAP_ENTRY(camellia_xts_dec_16way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst (16 blocks)

@@ -158,7 +158,7 @@ ENTRY(__blowfish_enc_blk)
 	ret;
 ENDPROC(__blowfish_enc_blk)
 
-ENTRY(blowfish_dec_blk)
+RAP_ENTRY(blowfish_dec_blk)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -350,7 +350,7 @@ ENTRY(__blowfish_enc_blk_4way)
 	ret;
 ENDPROC(__blowfish_enc_blk_4way)
 
-ENTRY(blowfish_dec_blk_4way)
+RAP_ENTRY(blowfish_dec_blk_4way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst

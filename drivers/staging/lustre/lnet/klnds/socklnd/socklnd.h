@@ -307,10 +307,8 @@ typedef struct ksock_conn {
 	struct ksock_route *ksnc_route;       /* owning route */
 	struct list_head   ksnc_list;         /* stash on peer's conn list */
 	struct socket      *ksnc_sock;        /* actual socket */
-	void               *ksnc_saved_data_ready;  /* socket's original
-						     * data_ready() callback */
-	void               *ksnc_saved_write_space; /* socket's original
-						     * write_space() callback */
+	void		   (*ksnc_saved_data_ready)(struct sock *sk); /* socket's original data_ready() callback */
+	void		   (*ksnc_saved_write_space)(struct sock *sk); /* socket's original write_space() callback */
 	atomic_t           ksnc_conn_refcount;/* conn refcount */
 	atomic_t           ksnc_sock_refcount;/* sock refcount */
 	ksock_sched_t      *ksnc_scheduler;   /* who schedules this connection
@@ -678,6 +676,9 @@ int ksocknal_lib_recv_iov(ksock_conn_t *conn);
 int ksocknal_lib_recv_kiov(ksock_conn_t *conn);
 int ksocknal_lib_get_conn_tunables(ksock_conn_t *conn, int *txmem,
 				   int *rxmem, int *nagle);
+
+void ksocknal_read_callback(ksock_conn_t *conn);
+void ksocknal_write_callback(ksock_conn_t *conn);
 
 int ksocknal_tunables_init(void);
 

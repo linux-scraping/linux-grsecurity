@@ -17,6 +17,7 @@
 #include <linux/pm_qos.h>
 #include <linux/module.h>
 #include <linux/jiffies.h>
+#include <linux/tick.h>
 
 #include <asm/io.h>
 #include <asm/uaccess.h>
@@ -172,6 +173,15 @@ static void ladder_reflect(struct cpuidle_device *dev, int index)
 
 static struct cpuidle_governor ladder_governor = {
 	.name =		"ladder",
+	.rating =	25,
+	.enable =	ladder_enable_device,
+	.select =	ladder_select_state,
+	.reflect =	ladder_reflect,
+	.owner =	THIS_MODULE,
+};
+
+static struct cpuidle_governor ladder_governor_nohz = {
+	.name =		"ladder",
 	.rating =	10,
 	.enable =	ladder_enable_device,
 	.select =	ladder_select_state,
@@ -184,7 +194,13 @@ static struct cpuidle_governor ladder_governor = {
  */
 static int __init init_ladder(void)
 {
-	return cpuidle_register_governor(&ladder_governor);
+	/*
+	 * When NO_HZ is disabled, or when booting with nohz=off, the ladder
+	 * governor is better so give it a higher rating than the menu
+	 * governor.
+	 */
+
+	return cpuidle_register_governor(tick_nohz_enabled ? &ladder_governor_nohz : &ladder_governor);
 }
 
 postcore_initcall(init_ladder);

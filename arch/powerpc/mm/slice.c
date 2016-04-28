@@ -185,8 +185,7 @@ static void slice_flush_segments(void *parm)
 	if (mm != current->active_mm)
 		return;
 
-	/* update the paca copy of the context struct */
-	get_paca()->context = current->active_mm->context;
+	copy_mm_to_paca(&current->active_mm->context);
 
 	local_irq_save(flags);
 	slb_flush_and_rebolt();
@@ -566,10 +565,10 @@ unsigned long arch_get_unmapped_area(struct file *filp,
 }
 
 unsigned long arch_get_unmapped_area_topdown(struct file *filp,
-					     const unsigned long addr0,
-					     const unsigned long len,
-					     const unsigned long pgoff,
-					     const unsigned long flags)
+					     unsigned long addr0,
+					     unsigned long len,
+					     unsigned long pgoff,
+					     unsigned long flags)
 {
 	return slice_get_unmapped_area(addr0, len, flags,
 				       current->mm->context.user_psize, 1);

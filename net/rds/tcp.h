@@ -13,9 +13,9 @@ struct rds_tcp_connection {
 	struct list_head	t_tcp_node;
 	struct rds_connection   *conn;
 	struct socket		*t_sock;
-	void			*t_orig_write_space;
-	void			*t_orig_data_ready;
-	void			*t_orig_state_change;
+	void			(*t_orig_write_space)(struct sock *sk);
+	void			(*t_orig_data_ready)(struct sock *sk);
+	void			(*t_orig_state_change)(struct sock *sk);
 
 	struct rds_tcp_incoming	*t_tinc;
 	size_t			t_tinc_hdr_rem;

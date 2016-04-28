@@ -647,7 +647,7 @@ static void _aac_probe_container2(void * context, struct fib * fibptr)
 	}
 	aac_fib_complete(fibptr);
 	aac_fib_free(fibptr);
-	callback = (int (*)(struct scsi_cmnd *))(scsicmd->SCp.ptr);
+	callback = scsicmd->SCp.ptr;
 	scsicmd->SCp.ptr = NULL;
 	(*callback)(scsicmd);
 	return;
@@ -726,7 +726,7 @@ static int _aac_probe_container(struct scsi_cmnd * scsicmd, int (*callback)(stru
 
 		dinfo->count = cpu_to_le32(scmd_id(scsicmd));
 		dinfo->type = cpu_to_le32(FT_FILESYS);
-		scsicmd->SCp.ptr = (char *)callback;
+		scsicmd->SCp.ptr = callback;
 
 		status = aac_fib_send(ContainerCommand,
 			  fibptr,
@@ -775,6 +775,11 @@ static int aac_probe_container_callback1(struct scsi_cmnd * scsicmd)
 	return 0;
 }
 
+static void aac_probe_container_scsi_done(struct scsi_cmnd * scsicmd)
+{
+	scsicmd->device = NULL;
+}
+
 int aac_probe_container(struct aac_dev *dev, int cid)
 {
 	struct scsi_cmnd *scsicmd = kmalloc(sizeof(*scsicmd), GFP_KERNEL);
@@ -787,7 +792,7 @@ int aac_probe_container(struct aac_dev *dev, int cid)
 		return -ENOMEM;
 	}
 	scsicmd->list.next = NULL;
-	scsicmd->scsi_done = (void (*)(struct scsi_cmnd*))aac_probe_container_callback1;
+	scsicmd->scsi_done = aac_probe_container_scsi_done;
 
 	scsicmd->device = scsidev;
 	scsidev->sdev_state = 0;

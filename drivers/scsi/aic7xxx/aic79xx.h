@@ -624,7 +624,7 @@ struct scb {
 };
 
 TAILQ_HEAD(scb_tailq, scb);
-LIST_HEAD(scb_list, scb);
+BSD_LIST_HEAD(scb_list, scb);
 
 struct scb_data {
 	/*
@@ -1046,7 +1046,7 @@ typedef enum {
 
 typedef uint8_t ahd_mode_state;
 
-typedef void ahd_callback_t (void *);
+typedef void ahd_linux_callback_t (u_long);
 
 struct ahd_completion
 {
@@ -1069,7 +1069,7 @@ struct ahd_softc {
 	/*
 	 * SCBs that have been sent to the controller
 	 */
-	LIST_HEAD(, scb)	  pending_scbs;
+	BSD_LIST_HEAD(, scb)	  pending_scbs;
 
 	/*
 	 * Current register window mode information.

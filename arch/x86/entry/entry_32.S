@@ -455,6 +455,7 @@ sysenter_past_esp:
 	pushl	$__USER_DS		/* pt_regs->ss */
 	pushl	%ebp			/* pt_regs->sp (stashed in bp) */
 	pushfl				/* pt_regs->flags (except IF = 0) */
+	ASM_CLAC			/* Clear AC after saving FLAGS */
 	orl	$X86_EFLAGS_IF, (%esp)	/* Fix IF */
 	pushl	$__USER_CS		/* pt_regs->cs */
 	pushl	$0			/* pt_regs->ip = 0 (placeholder) */
@@ -503,7 +504,8 @@ sysenter_past_esp:
 	 * Return back to the vDSO, which will pop ecx and edx.
 	 * Don't bother with DS and ES (they already contain __USER_DS).
 	 */
-	ENABLE_INTERRUPTS_SYSEXIT
+	sti
+	sysexit
 
 .pushsection .fixup, "ax"
 4:	movl	$0, PT_FS(%esp)
@@ -763,18 +765,13 @@ ENTRY(device_not_available)
 	pushl	$-1				# mark this as an int
 	pushl	$do_device_not_available
 	jmp	error_code
-ENDPROC(device_not_available)
+END(device_not_available)
 
 #ifdef CONFIG_PARAVIRT
 ENTRY(native_iret)
 	iret
 	_ASM_EXTABLE(native_iret, iret_exc)
 ENDPROC(native_iret)
-
-ENTRY(native_irq_enable_sysexit)
-	sti
-	sysexit
-ENDPROC(native_irq_enable_sysexit)
 #endif
 
 ENTRY(overflow)
@@ -1186,7 +1183,7 @@ ENDPROC(page_fault)
 	pushl	$sysenter_past_esp
 .endm
 
-ENTRY(debug)
+ENTRY(int1)
 	ASM_CLAC
 	cmpl	$entry_SYSENTER_32, (%esp)
 	jne	debug_stack_correct
@@ -1199,7 +1196,7 @@ debug_stack_correct:
 	movl	%esp, %eax			# pt_regs pointer
 	call	do_debug
 	jmp	ret_from_exception
-ENDPROC(debug)
+ENDPROC(int1)
 
 /*
  * NMI is doubly nasty. It can happen _while_ we're handling
@@ -1250,7 +1247,7 @@ nmi_stack_fixup:
 nmi_debug_stack_check:
 	cmpw	$__KERNEL_CS, 16(%esp)
 	jne	nmi_stack_correct
-	cmpl	$debug, (%esp)
+	cmpl	$int1, (%esp)
 	jb	nmi_stack_correct
 	cmpl	$debug_esp_fix_insn, (%esp)
 	ja	nmi_stack_correct

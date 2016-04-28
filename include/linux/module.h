@@ -305,6 +305,29 @@ struct mod_tree_node {
 	struct latch_tree_node node;
 };
 
+struct module_layout {
+	/* The actual code. */
+	void *base_rx;
+	/* The actual data. */
+	void *base_rw;
+	/* Code size. */
+	unsigned int size_rx;
+	/* Data size. */
+	unsigned int size_rw;
+
+#ifdef CONFIG_MODULES_TREE_LOOKUP
+	struct mod_tree_node mtn_rx;
+	struct mod_tree_node mtn_rw;
+#endif
+};
+
+#ifdef CONFIG_MODULES_TREE_LOOKUP
+/* Only touch one cacheline for common rbtree-for-core-layout case. */
+#define __module_layout_align ____cacheline_aligned
+#else
+#define __module_layout_align
+#endif
+
 struct mod_kallsyms {
 	Elf_Sym *symtab;
 	unsigned int num_symtab;
@@ -375,37 +398,9 @@ struct module {
 	/* Startup function. */
 	int (*init)(void);
 
-	/*
-	 * If this is non-NULL, vfree() after init() returns.
-	 *
-	 * Cacheline align here, such that:
-	 *   module_init_*, module_core_*, init_size_*, core_size_*,
-	 *   init_text_size, core_text_size and mtn_core::{mod,node[0]}
-	 * are on the same cacheline.
-	 */
-	void *module_init_rw	____cacheline_aligned;
-	void *module_init_rx;
-
-	/* Here is the actual code + data, vfree'd on unload. */
-	void *module_core_rx, *module_core_rw;
-
-	/* Here are the sizes of the init and core sections */
-	unsigned int init_size_rw, core_size_rw;
-
-	/* The size of the executable code in each section.  */
-	unsigned int init_size_rx, core_size_rx;
-
-#ifdef CONFIG_MODULES_TREE_LOOKUP
-	/*
-	 * We want mtn_core::{mod,node[0]} to be in the same cacheline as the
-	 * above entries such that a regular lookup will only touch one
-	 * cacheline.
-	 */
-	struct mod_tree_node	mtn_core_rw;
-	struct mod_tree_node	mtn_core_rx;
-	struct mod_tree_node	mtn_init_rw;
-	struct mod_tree_node	mtn_init_rx;
-#endif
+	/* Core layout: rbtree is accessed frequently, so keep together. */
+	struct module_layout core_layout __module_layout_align;
+	struct module_layout init_layout;
 
 	/* Arch-specific module values */
 	struct mod_arch_specific arch;
@@ -423,7 +418,7 @@ struct module {
 	/* Protected by RCU and/or module_mutex: use rcu_dereference() */
 	struct mod_kallsyms *kallsyms;
 	struct mod_kallsyms core_kallsyms;
-
+	
 	/* Section attributes */
 	struct module_sect_attrs *sect_attrs;
 
@@ -523,36 +518,26 @@ static inline int within_module_range(unsigned long addr, void *start, unsigned 
 	return ((void *)addr >= start && (void *)addr < start + size);
 }
 
-static inline int within_module_core_rx(unsigned long addr, const struct module *mod)
+static inline int within_module_rx(unsigned long addr, const struct module_layout *layout)
 {
-	return within_module_range(addr, mod->module_core_rx, mod->core_size_rx);
+	return within_module_range(addr, layout->base_rx, layout->size_rx);
 }
 
-static inline int within_module_core_rw(unsigned long addr, const struct module *mod)
+static inline int within_module_rw(unsigned long addr, const struct module_layout *layout)
 {
-	return within_module_range(addr, mod->module_core_rw, mod->core_size_rw);
-}
-
-static inline int within_module_init_rx(unsigned long addr, const struct module *mod)
-{
-	return within_module_range(addr, mod->module_init_rx, mod->init_size_rx);
-}
-
-static inline int within_module_init_rw(unsigned long addr, const struct module *mod)
-{
-	return within_module_range(addr, mod->module_init_rw, mod->init_size_rw);
+	return within_module_range(addr, layout->base_rw, layout->size_rw);
 }
 
 static inline bool within_module_core(unsigned long addr,
 				      const struct module *mod)
 {
-	return within_module_core_rx(addr, mod) || within_module_core_rw(addr, mod);
+	return within_module_rx(addr, &mod->core_layout) || within_module_rw(addr, &mod->core_layout);
 }
 
 static inline bool within_module_init(unsigned long addr,
 				      const struct module *mod)
 {
-	return within_module_init_rx(addr, mod) || within_module_init_rw(addr, mod);
+	return within_module_rx(addr, &mod->init_layout) || within_module_rw(addr, &mod->init_layout);
 }
 
 static inline bool within_module(unsigned long addr, const struct module *mod)
@@ -807,9 +792,13 @@ extern int module_sysfs_initialized;
 #ifdef CONFIG_DEBUG_SET_MODULE_RONX
 extern void set_all_modules_text_rw(void);
 extern void set_all_modules_text_ro(void);
+extern void module_enable_ro(const struct module *mod);
+extern void module_disable_ro(const struct module *mod);
 #else
 static inline void set_all_modules_text_rw(void) { }
 static inline void set_all_modules_text_ro(void) { }
+static inline void module_enable_ro(const struct module *mod) { }
+static inline void module_disable_ro(const struct module *mod) { }
 #endif
 
 #ifdef CONFIG_GENERIC_BUG

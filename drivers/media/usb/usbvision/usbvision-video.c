@@ -59,7 +59,7 @@
 #include <linux/videodev2.h>
 #include <linux/i2c.h>
 
-#include <media/saa7115.h>
+#include <media/i2c/saa7115.h>
 #include <media/v4l2-common.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-event.h>
@@ -1460,6 +1460,13 @@ static int usbvision_probe(struct usb_interface *intf,
 	}
 	printk(KERN_INFO "%s: %s found\n", __func__,
 				usbvision_device_data[model].model_string);
+
+	/*
+	 * this is a security check.
+	 * an exploit using an incorrect bInterfaceNumber is known
+	 */
+	if (ifnum >= USB_MAXINTERFACES || !dev->actconfig->interface[ifnum])
+		return -ENODEV;
 
 	if (usbvision_device_data[model].interface >= 0)
 		interface = &dev->actconfig->interface[usbvision_device_data[model].interface]->altsetting[0];

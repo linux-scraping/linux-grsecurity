@@ -116,7 +116,7 @@ static void __init handle_initrd(void)
 	}
 }
 
-int __init initrd_load(void)
+bool __init initrd_load(void)
 {
 	if (mount_initrd) {
 		create_dev("/dev/ram", Root_RAM0);
@@ -129,9 +129,9 @@ int __init initrd_load(void)
 		if (rd_load_image("/initrd.image") && ROOT_DEV != Root_RAM0) {
 			sys_unlink((const char __force_user *)"/initrd.image");
 			handle_initrd();
-			return 1;
+			return true;
 		}
 	}
 	sys_unlink((const char __force_user *)"/initrd.image");
-	return 0;
+	return false;
 }

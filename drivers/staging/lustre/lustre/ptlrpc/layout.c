@@ -27,7 +27,7 @@
  * Copyright (c) 2007, 2010, Oracle and/or its affiliates. All rights reserved.
  * Use is subject to license terms.
  *
- * Copyright (c) 2011, 2012, Intel Corporation.
+ * Copyright (c) 2011, 2015, Intel Corporation.
  */
 /*
  * This file is part of Lustre, http://www.lustre.org/
@@ -811,8 +811,8 @@ struct req_capsule;
 	.rmf_name    = (name),					\
 	.rmf_flags   = (flags),					\
 	.rmf_size    = (size),					\
-	.rmf_swabber = (void (*)(void *))(swabber),		\
-	.rmf_dumper  = (void (*)(void *))(dumper)		\
+	.rmf_swabber = (swabber),				\
+	.rmf_dumper  = (dumper)					\
 }
 
 struct req_msg_field RMF_GENERIC_DATA =
@@ -1959,8 +1959,7 @@ static void *__req_capsule_get(struct req_capsule *pill,
 	msg = __req_msg(pill, loc);
 	LASSERT(msg != NULL);
 
-	getter = (field->rmf_flags & RMF_F_STRING) ?
-		(typeof(getter))lustre_msg_string : lustre_msg_buf;
+	getter = (field->rmf_flags & RMF_F_STRING) ?  lustre_msg_string : lustre_msg_buf;
 
 	if (field->rmf_flags & RMF_F_STRUCT_ARRAY) {
 		/*

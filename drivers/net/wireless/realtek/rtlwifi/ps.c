@@ -205,7 +205,7 @@ static void _rtl_ps_inactive_ps(struct ieee80211_hw *hw)
 	ppsc->swrf_processing = false;
 }
 
-void rtl_ips_nic_off_wq_callback(void *data)
+void rtl_ips_nic_off_wq_callback(struct work_struct *data)
 {
 	struct rtl_works *rtlworks =
 	    container_of_dwork_rtl(data, struct rtl_works, ips_nic_off_wq);
@@ -595,7 +595,7 @@ void rtl_swlps_rf_awake(struct ieee80211_hw *hw)
 	spin_unlock_irqrestore(&rtlpriv->locks.lps_lock, flag);
 }
 
-void rtl_swlps_rfon_wq_callback(void *data)
+void rtl_swlps_rfon_wq_callback(struct work_struct *data)
 {
 	struct rtl_works *rtlworks =
 	    container_of_dwork_rtl(data, struct rtl_works, ps_rfon_wq);
@@ -687,7 +687,7 @@ void rtl_lps_change_work_callback(struct work_struct *work)
 }
 EXPORT_SYMBOL_GPL(rtl_lps_change_work_callback);
 
-void rtl_swlps_wq_callback(void *data)
+void rtl_swlps_wq_callback(struct work_struct *data)
 {
 	struct rtl_works *rtlworks = container_of_dwork_rtl(data,
 				     struct rtl_works,

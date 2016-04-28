@@ -943,13 +943,13 @@ static int vfio_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (pdev->hdr_type != PCI_HEADER_TYPE_NORMAL)
 		return -EINVAL;
 
-	group = iommu_group_get(&pdev->dev);
+	group = vfio_iommu_group_get(&pdev->dev);
 	if (!group)
 		return -EINVAL;
 
 	vdev = kzalloc(sizeof(*vdev), GFP_KERNEL);
 	if (!vdev) {
-		iommu_group_put(group);
+		vfio_iommu_group_put(group, &pdev->dev);
 		return -ENOMEM;
 	}
 
@@ -960,7 +960,7 @@ static int vfio_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	ret = vfio_add_group_dev(&pdev->dev, &vfio_pci_ops, vdev);
 	if (ret) {
-		iommu_group_put(group);
+		vfio_iommu_group_put(group, &pdev->dev);
 		kfree(vdev);
 		return ret;
 	}
@@ -996,7 +996,7 @@ static void vfio_pci_remove(struct pci_dev *pdev)
 	if (!vdev)
 		return;
 
-	iommu_group_put(pdev->dev.iommu_group);
+	vfio_iommu_group_put(pdev->dev.iommu_group, &pdev->dev);
 	kfree(vdev);
 
 	if (vfio_pci_is_vga(pdev)) {
@@ -1011,7 +1011,7 @@ static void vfio_pci_remove(struct pci_dev *pdev)
 }
 
 static pci_ers_result_t vfio_pci_aer_err_detected(struct pci_dev *pdev,
-						  pci_channel_state_t state)
+						  enum pci_channel_state state)
 {
 	struct vfio_pci_device *vdev;
 	struct vfio_device *device;

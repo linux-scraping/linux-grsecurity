@@ -609,7 +609,7 @@ static struct dentry *rootfs_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
 	static unsigned long once;
-	void *fill = ramfs_fill_super;
+	int (*fill)(struct super_block *, void *, int) = ramfs_fill_super;
 
 	if (test_and_set_bit(0, &once))
 		return ERR_PTR(-ENODEV);

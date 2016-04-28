@@ -10,7 +10,7 @@
 #define dotraplinkage __visible
 
 asmlinkage void divide_error(void);
-asmlinkage void debug(void);
+asmlinkage void int1(void);
 asmlinkage void nmi(void);
 asmlinkage void int3(void);
 asmlinkage void xen_debug(void);
@@ -107,7 +107,7 @@ extern int panic_on_unrecovered_nmi;
 
 void math_emulate(struct math_emu_info *);
 #ifndef CONFIG_X86_32
-asmlinkage void smp_thermal_interrupt(void);
+asmlinkage void smp_thermal_interrupt(struct pt_regs *regs);
 asmlinkage void smp_threshold_interrupt(void);
 asmlinkage void smp_deferred_error_interrupt(void);
 #endif

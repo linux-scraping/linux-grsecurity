@@ -419,7 +419,7 @@ vmci_transport_notify_pkt_send_pre_enqueue(
 }
 
 /* Socket always on control packet based operations. */
-struct vmci_transport_notify_ops vmci_transport_notify_pkt_q_state_ops = {
+const struct vmci_transport_notify_ops vmci_transport_notify_pkt_q_state_ops = {
 	.socket_init = vmci_transport_notify_pkt_socket_init,
 	.socket_destruct = vmci_transport_notify_pkt_socket_destruct,
 	.poll_in = vmci_transport_notify_pkt_poll_in,

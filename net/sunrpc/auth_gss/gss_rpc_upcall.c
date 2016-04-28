@@ -55,8 +55,8 @@ enum {
 #define PROC(proc, name)				\
 [GSSX_##proc] = {					\
 	.p_proc   = GSSX_##proc,			\
-	.p_encode = (kxdreproc_t)gssx_enc_##name,	\
-	.p_decode = (kxdrdproc_t)gssx_dec_##name,	\
+	.p_encode = gssx_enc_##name,			\
+	.p_decode = gssx_dec_##name,			\
 	.p_arglen = GSSX_ARG_##name##_sz,		\
 	.p_replen = GSSX_RES_##name##_sz, 		\
 	.p_statidx = GSSX_##proc,			\
@@ -325,6 +325,9 @@ int gssp_accept_sec_context_upcall(struct net *net,
 	/* convert to GSS_NT_HOSTBASED_SERVICE form and set into creds */
 	if (data->found_creds && client_name.data != NULL) {
 		char *c;
+
+		data->creds.cr_raw_principal = kstrndup(client_name.data,
+						client_name.len, GFP_KERNEL);
 
 		data->creds.cr_principal = kstrndup(client_name.data,
 						client_name.len, GFP_KERNEL);

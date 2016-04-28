@@ -557,8 +557,9 @@ static void pmcraid_reset_type(struct pmcraid_instance *pinstance)
 
 static void pmcraid_ioa_reset(struct pmcraid_cmd *);
 
-static void pmcraid_bist_done(struct pmcraid_cmd *cmd)
+static void pmcraid_bist_done(unsigned long _cmd)
 {
+	struct pmcraid_cmd *cmd = (struct pmcraid_cmd *)_cmd;
 	struct pmcraid_instance *pinstance = cmd->drv_inst;
 	unsigned long lock_flags;
 	int rc;
@@ -573,8 +574,7 @@ static void pmcraid_bist_done(struct pmcraid_cmd *cmd)
 		cmd->timer.expires = jiffies + cmd->time_left;
 		cmd->time_left = 0;
 		cmd->timer.data = (unsigned long)cmd;
-		cmd->timer.function =
-			(void (*)(unsigned long))pmcraid_bist_done;
+		cmd->timer.function = pmcraid_bist_done;
 		add_timer(&cmd->timer);
 	} else {
 		cmd->time_left = 0;
@@ -607,7 +607,7 @@ static void pmcraid_start_bist(struct pmcraid_cmd *cmd)
 	cmd->time_left = msecs_to_jiffies(PMCRAID_BIST_TIMEOUT);
 	cmd->timer.data = (unsigned long)cmd;
 	cmd->timer.expires = jiffies + msecs_to_jiffies(PMCRAID_BIST_TIMEOUT);
-	cmd->timer.function = (void (*)(unsigned long))pmcraid_bist_done;
+	cmd->timer.function = pmcraid_bist_done;
 	add_timer(&cmd->timer);
 }
 
@@ -617,8 +617,9 @@ static void pmcraid_start_bist(struct pmcraid_cmd *cmd)
  * Return value
  *  None
  */
-static void pmcraid_reset_alert_done(struct pmcraid_cmd *cmd)
+static void pmcraid_reset_alert_done(unsigned long _cmd)
 {
+	struct pmcraid_cmd *cmd = (struct pmcraid_cmd *)_cmd;
 	struct pmcraid_instance *pinstance = cmd->drv_inst;
 	u32 status = ioread32(pinstance->ioa_status);
 	unsigned long lock_flags;
@@ -639,8 +640,7 @@ static void pmcraid_reset_alert_done(struct pmcraid_cmd *cmd)
 		cmd->time_left -= PMCRAID_CHECK_FOR_RESET_TIMEOUT;
 		cmd->timer.data = (unsigned long)cmd;
 		cmd->timer.expires = jiffies + PMCRAID_CHECK_FOR_RESET_TIMEOUT;
-		cmd->timer.function =
-			(void (*)(unsigned long))pmcraid_reset_alert_done;
+		cmd->timer.function = pmcraid_reset_alert_done;
 		add_timer(&cmd->timer);
 	}
 }
@@ -678,8 +678,7 @@ static void pmcraid_reset_alert(struct pmcraid_cmd *cmd)
 		cmd->time_left = PMCRAID_RESET_TIMEOUT;
 		cmd->timer.data = (unsigned long)cmd;
 		cmd->timer.expires = jiffies + PMCRAID_CHECK_FOR_RESET_TIMEOUT;
-		cmd->timer.function =
-			(void (*)(unsigned long))pmcraid_reset_alert_done;
+		cmd->timer.function = pmcraid_reset_alert_done;
 		add_timer(&cmd->timer);
 
 		iowrite32(DOORBELL_IOA_RESET_ALERT,
@@ -704,8 +703,9 @@ static void pmcraid_reset_alert(struct pmcraid_cmd *cmd)
  * Return value:
  *   None
  */
-static void pmcraid_timeout_handler(struct pmcraid_cmd *cmd)
+static void pmcraid_timeout_handler(unsigned long _cmd)
 {
+	struct pmcraid_cmd *cmd = (struct pmcraid_cmd *)_cmd;
 	struct pmcraid_instance *pinstance = cmd->drv_inst;
 	unsigned long lock_flags;
 
@@ -920,7 +920,7 @@ static void pmcraid_send_cmd(
 	struct pmcraid_cmd *cmd,
 	void (*cmd_done) (struct pmcraid_cmd *),
 	unsigned long timeout,
-	void (*timeout_func) (struct pmcraid_cmd *)
+	void (*timeout_func) (unsigned long)
 )
 {
 	/* initialize done function */
@@ -930,7 +930,7 @@ static void pmcraid_send_cmd(
 		/* setup timeout handler */
 		cmd->timer.data = (unsigned long)cmd;
 		cmd->timer.expires = jiffies + timeout;
-		cmd->timer.function = (void (*)(unsigned long))timeout_func;
+		cmd->timer.function = timeout_func;
 		add_timer(&cmd->timer);
 	}
 
@@ -1968,7 +1968,7 @@ static void pmcraid_soft_reset(struct pmcraid_cmd *cmd)
 	cmd->timer.data = (unsigned long)cmd;
 	cmd->timer.expires = jiffies +
 			     msecs_to_jiffies(PMCRAID_TRANSOP_TIMEOUT);
-	cmd->timer.function = (void (*)(unsigned long))pmcraid_timeout_handler;
+	cmd->timer.function = pmcraid_timeout_handler;
 
 	if (!timer_pending(&cmd->timer))
 		add_timer(&cmd->timer);

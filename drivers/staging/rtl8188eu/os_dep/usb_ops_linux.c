@@ -814,7 +814,7 @@ void usb_write_port_cancel(struct adapter *padapter)
 	}
 }
 
-void rtl8188eu_recv_tasklet(void *priv)
+void rtl8188eu_recv_tasklet(unsigned long priv)
 {
 	struct sk_buff *pskb;
 	struct adapter *adapt = priv;
@@ -833,7 +833,7 @@ void rtl8188eu_recv_tasklet(void *priv)
 	}
 }
 
-void rtl8188eu_xmit_tasklet(void *priv)
+void rtl8188eu_xmit_tasklet(unsigned long priv)
 {
 	int ret = false;
 	struct adapter *adapt = priv;

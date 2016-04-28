@@ -39,34 +39,35 @@ extern int xts_camellia_setkey(struct crypto_tfm *tfm, const u8 *key,
 /* regular block cipher functions */
 asmlinkage void __camellia_enc_blk(struct camellia_ctx *ctx, u8 *dst,
 				   const u8 *src, bool xor);
-asmlinkage void camellia_dec_blk(struct camellia_ctx *ctx, u8 *dst,
+asmlinkage void camellia_dec_blk(void *ctx, u8 *dst,
 				 const u8 *src);
 
 /* 2-way parallel cipher functions */
 asmlinkage void __camellia_enc_blk_2way(struct camellia_ctx *ctx, u8 *dst,
 					const u8 *src, bool xor);
-asmlinkage void camellia_dec_blk_2way(struct camellia_ctx *ctx, u8 *dst,
+asmlinkage void camellia_dec_blk_2way(void *ctx, u8 *dst,
 				      const u8 *src);
 
 /* 16-way parallel cipher functions (avx/aes-ni) */
-asmlinkage void camellia_ecb_enc_16way(struct camellia_ctx *ctx, u8 *dst,
+asmlinkage void camellia_ecb_enc_16way(void *ctx, u8 *dst,
 				       const u8 *src);
-asmlinkage void camellia_ecb_dec_16way(struct camellia_ctx *ctx, u8 *dst,
+asmlinkage void camellia_ecb_dec_16way(void *ctx, u8 *dst,
 				       const u8 *src);
 
-asmlinkage void camellia_cbc_dec_16way(struct camellia_ctx *ctx, u8 *dst,
+asmlinkage void camellia_cbc_dec_16way(void *ctx, u8 *dst,
 				       const u8 *src);
-asmlinkage void camellia_ctr_16way(struct camellia_ctx *ctx, u8 *dst,
-				   const u8 *src, le128 *iv);
+asmlinkage void camellia_ctr_16way(void *ctx, u128 *dst,
+				   const u128 *src, le128 *iv);
 
-asmlinkage void camellia_xts_enc_16way(struct camellia_ctx *ctx, u8 *dst,
-				       const u8 *src, le128 *iv);
-asmlinkage void camellia_xts_dec_16way(struct camellia_ctx *ctx, u8 *dst,
-				       const u8 *src, le128 *iv);
+asmlinkage void camellia_xts_enc_16way(void *ctx, u128 *dst,
+				       const u128 *src, le128 *iv);
+asmlinkage void camellia_xts_dec_16way(void *ctx, u128 *dst,
+				       const u128 *src, le128 *iv);
 
-static inline void camellia_enc_blk(struct camellia_ctx *ctx, u8 *dst,
+static inline void camellia_enc_blk(void *_ctx, u8 *dst,
 				    const u8 *src)
 {
+	struct camellia_ctx *ctx = _ctx;
 	__camellia_enc_blk(ctx, dst, src, false);
 }
 
@@ -76,9 +77,10 @@ static inline void camellia_enc_blk_xor(struct camellia_ctx *ctx, u8 *dst,
 	__camellia_enc_blk(ctx, dst, src, true);
 }
 
-static inline void camellia_enc_blk_2way(struct camellia_ctx *ctx, u8 *dst,
+static inline void camellia_enc_blk_2way(void *_ctx, u8 *dst,
 					 const u8 *src)
 {
+	struct camellia_ctx *ctx = _ctx;
 	__camellia_enc_blk_2way(ctx, dst, src, false);
 }
 
@@ -89,7 +91,7 @@ static inline void camellia_enc_blk_xor_2way(struct camellia_ctx *ctx, u8 *dst,
 }
 
 /* glue helpers */
-extern void camellia_decrypt_cbc_2way(void *ctx, u128 *dst, const u128 *src);
+extern void camellia_decrypt_cbc_2way(void *ctx, u8 *dst, const u8 *src);
 extern void camellia_crypt_ctr(void *ctx, u128 *dst, const u128 *src,
 			       le128 *iv);
 extern void camellia_crypt_ctr_2way(void *ctx, u128 *dst, const u128 *src,

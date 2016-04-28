@@ -240,7 +240,7 @@ ENTRY(__camellia_enc_blk)
 	ret;
 ENDPROC(__camellia_enc_blk)
 
-ENTRY(camellia_dec_blk)
+RAP_ENTRY(camellia_dec_blk)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -479,7 +479,7 @@ ENTRY(__camellia_enc_blk_2way)
 	ret;
 ENDPROC(__camellia_enc_blk_2way)
 
-ENTRY(camellia_dec_blk_2way)
+RAP_ENTRY(camellia_dec_blk_2way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst

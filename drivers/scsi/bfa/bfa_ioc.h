@@ -1,9 +1,10 @@
 /*
- * Copyright (c) 2005-2010 Brocade Communications Systems, Inc.
+ * Copyright (c) 2005-2014 Brocade Communications Systems, Inc.
+ * Copyright (c) 2014- QLogic Corporation.
  * All rights reserved
- * www.brocade.com
+ * www.qlogic.com
  *
- * Linux driver for Brocade Fibre Channel Host Bus Adapter.
+ * Linux driver for QLogic BR-series Fibre Channel Host Bus Adapter.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (GPL) Version 2 as
@@ -285,16 +286,20 @@ struct bfa_ioc_notify_s {
 	(__notify)->cbarg = (__cbarg);      \
 } while (0)
 
+enum iocpf_event;
+
 struct bfa_iocpf_s {
-	bfa_fsm_t		fsm;
+	void (*fsm)(struct bfa_iocpf_s *, enum iocpf_event);
 	struct bfa_ioc_s	*ioc;
 	bfa_boolean_t		fw_mismatch_notified;
 	bfa_boolean_t		auto_recover;
 	u32			poll_time;
 };
 
+enum ioc_event;
+
 struct bfa_ioc_s {
-	bfa_fsm_t		fsm;
+	void (*fsm)(struct bfa_ioc_s *, enum ioc_event);
 	struct bfa_s		*bfa;
 	struct bfa_pcidev_s	pcidev;
 	struct bfa_timer_mod_s	*timer_mod;
@@ -778,8 +783,10 @@ struct bfa_dconf_s {
 };
 #pragma pack()
 
+enum bfa_dconf_event;
+
 struct bfa_dconf_mod_s {
-	bfa_sm_t		sm;
+	void (*sm)(struct bfa_dconf_mod_s *, enum bfa_dconf_event);
 	u8			instance;
 	bfa_boolean_t		read_data_valid;
 	bfa_boolean_t		min_cfg;

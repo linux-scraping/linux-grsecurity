@@ -353,9 +353,7 @@ a = TMP_
 ## arg 2 : pointer to input data
 ## arg 3 : Num blocks
 ########################################################################
-.text
-ENTRY(sha256_transform_ssse3)
-.align 32
+RAP_ENTRY(sha256_transform_ssse3)
 	pushq   %rbx
 	pushq   %rbp
 	pushq   %r13

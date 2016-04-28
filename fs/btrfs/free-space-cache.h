@@ -37,7 +37,7 @@ struct btrfs_free_space_ctl {
 	int total_bitmaps;
 	int unit;
 	u64 start;
-	struct btrfs_free_space_op *op;
+	const struct btrfs_free_space_op *op;
 	void *private;
 	struct mutex cache_writeout_mutex;
 	struct list_head trimming_ranges;
@@ -48,6 +48,7 @@ struct btrfs_free_space_op {
 	bool (*use_bitmap)(struct btrfs_free_space_ctl *ctl,
 			   struct btrfs_free_space *info);
 };
+typedef struct btrfs_free_space_op __no_const btrfs_free_space_op_no_const;
 
 struct btrfs_io_ctl;
 

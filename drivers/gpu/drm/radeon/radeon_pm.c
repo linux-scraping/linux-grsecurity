@@ -276,8 +276,12 @@ static void radeon_pm_set_clocks(struct radeon_device *rdev)
 	if (rdev->irq.installed) {
 		for (i = 0; i < rdev->num_crtc; i++) {
 			if (rdev->pm.active_crtcs & (1 << i)) {
-				rdev->pm.req_vblank |= (1 << i);
-				drm_vblank_get(rdev->ddev, i);
+				/* This can fail if a modeset is in progress */
+				if (drm_vblank_get(rdev->ddev, i) == 0)
+					rdev->pm.req_vblank |= (1 << i);
+				else
+					DRM_DEBUG_DRIVER("crtc %d no vblank, can glitch\n",
+							 i);
 			}
 		}
 	}
@@ -713,7 +717,7 @@ static struct attribute *hwmon_attributes[] = {
 static umode_t hwmon_attributes_visible(struct kobject *kobj,
 					struct attribute *attr, int index)
 {
-	struct device *dev = container_of(kobj, struct device, kobj);
+	struct device *dev = kobj_to_dev(kobj);
 	struct radeon_device *rdev = dev_get_drvdata(dev);
 	umode_t effective_mode = attr->mode;
 

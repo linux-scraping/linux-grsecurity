@@ -33,7 +33,7 @@ int rtl8723au_init_recv_priv(struct rtw_adapter *padapter)
 	struct sk_buff *pskb;
 
 	tasklet_init(&precvpriv->recv_tasklet,
-		     (void(*)(unsigned long))rtl8723au_recv_tasklet,
+		     rtl8723au_recv_tasklet,
 		     (unsigned long)padapter);
 
 	precvpriv->int_in_urb = usb_alloc_urb(0, GFP_KERNEL);

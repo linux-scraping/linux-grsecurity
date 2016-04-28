@@ -6,11 +6,11 @@ GCCPLUGINS_DIR := $(shell $(CC) -print-file-name=plugin)
 
 ifeq ($(PLUGINCC),$(HOSTCC))
 HOSTLIBS := hostlibs
-HOST_EXTRACFLAGS += -I$(GCCPLUGINS_DIR)/include -I$(src) -std=gnu99 -ggdb
+HOST_EXTRACFLAGS += -I$(GCCPLUGINS_DIR)/include -I$(src) -std=gnu99 -ggdb -Wall -W
 export HOST_EXTRACFLAGS
 else
 HOSTLIBS := hostcxxlibs
-HOST_EXTRACXXFLAGS += -I$(GCCPLUGINS_DIR)/include -I$(src) -std=gnu++98 -fno-rtti -fno-exceptions -fasynchronous-unwind-tables -ggdb -Wno-unused-parameter -Wno-narrowing -Wno-unused-variable
+HOST_EXTRACXXFLAGS += -I$(GCCPLUGINS_DIR)/include -I$(src) -std=gnu++98 -fno-rtti -fno-exceptions -fasynchronous-unwind-tables -ggdb -Wall -W -Wno-unused-parameter -Wno-narrowing -Wno-unused-variable
 export HOST_EXTRACXXFLAGS
 endif
 
@@ -30,6 +30,9 @@ $(HOSTLIBS)-$(CONFIG_GRKERNSEC_RANDSTRUCT) += randomize_layout_plugin.so
 subdir-$(CONFIG_PAX_SIZE_OVERFLOW) := size_overflow_plugin
 subdir- += size_overflow_plugin
 
+subdir-$(CONFIG_PAX_RAP) += rap_plugin
+subdir- += rap_plugin
+
 always := $($(HOSTLIBS)-y)
 
 constify_plugin-objs := constify_plugin.o
@@ -41,6 +44,7 @@ colorize_plugin-objs := colorize_plugin.o
 latent_entropy_plugin-objs := latent_entropy_plugin.o
 structleak_plugin-objs := structleak_plugin.o
 initify_plugin-objs := initify_plugin.o
+rap_plugin-objs := rap_plugin.o sip.o
 randomize_layout_plugin-objs := randomize_layout_plugin.o
 
 $(obj)/randomize_layout_plugin.o: $(objtree)/$(obj)/randomize_layout_seed.h

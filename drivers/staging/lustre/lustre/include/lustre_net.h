@@ -27,7 +27,7 @@
  * Copyright (c) 2007, 2010, Oracle and/or its affiliates. All rights reserved.
  * Use is subject to license terms.
  *
- * Copyright (c) 2010, 2012, Intel Corporation.
+ * Copyright (c) 2010, 2015, Intel Corporation.
  */
 /*
  * This file is part of Lustre, http://www.lustre.org/
@@ -2564,7 +2564,7 @@ void *lustre_msg_buf_v2(struct lustre_msg_v2 *m, int n, int min_size);
 void *lustre_msg_buf(struct lustre_msg *m, int n, int minlen);
 int lustre_msg_buflen(struct lustre_msg *m, int n);
 int lustre_msg_bufcount(struct lustre_msg *m);
-char *lustre_msg_string(struct lustre_msg *m, int n, int max_len);
+void *lustre_msg_string(struct lustre_msg *m, int n, int max_len);
 __u32 lustre_msghdr_get_flags(struct lustre_msg *msg);
 void lustre_msghdr_set_flags(struct lustre_msg *msg, __u32 flags);
 __u32 lustre_msg_get_flags(struct lustre_msg *msg);

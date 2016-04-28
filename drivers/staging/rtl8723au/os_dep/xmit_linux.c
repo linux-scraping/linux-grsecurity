@@ -117,7 +117,7 @@ static void rtw_check_xmit_resource(struct rtw_adapter *padapter,
 	}
 }
 
-int rtw_xmit23a_entry23a(struct sk_buff *skb, struct net_device *pnetdev)
+netdev_tx_t rtw_xmit23a_entry23a(struct sk_buff *skb, struct net_device *pnetdev)
 {
 	struct rtw_adapter *padapter = netdev_priv(pnetdev);
 	struct xmit_priv *pxmitpriv = &padapter->xmitpriv;

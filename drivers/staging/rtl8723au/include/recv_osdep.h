@@ -26,7 +26,6 @@ int rtw_recv_indicatepkt23a(struct rtw_adapter *adapter, struct recv_frame *prec
 
 void rtw_handle_tkip_mic_err23a(struct rtw_adapter *padapter, u8 bgroup);
 
-int	rtw_init_recv_priv(struct recv_priv *precvpriv, struct rtw_adapter *padapter);
 void rtw_free_recv_priv (struct recv_priv *precvpriv);
 
 int rtw_os_recv_resource_init(struct recv_priv *precvpriv, struct rtw_adapter *padapter);

@@ -93,7 +93,7 @@ static unsigned int colorize_rearm_execute(void)
 
 #define PASS_NAME colorize_rearm
 #define NO_GATE
-#include "gcc-generate-gimple-pass.h"
+#include "gcc-generate-simple_ipa-pass.h"
 
 static void colorize_start_unit(void *gcc_data, void *user_data)
 {

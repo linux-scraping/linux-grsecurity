@@ -118,7 +118,7 @@
 #define __aligned(x)		__attribute__((aligned(x)))
 #define __printf(a, b)		__attribute__((format(printf, a, b))) __nocapture(a, b)
 #define __scanf(a, b)		__attribute__((format(scanf, a, b))) __nocapture(a, b)
-#define __attribute_const__	__attribute__((__const__))
+#define __attribute_const__	__attribute__((const))
 #define __maybe_unused		__attribute__((unused))
 #define __always_unused		__attribute__((unused))
 

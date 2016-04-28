@@ -29,11 +29,10 @@
 #include "coda_int.h"
 
 /* same as fs/bad_inode.c */
-static int coda_return_EIO(void)
+static int coda_mknod(struct inode *inode, struct dentry *dentry, umode_t mode, dev_t dev)
 {
 	return -EIO;
 }
-#define CODA_EIO_ERROR ((void *) (coda_return_EIO))
 
 /* inode operations for directories */
 /* access routines: lookup, readlink, permission */
@@ -427,13 +426,13 @@ static int coda_readdir(struct file *coda_file, struct dir_context *ctx)
 	if (host_file->f_op->iterate) {
 		struct inode *host_inode = file_inode(host_file);
 
-		mutex_lock(&host_inode->i_mutex);
+		inode_lock(host_inode);
 		ret = -ENOENT;
 		if (!IS_DEADDIR(host_inode)) {
 			ret = host_file->f_op->iterate(host_file, ctx);
 			file_accessed(host_file);
 		}
-		mutex_unlock(&host_inode->i_mutex);
+		inode_unlock(host_inode);
 		return ret;
 	}
 	/* Venus: we must read Venus dirents from a file */
@@ -562,7 +561,7 @@ const struct inode_operations coda_dir_inode_operations = {
 	.symlink	= coda_symlink,
 	.mkdir		= coda_mkdir,
 	.rmdir		= coda_rmdir,
-	.mknod		= CODA_EIO_ERROR,
+	.mknod		= coda_mknod,
 	.rename		= coda_rename,
 	.permission	= coda_permission,
 	.getattr	= coda_getattr,

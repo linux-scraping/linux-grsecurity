@@ -362,7 +362,7 @@ __cast5_dec_blk16:
 	jmp .L__dec_tail;
 ENDPROC(__cast5_dec_blk16)
 
-ENTRY(cast5_ecb_enc_16way)
+RAP_ENTRY(cast5_ecb_enc_16way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -395,7 +395,7 @@ ENTRY(cast5_ecb_enc_16way)
 	ret;
 ENDPROC(cast5_ecb_enc_16way)
 
-ENTRY(cast5_ecb_dec_16way)
+RAP_ENTRY(cast5_ecb_dec_16way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst

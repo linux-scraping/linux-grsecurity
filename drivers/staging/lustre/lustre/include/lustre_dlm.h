@@ -27,7 +27,7 @@
  * Copyright (c) 2007, 2010, Oracle and/or its affiliates. All rights reserved.
  * Use is subject to license terms.
  *
- * Copyright (c) 2010, 2012, Intel Corporation.
+ * Copyright (c) 2010, 2015, Intel Corporation.
  */
 /*
  * This file is part of Lustre, http://www.lustre.org/
@@ -872,8 +872,6 @@ struct ldlm_resource {
 	 */
 	struct mutex		lr_lvb_mutex;
 	int			lr_lvb_len;
-	/** protected by lr_lock */
-	void			*lr_lvb_data;
 
 	/** When the resource was considered as contended. */
 	unsigned long		lr_contention_time;
@@ -966,9 +964,9 @@ struct ldlm_ast_work {
 struct ldlm_enqueue_info {
 	__u32 ei_type;   /** Type of the lock being enqueued. */
 	__u32 ei_mode;   /** Mode of the lock being enqueued. */
-	void *ei_cb_bl;  /** blocking lock callback */
-	void *ei_cb_cp;  /** lock completion callback */
-	void *ei_cb_gl;  /** lock glimpse callback */
+	ldlm_blocking_callback ei_cb_bl;  /** blocking lock callback */
+	ldlm_completion_callback ei_cb_cp;  /** lock completion callback */
+	ldlm_glimpse_callback ei_cb_gl;  /** lock glimpse callback */
 	void *ei_cbdata; /** Data to be passed into callbacks. */
 };
 

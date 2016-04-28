@@ -43,7 +43,7 @@ static inline const char *printk_skip_level(const char *buffer)
 #define CONSOLE_LOGLEVEL_DEBUG	10 /* issue debug messages */
 #define CONSOLE_LOGLEVEL_MOTORMOUTH 15	/* You can't shut this one up */
 
-extern int console_printk[];
+extern int console_printk[4];
 
 #define console_loglevel (console_printk[0])
 #define default_message_loglevel (console_printk[1])
@@ -106,13 +106,13 @@ struct va_format {
 
 /*
  * Dummy printk for disabled debugging statements to use whilst maintaining
- * gcc's format and side-effect checking.
+ * gcc's format checking.
  */
-static inline __printf(1, 2)
-int no_printk(const char *fmt, ...)
-{
-	return 0;
-}
+#define no_printk(fmt, ...)			\
+do {						\
+	if (0)					\
+		printk(fmt, ##__VA_ARGS__);	\
+} while (0)
 
 #ifdef CONFIG_EARLY_PRINTK
 extern asmlinkage __printf(1, 2)

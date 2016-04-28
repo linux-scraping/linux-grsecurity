@@ -442,7 +442,7 @@ static void __assign_resources_sorted(struct list_head *head,
 					break;
 				}
 			}
-               }
+		}
 
 	}
 
@@ -1115,7 +1115,7 @@ static int pbus_size_mem(struct pci_bus *bus, unsigned long mask,
 	return 0;
 }
 
-unsigned long pci_cardbus_resource_alignment(struct resource *res)
+unsigned long pci_cardbus_resource_alignment(const struct resource *res)
 {
 	if (res->flags & IORESOURCE_IO)
 		return pci_cardbus_io_size;

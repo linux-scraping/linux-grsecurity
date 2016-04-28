@@ -491,6 +491,15 @@ struct nfsd4_fallocate {
 	u64		falloc_length;
 };
 
+struct nfsd4_clone {
+	/* request */
+	stateid_t	cl_src_stateid;
+	stateid_t	cl_dst_stateid;
+	u64		cl_src_pos;
+	u64		cl_dst_pos;
+	u64		cl_count;
+};
+
 struct nfsd4_seek {
 	/* request */
 	stateid_t	seek_stateid;
@@ -555,6 +564,7 @@ struct nfsd4_op {
 		/* NFSv4.2 */
 		struct nfsd4_fallocate		allocate;
 		struct nfsd4_fallocate		deallocate;
+		struct nfsd4_clone		clone;
 		struct nfsd4_seek		seek;
 	} u;
 	struct nfs4_replay *			replay;
@@ -644,11 +654,9 @@ set_change_info(struct nfsd4_change_info *cinfo, struct svc_fh *fhp)
 
 }
 
-int nfs4svc_encode_voidres(struct svc_rqst *, __be32 *, void *);
-int nfs4svc_decode_compoundargs(struct svc_rqst *, __be32 *,
-		struct nfsd4_compoundargs *);
-int nfs4svc_encode_compoundres(struct svc_rqst *, __be32 *,
-		struct nfsd4_compoundres *);
+int nfs4svc_encode_voidres(void *, __be32 *, void *);
+int nfs4svc_decode_compoundargs(void *, __be32 *, void *);
+int nfs4svc_encode_compoundres(void *, __be32 *, void *);
 __be32 nfsd4_check_resp_size(struct nfsd4_compoundres *, u32);
 void nfsd4_encode_operation(struct nfsd4_compoundres *, struct nfsd4_op *);
 void nfsd4_encode_replay(struct xdr_stream *xdr, struct nfsd4_op *op);
@@ -658,26 +666,26 @@ __be32 nfsd4_encode_fattr_to_buf(__be32 **p, int words,
 		u32 *bmval, struct svc_rqst *, int ignore_crossmnt);
 extern __be32 nfsd4_setclientid(struct svc_rqst *rqstp,
 		struct nfsd4_compound_state *,
-		struct nfsd4_setclientid *setclid);
+		void *setclid);
 extern __be32 nfsd4_setclientid_confirm(struct svc_rqst *rqstp,
 		struct nfsd4_compound_state *,
-		struct nfsd4_setclientid_confirm *setclientid_confirm);
+		void *setclientid_confirm);
 extern __be32 nfsd4_exchange_id(struct svc_rqst *rqstp,
-		struct nfsd4_compound_state *, struct nfsd4_exchange_id *);
-extern __be32 nfsd4_backchannel_ctl(struct svc_rqst *, struct nfsd4_compound_state *, struct nfsd4_backchannel_ctl *);
-extern __be32 nfsd4_bind_conn_to_session(struct svc_rqst *, struct nfsd4_compound_state *, struct nfsd4_bind_conn_to_session *);
+		struct nfsd4_compound_state *, void *);
+extern __be32 nfsd4_backchannel_ctl(struct svc_rqst *, struct nfsd4_compound_state *, void *);
+extern __be32 nfsd4_bind_conn_to_session(struct svc_rqst *, struct nfsd4_compound_state *, void *);
 extern __be32 nfsd4_create_session(struct svc_rqst *,
 		struct nfsd4_compound_state *,
-		struct nfsd4_create_session *);
+		void *);
 extern __be32 nfsd4_sequence(struct svc_rqst *,
 		struct nfsd4_compound_state *,
-		struct nfsd4_sequence *);
+		void *);
 extern void nfsd4_sequence_done(struct nfsd4_compoundres *resp);
 extern __be32 nfsd4_destroy_session(struct svc_rqst *,
 		struct nfsd4_compound_state *,
-		struct nfsd4_destroy_session *);
-extern __be32 nfsd4_destroy_clientid(struct svc_rqst *, struct nfsd4_compound_state *, struct nfsd4_destroy_clientid *);
-__be32 nfsd4_reclaim_complete(struct svc_rqst *, struct nfsd4_compound_state *, struct nfsd4_reclaim_complete *);
+		void *);
+extern __be32 nfsd4_destroy_clientid(struct svc_rqst *, struct nfsd4_compound_state *, void *);
+__be32 nfsd4_reclaim_complete(struct svc_rqst *, struct nfsd4_compound_state *, void *);
 extern __be32 nfsd4_process_open1(struct nfsd4_compound_state *,
 		struct nfsd4_open *open, struct nfsd_net *nn);
 extern __be32 nfsd4_process_open2(struct svc_rqst *rqstp,
@@ -686,34 +694,34 @@ extern void nfsd4_cstate_clear_replay(struct nfsd4_compound_state *cstate);
 extern void nfsd4_cleanup_open_state(struct nfsd4_compound_state *cstate,
 		struct nfsd4_open *open);
 extern __be32 nfsd4_open_confirm(struct svc_rqst *rqstp,
-		struct nfsd4_compound_state *, struct nfsd4_open_confirm *oc);
+		struct nfsd4_compound_state *, void *oc);
 extern __be32 nfsd4_close(struct svc_rqst *rqstp,
 		struct nfsd4_compound_state *,
-		struct nfsd4_close *close);
+		void *close);
 extern __be32 nfsd4_open_downgrade(struct svc_rqst *rqstp,
 		struct nfsd4_compound_state *,
-		struct nfsd4_open_downgrade *od);
+		void *od);
 extern __be32 nfsd4_lock(struct svc_rqst *rqstp, struct nfsd4_compound_state *,
-		struct nfsd4_lock *lock);
+		void *lock);
 extern __be32 nfsd4_lockt(struct svc_rqst *rqstp,
 		struct nfsd4_compound_state *,
-		struct nfsd4_lockt *lockt);
+		void *lockt);
 extern __be32 nfsd4_locku(struct svc_rqst *rqstp,
 		struct nfsd4_compound_state *,
-		struct nfsd4_locku *locku);
+		void *locku);
 extern __be32
 nfsd4_release_lockowner(struct svc_rqst *rqstp,
 		struct nfsd4_compound_state *,
-		struct nfsd4_release_lockowner *rlockowner);
+		void *rlockowner);
 extern int nfsd4_release_compoundargs(void *rq, __be32 *p, void *resp);
 extern __be32 nfsd4_delegreturn(struct svc_rqst *rqstp,
-		struct nfsd4_compound_state *, struct nfsd4_delegreturn *dr);
+		struct nfsd4_compound_state *, void *dr);
 extern __be32 nfsd4_renew(struct svc_rqst *rqstp,
-			  struct nfsd4_compound_state *, clientid_t *clid);
+			  struct nfsd4_compound_state *, void *clid);
 extern __be32 nfsd4_test_stateid(struct svc_rqst *rqstp,
-		struct nfsd4_compound_state *, struct nfsd4_test_stateid *test_stateid);
+		struct nfsd4_compound_state *, void *test_stateid);
 extern __be32 nfsd4_free_stateid(struct svc_rqst *rqstp,
-		struct nfsd4_compound_state *, struct nfsd4_free_stateid *free_stateid);
+		struct nfsd4_compound_state *, void *free_stateid);
 extern void nfsd4_bump_seqid(struct nfsd4_compound_state *, __be32 nfserr);
 
 #endif

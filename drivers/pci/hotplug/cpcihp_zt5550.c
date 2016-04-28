@@ -49,12 +49,12 @@
 #define dbg(format, arg...)					\
 	do {							\
 		if (debug)					\
-			printk (KERN_DEBUG "%s: " format "\n",	\
-				MY_NAME , ## arg);		\
+			printk(KERN_DEBUG "%s: " format "\n",	\
+				MY_NAME, ## arg);		\
 	} while (0)
-#define err(format, arg...) printk(KERN_ERR "%s: " format "\n", MY_NAME , ## arg)
-#define info(format, arg...) printk(KERN_INFO "%s: " format "\n", MY_NAME , ## arg)
-#define warn(format, arg...) printk(KERN_WARNING "%s: " format "\n", MY_NAME , ## arg)
+#define err(format, arg...) printk(KERN_ERR "%s: " format "\n", MY_NAME, ## arg)
+#define info(format, arg...) printk(KERN_INFO "%s: " format "\n", MY_NAME, ## arg)
+#define warn(format, arg...) printk(KERN_WARNING "%s: " format "\n", MY_NAME, ## arg)
 
 /* local variables */
 static bool debug;
@@ -207,7 +207,7 @@ static struct cpci_hp_controller_ops zt5550_hpc_ops = {
 	.query_enum = zt5550_hc_query_enum,
 };
 
-static int zt5550_hc_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
+static int zt5550_hc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
 	int status;
 
@@ -217,7 +217,7 @@ static int zt5550_hc_init_one (struct pci_dev *pdev, const struct pci_device_id 
 
 	dbg("returned from zt5550_hc_config");
 
-	memset(&zt5550_hpc, 0, sizeof (struct cpci_hp_controller));
+	memset(&zt5550_hpc, 0, sizeof(struct cpci_hp_controller));
 	zt5550_hpc.ops = &zt5550_hpc_ops;
 	if (!poll) {
 		zt5550_hpc.irq = hc_dev->irq;

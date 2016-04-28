@@ -543,8 +543,6 @@ void report_add_sta_event23a(struct rtw_adapter *padapter,
 			  unsigned char *MacAddr, int cam_idx);
 
 int set_tx_beacon_cmd23a(struct rtw_adapter*padapter);
-unsigned int setup_beacon_frame(struct rtw_adapter *padapter,
-				unsigned char *beacon_frame);
 void update_mgnt_tx_rate23a(struct rtw_adapter *padapter, u8 rate);
 void update_mgntframe_attrib23a(struct rtw_adapter *padapter,
 			     struct pkt_attrib *pattrib);
@@ -597,14 +595,6 @@ struct cmd_hdl {
 };
 
 
-int read_macreg_hdl(struct rtw_adapter *padapter, u8 *pbuf);
-int write_macreg_hdl(struct rtw_adapter *padapter, u8 *pbuf);
-int read_bbreg_hdl(struct rtw_adapter *padapter, u8 *pbuf);
-int write_bbreg_hdl(struct rtw_adapter *padapter, u8 *pbuf);
-int read_rfreg_hdl(struct rtw_adapter *padapter, u8 *pbuf);
-int write_rfreg_hdl(struct rtw_adapter *padapter, u8 *pbuf);
-
-
 int NULL_hdl23a(struct rtw_adapter *padapter, const u8 *pbuf);
 int join_cmd_hdl23a(struct rtw_adapter *padapter, const u8 *pbuf);
 int disconnect_hdl23a(struct rtw_adapter *padapter, const u8 *pbuf);
@@ -614,8 +604,6 @@ int sitesurvey_cmd_hdl23a(struct rtw_adapter *padapter, const u8 *pbuf);
 int setauth_hdl23a(struct rtw_adapter *padapter, const u8 *pbuf);
 int setkey_hdl23a(struct rtw_adapter *padapter, const u8 *pbuf);
 int set_stakey_hdl23a(struct rtw_adapter *padapter, const u8 *pbuf);
-int set_assocsta_hdl(struct rtw_adapter *padapter, const u8 *pbuf);
-int del_assocsta_hdl(struct rtw_adapter *padapter, const u8 *pbuf);
 int add_ba_hdl23a(struct rtw_adapter *padapter, const u8 *pbuf);
 
 int mlme_evt_hdl23a(struct rtw_adapter *padapter, const u8 *pbuf);

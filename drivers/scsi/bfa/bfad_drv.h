@@ -1,9 +1,10 @@
 /*
- * Copyright (c) 2005-2010 Brocade Communications Systems, Inc.
+ * Copyright (c) 2005-2014 Brocade Communications Systems, Inc.
+ * Copyright (c) 2014- QLogic Corporation.
  * All rights reserved
- * www.brocade.com
+ * www.qlogic.com
  *
- * Linux driver for Brocade Fibre Channel Host Bus Adapter.
+ * Linux driver for QLogic BR-series Fibre Channel Host Bus Adapter.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (GPL) Version 2 as
@@ -57,7 +58,7 @@
 #ifdef BFA_DRIVER_VERSION
 #define BFAD_DRIVER_VERSION    BFA_DRIVER_VERSION
 #else
-#define BFAD_DRIVER_VERSION    "3.2.23.0"
+#define BFAD_DRIVER_VERSION    "3.2.25.0"
 #endif
 
 #define BFAD_PROTO_NAME FCPI_NAME
@@ -186,8 +187,10 @@ union bfad_tmp_buf {
 /*
  * BFAD (PCI function) data structure
  */
+enum bfad_sm_event;
+
 struct bfad_s {
-	bfa_sm_t	sm;	/* state machine */
+	void (*sm)(struct bfad_s *, enum bfad_sm_event); /* state machine */
 	struct list_head list_entry;
 	struct bfa_s	bfa;
 	struct bfa_fcs_s bfa_fcs;
@@ -308,6 +311,7 @@ void		bfad_fcs_stop(struct bfad_s *bfad);
 void		bfad_remove_intr(struct bfad_s *bfad);
 void		bfad_hal_mem_release(struct bfad_s *bfad);
 void		bfad_hcb_comp(void *arg, bfa_status_t status);
+void		bfad_stats_comp(void *arg, bfa_boolean_t _status);
 
 int		bfad_setup_intr(struct bfad_s *bfad);
 void		bfad_remove_intr(struct bfad_s *bfad);

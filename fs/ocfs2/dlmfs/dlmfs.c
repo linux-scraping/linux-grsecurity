@@ -88,13 +88,13 @@ struct workqueue_struct *user_dlm_worker;
  */
 #define DLMFS_CAPABILITIES "bast stackglue"
 static int param_set_dlmfs_capabilities(const char *val,
-					struct kernel_param *kp)
+					const struct kernel_param *kp)
 {
 	printk(KERN_ERR "%s: readonly parameter\n", kp->name);
 	return -EINVAL;
 }
 static int param_get_dlmfs_capabilities(char *buffer,
-					struct kernel_param *kp)
+					const struct kernel_param *kp)
 {
 	return strlcpy(buffer, DLMFS_CAPABILITIES,
 		       strlen(DLMFS_CAPABILITIES) + 1);
@@ -638,7 +638,7 @@ static int __init init_dlmfs_fs(void)
 	dlmfs_inode_cache = kmem_cache_create("dlmfs_inode_cache",
 				sizeof(struct dlmfs_inode_private),
 				0, (SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT|
-					SLAB_MEM_SPREAD),
+					SLAB_MEM_SPREAD|SLAB_ACCOUNT),
 				dlmfs_init_once);
 	if (!dlmfs_inode_cache) {
 		status = -ENOMEM;

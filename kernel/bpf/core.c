@@ -138,6 +138,8 @@ void __bpf_prog_free(struct bpf_prog *fp)
 EXPORT_SYMBOL_GPL(__bpf_prog_free);
 
 #ifdef CONFIG_BPF_JIT
+extern long __rap_hash___bpf_prog_run;
+
 struct bpf_binary_header *
 bpf_jit_binary_alloc(unsigned int proglen, u8 **image_ptr,
 		     unsigned int alignment,
@@ -164,10 +166,25 @@ bpf_jit_binary_alloc(unsigned int proglen, u8 **image_ptr,
 
 	hole = min_t(unsigned int, size - (proglen + sizeof(*hdr)),
 		     PAGE_SIZE - sizeof(*hdr));
+
+#ifdef CONFIG_PAX_RAP
+	hole -= 8;
+#endif
+
 	start = (prandom_u32() % hole) & ~(alignment - 1);
+
+#ifdef CONFIG_PAX_RAP
+	start += 8;
+#endif
 
 	/* Leave a random number of instructions before BPF code. */
 	*image_ptr = &hdr->image[start];
+
+#ifdef CONFIG_PAX_RAP
+	pax_open_kernel();
+	*(long *)(*image_ptr - 8) = (long)&__rap_hash___bpf_prog_run;
+	pax_close_kernel();
+#endif
 
 	return hdr;
 }
@@ -195,7 +212,7 @@ EXPORT_SYMBOL_GPL(__bpf_call_base);
  *
  * Decode and execute eBPF instructions.
  */
-static unsigned int __bpf_prog_run(void *ctx, const struct bpf_insn *insn)
+unsigned int __bpf_prog_run(const struct sk_buff *ctx, const struct bpf_insn *insn)
 {
 	u64 stack[MAX_BPF_STACK / sizeof(u64)];
 	u64 regs[MAX_BPF_REG], tmp;
@@ -308,10 +325,6 @@ static unsigned int __bpf_prog_run(void *ctx, const struct bpf_insn *insn)
 
 	FP = (u64) (unsigned long) &stack[ARRAY_SIZE(stack)];
 	ARG1 = (u64) (unsigned long) ctx;
-
-	/* Registers used in classic BPF programs need to be reset first. */
-	regs[BPF_REG_A] = 0;
-	regs[BPF_REG_X] = 0;
 
 select_insn:
 	goto *jumptable[insn->code];
@@ -703,7 +716,7 @@ static int bpf_check_tail_call(const struct bpf_prog *fp)
  */
 int bpf_prog_select_runtime(struct bpf_prog *fp)
 {
-	fp->bpf_func = (void *) __bpf_prog_run;
+	fp->bpf_func = __bpf_prog_run;
 
 	bpf_int_jit_compile(fp);
 	bpf_prog_lock_ro(fp);

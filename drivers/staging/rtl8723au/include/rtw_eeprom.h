@@ -125,11 +125,4 @@ struct eeprom_priv {
 	u8		efuse_eeprom_data[HWSET_MAX_SIZE_512]; /* 92C:256bytes, 88E:512bytes, we use union set (512bytes) */
 };
 
-void eeprom_write16(struct rtw_adapter *padapter, u16 reg, u16 data);
-u16 eeprom_read16(struct rtw_adapter *padapter, u16 reg);
-void read_eeprom_content(struct rtw_adapter *padapter);
-void eeprom_read_sz(struct rtw_adapter *padapter, u16 reg, u8 *data, u32 sz);
-
-void read_eeprom_content_by_attrib(struct rtw_adapter *padapter);
-
 #endif  /* __RTL871X_EEPROM_H__ */

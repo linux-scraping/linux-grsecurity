@@ -97,10 +97,8 @@ int pm_netdev_open23a(struct net_device *pnetdev, u8 bnormal);
 
 int rtl8723au_hal_init(struct rtw_adapter *padapter);
 int rtl8723au_hal_deinit(struct rtw_adapter *padapter);
-void rtw_hal_stop(struct rtw_adapter *padapter);
 
 void rtw_hal_update_ra_mask23a(struct sta_info *psta, u8 rssi_level);
-void	rtw_hal_clone_data(struct rtw_adapter *dst_padapter, struct rtw_adapter *src_padapter);
 
 void hw_var_set_correct_tsf(struct rtw_adapter *padapter);
 void hw_var_set_mlme_disconnect(struct rtw_adapter *padapter);

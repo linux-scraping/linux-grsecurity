@@ -16,35 +16,32 @@
 
 typedef int (*pm_callback_t)(struct device *);
 
-static pm_callback_t __rpm_get_callback(struct device *dev, size_t cb_offset)
-{
-	pm_callback_t cb;
-	const struct dev_pm_ops *ops;
-
-	if (dev->pm_domain)
-		ops = &dev->pm_domain->ops;
-	else if (dev->type && dev->type->pm)
-		ops = dev->type->pm;
-	else if (dev->class && dev->class->pm)
-		ops = dev->class->pm;
-	else if (dev->bus && dev->bus->pm)
-		ops = dev->bus->pm;
-	else
-		ops = NULL;
-
-	if (ops)
-		cb = *(pm_callback_t *)((void *)ops + cb_offset);
-	else
-		cb = NULL;
-
-	if (!cb && dev->driver && dev->driver->pm)
-		cb = *(pm_callback_t *)((void *)dev->driver->pm + cb_offset);
-
-	return cb;
-}
-
-#define RPM_GET_CALLBACK(dev, callback) \
-		__rpm_get_callback(dev, offsetof(struct dev_pm_ops, callback))
+#define RPM_GET_CALLBACK(dev, callback)			\
+({							\
+	pm_callback_t cb;				\
+	const struct dev_pm_ops *ops;			\
+							\
+	if (dev->pm_domain)				\
+		ops = &dev->pm_domain->ops;		\
+	else if (dev->type && dev->type->pm)		\
+		ops = dev->type->pm;			\
+	else if (dev->class && dev->class->pm)		\
+		ops = dev->class->pm;			\
+	else if (dev->bus && dev->bus->pm)		\
+		ops = dev->bus->pm;			\
+	else						\
+		ops = NULL;				\
+							\
+	if (ops)					\
+		cb = ops->callback;			\
+	else						\
+		cb = NULL;				\
+							\
+	if (!cb && dev->driver && dev->driver->pm)	\
+		cb = dev->driver->pm->callback;		\
+							\
+	cb;						\
+})
 
 static int rpm_resume(struct device *dev, int rpmflags);
 static int rpm_suspend(struct device *dev, int rpmflags);
@@ -966,6 +963,30 @@ int __pm_runtime_resume(struct device *dev, int rpmflags)
 EXPORT_SYMBOL_GPL(__pm_runtime_resume);
 
 /**
+ * pm_runtime_get_if_in_use - Conditionally bump up the device's usage counter.
+ * @dev: Device to handle.
+ *
+ * Return -EINVAL if runtime PM is disabled for the device.
+ *
+ * If that's not the case and if the device's runtime PM status is RPM_ACTIVE
+ * and the runtime PM usage counter is nonzero, increment the counter and
+ * return 1.  Otherwise return 0 without changing the counter.
+ */
+int pm_runtime_get_if_in_use(struct device *dev)
+{
+	unsigned long flags;
+	int retval;
+
+	spin_lock_irqsave(&dev->power.lock, flags);
+	retval = dev->power.disable_depth > 0 ? -EINVAL :
+		dev->power.runtime_status == RPM_ACTIVE
+			&& atomic_inc_not_zero(&dev->power.usage_count);
+	spin_unlock_irqrestore(&dev->power.lock, flags);
+	return retval;
+}
+EXPORT_SYMBOL_GPL(pm_runtime_get_if_in_use);
+
+/**
  * __pm_runtime_set_status - Set runtime PM status of a device.
  * @dev: Device to handle.
  * @status: New runtime PM status of the device.
@@ -1390,18 +1411,32 @@ void pm_runtime_init(struct device *dev)
 }
 
 /**
+ * pm_runtime_reinit - Re-initialize runtime PM fields in given device object.
+ * @dev: Device object to re-initialize.
+ */
+void pm_runtime_reinit(struct device *dev)
+{
+	if (!pm_runtime_enabled(dev)) {
+		if (dev->power.runtime_status == RPM_ACTIVE)
+			pm_runtime_set_suspended(dev);
+		if (dev->power.irq_safe) {
+			spin_lock_irq(&dev->power.lock);
+			dev->power.irq_safe = 0;
+			spin_unlock_irq(&dev->power.lock);
+			if (dev->parent)
+				pm_runtime_put(dev->parent);
+		}
+	}
+}
+
+/**
  * pm_runtime_remove - Prepare for removing a device from device hierarchy.
  * @dev: Device object being removed from device hierarchy.
  */
 void pm_runtime_remove(struct device *dev)
 {
 	__pm_runtime_disable(dev, false);
-
-	/* Change the status back to 'suspended' to match the initial status. */
-	if (dev->power.runtime_status == RPM_ACTIVE)
-		pm_runtime_set_suspended(dev);
-	if (dev->power.irq_safe && dev->parent)
-		pm_runtime_put(dev->parent);
+	pm_runtime_reinit(dev);
 }
 
 /**

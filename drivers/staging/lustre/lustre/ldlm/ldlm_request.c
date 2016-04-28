@@ -27,7 +27,7 @@
  * Copyright (c) 2002, 2010, Oracle and/or its affiliates. All rights reserved.
  * Use is subject to license terms.
  *
- * Copyright (c) 2010, 2012, Intel Corporation.
+ * Copyright (c) 2010, 2015, Intel Corporation.
  */
 /*
  * This file is part of Lustre, http://www.lustre.org/
@@ -1785,8 +1785,9 @@ static int ldlm_chain_lock_for_replay(struct ldlm_lock *lock, void *closure)
 
 static int replay_lock_interpret(const struct lu_env *env,
 				 struct ptlrpc_request *req,
-				 struct ldlm_async_args *aa, int rc)
+				 void *_aa, int rc)
 {
+	struct ldlm_async_args *aa = _aa;
 	struct ldlm_lock     *lock;
 	struct ldlm_reply    *reply;
 	struct obd_export    *exp;
@@ -1910,7 +1911,7 @@ static int replay_one_lock(struct obd_import *imp, struct ldlm_lock *lock)
 	CLASSERT(sizeof(*aa) <= sizeof(req->rq_async_args));
 	aa = ptlrpc_req_async_args(req);
 	aa->lock_handle = body->lock_handle[0];
-	req->rq_interpret_reply = (ptlrpc_interpterer_t)replay_lock_interpret;
+	req->rq_interpret_reply = replay_lock_interpret;
 	ptlrpcd_add_req(req);
 
 	return 0;

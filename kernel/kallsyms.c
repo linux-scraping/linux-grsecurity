@@ -473,10 +473,11 @@ int sprint_backtrace(char *buffer, unsigned long address)
 }
 
 /* Look up a kernel symbol and print it to the kernel messages. */
-void __print_symbol(const char *fmt, unsigned long address)
+void __print_symbol(const char *fmt, unsigned long address, ...)
 {
 	char buffer[KSYM_SYMBOL_LEN];
 
+	address = (unsigned long)__builtin_extract_return_addr((void *)address);
 	sprint_symbol(buffer, address);
 
 	printk(fmt, buffer);

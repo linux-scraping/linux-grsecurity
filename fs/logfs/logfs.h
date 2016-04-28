@@ -151,7 +151,8 @@ struct logfs_device_ops {
 	struct page *(*find_first_sb)(struct super_block *sb, u64 *ofs);
 	struct page *(*find_last_sb)(struct super_block *sb, u64 *ofs);
 	int (*write_sb)(struct super_block *sb, struct page *page);
-	int (*readpage)(void *_sb, struct page *page);
+	int (*readpage)(struct super_block *sb, struct page *page);
+	int (*filler)(struct file *file, struct page *page);
 	void (*writeseg)(struct super_block *sb, u64 ofs, size_t len);
 	int (*erase)(struct super_block *sb, loff_t ofs, size_t len,
 			int ensure_write);
@@ -302,7 +303,7 @@ struct logfs_block {
 	struct inode *inode;
 	struct logfs_transaction *ta;
 	unsigned long alias_map[LOGFS_BLOCK_FACTOR / BITS_PER_LONG];
-	struct logfs_block_ops *ops;
+	const struct logfs_block_ops *ops;
 	int full;
 	int partial;
 	int reserved_bytes;
@@ -485,7 +486,7 @@ static inline int logfs_get_sb_bdev(struct logfs_super *s,
 #endif
 
 /* dev_mtd.c */
-#ifdef CONFIG_MTD
+#if IS_ENABLED(CONFIG_MTD)
 int logfs_get_sb_mtd(struct logfs_super *s, int mtdnr);
 #else
 static inline int logfs_get_sb_mtd(struct logfs_super *s, int mtdnr)
@@ -495,7 +496,6 @@ static inline int logfs_get_sb_mtd(struct logfs_super *s, int mtdnr)
 #endif
 
 /* dir.c */
-extern const struct inode_operations logfs_symlink_iops;
 extern const struct inode_operations logfs_dir_iops;
 extern const struct file_operations logfs_dir_fops;
 int logfs_replay_journal(struct super_block *sb);
@@ -579,7 +579,7 @@ int logfs_exist_block(struct inode *inode, u64 bix);
 int get_page_reserve(struct inode *inode, struct page *page);
 void logfs_get_wblocks(struct super_block *sb, struct page *page, int lock);
 void logfs_put_wblocks(struct super_block *sb, struct page *page, int lock);
-extern struct logfs_block_ops indirect_block_ops;
+extern const struct logfs_block_ops indirect_block_ops;
 
 /* segment.c */
 int logfs_erase_segment(struct super_block *sb, u32 ofs, int ensure_erase);
@@ -618,8 +618,6 @@ static inline int logfs_buf_recover(struct logfs_area *area, u64 ofs,
 }
 
 /* super.c */
-struct page *emergency_read_begin(struct address_space *mapping, pgoff_t index);
-void emergency_read_end(struct page *page);
 void logfs_crash_dump(struct super_block *sb);
 int logfs_statfs(struct dentry *dentry, struct kstatfs *stats);
 int logfs_check_ds(struct logfs_disk_super *ds);

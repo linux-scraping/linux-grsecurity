@@ -113,7 +113,7 @@ struct intel_uncore_box {
 #define UNCORE_BOX_FLAG_INITIATED	0
 
 struct uncore_event_desc {
-	struct kobj_attribute attr;
+	struct device_attribute attr;
 	const char *config;
 } __do_const;
 
@@ -126,8 +126,8 @@ struct pci2phy_map {
 int uncore_pcibus_to_physid(struct pci_bus *bus);
 struct pci2phy_map *__find_pci2phy_map(int segment);
 
-ssize_t uncore_event_show(struct kobject *kobj,
-			  struct kobj_attribute *attr, char *buf);
+ssize_t uncore_event_show(struct device *dev,
+			  struct device_attribute *attr, char *buf);
 
 #define INTEL_UNCORE_EVENT_DESC(_name, _config)			\
 {								\
@@ -136,14 +136,14 @@ ssize_t uncore_event_show(struct kobject *kobj,
 }
 
 #define DEFINE_UNCORE_FORMAT_ATTR(_var, _name, _format)			\
-static ssize_t __uncore_##_var##_show(struct kobject *kobj,		\
-				struct kobj_attribute *attr,		\
+static ssize_t __uncore_##_var##_show(struct device *dev,		\
+				struct device_attribute *attr,		\
 				char *page)				\
 {									\
 	BUILD_BUG_ON(sizeof(_format) >= PAGE_SIZE);			\
 	return sprintf(page, _format "\n");				\
 }									\
-static struct kobj_attribute format_attr_##_var =			\
+static struct device_attribute format_attr_##_var =			\
 	__ATTR(_name, 0444, __uncore_##_var##_show, NULL)
 
 static inline unsigned uncore_pci_box_ctl(struct intel_uncore_box *box)
@@ -336,8 +336,10 @@ int snb_uncore_pci_init(void);
 int ivb_uncore_pci_init(void);
 int hsw_uncore_pci_init(void);
 int bdw_uncore_pci_init(void);
+int skl_uncore_pci_init(void);
 void snb_uncore_cpu_init(void);
 void nhm_uncore_cpu_init(void);
+int snb_pci2phy_map_init(int devid);
 
 /* perf_event_intel_uncore_snbep.c */
 int snbep_uncore_pci_init(void);
@@ -348,6 +350,8 @@ int hswep_uncore_pci_init(void);
 void hswep_uncore_cpu_init(void);
 int bdx_uncore_pci_init(void);
 void bdx_uncore_cpu_init(void);
+int knl_uncore_pci_init(void);
+void knl_uncore_cpu_init(void);
 
 /* perf_event_intel_uncore_nhmex.c */
 void nhmex_uncore_cpu_init(void);

@@ -212,7 +212,7 @@ void dump_trace(struct task_struct *task, struct pt_regs *regs,
 			 * exception stack:
 			 */
 			if ((u16)stack_end[-1] != __KERNEL_DS)
-				break;
+				goto out;
 			stack = (unsigned long *) stack_end[-2];
 			done = 0;
 			break;
@@ -239,6 +239,7 @@ void dump_trace(struct task_struct *task, struct pt_regs *regs,
 		}
 	}
 
+out:
 	put_cpu();
 }
 EXPORT_SYMBOL(dump_trace);

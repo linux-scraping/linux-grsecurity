@@ -678,7 +678,7 @@ __serpent_dec_blk8_avx:
 	ret;
 ENDPROC(__serpent_dec_blk8_avx)
 
-ENTRY(serpent_ecb_enc_8way_avx)
+RAP_ENTRY(serpent_ecb_enc_8way_avx)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -695,7 +695,7 @@ ENTRY(serpent_ecb_enc_8way_avx)
 	ret;
 ENDPROC(serpent_ecb_enc_8way_avx)
 
-ENTRY(serpent_ecb_dec_8way_avx)
+RAP_ENTRY(serpent_ecb_dec_8way_avx)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -712,7 +712,7 @@ ENTRY(serpent_ecb_dec_8way_avx)
 	ret;
 ENDPROC(serpent_ecb_dec_8way_avx)
 
-ENTRY(serpent_cbc_dec_8way_avx)
+RAP_ENTRY(serpent_cbc_dec_8way_avx)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -729,7 +729,7 @@ ENTRY(serpent_cbc_dec_8way_avx)
 	ret;
 ENDPROC(serpent_cbc_dec_8way_avx)
 
-ENTRY(serpent_ctr_8way_avx)
+RAP_ENTRY(serpent_ctr_8way_avx)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -748,7 +748,7 @@ ENTRY(serpent_ctr_8way_avx)
 	ret;
 ENDPROC(serpent_ctr_8way_avx)
 
-ENTRY(serpent_xts_enc_8way_avx)
+RAP_ENTRY(serpent_xts_enc_8way_avx)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -769,7 +769,7 @@ ENTRY(serpent_xts_enc_8way_avx)
 	ret;
 ENDPROC(serpent_xts_enc_8way_avx)
 
-ENTRY(serpent_xts_dec_8way_avx)
+RAP_ENTRY(serpent_xts_dec_8way_avx)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst

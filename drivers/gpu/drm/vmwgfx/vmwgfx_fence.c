@@ -1016,6 +1016,11 @@ struct vmw_event_fence_pending {
 	struct drm_vmw_event_fence event;
 };
 
+static void vmw_event_fence_dmabuf_destroy(struct drm_pending_event *event)
+{
+	kfree(event);
+}
+
 static int vmw_event_fence_action_create(struct drm_file *file_priv,
 				  struct vmw_fence_obj *fence,
 				  uint32_t flags,
@@ -1055,7 +1060,7 @@ static int vmw_event_fence_action_create(struct drm_file *file_priv,
 
 	event->base.event = &event->event.base;
 	event->base.file_priv = file_priv;
-	event->base.destroy = (void (*) (struct drm_pending_event *)) kfree;
+	event->base.destroy = vmw_event_fence_dmabuf_destroy;
 
 
 	if (flags & DRM_VMW_FE_FLAG_REQ_TIME)

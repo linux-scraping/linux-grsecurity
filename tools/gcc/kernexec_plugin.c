@@ -382,10 +382,10 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 				error(G_("no value supplied for option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
 				continue;
 			}
-			if (!strcmp(argv[i].value, "bts")) {
+			if (!strcmp(argv[i].value, "bts") || !strcmp(argv[i].value, "\"bts\"")) {
 				kernexec_instrument_fptr = kernexec_instrument_fptr_bts;
 				kernexec_instrument_retaddr = kernexec_instrument_retaddr_bts;
-			} else if (!strcmp(argv[i].value, "or")) {
+			} else if (!strcmp(argv[i].value, "or") || !strcmp(argv[i].value, "\"or\"")) {
 				kernexec_instrument_fptr = kernexec_instrument_fptr_or;
 				kernexec_instrument_retaddr = kernexec_instrument_retaddr_or;
 				fix_register("r12", 1, 1);

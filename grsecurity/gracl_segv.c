@@ -29,7 +29,7 @@ static DEFINE_SPINLOCK(gr_uid_lock);
 extern rwlock_t gr_inode_lock;
 extern struct acl_subject_label *
 	lookup_acl_subj_label(const u64 inode, const dev_t dev,
-			      struct acl_role_label *role);
+			      const struct acl_role_label *role);
 
 int
 gr_init_uidset(void)
@@ -134,6 +134,19 @@ gr_remove_uid(const unsigned short loc)
 	uid_used--;
 
 	return;
+}
+
+int gr_find_and_remove_uid(uid_t uid)
+{
+	int loc;
+
+	spin_lock(&gr_uid_lock);
+	loc = gr_find_uid(uid);
+	if (loc >= 0)
+		gr_remove_uid(loc);
+	spin_unlock(&gr_uid_lock);
+
+	return loc >= 0 ? 1 : 0;
 }
 
 int

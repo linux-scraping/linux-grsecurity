@@ -12,6 +12,7 @@
 #include <linux/random.h>
 #include <linux/elf.h>
 #include <linux/cpu.h>
+#include <asm/pvclock.h>
 #include <asm/vgtod.h>
 #include <asm/proto.h>
 #include <asm/vdso.h>
@@ -97,6 +98,7 @@ static int map_vdso(const struct vdso_image *image, bool calculate_addr)
 		.name = "[vvar]",
 		.pages = no_pages,
 	};
+	struct pvclock_vsyscall_time_info *pvti;
 
 #ifdef CONFIG_PAX_RANDMMAP
 	if (mm->pax_flags & MF_PAX_RANDMMAP)
@@ -165,8 +167,20 @@ static int map_vdso(const struct vdso_image *image, bool calculate_addr)
 			hpet_address >> PAGE_SHIFT,
 			PAGE_SIZE,
 			pgprot_noncached(PAGE_READONLY));
+
+		if (ret)
+			goto up_fail;
 	}
 #endif
+
+	pvti = pvclock_pvti_cpu0_va();
+	if (pvti && image->sym_pvclock_page) {
+		ret = remap_pfn_range(vma,
+				      text_start + image->sym_pvclock_page,
+				      __pa(pvti) >> PAGE_SHIFT,
+				      PAGE_SIZE,
+				      PAGE_READONLY);
+	}
 
 up_fail:
 	if (ret)

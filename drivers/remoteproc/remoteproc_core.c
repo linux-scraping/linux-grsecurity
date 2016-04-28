@@ -327,9 +327,10 @@ void rproc_free_vring(struct rproc_vring *rvring)
  *
  * Returns 0 on success, or an appropriate error code otherwise
  */
-static int rproc_handle_vdev(struct rproc *rproc, struct fw_rsc_vdev *rsc,
+static int rproc_handle_vdev(struct rproc *rproc, void *_rsc,
 							int offset, int avail)
 {
+	struct fw_rsc_vdev *rsc = _rsc;
 	struct device *dev = &rproc->dev;
 	struct rproc_vdev *rvdev;
 	int i, ret;
@@ -404,9 +405,10 @@ free_rvdev:
  *
  * Returns 0 on success, or an appropriate error code otherwise
  */
-static int rproc_handle_trace(struct rproc *rproc, struct fw_rsc_trace *rsc,
+static int rproc_handle_trace(struct rproc *rproc, void *_rsc,
 							int offset, int avail)
 {
+	struct fw_rsc_trace *rsc = _rsc;
 	struct rproc_mem_entry *trace;
 	struct device *dev = &rproc->dev;
 	void *ptr;
@@ -484,9 +486,10 @@ static int rproc_handle_trace(struct rproc *rproc, struct fw_rsc_trace *rsc,
  * and not allow firmwares to request access to physical addresses that
  * are outside those ranges.
  */
-static int rproc_handle_devmem(struct rproc *rproc, struct fw_rsc_devmem *rsc,
+static int rproc_handle_devmem(struct rproc *rproc, void *_rsc,
 							int offset, int avail)
 {
+	struct fw_rsc_devmem *rsc = _rsc;
 	struct rproc_mem_entry *mapping;
 	struct device *dev = &rproc->dev;
 	int ret;
@@ -556,10 +559,11 @@ out:
  * pressure is important; it may have a substantial impact on performance.
  */
 static int rproc_handle_carveout(struct rproc *rproc,
-						struct fw_rsc_carveout *rsc,
+						void *_rsc,
 						int offset, int avail)
 
 {
+	struct fw_rsc_carveout *rsc = _rsc;
 	struct rproc_mem_entry *carveout, *mapping;
 	struct device *dev = &rproc->dev;
 	dma_addr_t dma;
@@ -678,9 +682,11 @@ free_carv:
 	return ret;
 }
 
-static int rproc_count_vrings(struct rproc *rproc, struct fw_rsc_vdev *rsc,
+static int rproc_count_vrings(struct rproc *rproc, void *_rsc,
 			      int offset, int avail)
 {
+	struct fw_rsc_vdev *rsc = _rsc;
+
 	/* Summarize the number of notification IDs */
 	rproc->max_notifyid += rsc->num_of_vrings;
 
@@ -692,18 +698,18 @@ static int rproc_count_vrings(struct rproc *rproc, struct fw_rsc_vdev *rsc,
  * enum fw_resource_type.
  */
 static rproc_handle_resource_t rproc_loading_handlers[RSC_LAST] = {
-	[RSC_CARVEOUT] = (rproc_handle_resource_t)rproc_handle_carveout,
-	[RSC_DEVMEM] = (rproc_handle_resource_t)rproc_handle_devmem,
-	[RSC_TRACE] = (rproc_handle_resource_t)rproc_handle_trace,
+	[RSC_CARVEOUT] = rproc_handle_carveout,
+	[RSC_DEVMEM] = rproc_handle_devmem,
+	[RSC_TRACE] = rproc_handle_trace,
 	[RSC_VDEV] = NULL, /* VDEVs were handled upon registrarion */
 };
 
 static rproc_handle_resource_t rproc_vdev_handler[RSC_LAST] = {
-	[RSC_VDEV] = (rproc_handle_resource_t)rproc_handle_vdev,
+	[RSC_VDEV] = rproc_handle_vdev,
 };
 
 static rproc_handle_resource_t rproc_count_vrings_handler[RSC_LAST] = {
-	[RSC_VDEV] = (rproc_handle_resource_t)rproc_count_vrings,
+	[RSC_VDEV] = rproc_count_vrings,
 };
 
 /* handle firmware resource entries before booting the remote processor */

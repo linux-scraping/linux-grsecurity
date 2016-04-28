@@ -271,8 +271,24 @@ static int alarmtimer_suspend(struct device *dev)
 		__pm_wakeup_event(ws, MSEC_PER_SEC);
 	return ret;
 }
+
+static int alarmtimer_resume(struct device *dev)
+{
+	struct rtc_device *rtc;
+
+	rtc = alarmtimer_get_rtcdev();
+	if (rtc)
+		rtc_timer_cancel(rtc, &rtctimer);
+	return 0;
+}
+
 #else
 static int alarmtimer_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static int alarmtimer_resume(struct device *dev)
 {
 	return 0;
 }
@@ -507,7 +523,7 @@ static int alarm_clock_getres(const clockid_t which_clock, struct timespec *tp)
  *
  * Provides the underlying alarm base time.
  */
-static int alarm_clock_get(clockid_t which_clock, struct timespec *tp)
+static int alarm_clock_get(const clockid_t which_clock, struct timespec *tp)
 {
 	struct alarm_base *base = &alarm_bases[clock2alarm(which_clock)];
 
@@ -800,6 +816,7 @@ out:
 /* Suspend hook structures */
 static const struct dev_pm_ops alarmtimer_pm_ops = {
 	.suspend = alarmtimer_suspend,
+	.resume = alarmtimer_resume,
 };
 
 static struct platform_driver alarmtimer_driver = {

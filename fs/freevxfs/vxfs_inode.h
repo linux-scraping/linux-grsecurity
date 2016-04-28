@@ -96,7 +96,7 @@ struct vxfs_typed_dev4 {
 /*
  * The inode as contained on the physical device.
  */
-struct vxfs_dinode {
+struct vxfs_inode_info {
 	int32_t		vdi_mode;
 	u_int32_t	vdi_nlink;	/* Link count */
 	u_int32_t	vdi_uid;	/* UID */
@@ -152,7 +152,7 @@ struct vxfs_dinode {
  *
  * TBD: This should become a separate structure...
  */
-#define vxfs_inode_info	vxfs_dinode
+//#define vxfs_inode_info	vxfs_dinode
 
 #define vii_mode	vdi_mode
 #define vii_uid		vdi_uid

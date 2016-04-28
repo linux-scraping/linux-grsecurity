@@ -947,9 +947,7 @@ ENDPROC(irq_entries_start)
 	 */
 	TRACE_IRQS_OFF
 
-#ifdef CONFIG_CONTEXT_TRACKING
-	call enter_from_user_mode
-#endif
+	CALL_enter_from_user_mode
 
 	jmp	2f
 1:	pax_enter_kernel
@@ -1426,7 +1424,7 @@ apicinterrupt3 HYPERVISOR_CALLBACK_VECTOR \
 	hyperv_callback_vector hyperv_vector_handler
 #endif /* CONFIG_HYPERV */
 
-idtentry debug			do_debug		has_error_code=0	paranoid=1 shift_ist=DEBUG_STACK
+idtentry int1			do_debug		has_error_code=0	paranoid=1 shift_ist=DEBUG_STACK
 idtentry int3			do_int3			has_error_code=0	paranoid=1 shift_ist=DEBUG_STACK
 idtentry stack_segment		do_stack_segment	has_error_code=1
 
@@ -1559,9 +1557,7 @@ ENTRY(error_entry)
 	 * (which can take locks).
 	 */
 	TRACE_IRQS_OFF
-#ifdef CONFIG_CONTEXT_TRACKING
-	call enter_from_user_mode
-#endif
+	CALL_enter_from_user_mode
 	pax_force_retaddr
 	ret
 

@@ -118,14 +118,12 @@ static void iot_io_end(struct io_tracker *iot, sector_t len)
  */
 struct dm_hook_info {
 	bio_end_io_t *bi_end_io;
-	void *bi_private;
-};
+} __no_const;
 
 static void dm_hook_bio(struct dm_hook_info *h, struct bio *bio,
 			bio_end_io_t *bi_end_io, void *bi_private)
 {
 	h->bi_end_io = bio->bi_end_io;
-	h->bi_private = bio->bi_private;
 
 	bio->bi_end_io = bi_end_io;
 	bio->bi_private = bi_private;
@@ -134,7 +132,6 @@ static void dm_hook_bio(struct dm_hook_info *h, struct bio *bio,
 static void dm_unhook_bio(struct dm_hook_info *h, struct bio *bio)
 {
 	bio->bi_end_io = h->bi_end_io;
-	bio->bi_private = h->bi_private;
 }
 
 /*----------------------------------------------------------------*/
@@ -398,8 +395,10 @@ static struct dm_bio_prison_cell *alloc_prison_cell(struct cache *cache)
 	return dm_bio_prison_alloc_cell(cache->prison, GFP_NOWAIT);
 }
 
-static void free_prison_cell(struct cache *cache, struct dm_bio_prison_cell *cell)
+static void free_prison_cell(void *_cache, struct dm_bio_prison_cell *cell)
 {
+	struct cache *cache = _cache;
+
 	dm_bio_prison_free_cell(cache->prison, cell);
 }
 
@@ -496,8 +495,10 @@ static struct dm_bio_prison_cell *prealloc_get_cell(struct prealloc *p)
  * You can't have more than two cells in a prealloc struct.  BUG() will be
  * called if you try and overfill.
  */
-static void prealloc_put_cell(struct prealloc *p, struct dm_bio_prison_cell *cell)
+static void prealloc_put_cell(void *_p, struct dm_bio_prison_cell *cell)
 {
+	struct prealloc *p = _p;
+
 	if (!p->cell2)
 		p->cell2 = cell;
 
@@ -1637,7 +1638,7 @@ static void process_discard_bio(struct cache *cache, struct prealloc *structs,
 
 	cell_prealloc = prealloc_get_cell(structs);
 	r = bio_detain_range(cache, dblock_to_oblock(cache, b), dblock_to_oblock(cache, e), bio, cell_prealloc,
-			     (cell_free_fn) prealloc_put_cell,
+			     prealloc_put_cell,
 			     structs, &new_ocell);
 	if (r > 0)
 		return;
@@ -1791,7 +1792,7 @@ static int cell_locker(struct policy_locker *locker, dm_oblock_t b)
 	struct dm_bio_prison_cell *cell_prealloc = prealloc_get_cell(l->structs);
 
 	return bio_detain(l->cache, b, NULL, cell_prealloc,
-			  (cell_free_fn) prealloc_put_cell,
+			  prealloc_put_cell,
 			  l->structs, &l->cell);
 }
 
@@ -1903,7 +1904,7 @@ static void process_bio(struct cache *cache, struct prealloc *structs,
 	 */
 	cell_prealloc = prealloc_get_cell(structs);
 	r = bio_detain(cache, block, bio, cell_prealloc,
-		       (cell_free_fn) prealloc_put_cell,
+		       prealloc_put_cell,
 		       structs, &new_ocell);
 	if (r > 0)
 		return;
@@ -3060,7 +3061,7 @@ static int cache_map(struct dm_target *ti, struct bio *bio)
 	}
 
 	r = bio_detain(cache, block, bio, cell,
-		       (cell_free_fn) free_prison_cell,
+		       free_prison_cell,
 		       cache, &cell);
 	if (r) {
 		if (r < 0)

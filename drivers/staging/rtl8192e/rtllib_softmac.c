@@ -574,7 +574,7 @@ out:
 	wireless_send_event(ieee->dev, SIOCGIWSCAN, &wrqu, NULL);
 }
 
-static void rtllib_softmac_scan_wq(void *data)
+static void rtllib_softmac_scan_wq(struct work_struct *data)
 {
 	struct rtllib_device *ieee = container_of_dwork_rsl(data,
 				     struct rtllib_device, softmac_scan_wq);
@@ -1514,7 +1514,7 @@ static void rtllib_associate_step2(struct rtllib_device *ieee)
 	}
 }
 
-static void rtllib_associate_complete_wq(void *data)
+static void rtllib_associate_complete_wq(struct work_struct *data)
 {
 	struct rtllib_device *ieee = (struct rtllib_device *)
 				     container_of_work_rsl(data,
@@ -1583,7 +1583,7 @@ static void rtllib_associate_complete(struct rtllib_device *ieee)
 	queue_work_rsl(ieee->wq, &ieee->associate_complete_wq);
 }
 
-static void rtllib_associate_procedure_wq(void *data)
+static void rtllib_associate_procedure_wq(struct work_struct *data)
 {
 	struct rtllib_device *ieee = container_of_dwork_rsl(data,
 				     struct rtllib_device,
@@ -2055,8 +2055,9 @@ static short rtllib_sta_ps_sleep(struct rtllib_device *ieee, u64 *time)
 
 }
 
-static inline void rtllib_sta_ps(struct rtllib_device *ieee)
+static inline void rtllib_sta_ps(unsigned long _ieee)
 {
+	struct rtllib_device *ieee = (struct rtllib_device *)_ieee;
 	u64 time;
 	short sleep;
 	unsigned long flags, flags2;
@@ -2583,7 +2584,7 @@ static void rtllib_start_monitor_mode(struct rtllib_device *ieee)
 	}
 }
 
-static void rtllib_start_ibss_wq(void *data)
+static void rtllib_start_ibss_wq(struct work_struct *data)
 {
 	struct rtllib_device *ieee = container_of_dwork_rsl(data,
 				     struct rtllib_device, start_ibss_wq);
@@ -2749,7 +2750,7 @@ static void rtllib_start_bss(struct rtllib_device *ieee)
 	spin_unlock_irqrestore(&ieee->lock, flags);
 }
 
-static void rtllib_link_change_wq(void *data)
+static void rtllib_link_change_wq(struct work_struct *data)
 {
 	struct rtllib_device *ieee = container_of_dwork_rsl(data,
 				     struct rtllib_device, link_change_wq);
@@ -2775,7 +2776,7 @@ void rtllib_disassociate(struct rtllib_device *ieee)
 	notify_wx_assoc_event(ieee);
 }
 
-static void rtllib_associate_retry_wq(void *data)
+static void rtllib_associate_retry_wq(struct work_struct *data)
 {
 	struct rtllib_device *ieee = container_of_dwork_rsl(data,
 				     struct rtllib_device, associate_retry_wq);
@@ -3031,19 +3032,18 @@ void rtllib_softmac_init(struct rtllib_device *ieee)
 	ieee->wq = create_workqueue(DRV_NAME);
 
 	INIT_DELAYED_WORK_RSL(&ieee->link_change_wq,
-			      (void *)rtllib_link_change_wq, ieee);
+			      rtllib_link_change_wq, ieee);
 	INIT_DELAYED_WORK_RSL(&ieee->start_ibss_wq,
-			      (void *)rtllib_start_ibss_wq, ieee);
+			      rtllib_start_ibss_wq, ieee);
 	INIT_WORK_RSL(&ieee->associate_complete_wq,
-		      (void *)rtllib_associate_complete_wq, ieee);
+			      rtllib_associate_complete_wq, ieee);
 	INIT_DELAYED_WORK_RSL(&ieee->associate_procedure_wq,
-			      (void *)rtllib_associate_procedure_wq, ieee);
+			      rtllib_associate_procedure_wq, ieee);
 	INIT_DELAYED_WORK_RSL(&ieee->softmac_scan_wq,
-			      (void *)rtllib_softmac_scan_wq, ieee);
+			      rtllib_softmac_scan_wq, ieee);
 	INIT_DELAYED_WORK_RSL(&ieee->associate_retry_wq,
-			      (void *)rtllib_associate_retry_wq, ieee);
-	INIT_WORK_RSL(&ieee->wx_sync_scan_wq, (void *)rtllib_wx_sync_scan_wq,
-		      ieee);
+			      rtllib_associate_retry_wq, ieee);
+	INIT_WORK_RSL(&ieee->wx_sync_scan_wq, rtllib_wx_sync_scan_wq, ieee);
 
 	sema_init(&ieee->wx_sem, 1);
 	sema_init(&ieee->scan_sem, 1);
@@ -3053,7 +3053,7 @@ void rtllib_softmac_init(struct rtllib_device *ieee)
 	spin_lock_init(&ieee->beacon_lock);
 
 	tasklet_init(&ieee->ps_task,
-	     (void(*)(unsigned long)) rtllib_sta_ps,
+	     rtllib_sta_ps,
 	     (unsigned long)ieee);
 
 }

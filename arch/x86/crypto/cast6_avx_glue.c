@@ -41,20 +41,20 @@
 
 #define CAST6_PARALLEL_BLOCKS 8
 
-asmlinkage void cast6_ecb_enc_8way(struct cast6_ctx *ctx, u8 *dst,
+asmlinkage void cast6_ecb_enc_8way(void *ctx, u8 *dst,
 				   const u8 *src);
-asmlinkage void cast6_ecb_dec_8way(struct cast6_ctx *ctx, u8 *dst,
+asmlinkage void cast6_ecb_dec_8way(void *ctx, u8 *dst,
 				   const u8 *src);
 
-asmlinkage void cast6_cbc_dec_8way(struct cast6_ctx *ctx, u8 *dst,
+asmlinkage void cast6_cbc_dec_8way(void *ctx, u8 *dst,
 				   const u8 *src);
-asmlinkage void cast6_ctr_8way(struct cast6_ctx *ctx, u8 *dst, const u8 *src,
+asmlinkage void cast6_ctr_8way(void *ctx, u128 *dst, const u128 *src,
 			       le128 *iv);
 
-asmlinkage void cast6_xts_enc_8way(struct cast6_ctx *ctx, u8 *dst,
-				   const u8 *src, le128 *iv);
-asmlinkage void cast6_xts_dec_8way(struct cast6_ctx *ctx, u8 *dst,
-				   const u8 *src, le128 *iv);
+asmlinkage void cast6_xts_enc_8way(void *ctx, u128 *dst,
+				   const u128 *src, le128 *iv);
+asmlinkage void cast6_xts_dec_8way(void *ctx, u128 *dst,
+				   const u128 *src, le128 *iv);
 
 static void cast6_xts_enc(void *ctx, u128 *dst, const u128 *src, le128 *iv)
 {

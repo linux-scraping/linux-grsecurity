@@ -317,7 +317,7 @@ static void p80211netdev_rx_bh(unsigned long arg)
 * Returns:
 *	zero on success, non-zero on failure.
 ----------------------------------------------------------------*/
-static int p80211knetdev_hard_start_xmit(struct sk_buff *skb,
+static netdev_tx_t p80211knetdev_hard_start_xmit(struct sk_buff *skb,
 					 netdevice_t *netdev)
 {
 	int result = 0;

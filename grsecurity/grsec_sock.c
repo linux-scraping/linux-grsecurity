@@ -11,8 +11,8 @@
 #include <linux/grinternal.h>
 #include <linux/gracl.h>
 
-extern int gr_search_udp_recvmsg(const struct sock *sk, const struct sk_buff *skb);
-extern int gr_search_udp_sendmsg(const struct sock *sk, const struct sockaddr_in *addr);
+extern int gr_search_udp_recvmsg(struct sock *sk, const struct sk_buff *skb);
+extern int gr_search_udp_sendmsg(struct sock *sk, struct sockaddr_in *addr);
 
 EXPORT_SYMBOL_GPL(gr_search_udp_recvmsg);
 EXPORT_SYMBOL_GPL(gr_search_udp_sendmsg);

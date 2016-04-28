@@ -596,10 +596,7 @@ int jffs2_do_fill_super(struct super_block *sb, void *data, int silent)
 out_root:
 	jffs2_free_ino_caches(c);
 	jffs2_free_raw_node_refs(c);
-	if (jffs2_blocks_use_vmalloc(c))
-		vfree(c->blocks);
-	else
-		kfree(c->blocks);
+	kvfree(c->blocks);
  out_inohash:
 	jffs2_clear_xattr_subsystem(c);
 	kfree(c->inocache_list);
@@ -689,7 +686,7 @@ unsigned char *jffs2_gc_fetch_page(struct jffs2_sb_info *c,
 	struct page *pg;
 
 	pg = read_cache_page(inode->i_mapping, offset >> PAGE_CACHE_SHIFT,
-			     (void *)jffs2_do_readpage_unlock, inode);
+			     jffs2_do_readpage_unlock, inode);
 	if (IS_ERR(pg))
 		return (void *)pg;
 

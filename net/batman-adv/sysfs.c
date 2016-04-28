@@ -40,6 +40,7 @@
 #include "distributed-arp-table.h"
 #include "gateway_client.h"
 #include "gateway_common.h"
+#include "bridge_loop_avoidance.h"
 #include "hard-interface.h"
 #include "network-coding.h"
 #include "packet.h"
@@ -140,7 +141,7 @@ struct batadv_attribute batadv_attr_##_name = {		\
 
 #define BATADV_ATTR_SIF_STORE_BOOL(_name, _post_func)			\
 ssize_t batadv_store_##_name(struct kobject *kobj,			\
-			     struct attribute *attr, char *buff,	\
+			     struct kobj_attribute *attr, char *buff,	\
 			     size_t count)				\
 {									\
 	struct net_device *net_dev = batadv_kobj_to_netdev(kobj);	\
@@ -152,7 +153,7 @@ ssize_t batadv_store_##_name(struct kobject *kobj,			\
 
 #define BATADV_ATTR_SIF_SHOW_BOOL(_name)				\
 ssize_t batadv_show_##_name(struct kobject *kobj,			\
-			    struct attribute *attr, char *buff)		\
+			    struct kobj_attribute *attr, char *buff)	\
 {									\
 	struct batadv_priv *bat_priv = batadv_kobj_to_batpriv(kobj);	\
 									\
@@ -172,7 +173,7 @@ ssize_t batadv_show_##_name(struct kobject *kobj,			\
 
 #define BATADV_ATTR_SIF_STORE_UINT(_name, _var, _min, _max, _post_func)	\
 ssize_t batadv_store_##_name(struct kobject *kobj,			\
-			     struct attribute *attr, char *buff,	\
+			     struct kobj_attribute *attr, char *buff,	\
 			     size_t count)				\
 {									\
 	struct net_device *net_dev = batadv_kobj_to_netdev(kobj);	\
@@ -185,7 +186,7 @@ ssize_t batadv_store_##_name(struct kobject *kobj,			\
 
 #define BATADV_ATTR_SIF_SHOW_UINT(_name, _var)				\
 ssize_t batadv_show_##_name(struct kobject *kobj,			\
-			    struct attribute *attr, char *buff)		\
+			    struct kobj_attribute *attr, char *buff)	\
 {									\
 	struct batadv_priv *bat_priv = batadv_kobj_to_batpriv(kobj);	\
 									\
@@ -203,7 +204,7 @@ ssize_t batadv_show_##_name(struct kobject *kobj,			\
 
 #define BATADV_ATTR_VLAN_STORE_BOOL(_name, _post_func)			\
 ssize_t batadv_store_vlan_##_name(struct kobject *kobj,			\
-				  struct attribute *attr, char *buff,	\
+				  struct kobj_attribute *attr, char *buff,\
 				  size_t count)				\
 {									\
 	struct batadv_priv *bat_priv = batadv_vlan_kobj_to_batpriv(kobj);\
@@ -219,7 +220,7 @@ ssize_t batadv_store_vlan_##_name(struct kobject *kobj,			\
 
 #define BATADV_ATTR_VLAN_SHOW_BOOL(_name)				\
 ssize_t batadv_show_vlan_##_name(struct kobject *kobj,			\
-				 struct attribute *attr, char *buff)	\
+				 struct kobj_attribute *attr, char *buff)\
 {									\
 	struct batadv_priv *bat_priv = batadv_vlan_kobj_to_batpriv(kobj);\
 	struct batadv_softif_vlan *vlan = batadv_kobj_to_vlan(bat_priv,	\
@@ -241,9 +242,12 @@ ssize_t batadv_show_vlan_##_name(struct kobject *kobj,			\
 
 static int batadv_store_bool_attr(char *buff, size_t count,
 				  struct net_device *net_dev,
-				  const char *attr_name, atomic_t *attr)
+				  const char *attr_name, atomic_t *attr,
+				  bool *changed)
 {
 	int enabled = -1;
+
+	*changed = false;
 
 	if (buff[count - 1] == '\n')
 		buff[count - 1] = '\0';
@@ -271,6 +275,8 @@ static int batadv_store_bool_attr(char *buff, size_t count,
 		    atomic_read(attr) == 1 ? "enabled" : "disabled",
 		    enabled == 1 ? "enabled" : "disabled");
 
+	*changed = true;
+
 	atomic_set(attr, (unsigned int)enabled);
 	return count;
 }
@@ -278,14 +284,15 @@ static int batadv_store_bool_attr(char *buff, size_t count,
 static inline ssize_t
 __batadv_store_bool_attr(char *buff, size_t count,
 			 void (*post_func)(struct net_device *),
-			 struct attribute *attr,
+			 struct kobj_attribute *attr,
 			 atomic_t *attr_store, struct net_device *net_dev)
 {
+	bool changed;
 	int ret;
 
-	ret = batadv_store_bool_attr(buff, count, net_dev, attr->name,
-				     attr_store);
-	if (post_func && ret)
+	ret = batadv_store_bool_attr(buff, count, net_dev, attr->attr.name,
+				     attr_store, &changed);
+	if (post_func && changed)
 		post_func(net_dev);
 
 	return ret;
@@ -333,12 +340,12 @@ static inline ssize_t
 __batadv_store_uint_attr(const char *buff, size_t count,
 			 int min, int max,
 			 void (*post_func)(struct net_device *),
-			 const struct attribute *attr,
+			 const struct kobj_attribute *attr,
 			 atomic_t *attr_store, struct net_device *net_dev)
 {
 	int ret;
 
-	ret = batadv_store_uint_attr(buff, count, net_dev, attr->name, min, max,
+	ret = batadv_store_uint_attr(buff, count, net_dev, attr->attr.name, min, max,
 				     attr_store);
 	if (post_func && ret)
 		post_func(net_dev);
@@ -347,7 +354,7 @@ __batadv_store_uint_attr(const char *buff, size_t count,
 }
 
 static ssize_t batadv_show_bat_algo(struct kobject *kobj,
-				    struct attribute *attr, char *buff)
+				    struct kobj_attribute *attr, char *buff)
 {
 	struct batadv_priv *bat_priv = batadv_kobj_to_batpriv(kobj);
 
@@ -361,7 +368,7 @@ static void batadv_post_gw_reselect(struct net_device *net_dev)
 	batadv_gw_reselect(bat_priv);
 }
 
-static ssize_t batadv_show_gw_mode(struct kobject *kobj, struct attribute *attr,
+static ssize_t batadv_show_gw_mode(struct kobject *kobj, struct kobj_attribute *attr,
 				   char *buff)
 {
 	struct batadv_priv *bat_priv = batadv_kobj_to_batpriv(kobj);
@@ -386,7 +393,7 @@ static ssize_t batadv_show_gw_mode(struct kobject *kobj, struct attribute *attr,
 }
 
 static ssize_t batadv_store_gw_mode(struct kobject *kobj,
-				    struct attribute *attr, char *buff,
+				    struct kobj_attribute *attr, char *buff,
 				    size_t count)
 {
 	struct net_device *net_dev = batadv_kobj_to_netdev(kobj);
@@ -454,7 +461,7 @@ static ssize_t batadv_store_gw_mode(struct kobject *kobj,
 }
 
 static ssize_t batadv_show_gw_bwidth(struct kobject *kobj,
-				     struct attribute *attr, char *buff)
+				     struct kobj_attribute *attr, char *buff)
 {
 	struct batadv_priv *bat_priv = batadv_kobj_to_batpriv(kobj);
 	u32 down, up;
@@ -467,7 +474,7 @@ static ssize_t batadv_show_gw_bwidth(struct kobject *kobj,
 }
 
 static ssize_t batadv_store_gw_bwidth(struct kobject *kobj,
-				      struct attribute *attr, char *buff,
+				      struct kobj_attribute *attr, char *buff,
 				      size_t count)
 {
 	struct net_device *net_dev = batadv_kobj_to_netdev(kobj);
@@ -488,7 +495,7 @@ static ssize_t batadv_store_gw_bwidth(struct kobject *kobj,
  * error code in case of failure
  */
 static ssize_t batadv_show_isolation_mark(struct kobject *kobj,
-					  struct attribute *attr, char *buff)
+					  struct kobj_attribute *attr, char *buff)
 {
 	struct batadv_priv *bat_priv = batadv_kobj_to_batpriv(kobj);
 
@@ -507,7 +514,7 @@ static ssize_t batadv_show_isolation_mark(struct kobject *kobj,
  * Returns 'count' on success or a negative error code in case of failure
  */
 static ssize_t batadv_store_isolation_mark(struct kobject *kobj,
-					   struct attribute *attr, char *buff,
+					   struct kobj_attribute *attr, char *buff,
 					   size_t count)
 {
 	struct net_device *net_dev = batadv_kobj_to_netdev(kobj);
@@ -549,7 +556,8 @@ static ssize_t batadv_store_isolation_mark(struct kobject *kobj,
 BATADV_ATTR_SIF_BOOL(aggregated_ogms, S_IRUGO | S_IWUSR, NULL);
 BATADV_ATTR_SIF_BOOL(bonding, S_IRUGO | S_IWUSR, NULL);
 #ifdef CONFIG_BATMAN_ADV_BLA
-BATADV_ATTR_SIF_BOOL(bridge_loop_avoidance, S_IRUGO | S_IWUSR, NULL);
+BATADV_ATTR_SIF_BOOL(bridge_loop_avoidance, S_IRUGO | S_IWUSR,
+		     batadv_bla_status_update);
 #endif
 #ifdef CONFIG_BATMAN_ADV_DAT
 BATADV_ATTR_SIF_BOOL(distributed_arp_table, S_IRUGO | S_IWUSR,
@@ -745,7 +753,7 @@ void batadv_sysfs_del_vlan(struct batadv_priv *bat_priv,
 }
 
 static ssize_t batadv_show_mesh_iface(struct kobject *kobj,
-				      struct attribute *attr, char *buff)
+				      struct kobj_attribute *attr, char *buff)
 {
 	struct net_device *net_dev = batadv_kobj_to_netdev(kobj);
 	struct batadv_hard_iface *hard_iface;
@@ -769,7 +777,7 @@ static ssize_t batadv_show_mesh_iface(struct kobject *kobj,
 }
 
 static ssize_t batadv_store_mesh_iface(struct kobject *kobj,
-				       struct attribute *attr, char *buff,
+				       struct kobj_attribute *attr, char *buff,
 				       size_t count)
 {
 	struct net_device *net_dev = batadv_kobj_to_netdev(kobj);
@@ -826,7 +834,7 @@ out:
 }
 
 static ssize_t batadv_show_iface_status(struct kobject *kobj,
-					struct attribute *attr, char *buff)
+					struct kobj_attribute *attr, char *buff)
 {
 	struct net_device *net_dev = batadv_kobj_to_netdev(kobj);
 	struct batadv_hard_iface *hard_iface;

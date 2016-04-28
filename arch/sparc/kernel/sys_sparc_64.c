@@ -152,9 +152,9 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr, unsi
 }
 
 unsigned long
-arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
-			  const unsigned long len, const unsigned long pgoff,
-			  const unsigned long flags)
+arch_get_unmapped_area_topdown(struct file *filp, unsigned long addr0,
+			  unsigned long len, unsigned long pgoff,
+			  unsigned long flags)
 {
 	struct vm_area_struct *vma;
 	struct mm_struct *mm = current->mm;
@@ -290,7 +290,7 @@ static unsigned long mmap_rnd(struct mm_struct *mm)
 #endif
 
 	if (current->flags & PF_RANDOMIZE) {
-		unsigned long val = get_random_int();
+		unsigned long val = get_random_long();
 		if (test_thread_flag(TIF_32BIT))
 			rnd = (val % (1UL << (23UL-PAGE_SHIFT)));
 		else

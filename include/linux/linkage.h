@@ -85,6 +85,17 @@
 	ALIGN ASM_NL \
 	name:
 #endif
+
+#ifdef CONFIG_PAX_RAP
+#define RAP_ENTRY(name) \
+  .globl name; \
+  ALIGN; \
+  .quad __rap_hash_##name; \
+  name:
+#else
+#define RAP_ENTRY(name) ENTRY(name)
+#endif
+
 #endif /* LINKER_SCRIPT */
 
 #ifndef WEAK

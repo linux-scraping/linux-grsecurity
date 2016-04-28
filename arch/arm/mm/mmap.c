@@ -108,9 +108,9 @@ arch_get_unmapped_area(struct file *filp, unsigned long addr,
 }
 
 unsigned long
-arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
-			const unsigned long len, const unsigned long pgoff,
-			const unsigned long flags)
+arch_get_unmapped_area_topdown(struct file *filp, unsigned long addr0,
+			unsigned long len, unsigned long pgoff,
+			unsigned long flags)
 {
 	struct vm_area_struct *vma;
 	struct mm_struct *mm = current->mm;
@@ -183,8 +183,7 @@ unsigned long arch_mmap_rnd(void)
 {
 	unsigned long rnd;
 
-	/* 8 bits of randomness in 20 address space bits */
-	rnd = (unsigned long)get_random_int() % (1 << 8);
+	rnd = get_random_long() & ((1UL << mmap_rnd_bits) - 1);
 
 	return rnd << PAGE_SHIFT;
 }

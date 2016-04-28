@@ -385,10 +385,10 @@ static int cvm_oct_napi_poll(struct napi_struct *napi, int budget)
 				*/
 #ifdef CONFIG_64BIT
 				atomic64_add_unchecked(1,
-					     (atomic64_t *)&priv->stats.rx_dropped);
+					     (atomic64_unchecked_t *)&priv->stats.rx_dropped);
 #else
 				atomic_add_unchecked(1,
-					   (atomic_t *)&priv->stats.rx_dropped);
+					   (atomic_unchecked_t *)&priv->stats.rx_dropped);
 #endif
 				dev_kfree_skb_irq(skb);
 			}

@@ -1509,7 +1509,7 @@ static int ntfs_dir_fsync(struct file *filp, loff_t start, loff_t end,
 	err = filemap_write_and_wait_range(vi->i_mapping, start, end);
 	if (err)
 		return err;
-	mutex_lock(&vi->i_mutex);
+	inode_lock(vi);
 
 	BUG_ON(!S_ISDIR(vi->i_mode));
 	/* If the bitmap attribute inode is in memory sync it, too. */
@@ -1517,7 +1517,7 @@ static int ntfs_dir_fsync(struct file *filp, loff_t start, loff_t end,
 	na.type = AT_BITMAP;
 	na.name = I30;
 	na.name_len = 4;
-	bmp_vi = ilookup5(vi->i_sb, vi->i_ino, (test_t)ntfs_test_inode, &na);
+	bmp_vi = ilookup5(vi->i_sb, vi->i_ino, ntfs_test_inode, &na);
 	if (bmp_vi) {
  		write_inode_now(bmp_vi, !datasync);
 		iput(bmp_vi);
@@ -1532,7 +1532,7 @@ static int ntfs_dir_fsync(struct file *filp, loff_t start, loff_t end,
 	else
 		ntfs_warning(vi->i_sb, "Failed to f%ssync inode 0x%lx.  Error "
 				"%u.", datasync ? "data" : "", vi->i_ino, -ret);
-	mutex_unlock(&vi->i_mutex);
+	inode_unlock(vi);
 	return ret;
 }
 

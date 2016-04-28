@@ -137,6 +137,10 @@ static int armada_38x_quirks(struct platform_device *pdev,
 
 	host->quirks &= ~SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN;
 	host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
+
+	host->caps = sdhci_readl(host, SDHCI_CAPABILITIES);
+	host->caps1 = sdhci_readl(host, SDHCI_CAPABILITIES_1);
+
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 					   "conf-sdio3");
 	if (res) {
@@ -150,7 +154,6 @@ static int armada_38x_quirks(struct platform_device *pdev,
 		 * Configuration register, if the adjustment is not done,
 		 * remove them from the capabilities.
 		 */
-		host->caps1 = sdhci_readl(host, SDHCI_CAPABILITIES_1);
 		host->caps1 &= ~(SDHCI_SUPPORT_SDR50 | SDHCI_SUPPORT_DDR50);
 
 		dev_warn(&pdev->dev, "conf-sdio3 register not found: disabling SDR50 and DDR50 modes.\nConsider updating your dtb\n");
@@ -161,7 +164,6 @@ static int armada_38x_quirks(struct platform_device *pdev,
 	 * controller has different capabilities than the ones shown
 	 * in its registers
 	 */
-	host->caps = sdhci_readl(host, SDHCI_CAPABILITIES);
 	if (of_property_read_bool(np, "no-1-8-v")) {
 		host->caps &= ~SDHCI_CAN_VDD_180;
 		host->mmc->caps &= ~MMC_CAP_1_8V_DDR;
@@ -307,8 +309,30 @@ static void pxav3_set_uhs_signaling(struct sdhci_host *host, unsigned int uhs)
 		__func__, uhs, ctrl_2);
 }
 
+static void pxav3_set_power(struct sdhci_host *host, unsigned char mode,
+			    unsigned short vdd)
+{
+	struct mmc_host *mmc = host->mmc;
+	u8 pwr = host->pwr;
+
+	sdhci_set_power(host, mode, vdd);
+
+	if (host->pwr == pwr)
+		return;
+
+	if (host->pwr == 0)
+		vdd = 0;
+
+	if (!IS_ERR(mmc->supply.vmmc)) {
+		spin_unlock_irq(&host->lock);
+		mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, vdd);
+		spin_lock_irq(&host->lock);
+	}
+}
+
 static const struct sdhci_ops pxav3_sdhci_ops = {
 	.set_clock = sdhci_set_clock,
+	.set_power = pxav3_set_power,
 	.platform_send_init_74_clocks = pxav3_gen_init_74_clocks,
 	.get_max_clock = sdhci_pltfm_clk_get_max_clock,
 	.set_bus_width = sdhci_set_bus_width,

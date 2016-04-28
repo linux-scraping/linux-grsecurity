@@ -645,7 +645,7 @@ static int serial_struct_ioctl(struct file *file,
 		if (copy_in_user(ss, ss32, offsetof(SS32, iomem_base)) ||
 		    get_user(udata, &ss32->iomem_base))
 			return -EFAULT;
-		iomem_base = compat_ptr(udata);
+		iomem_base = (unsigned char __force_kernel *)compat_ptr(udata);
 		if (put_user(iomem_base, &ss->iomem_base) ||
 		    convert_in_user(&ss32->iomem_reg_shift,
 		      &ss->iomem_reg_shift) ||
@@ -1261,6 +1261,9 @@ COMPATIBLE_IOCTL(HCIUNBLOCKADDR)
 COMPATIBLE_IOCTL(HCIINQUIRY)
 COMPATIBLE_IOCTL(HCIUARTSETPROTO)
 COMPATIBLE_IOCTL(HCIUARTGETPROTO)
+COMPATIBLE_IOCTL(HCIUARTGETDEVICE)
+COMPATIBLE_IOCTL(HCIUARTSETFLAGS)
+COMPATIBLE_IOCTL(HCIUARTGETFLAGS)
 COMPATIBLE_IOCTL(RFCOMMCREATEDEV)
 COMPATIBLE_IOCTL(RFCOMMRELEASEDEV)
 COMPATIBLE_IOCTL(RFCOMMGETDEVLIST)
@@ -1305,12 +1308,6 @@ COMPATIBLE_IOCTL(PCIIOC_CONTROLLER)
 COMPATIBLE_IOCTL(PCIIOC_MMAP_IS_IO)
 COMPATIBLE_IOCTL(PCIIOC_MMAP_IS_MEM)
 COMPATIBLE_IOCTL(PCIIOC_WRITE_COMBINE)
-/* NBD */
-COMPATIBLE_IOCTL(NBD_DO_IT)
-COMPATIBLE_IOCTL(NBD_CLEAR_SOCK)
-COMPATIBLE_IOCTL(NBD_CLEAR_QUE)
-COMPATIBLE_IOCTL(NBD_PRINT_DEBUG)
-COMPATIBLE_IOCTL(NBD_DISCONNECT)
 /* i2c */
 COMPATIBLE_IOCTL(I2C_SLAVE)
 COMPATIBLE_IOCTL(I2C_SLAVE_FORCE)
@@ -1529,11 +1526,6 @@ static long do_ioctl_trans(unsigned int cmd,
 	case KDSKBMETA:
 	case KDSKBLED:
 	case KDSETLED:
-	/* NBD */
-	case NBD_SET_SOCK:
-	case NBD_SET_BLKSIZE:
-	case NBD_SET_SIZE:
-	case NBD_SET_SIZE_BLOCKS:
 		return vfs_ioctl(file, cmd, arg);
 	}
 
@@ -1600,6 +1592,11 @@ COMPAT_SYSCALL_DEFINE3(ioctl, unsigned int, fd, unsigned int, cmd,
 		error = ioctl_preallocate(f.file, compat_ptr(arg));
 		goto out_fput;
 #endif
+
+	case FICLONE:
+	case FICLONERANGE:
+	case FIDEDUPERANGE:
+		goto do_ioctl;
 
 	case FIBMAP:
 	case FIGETBSZ:

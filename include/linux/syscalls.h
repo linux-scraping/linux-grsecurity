@@ -197,16 +197,17 @@ extern struct trace_event_functions exit_syscall_print_funcs;
 
 #define __PROTECT(...) asmlinkage_protect(__VA_ARGS__)
 #define __SYSCALL_DEFINEx(x, name, ...)					\
-	asmlinkage long sys##name(__MAP(x,__SC_DECL,__VA_ARGS__))	\
-		__attribute__((alias(__stringify(SyS##name))));		\
 	static inline long SYSC##name(__MAP(x,__SC_DECL,__VA_ARGS__));	\
-	asmlinkage long SyS##name(__MAP(x,__SC_LONG,__VA_ARGS__));	\
-	asmlinkage long SyS##name(__MAP(x,__SC_LONG,__VA_ARGS__))	\
+	static inline asmlinkage long SyS##name(__MAP(x,__SC_LONG,__VA_ARGS__))	\
 	{								\
 		long ret = SYSC##name(__MAP(x,__SC_CAST,__VA_ARGS__));	\
 		__MAP(x,__SC_TEST,__VA_ARGS__);				\
 		__PROTECT(x, ret,__MAP(x,__SC_ARGS,__VA_ARGS__));	\
 		return ret;						\
+	}								\
+	asmlinkage long sys##name(__MAP(x,__SC_DECL,__VA_ARGS__))	\
+	{								\
+		return SyS##name(__MAP(x,__SC_ARGS,__VA_ARGS__));	\
 	}								\
 	static inline long SYSC##name(__MAP(x,__SC_DECL,__VA_ARGS__))
 
@@ -705,7 +706,7 @@ asmlinkage long sys_sysfs(int option,
 				unsigned long arg1, unsigned long arg2);
 asmlinkage long sys_syslog(int type, char __user *buf, int len);
 asmlinkage long sys_uselib(const char __user *library);
-asmlinkage long sys_ni_syscall(void);
+asmlinkage long sys_ni_syscall(unsigned long, unsigned long, unsigned long, unsigned long, unsigned long, unsigned long);
 asmlinkage long sys_ptrace(long request, long pid, unsigned long addr,
 			   unsigned long data);
 
@@ -891,6 +892,9 @@ asmlinkage long sys_execveat(int dfd, const char __user *filename,
 			const char __user *const __user *envp, int flags);
 
 asmlinkage long sys_membarrier(int cmd, int flags);
+asmlinkage long sys_copy_file_range(int fd_in, loff_t __user *off_in,
+				    int fd_out, loff_t __user *off_out,
+				    size_t len, unsigned int flags);
 
 asmlinkage long sys_mlock2(unsigned long start, size_t len, int flags);
 

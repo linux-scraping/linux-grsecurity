@@ -1,9 +1,10 @@
 /*
- * Copyright (c) 2005-2010 Brocade Communications Systems, Inc.
+ * Copyright (c) 2005-2014 Brocade Communications Systems, Inc.
+ * Copyright (c) 2014- QLogic Corporation.
  * All rights reserved
- * www.brocade.com
+ * www.qlogic.com
  *
- * Linux driver for Brocade Fibre Channel Host Bus Adapter.
+ * Linux driver for QLogic BR-series Fibre Channel Host Bus Adapter.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (GPL) Version 2 as
@@ -2664,7 +2665,7 @@ bfa_fcs_fdmi_get_hbaattr(struct bfa_fcs_lport_fdmi_s *fdmi,
 
 	strncpy(hba_attr->node_sym_name.symname,
 		port->port_cfg.node_sym_name.symname, BFA_SYMNAME_MAXLEN);
-	strcpy(hba_attr->vendor_info, "BROCADE");
+	strcpy(hba_attr->vendor_info, "QLogic");
 	hba_attr->num_ports =
 		cpu_to_be32(bfa_ioc_get_nports(&port->fcs->bfa->ioc));
 	hba_attr->fabric_name = port->fabric->lps->pr_nwwn;
@@ -6050,7 +6051,7 @@ static void	bfa_fcs_vport_sm_stopping(struct bfa_fcs_vport_s *vport,
 static void	bfa_fcs_vport_sm_logo_for_stop(struct bfa_fcs_vport_s *vport,
 					enum bfa_fcs_vport_event event);
 
-static struct bfa_sm_table_s  vport_sm_table[] = {
+static struct vport_sm_table_s vport_sm_table[] = {
 	{BFA_SM(bfa_fcs_vport_sm_uninit), BFA_FCS_VPORT_UNINIT},
 	{BFA_SM(bfa_fcs_vport_sm_created), BFA_FCS_VPORT_CREATED},
 	{BFA_SM(bfa_fcs_vport_sm_offline), BFA_FCS_VPORT_OFFLINE},
@@ -6881,7 +6882,7 @@ bfa_fcs_vport_get_attr(struct bfa_fcs_vport_s *vport,
 	memset(attr, 0, sizeof(struct bfa_vport_attr_s));
 
 	bfa_fcs_lport_get_attr(&vport->lport, &attr->port_attr);
-	attr->vport_state = bfa_sm_to_state(vport_sm_table, vport->sm);
+	attr->vport_state = vport_sm_to_state(vport_sm_table, vport->sm);
 }
 
 

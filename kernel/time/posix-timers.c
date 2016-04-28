@@ -204,7 +204,7 @@ static inline void unlock_timer(struct k_itimer *timr, unsigned long flags)
 }
 
 /* Get clock_realtime */
-static int posix_clock_realtime_get(clockid_t which_clock, struct timespec *tp)
+static int posix_clock_realtime_get(const clockid_t which_clock, struct timespec *tp)
 {
 	ktime_get_real_ts(tp);
 	return 0;
@@ -226,7 +226,7 @@ static int posix_clock_realtime_adj(const clockid_t which_clock,
 /*
  * Get monotonic time for posix timers
  */
-static int posix_ktime_get_ts(clockid_t which_clock, struct timespec *tp)
+static int posix_ktime_get_ts(const clockid_t which_clock, struct timespec *tp)
 {
 	ktime_get_ts(tp);
 	return 0;
@@ -235,20 +235,20 @@ static int posix_ktime_get_ts(clockid_t which_clock, struct timespec *tp)
 /*
  * Get monotonic-raw time for posix timers
  */
-static int posix_get_monotonic_raw(clockid_t which_clock, struct timespec *tp)
+static int posix_get_monotonic_raw(const clockid_t which_clock, struct timespec *tp)
 {
 	getrawmonotonic(tp);
 	return 0;
 }
 
 
-static int posix_get_realtime_coarse(clockid_t which_clock, struct timespec *tp)
+static int posix_get_realtime_coarse(const clockid_t which_clock, struct timespec *tp)
 {
 	*tp = current_kernel_time();
 	return 0;
 }
 
-static int posix_get_monotonic_coarse(clockid_t which_clock,
+static int posix_get_monotonic_coarse(const clockid_t which_clock,
 						struct timespec *tp)
 {
 	*tp = get_monotonic_coarse();
@@ -267,7 +267,7 @@ static int posix_get_boottime(const clockid_t which_clock, struct timespec *tp)
 	return 0;
 }
 
-static int posix_get_tai(clockid_t which_clock, struct timespec *tp)
+static int posix_get_tai(const clockid_t which_clock, struct timespec *tp)
 {
 	timekeeping_clocktai(tp);
 	return 0;

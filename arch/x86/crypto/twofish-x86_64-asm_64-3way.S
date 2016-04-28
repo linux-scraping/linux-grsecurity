@@ -275,7 +275,7 @@ ENTRY(__twofish_enc_blk_3way)
 	ret;
 ENDPROC(__twofish_enc_blk_3way)
 
-ENTRY(twofish_dec_blk_3way)
+RAP_ENTRY(twofish_dec_blk_3way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst

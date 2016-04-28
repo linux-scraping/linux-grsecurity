@@ -226,7 +226,7 @@ static ssize_t show_reconnect_delay(struct device *dev,
 
 static ssize_t store_reconnect_delay(struct device *dev,
 				     struct device_attribute *attr,
-				     const char *buf, const size_t count)
+				     const char *buf, size_t count)
 {
 	struct srp_rport *rport = transport_class_to_srp_rport(dev);
 	int res, delay;

@@ -181,7 +181,7 @@ GLOBAL(ftrace_graph_call)
 	jmp ftrace_stub
 #endif
 
-GLOBAL(ftrace_stub)
+RAP_ENTRY(ftrace_stub)
 	pax_force_retaddr
 	retq
 ENDPROC(ftrace_caller)

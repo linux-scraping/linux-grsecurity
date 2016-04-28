@@ -475,7 +475,7 @@ static void stop_pci_io(struct octeon_device *oct)
  * this device has been detected.
  */
 static pci_ers_result_t liquidio_pcie_error_detected(struct pci_dev *pdev,
-						     pci_channel_state_t state)
+						     enum pci_channel_state state)
 {
 	struct octeon_device *oct = pci_get_drvdata(pdev);
 
@@ -1526,7 +1526,6 @@ static int liquidio_ptp_gettime(struct ptp_clock_info *ptp,
 				struct timespec64 *ts)
 {
 	u64 ns;
-	u32 remainder;
 	unsigned long flags;
 	struct lio *lio = container_of(ptp, struct lio, ptp_info);
 	struct octeon_device *oct = (struct octeon_device *)lio->oct_dev;
@@ -1536,8 +1535,7 @@ static int liquidio_ptp_gettime(struct ptp_clock_info *ptp,
 	ns += lio->ptp_adjust;
 	spin_unlock_irqrestore(&lio->ptp_lock, flags);
 
-	ts->tv_sec = div_u64_rem(ns, 1000000000ULL, &remainder);
-	ts->tv_nsec = remainder;
+	*ts = ns_to_timespec64(ns);
 
 	return 0;
 }
@@ -1685,7 +1683,7 @@ static int octeon_setup_droq(struct octeon_device *oct, int q_no, int num_descs,
 	dev_dbg(&oct->pci_dev->dev, "Creating Droq: %d\n", q_no);
 	/* droq creation and local register settings. */
 	ret_val = octeon_create_droq(oct, q_no, num_descs, desc_size, app_ctx);
-	if (ret_val == -1)
+	if (ret_val < 0)
 		return ret_val;
 
 	if (ret_val == 1) {
@@ -2526,7 +2524,7 @@ static void handle_timestamp(struct octeon_device *oct,
 
 	octeon_swap_8B_data(&resp->timestamp, 1);
 
-	if (unlikely((skb_shinfo(skb)->tx_flags | SKBTX_IN_PROGRESS) != 0)) {
+	if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS) != 0)) {
 		struct skb_shared_hwtstamps ts;
 		u64 ns = resp->timestamp;
 
@@ -2664,7 +2662,7 @@ static inline u32 get_ipv6_5tuple_tag(struct sk_buff *skb)
  * @returns whether the packet was transmitted to the device okay or not
  *             (NETDEV_TX_OK or NETDEV_TX_BUSY)
  */
-static int liquidio_xmit(struct sk_buff *skb, struct net_device *netdev)
+static netdev_tx_t liquidio_xmit(struct sk_buff *skb, struct net_device *netdev)
 {
 	struct lio *lio;
 	struct octnet_buf_free_info *finfo;

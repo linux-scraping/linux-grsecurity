@@ -505,7 +505,7 @@ static void cdv_intel_edp_backlight_off (struct gma_encoder *intel_encoder)
 	msleep(intel_dp->backlight_off_delay);
 }
 
-static int
+static enum drm_mode_status
 cdv_intel_dp_mode_valid(struct drm_connector *connector,
 		    struct drm_display_mode *mode)
 {
@@ -2020,7 +2020,8 @@ cdv_intel_dp_init(struct drm_device *dev, struct psb_intel_mode_device *mode_dev
 	encoder = &gma_encoder->base;
 
 	drm_connector_init(dev, connector, &cdv_intel_dp_connector_funcs, type);
-	drm_encoder_init(dev, encoder, &cdv_intel_dp_enc_funcs, DRM_MODE_ENCODER_TMDS);
+	drm_encoder_init(dev, encoder, &cdv_intel_dp_enc_funcs,
+			 DRM_MODE_ENCODER_TMDS, NULL);
 
 	gma_connector_attach_encoder(gma_connector, gma_encoder);
 

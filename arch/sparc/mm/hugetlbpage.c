@@ -61,11 +61,11 @@ static unsigned long hugetlb_get_unmapped_area_bottomup(struct file *filp,
 }
 
 static unsigned long
-hugetlb_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
-				  const unsigned long len,
-				  const unsigned long pgoff,
-				  const unsigned long flags,
-				  const unsigned long offset)
+hugetlb_get_unmapped_area_topdown(struct file *filp, unsigned long addr0,
+				  unsigned long len,
+				  unsigned long pgoff,
+				  unsigned long flags,
+				  unsigned long offset)
 {
 	struct mm_struct *mm = current->mm;
 	unsigned long addr = addr0;

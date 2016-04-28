@@ -962,6 +962,19 @@ config PAX_LATENT_ENTROPY
 	  Note that entropy extracted this way is not cryptographically
 	  secure!
 
+config PAX_RAP
+	bool "Prevent code reuse attacks"
+	depends on X86_64
+	default y if GRKERNSEC_CONFIG_AUTO
+	help
+	  By saying Y here the kernel will check indirect control transfers
+	  in order to detect and prevent attacks that try to hijack control
+	  flow by overwriting code pointers.
+
+	  Note that the implementation requires a gcc with plugin support,
+	  i.e., gcc 4.5 or newer.  You may need to install the supporting
+	  headers explicitly in addition to the normal gcc package.
+
 endmenu
 
 endmenu

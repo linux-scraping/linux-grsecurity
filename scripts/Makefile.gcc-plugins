@@ -1,4 +1,3 @@
-ifndef DISABLE_PAX_PLUGINS
 __PLUGINCC := $(call cc-ifversion, -ge, 0408, $(HOSTCXX), $(HOSTCC))
 PLUGINCC := $(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-plugin.sh "$(__PLUGINCC)" "$(HOSTCXX)" "$(CC)")
 ifneq ($(PLUGINCC),)
@@ -16,12 +15,6 @@ ifdef CONFIG_PAX_KERNEXEC_PLUGIN
 KERNEXEC_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/kernexec_plugin.so
 KERNEXEC_PLUGIN_CFLAGS += -fplugin-arg-kernexec_plugin-method=$(CONFIG_PAX_KERNEXEC_PLUGIN_METHOD) -DKERNEXEC_PLUGIN
 KERNEXEC_PLUGIN_AFLAGS := -DKERNEXEC_PLUGIN
-endif
-ifdef CONFIG_GRKERNSEC_RANDSTRUCT
-RANDSTRUCT_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/randomize_layout_plugin.so -DRANDSTRUCT_PLUGIN
-ifdef CONFIG_GRKERNSEC_RANDSTRUCT_PERFORMANCE
-RANDSTRUCT_PLUGIN_CFLAGS += -fplugin-arg-randomize_layout_plugin-performance-mode
-endif
 endif
 ifdef CONFIG_CHECKER_PLUGIN
 ifeq ($(call cc-ifversion, -ge, 0406, y), y)
@@ -45,13 +38,19 @@ ifdef CONFIG_PAX_MEMORY_STRUCTLEAK
 STRUCTLEAK_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/structleak_plugin.so -DSTRUCTLEAK_PLUGIN
 endif
 INITIFY_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/initify_plugin.so -DINITIFY_PLUGIN
+ifdef CONFIG_PAX_RAP
+RAP_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/rap_plugin/rap_plugin.so -fplugin-arg-rap_plugin-check=call -DRAP_PLUGIN
+#RAP_PLUGIN_CFLAGS += -fplugin-arg-rap_plugin-report=func,fptr,abs
+RAP_PLUGIN_ABS_CFLAGS := -fplugin-arg-rap_plugin-hash=abs-finish
+RAP_PLUGIN_AFLAGS := -DRAP_PLUGIN
+endif
 GCC_PLUGINS_CFLAGS := $(CONSTIFY_PLUGIN_CFLAGS) $(STACKLEAK_PLUGIN_CFLAGS) $(KALLOCSTAT_PLUGIN_CFLAGS)
 GCC_PLUGINS_CFLAGS += $(KERNEXEC_PLUGIN_CFLAGS) $(CHECKER_PLUGIN_CFLAGS) $(COLORIZE_PLUGIN_CFLAGS)
 GCC_PLUGINS_CFLAGS += $(SIZE_OVERFLOW_PLUGIN_CFLAGS) $(LATENT_ENTROPY_PLUGIN_CFLAGS) $(STRUCTLEAK_PLUGIN_CFLAGS)
 GCC_PLUGINS_CFLAGS += $(INITIFY_PLUGIN_CFLAGS)
-GCC_PLUGINS_CFLAGS += $(RANDSTRUCT_PLUGIN_CFLAGS)
-GCC_PLUGINS_AFLAGS := $(KERNEXEC_PLUGIN_AFLAGS)
-export PLUGINCC GCC_PLUGINS_CFLAGS GCC_PLUGINS_AFLAGS CONSTIFY_PLUGIN LATENT_ENTROPY_PLUGIN_CFLAGS
+GCC_PLUGINS_CFLAGS += $(RAP_PLUGIN_CFLAGS) $(RAP_PLUGIN_ABS_CFLAGS)
+GCC_PLUGINS_AFLAGS := $(KERNEXEC_PLUGIN_AFLAGS) $(RAP_PLUGIN_AFLAGS)
+export PLUGINCC GCC_PLUGINS_CFLAGS GCC_PLUGINS_AFLAGS CONSTIFY_PLUGIN LATENT_ENTROPY_PLUGIN_CFLAGS RAP_PLUGIN_CFLAGS RAP_PLUGIN_ABS_CFLAGS
 ifeq ($(KBUILD_EXTMOD),)
 gcc-plugins:
 	$(Q)$(MAKE) $(build)=tools/gcc
@@ -61,12 +60,10 @@ endif
 else
 gcc-plugins:
 ifeq ($(call cc-ifversion, -ge, 0405, y), y)
-	$(error Your gcc installation does not support plugins.  If the necessary headers for plugin support are missing, they should be installed.  On Debian, apt-get install gcc-<ver>-plugin-dev.  If you choose to ignore this error and lessen the improvements provided by this patch, re-run make with the DISABLE_PAX_PLUGINS=y argument.)
+	$(warning warning, your gcc installation does not support plugins, perhaps the necessary headers are missing?)
 	$(CONFIG_SHELL) -x $(srctree)/scripts/gcc-plugin.sh "$(__PLUGINCC)" "$(HOSTCXX)" "$(CC)"
 else
-	$(warning Warning, your gcc version does not support plugins, you should upgrade it to gcc 4.5 at least.)
+	$(warning warning, your gcc version does not support plugins, you should upgrade it to gcc 4.5 at least)
 endif
-	$(warning PAX_MEMORY_STACKLEAK, constification, PAX_LATENT_ENTROPY and other features will be less secure.  PAX_SIZE_OVERFLOW will not be active.)
+	$(warning PAX_MEMORY_STACKLEAK and other features will be less secure)
 endif
-endif
-

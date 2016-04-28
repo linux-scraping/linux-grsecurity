@@ -13,7 +13,7 @@
 
 static struct nls_table *p_nls;
 
-static int uni2char(const wchar_t uni,
+static int uni2char(wchar_t uni,
 		    unsigned char *out, int boundlen)
 {
 	if (boundlen <= 0)

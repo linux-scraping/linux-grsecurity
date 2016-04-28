@@ -330,7 +330,7 @@ __twofish_dec_blk8:
 	ret;
 ENDPROC(__twofish_dec_blk8)
 
-ENTRY(twofish_ecb_enc_8way)
+RAP_ENTRY(twofish_ecb_enc_8way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -349,7 +349,7 @@ ENTRY(twofish_ecb_enc_8way)
 	ret;
 ENDPROC(twofish_ecb_enc_8way)
 
-ENTRY(twofish_ecb_dec_8way)
+RAP_ENTRY(twofish_ecb_dec_8way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -368,7 +368,7 @@ ENTRY(twofish_ecb_dec_8way)
 	ret;
 ENDPROC(twofish_ecb_dec_8way)
 
-ENTRY(twofish_cbc_dec_8way)
+RAP_ENTRY(twofish_cbc_dec_8way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -392,7 +392,7 @@ ENTRY(twofish_cbc_dec_8way)
 	ret;
 ENDPROC(twofish_cbc_dec_8way)
 
-ENTRY(twofish_ctr_8way)
+RAP_ENTRY(twofish_ctr_8way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -418,7 +418,7 @@ ENTRY(twofish_ctr_8way)
 	ret;
 ENDPROC(twofish_ctr_8way)
 
-ENTRY(twofish_xts_enc_8way)
+RAP_ENTRY(twofish_xts_enc_8way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst
@@ -441,7 +441,7 @@ ENTRY(twofish_xts_enc_8way)
 	ret;
 ENDPROC(twofish_xts_enc_8way)
 
-ENTRY(twofish_xts_dec_8way)
+RAP_ENTRY(twofish_xts_dec_8way)
 	/* input:
 	 *	%rdi: ctx, CTX
 	 *	%rsi: dst

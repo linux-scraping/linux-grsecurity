@@ -72,7 +72,8 @@
  * param: function's name
  */
 .macro SHA1_VECTOR_ASM  name
-	ENTRY(\name)
+ALIGN
+	RAP_ENTRY(\name)
 
 	push	%rbx
 	push	%rbp

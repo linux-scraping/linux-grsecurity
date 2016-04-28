@@ -470,6 +470,11 @@ fail:
 	return ret;
 }
 
+static int readpage_filler(struct file *data, struct page *page)
+{
+	return readpage_strip(data, page);
+}
+
 static int exofs_readpages(struct file *file, struct address_space *mapping,
 			   struct list_head *pages, unsigned nr_pages)
 {
@@ -478,7 +483,7 @@ static int exofs_readpages(struct file *file, struct address_space *mapping,
 
 	_pcol_init(&pcol, nr_pages, mapping->host);
 
-	ret = read_cache_pages(mapping, pages, readpage_strip, &pcol);
+	ret = read_cache_pages(mapping, pages, readpage_filler, &pcol);
 	if (ret) {
 		EXOFS_ERR("read_cache_pages => %d\n", ret);
 		return ret;
@@ -1224,6 +1229,7 @@ struct inode *exofs_iget(struct super_block *sb, unsigned long ino)
 			inode->i_link = (char *)oi->i_data;
 		} else {
 			inode->i_op = &page_symlink_inode_operations;
+			inode_nohighmem(inode);
 			inode->i_mapping->a_ops = &exofs_aops;
 		}
 	} else {

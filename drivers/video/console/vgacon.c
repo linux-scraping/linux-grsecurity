@@ -1411,24 +1411,33 @@ static int vgacon_scroll(struct vc_data *c, int t, int b, int dir,
  *  The console `switch' structure for the VGA based console
  */
 
-static int vgacon_dummy(struct vc_data *c)
+static void vgacon_clear(struct vc_data *vc, int a, int b, int c, int d)
 {
-	return 0;
 }
 
-#define DUMMY (void *) vgacon_dummy
+static void vgacon_putc(struct vc_data *vc, int a, int b, int c)
+{
+}
+
+static void vgacon_putcs(struct vc_data *vc, const unsigned short *a, int b, int c, int d)
+{
+}
+
+static void vgacon_bmove(struct vc_data *vc, int a, int b, int c, int d, int e, int f)
+{
+}
 
 const struct consw vga_con = {
 	.owner = THIS_MODULE,
 	.con_startup = vgacon_startup,
 	.con_init = vgacon_init,
 	.con_deinit = vgacon_deinit,
-	.con_clear = DUMMY,
-	.con_putc = DUMMY,
-	.con_putcs = DUMMY,
+	.con_clear = vgacon_clear,
+	.con_putc = vgacon_putc,
+	.con_putcs = vgacon_putcs,
 	.con_cursor = vgacon_cursor,
 	.con_scroll = vgacon_scroll,
-	.con_bmove = DUMMY,
+	.con_bmove = vgacon_bmove,
 	.con_switch = vgacon_switch,
 	.con_blank = vgacon_blank,
 	.con_font_set = vgacon_font_set,

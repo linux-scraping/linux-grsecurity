@@ -172,8 +172,10 @@ static int __init ircomm_tty_init(void)
 	return 0;
 }
 
-static void __exit __ircomm_tty_cleanup(struct ircomm_tty_cb *self)
+static void __exit __ircomm_tty_cleanup(void *_self)
 {
+	struct ircomm_tty_cb *self = _self;
+
 	IRDA_ASSERT(self != NULL, return;);
 	IRDA_ASSERT(self->magic == IRCOMM_TTY_MAGIC, return;);
 
@@ -201,7 +203,7 @@ static void __exit ircomm_tty_cleanup(void)
 		return;
 	}
 
-	hashbin_delete(ircomm_tty, (FREE_FUNC) __ircomm_tty_cleanup);
+	hashbin_delete(ircomm_tty, __ircomm_tty_cleanup);
 	put_tty_driver(driver);
 }
 

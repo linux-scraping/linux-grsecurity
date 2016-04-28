@@ -39,10 +39,10 @@ int jffs2_fsync(struct file *filp, loff_t start, loff_t end, int datasync)
 	if (ret)
 		return ret;
 
-	mutex_lock(&inode->i_mutex);
+	inode_lock(inode);
 	/* Trigger GC to flush any pending writes for this inode */
 	jffs2_flush_wbuf_gc(c, inode->i_ino);
-	mutex_unlock(&inode->i_mutex);
+	inode_unlock(inode);
 
 	return 0;
 }
@@ -111,8 +111,9 @@ static int jffs2_do_readpage_nolock (struct inode *inode, struct page *pg)
 	return ret;
 }
 
-int jffs2_do_readpage_unlock(struct inode *inode, struct page *pg)
+int jffs2_do_readpage_unlock(struct file *_inode, struct page *pg)
 {
+	struct inode *inode = (struct inode *)_inode;
 	int ret = jffs2_do_readpage_nolock(inode, pg);
 	unlock_page(pg);
 	return ret;

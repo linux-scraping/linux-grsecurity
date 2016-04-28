@@ -31,7 +31,7 @@ s32	rtl8188eu_init_xmit_priv(struct adapter *adapt)
 	struct xmit_priv	*pxmitpriv = &adapt->xmitpriv;
 
 	tasklet_init(&pxmitpriv->xmit_tasklet,
-		     (void(*)(unsigned long))rtl8188eu_xmit_tasklet,
+		     rtl8188eu_xmit_tasklet,
 		     (unsigned long)adapt);
 	return _SUCCESS;
 }
@@ -463,30 +463,26 @@ s32 rtl8188eu_xmitframe_complete(struct adapter *adapt, struct xmit_priv *pxmitp
 	}
 
 	/* 3 1. pick up first frame */
-	do {
-		rtw_free_xmitframe(pxmitpriv, pxmitframe);
+	rtw_free_xmitframe(pxmitpriv, pxmitframe);
 
-		pxmitframe = rtw_dequeue_xframe(pxmitpriv, pxmitpriv->hwxmits, pxmitpriv->hwxmit_entry);
-		if (pxmitframe == NULL) {
-			/*  no more xmit frame, release xmit buffer */
-			rtw_free_xmitbuf(pxmitpriv, pxmitbuf);
-			return false;
-		}
+	pxmitframe = rtw_dequeue_xframe(pxmitpriv, pxmitpriv->hwxmits, pxmitpriv->hwxmit_entry);
+	if (pxmitframe == NULL) {
+		/*  no more xmit frame, release xmit buffer */
+		rtw_free_xmitbuf(pxmitpriv, pxmitbuf);
+		return false;
+	}
 
-		pxmitframe->pxmitbuf = pxmitbuf;
-		pxmitframe->buf_addr = pxmitbuf->pbuf;
-		pxmitbuf->priv_data = pxmitframe;
+	pxmitframe->pxmitbuf = pxmitbuf;
+	pxmitframe->buf_addr = pxmitbuf->pbuf;
+	pxmitbuf->priv_data = pxmitframe;
 
-		pxmitframe->agg_num = 1; /*  alloc xmitframe should assign to 1. */
-		pxmitframe->pkt_offset = 1; /*  first frame of aggregation, reserve offset */
+	pxmitframe->agg_num = 1; /*  alloc xmitframe should assign to 1. */
+	pxmitframe->pkt_offset = 1; /*  first frame of aggregation, reserve offset */
 
-		rtw_xmitframe_coalesce(adapt, pxmitframe->pkt, pxmitframe);
+	rtw_xmitframe_coalesce(adapt, pxmitframe->pkt, pxmitframe);
 
-		/*  always return ndis_packet after rtw_xmitframe_coalesce */
-		rtw_os_xmit_complete(adapt, pxmitframe);
-
-		break;
-	} while (1);
+	/*  always return ndis_packet after rtw_xmitframe_coalesce */
+	rtw_os_xmit_complete(adapt, pxmitframe);
 
 	/* 3 2. aggregate same priority and same DA(AP or STA) frames */
 	pfirstframe = pxmitframe;

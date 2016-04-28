@@ -138,22 +138,22 @@ static int __oprofilefs_create_file(struct dentry *root, char const *name,
 	struct dentry *dentry;
 	struct inode *inode;
 
-	mutex_lock(&d_inode(root)->i_mutex);
+	inode_lock(d_inode(root));
 	dentry = d_alloc_name(root, name);
 	if (!dentry) {
-		mutex_unlock(&d_inode(root)->i_mutex);
+		inode_unlock(d_inode(root));
 		return -ENOMEM;
 	}
 	inode = oprofilefs_get_inode(root->d_sb, S_IFREG | perm);
 	if (!inode) {
 		dput(dentry);
-		mutex_unlock(&d_inode(root)->i_mutex);
+		inode_unlock(d_inode(root));
 		return -ENOMEM;
 	}
 	inode->i_fop = fops;
 	inode->i_private = priv;
 	d_add(dentry, inode);
-	mutex_unlock(&d_inode(root)->i_mutex);
+	inode_unlock(d_inode(root));
 	return 0;
 }
 
@@ -176,8 +176,8 @@ int oprofilefs_create_ro_ulong(struct dentry *root,
 
 static ssize_t atomic_read_file(struct file *file, char __user *buf, size_t count, loff_t *offset)
 {
-	atomic_unchecked_t *val = file->private_data;
-	return oprofilefs_ulong_to_user(atomic_read_unchecked(val), buf, count, offset);
+	atomic_t *val = file->private_data;
+	return oprofilefs_ulong_to_user(atomic_read(val), buf, count, offset);
 }
 
 
@@ -215,22 +215,22 @@ struct dentry *oprofilefs_mkdir(struct dentry *parent, char const *name)
 	struct dentry *dentry;
 	struct inode *inode;
 
-	mutex_lock(&d_inode(parent)->i_mutex);
+	inode_lock(d_inode(parent));
 	dentry = d_alloc_name(parent, name);
 	if (!dentry) {
-		mutex_unlock(&d_inode(parent)->i_mutex);
+		inode_unlock(d_inode(parent));
 		return NULL;
 	}
 	inode = oprofilefs_get_inode(parent->d_sb, S_IFDIR | 0755);
 	if (!inode) {
 		dput(dentry);
-		mutex_unlock(&d_inode(parent)->i_mutex);
+		inode_unlock(d_inode(parent));
 		return NULL;
 	}
 	inode->i_op = &simple_dir_inode_operations;
 	inode->i_fop = &simple_dir_operations;
 	d_add(dentry, inode);
-	mutex_unlock(&d_inode(parent)->i_mutex);
+	inode_unlock(d_inode(parent));
 	return dentry;
 }
 

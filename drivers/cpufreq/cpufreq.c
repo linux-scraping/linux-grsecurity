@@ -48,11 +48,11 @@ static struct cpufreq_policy *next_policy(struct cpufreq_policy *policy,
 					  bool active)
 {
 	do {
-		policy = list_next_entry(policy, policy_list);
-
 		/* No more policies in the list */
-		if (&policy->policy_list == &cpufreq_policy_list)
+		if (list_is_last(&policy->policy_list, &cpufreq_policy_list))
 			return NULL;
+
+		policy = list_next_entry(policy, policy_list);
 	} while (!suitable_policy(policy, active));
 
 	return policy;
@@ -474,12 +474,12 @@ EXPORT_SYMBOL_GPL(cpufreq_freq_transition_end);
  *                          SYSFS INTERFACE                          *
  *********************************************************************/
 static ssize_t show_boost(struct kobject *kobj,
-				 struct attribute *attr, char *buf)
+				 struct kobj_attribute *attr, char *buf)
 {
 	return sprintf(buf, "%d\n", cpufreq_driver->boost_enabled);
 }
 
-static ssize_t store_boost(struct kobject *kobj, struct attribute *attr,
+static ssize_t store_boost(struct kobject *kobj, struct kobj_attribute *attr,
 				  const char *buf, size_t count)
 {
 	int ret, enable;
@@ -2334,31 +2334,14 @@ int cpufreq_boost_trigger_state(int state)
 	return ret;
 }
 
-int cpufreq_boost_supported(void)
+static bool cpufreq_boost_supported(void)
 {
-	if (likely(cpufreq_driver))
-		return cpufreq_driver->boost_supported;
-
-	return 0;
+	return likely(cpufreq_driver) && cpufreq_driver->set_boost;
 }
-EXPORT_SYMBOL_GPL(cpufreq_boost_supported);
 
 static int create_boost_sysfs_file(void)
 {
 	int ret;
-
-	if (!cpufreq_boost_supported())
-		return 0;
-
-	/*
-	 * Check if driver provides function to enable boost -
-	 * if not, use cpufreq_boost_set_sw as default
-	 */
-	if (!cpufreq_driver->set_boost) {
-		pax_open_kernel();
-		*(void **)&cpufreq_driver->set_boost = cpufreq_boost_set_sw;
-		pax_close_kernel();
-	}
 
 	ret = sysfs_create_file(cpufreq_global_kobject, &boost.attr);
 	if (ret)
@@ -2383,7 +2366,7 @@ int cpufreq_enable_boost_support(void)
 		return 0;
 
 	pax_open_kernel();
-	*(bool *)&cpufreq_driver->boost_supported = true;
+	*(void **)&cpufreq_driver->set_boost = cpufreq_boost_set_sw;
 	pax_close_kernel();
 
 	/* This will get removed on driver unregister */
@@ -2447,9 +2430,11 @@ int cpufreq_register_driver(struct cpufreq_driver *driver_data)
 		pax_close_kernel();
 	}
 
-	ret = create_boost_sysfs_file();
-	if (ret)
-		goto err_null_driver;
+	if (cpufreq_boost_supported()) {
+		ret = create_boost_sysfs_file();
+		if (ret)
+			goto err_null_driver;
+	}
 
 	ret = subsys_interface_register(&cpufreq_interface);
 	if (ret)

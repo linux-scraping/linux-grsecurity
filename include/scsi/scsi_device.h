@@ -109,6 +109,7 @@ struct scsi_device {
 	char type;
 	char scsi_level;
 	char inq_periph_qual;	/* PQ from INQUIRY data */	
+	struct mutex inquiry_mutex;
 	unsigned char inquiry_len;	/* valid bytes in 'inquiry' */
 	unsigned char * inquiry;	/* INQUIRY response data */
 	const char * vendor;		/* [back_compat] point into 'inquiry' ... */
@@ -117,9 +118,9 @@ struct scsi_device {
 
 #define SCSI_VPD_PG_LEN                255
 	int vpd_pg83_len;
-	unsigned char *vpd_pg83;
+	unsigned char __rcu *vpd_pg83;
 	int vpd_pg80_len;
-	unsigned char *vpd_pg80;
+	unsigned char __rcu *vpd_pg80;
 	unsigned char current_tag;	/* current tag */
 	struct scsi_target      *sdev_target;   /* used only for single_lun */
 
@@ -414,6 +415,8 @@ static inline int scsi_execute_req(struct scsi_device *sdev,
 }
 extern void sdev_disable_disk_events(struct scsi_device *sdev);
 extern void sdev_enable_disk_events(struct scsi_device *sdev);
+extern int scsi_vpd_lun_id(struct scsi_device *, char *, size_t);
+extern int scsi_vpd_tpg_id(struct scsi_device *, int *);
 
 #ifdef CONFIG_PM
 extern int scsi_autopm_get_device(struct scsi_device *);
@@ -508,6 +511,31 @@ static inline int scsi_device_protection(struct scsi_device *sdev)
 static inline int scsi_device_tpgs(struct scsi_device *sdev)
 {
 	return sdev->inquiry ? (sdev->inquiry[5] >> 4) & 0x3 : 0;
+}
+
+/**
+ * scsi_device_supports_vpd - test if a device supports VPD pages
+ * @sdev: the &struct scsi_device to test
+ *
+ * If the 'try_vpd_pages' flag is set it takes precedence.
+ * Otherwise we will assume VPD pages are supported if the
+ * SCSI level is at least SPC-3 and 'skip_vpd_pages' is not set.
+ */
+static inline int scsi_device_supports_vpd(struct scsi_device *sdev)
+{
+	/* Attempt VPD inquiry if the device blacklist explicitly calls
+	 * for it.
+	 */
+	if (sdev->try_vpd_pages)
+		return 1;
+	/*
+	 * Although VPD inquiries can go to SCSI-2 type devices,
+	 * some USB ones crash on receiving them, and the pages
+	 * we currently ask for are for SPC-3 and beyond
+	 */
+	if (sdev->scsi_level > SCSI_SPC_2 && !sdev->skip_vpd_pages)
+		return 1;
+	return 0;
 }
 
 #define MODULE_ALIAS_SCSI_DEVICE(type) \

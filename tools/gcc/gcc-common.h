@@ -312,6 +312,22 @@ static inline struct cgraph_node *cgraph_next_function_with_gimple_body(struct c
 	return NULL;
 }
 
+static inline bool cgraph_for_node_and_aliases(cgraph_node_ptr node, bool (*callback)(cgraph_node_ptr, void *), void *data, bool include_overwritable)
+{
+	cgraph_node_ptr alias;
+
+	if (callback(node, data))
+		return true;
+
+	for (alias = node->same_body; alias; alias = alias->next) {
+		if (include_overwritable || cgraph_function_body_availability(alias) > AVAIL_OVERWRITABLE)
+			if (cgraph_for_node_and_aliases(alias, callback, data, include_overwritable))
+				return true;
+	}
+
+	return false;
+}
+
 #define FOR_EACH_FUNCTION_WITH_GIMPLE_BODY(node) \
 	for ((node) = cgraph_first_function_with_gimple_body(); (node); \
 		(node) = cgraph_next_function_with_gimple_body(node))
@@ -699,6 +715,11 @@ static inline enum availability cgraph_function_body_availability(cgraph_node_pt
 static inline cgraph_node_ptr cgraph_alias_target(cgraph_node_ptr node)
 {
 	return node->get_alias_target();
+}
+
+static inline bool cgraph_for_node_and_aliases(cgraph_node_ptr node, bool (*callback)(cgraph_node_ptr, void *), void *data, bool include_overwritable)
+{
+	return node->call_for_symbol_thunks_and_aliases(callback, data, include_overwritable);
 }
 
 static inline struct cgraph_node_hook_list *cgraph_add_function_insertion_hook(cgraph_node_hook hook, void *data)

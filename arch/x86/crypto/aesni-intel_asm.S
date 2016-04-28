@@ -1919,7 +1919,7 @@ ENDPROC(aesni_set_key)
 /*
  * void aesni_enc(struct crypto_aes_ctx *ctx, u8 *dst, const u8 *src)
  */
-ENTRY(aesni_enc)
+RAP_ENTRY(aesni_enc)
 #ifndef __x86_64__
 	pushl KEYP
 	pushl KLEN
@@ -2111,7 +2111,7 @@ ENDPROC(_aesni_enc4)
 /*
  * void aesni_dec (struct crypto_aes_ctx *ctx, u8 *dst, const u8 *src)
  */
-ENTRY(aesni_dec)
+RAP_ENTRY(aesni_dec)
 #ifndef __x86_64__
 	pushl KEYP
 	pushl KLEN

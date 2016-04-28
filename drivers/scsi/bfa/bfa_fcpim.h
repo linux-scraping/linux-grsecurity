@@ -1,9 +1,10 @@
 /*
- * Copyright (c) 2005-2010 Brocade Communications Systems, Inc.
+ * Copyright (c) 2005-2014 Brocade Communications Systems, Inc.
+ * Copyright (c) 2014- QLogic Corporation.
  * All rights reserved
- * www.brocade.com
+ * www.qlogic.com
  *
- * Linux driver for Brocade Fibre Channel Host Bus Adapter.
+ * Linux driver for QLogic BR-series Fibre Channel Host Bus Adapter.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License (GPL) Version 2 as
@@ -164,9 +165,11 @@ struct bfa_fcp_mod_s {
 /*
  * BFA IO (initiator mode)
  */
+enum bfa_ioim_event;
+
 struct bfa_ioim_s {
 	struct list_head	qe;		/*  queue elememt	*/
-	bfa_sm_t		sm;		/*  BFA ioim state machine */
+	void (*sm)(struct bfa_ioim_s *, enum bfa_ioim_event);/*  BFA ioim state machine */
 	struct bfa_s		*bfa;		/*  BFA module	*/
 	struct bfa_fcpim_s	*fcpim;		/*  parent fcpim module */
 	struct bfa_itnim_s	*itnim;		/*  i-t-n nexus for this IO  */
@@ -196,9 +199,11 @@ struct bfa_ioim_sp_s {
 /*
  * BFA Task management command (initiator mode)
  */
+enum bfa_tskim_event;
+
 struct bfa_tskim_s {
 	struct list_head	qe;
-	bfa_sm_t		sm;
+	void (*sm)(struct bfa_tskim_s *, enum bfa_tskim_event);
 	struct bfa_s		*bfa;	/*  BFA module  */
 	struct bfa_fcpim_s	*fcpim;	/*  parent fcpim module	*/
 	struct bfa_itnim_s	*itnim;	/*  i-t-n nexus for this IO  */
@@ -218,9 +223,11 @@ struct bfa_tskim_s {
 /*
  * BFA i-t-n (initiator mode)
  */
+enum bfa_itnim_event;
+
 struct bfa_itnim_s {
 	struct list_head	qe;	/*  queue element	*/
-	bfa_sm_t		sm;	/*  i-t-n im BFA state machine  */
+	void (*sm)(struct bfa_itnim_s *, enum bfa_itnim_event);/*  i-t-n im BFA state machine  */
 	struct bfa_s		*bfa;	/*  bfa instance	*/
 	struct bfa_rport_s	*rport;	/*  bfa rport	*/
 	void			*ditn;	/*  driver i-t-n structure	*/

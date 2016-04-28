@@ -36,9 +36,9 @@ enum {
 
 void rtl8723au_set_hw_type(struct rtw_adapter *padapter);
 
-void rtl8723au_recv_tasklet(void *priv);
+void rtl8723au_recv_tasklet(unsigned long priv);
 
-void rtl8723au_xmit_tasklet(void *priv);
+void rtl8723au_xmit_tasklet(unsigned long priv);
 
 /* Increase and check if the continual_urb_error of this @param dvobjprive is
  * larger than MAX_CONTINUAL_URB_ERR. Return result

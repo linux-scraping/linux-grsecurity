@@ -135,7 +135,6 @@ void	PHY_SetBWMode23a8723A(struct rtw_adapter *pAdapter,
 /*  */
 void	PHY_SwChnl8723A(struct rtw_adapter *pAdapter, u8 channel);
 				/*  Call after initialization */
-void ChkFwCmdIoDone(struct rtw_adapter *Adapter);
 
 /*  */
 /*  Modify the value of the hw register when beacon interval be changed. */
@@ -143,13 +142,6 @@ void ChkFwCmdIoDone(struct rtw_adapter *Adapter);
 void
 rtl8192c_PHY_SetBeaconHwReg(struct rtw_adapter *Adapter, u16 BeaconInterval);
 
-
-void PHY_SwitchEphyParameter(struct rtw_adapter *Adapter);
-
-void PHY_EnableHostClkReq(struct rtw_adapter *Adapter);
-
-bool
-SetAntennaConfig92C(struct rtw_adapter *Adapter, u8 DefaultAnt);
 
 /*--------------------------Exported Function prototype---------------------*/
 

@@ -2375,7 +2375,7 @@ static void rtl8192_init_priv_lock(struct r8192_priv *priv)
 
 static void rtl819x_watchdog_wqcallback(struct work_struct *work);
 
-static void rtl8192_irq_rx_tasklet(struct r8192_priv *priv);
+static void rtl8192_irq_rx_tasklet(unsigned long priv);
 /* init tasklet and wait_queue here. only 2.6 above kernel is considered */
 #define DRV_NAME "wlan0"
 static void rtl8192_init_priv_task(struct net_device *dev)
@@ -2399,7 +2399,7 @@ static void rtl8192_init_priv_task(struct net_device *dev)
 	INIT_WORK(&priv->qos_activate, rtl8192_qos_activate);
 
 	tasklet_init(&priv->irq_rx_tasklet,
-		     (void(*)(unsigned long))rtl8192_irq_rx_tasklet,
+		     rtl8192_irq_rx_tasklet,
 		     (unsigned long)priv);
 }
 
@@ -4907,8 +4907,9 @@ static void rtl8192_rx_cmd(struct sk_buff *skb)
 	}
 }
 
-static void rtl8192_irq_rx_tasklet(struct r8192_priv *priv)
+static void rtl8192_irq_rx_tasklet(unsigned long _priv)
 {
+	struct r8192_priv *priv = (struct r8192_priv *)_priv;
 	struct sk_buff *skb;
 	struct rtl8192_rx_info *info;
 
@@ -5112,21 +5113,6 @@ static void __exit rtl8192_usb_module_exit(void)
 	usb_deregister(&rtl8192_usb_driver);
 
 	RT_TRACE(COMP_DOWN, "Exiting");
-}
-
-
-void rtl8192_try_wake_queue(struct net_device *dev, int pri)
-{
-	unsigned long flags;
-	short enough_desc;
-	struct r8192_priv *priv = (struct r8192_priv *)ieee80211_priv(dev);
-
-	spin_lock_irqsave(&priv->tx_lock, flags);
-	enough_desc = check_nic_enough_desc(dev, pri);
-	spin_unlock_irqrestore(&priv->tx_lock, flags);
-
-	if (enough_desc)
-		ieee80211_wake_queue(priv->ieee80211);
 }
 
 void EnableHWSecurityConfig8192(struct net_device *dev)

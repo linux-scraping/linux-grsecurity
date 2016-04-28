@@ -569,7 +569,8 @@ frame_size = frame_GPRSAVE + GPRSAVE_SIZE
 #   message blocks.
 # L is the message length in SHA512 blocks
 ########################################################################
-ENTRY(sha512_transform_rorx)
+ALIGN
+RAP_ENTRY(sha512_transform_rorx)
 	# Allocate Stack Space
 	mov	%rsp, %rax
 	sub	$frame_size, %rsp

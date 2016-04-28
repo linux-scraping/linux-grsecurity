@@ -3956,7 +3956,7 @@ exit_session_conn_param:
  * Timer routines
  */
 
-static void qla4xxx_start_timer(struct scsi_qla_host *ha, void *func,
+static void qla4xxx_start_timer(struct scsi_qla_host *ha, void (*func)(unsigned long),
 				unsigned long interval)
 {
 	DEBUG(printk("scsi: %s: Starting timer thread for adapter %d\n",
@@ -3964,7 +3964,7 @@ static void qla4xxx_start_timer(struct scsi_qla_host *ha, void *func,
 	init_timer(&ha->timer);
 	ha->timer.expires = jiffies + interval * HZ;
 	ha->timer.data = (unsigned long)ha;
-	ha->timer.function = (void (*)(unsigned long))func;
+	ha->timer.function = func;
 	add_timer(&ha->timer);
 	ha->timer_active = 1;
 }
@@ -4508,8 +4508,9 @@ static void qla4xxx_check_relogin_flash_ddb(struct iscsi_cls_session *cls_sess)
  * qla4xxx_timer - checks every second for work to do.
  * @ha: Pointer to host adapter structure.
  **/
-static void qla4xxx_timer(struct scsi_qla_host *ha)
+static void qla4xxx_timer(unsigned long _ha)
 {
+	struct scsi_qla_host *ha = (struct scsi_qla_host *)_ha;
 	int start_dpc = 0;
 	uint16_t w;
 
@@ -9557,7 +9558,7 @@ exit_host_reset:
  * RECOVERED - driver's pci_resume()
  */
 static pci_ers_result_t
-qla4xxx_pci_error_detected(struct pci_dev *pdev, pci_channel_state_t state)
+qla4xxx_pci_error_detected(struct pci_dev *pdev, enum pci_channel_state state)
 {
 	struct scsi_qla_host *ha = pci_get_drvdata(pdev);
 

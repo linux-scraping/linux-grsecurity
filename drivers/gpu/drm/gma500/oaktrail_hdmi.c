@@ -509,7 +509,7 @@ static void oaktrail_hdmi_dpms(struct drm_encoder *encoder, int mode)
 	HDMI_WRITE(HDMI_VIDEO_REG, temp);
 }
 
-static int oaktrail_hdmi_mode_valid(struct drm_connector *connector,
+static enum drm_mode_status oaktrail_hdmi_mode_valid(struct drm_connector *connector,
 				struct drm_display_mode *mode)
 {
 	if (mode->clock > 165000)
@@ -654,7 +654,7 @@ void oaktrail_hdmi_init(struct drm_device *dev,
 
 	drm_encoder_init(dev, encoder,
 			 &oaktrail_hdmi_enc_funcs,
-			 DRM_MODE_ENCODER_TMDS);
+			 DRM_MODE_ENCODER_TMDS, NULL);
 
 	gma_connector_attach_encoder(gma_connector, gma_encoder);
 

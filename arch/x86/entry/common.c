@@ -404,10 +404,52 @@ __always_inline void do_syscall_32_irqs_on(struct pt_regs *regs)
 		 * the high bits are zero.  Make sure we zero-extend all
 		 * of the args.
 		 */
+#ifdef CONFIG_PAX_RAP
+#ifdef CONFIG_X86_64
+		asm volatile("movl %[param1],%%edi\n\t"
+			     "movl %[param2],%%esi\n\t"
+			     "movl %[param3],%%edx\n\t"
+			     "movl %[param4],%%ecx\n\t"
+			     "movl %[param5],%%r8d\n\t"
+			     "movl %[param6],%%r9d\n\t"
+			     "call *%P[syscall]\n\t"
+			     "mov %%rax,%[result]\n\t"
+			: [result] "=m" (regs->ax)
+			: [syscall] "m" (ia32_sys_call_table[nr]),
+			  [param1] "m" (regs->bx),
+			  [param2] "m" (regs->cx),
+			  [param3] "m" (regs->dx),
+			  [param4] "m" (regs->si),
+			  [param5] "m" (regs->di),
+			  [param6] "m" (regs->bp)
+			: "di", "si", "dx", "cx", "r8", "r9", "memory");
+#else
+#error XXX VERIFY
+		asm volatile("pushl %[param6]\n\t"
+			     "pushl %[param5]\n\t"
+			     "pushl %[param4]\n\t"
+			     "pushl %[param3]\n\t"
+			     "pushl %[param2]\n\t"
+			     "pushl %[param1]\n\t"
+			     "call *%P[syscall]\n\t"
+			     "addl $6*8,%%esp\n\t"
+			     "mov %%eax,%[result]\n\t"
+			: [result] "=m" (regs->ax)
+			: [syscall] "m" (ia32_sys_call_table[nr]),
+			  [param1] "m" (regs->bx),
+			  [param2] "m" (regs->cx),
+			  [param3] "m" (regs->dx),
+			  [param4] "m" (regs->si),
+			  [param5] "m" (regs->di),
+			  [param6] "m" (regs->bp)
+			: "ax", "dx", "cx", "memory");
+#endif
+#else
 		regs->ax = ia32_sys_call_table[nr](
 			(unsigned int)regs->bx, (unsigned int)regs->cx,
 			(unsigned int)regs->dx, (unsigned int)regs->si,
 			(unsigned int)regs->di, (unsigned int)regs->bp);
+#endif
 	}
 
 	syscall_return_slowpath(regs);

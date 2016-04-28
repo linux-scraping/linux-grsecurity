@@ -185,7 +185,7 @@ static int genl_allocate_reserve_groups(int n_groups, int *first_id)
 			}
 		}
 
-		if (id >= mc_groups_longs * BITS_PER_LONG) {
+		if (id + n_groups > mc_groups_longs * BITS_PER_LONG) {
 			unsigned long new_longs = mc_groups_longs +
 						  BITS_TO_LONGS(n_groups);
 			size_t nlen = new_longs * sizeof(unsigned long);
@@ -513,6 +513,20 @@ void *genlmsg_put(struct sk_buff *skb, u32 portid, u32 seq,
 }
 EXPORT_SYMBOL(genlmsg_put);
 
+static int genl_lock_start(struct netlink_callback *cb)
+{
+	/* our ops are always const - netlink API doesn't propagate that */
+	const struct genl_ops *ops = cb->data;
+	int rc = 0;
+
+	if (ops->start) {
+		genl_lock();
+		rc = ops->start(cb);
+		genl_unlock();
+	}
+	return rc;
+}
+
 static int genl_lock_dumpit(struct sk_buff *skb, struct netlink_callback *cb)
 {
 	/* our ops are always const - netlink API doesn't propagate that */
@@ -574,6 +588,7 @@ static int genl_family_rcv_msg(struct genl_family *family,
 
 		if (!family->parallel_ops) {
 			static struct netlink_dump_control c = {
+				.start = genl_lock_start,
 				.dump = genl_lock_dumpit,
 				.done = genl_lock_done,
 			};
@@ -586,6 +601,7 @@ static int genl_family_rcv_msg(struct genl_family *family,
 
 		} else {
 			netlink_dump_control_no_const c = {
+				.start = ops->start,
 				.dump = ops->dumpit,
 				.done = ops->done,
 			};

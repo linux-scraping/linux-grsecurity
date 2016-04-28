@@ -3513,7 +3513,7 @@ SYSCALL_DEFINE1(ssetmask, int, newmask)
 SYSCALL_DEFINE2(signal, int, sig, __sighandler_t, handler)
 {
 	struct k_sigaction new_sa, old_sa;
-	int ret;
+	long ret;
 
 	new_sa.sa.sa_handler = handler;
 	new_sa.sa.sa_flags = SA_ONESHOT | SA_NOMASK;
@@ -3521,7 +3521,7 @@ SYSCALL_DEFINE2(signal, int, sig, __sighandler_t, handler)
 
 	ret = do_sigaction(sig, &new_sa, &old_sa);
 
-	return ret ? ret : (unsigned long)old_sa.sa.sa_handler;
+	return ret ? ret : (long)old_sa.sa.sa_handler;
 }
 #endif /* __ARCH_WANT_SYS_SIGNAL */
 
@@ -3543,8 +3543,10 @@ static int sigsuspend(sigset_t *set)
 	current->saved_sigmask = current->blocked;
 	set_current_blocked(set);
 
-	__set_current_state(TASK_INTERRUPTIBLE);
-	schedule();
+	while (!signal_pending(current)) {
+		__set_current_state(TASK_INTERRUPTIBLE);
+		schedule();
+	}
 	set_restore_sigmask();
 	return -ERESTARTNOHAND;
 }

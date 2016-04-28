@@ -882,7 +882,7 @@ static int dvb_net_sec_callback(const u8 *buffer1, size_t buffer1_len,
 	return 0;
 }
 
-static int dvb_net_tx(struct sk_buff *skb, struct net_device *dev)
+static netdev_tx_t dvb_net_tx(struct sk_buff *skb, struct net_device *dev)
 {
 	dev_kfree_skb(skb);
 	return NETDEV_TX_OK;
@@ -1502,6 +1502,6 @@ int dvb_net_init (struct dvb_adapter *adap, struct dvb_net *dvbnet,
 		dvbnet->state[i] = 0;
 
 	return dvb_register_device(adap, &dvbnet->dvbdev, &dvbdev_net,
-			     dvbnet, DVB_DEVICE_NET);
+			     dvbnet, DVB_DEVICE_NET, 0);
 }
 EXPORT_SYMBOL(dvb_net_init);

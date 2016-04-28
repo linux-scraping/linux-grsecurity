@@ -6,12 +6,12 @@
 
 /*  we can't #include <linux/syscalls.h> here,
     but tell gcc to not warn with -Wmissing-prototypes  */
-asmlinkage long sys_ni_syscall(void);
+asmlinkage long sys_ni_syscall(unsigned long, unsigned long, unsigned long, unsigned long, unsigned long, unsigned long);
 
 /*
  * Non-implemented system calls get redirected here.
  */
-asmlinkage long sys_ni_syscall(void)
+asmlinkage long sys_ni_syscall(unsigned long a, unsigned long b, unsigned long c, unsigned long d, unsigned long e, unsigned long f)
 {
 	return -ENOSYS;
 }
@@ -174,6 +174,7 @@ cond_syscall(sys_setfsuid);
 cond_syscall(sys_setfsgid);
 cond_syscall(sys_capget);
 cond_syscall(sys_capset);
+cond_syscall(sys_copy_file_range);
 
 /* arch-specific weak syscall entries */
 cond_syscall(sys_pciconfig_read);
