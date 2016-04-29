@@ -288,7 +288,7 @@ static void mod_update_bounds(struct module *mod)
 	__mod_update_bounds_rx(mod->core_layout.base_rx, mod->core_layout.size_rx);
 	__mod_update_bounds_rw(mod->core_layout.base_rw, mod->core_layout.size_rw);
 	if (mod->init_layout.size_rx)
-		__mod_update_bounds_rw(mod->init_layout.base_rx, mod->init_layout.size_rx);
+		__mod_update_bounds_rx(mod->init_layout.base_rx, mod->init_layout.size_rx);
 	if (mod->init_layout.size_rw)
 		__mod_update_bounds_rw(mod->init_layout.base_rw, mod->init_layout.size_rw);
 }
@@ -2594,8 +2594,6 @@ static void add_kallsyms(struct module *mod, const struct load_info *info)
 
 	/* Set up to point into init section. */
 	mod->kallsyms = mod->init_layout.base_rx + info->mod_kallsyms_init_off;
-
-	pax_open_kernel();
 
 	pax_open_kernel();
 

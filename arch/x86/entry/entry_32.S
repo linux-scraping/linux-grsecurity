@@ -765,7 +765,7 @@ ENTRY(device_not_available)
 	pushl	$-1				# mark this as an int
 	pushl	$do_device_not_available
 	jmp	error_code
-END(device_not_available)
+ENDPROC(device_not_available)
 
 #ifdef CONFIG_PARAVIRT
 ENTRY(native_iret)

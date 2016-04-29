@@ -4221,7 +4221,6 @@ static const struct attribute_group bluetooth_attr_group = {
 	.attrs = bluetooth_attributes,
 };
 
-const struct tpacpi_rfk_ops bluetooth_tprfk_ops_;
 static const struct tpacpi_rfk_ops bluetooth_tprfk_ops = {
 	.get_status = bluetooth_get_status,
 	.set_status = bluetooth_set_status,

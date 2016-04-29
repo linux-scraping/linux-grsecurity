@@ -285,7 +285,6 @@ config FHANDLE
 
 config USELIB
 	bool "uselib syscall"
-	def_bool ALPHA || M68K || SPARC || X86_32 || IA32_EMULATION
 	default n
 	depends on !GRKERNSEC
 	help
