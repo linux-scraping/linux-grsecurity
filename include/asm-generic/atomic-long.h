@@ -255,8 +255,12 @@ static inline void pax_refcount_needs_these_functions(void)
 #define atomic_sub_unchecked(i, v) atomic_sub((i), (v))
 #define atomic_inc_unchecked(v) atomic_inc(v)
 #define atomic_inc_and_test_unchecked(v) atomic_inc_and_test(v)
+#ifndef atomic_inc_return_unchecked
 #define atomic_inc_return_unchecked(v) atomic_inc_return(v)
+#endif
+#ifndef atomic_add_return_unchecked
 #define atomic_add_return_unchecked(i, v) atomic_add_return((i), (v))
+#endif
 #define atomic_dec_unchecked(v) atomic_dec(v)
 #define atomic_cmpxchg_unchecked(v, o, n) atomic_cmpxchg((v), (o), (n))
 #define atomic_xchg_unchecked(v, i) atomic_xchg((v), (i))

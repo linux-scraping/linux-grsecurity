@@ -1999,7 +1999,7 @@ config EFI_STUB
 
 config EFI
 	bool "UEFI runtime support"
-	depends on OF && !CPU_BIG_ENDIAN && MMU && AUTO_ZRELADDR && !XIP_KERNEL
+	depends on OF && !CPU_BIG_ENDIAN && MMU && AUTO_ZRELADDR && !XIP_KERNEL && !PAX_KERNEXEC
 	select UCS2_STRING
 	select EFI_PARAMS_FROM_FDT
 	select EFI_STUB

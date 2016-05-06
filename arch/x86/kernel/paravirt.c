@@ -331,6 +331,22 @@ __visible struct pv_irq_ops pv_irq_ops __read_only = {
 #endif
 };
 
+static void native_alloc_ldt(struct desc_struct *ldt, unsigned entries)
+{
+}
+
+static void native_free_ldt(struct desc_struct *ldt, unsigned entries)
+{
+}
+
+static void native_start_context_switch(struct task_struct *prev)
+{
+}
+
+static void native_end_context_switch(struct task_struct *next)
+{
+}
+
 __visible struct pv_cpu_ops pv_cpu_ops __read_only = {
 	.cpuid = native_cpuid,
 	.get_debugreg = native_get_debugreg,
@@ -363,8 +379,8 @@ __visible struct pv_cpu_ops pv_cpu_ops __read_only = {
 	.write_gdt_entry = native_write_gdt_entry,
 	.write_idt_entry = native_write_idt_entry,
 
-	.alloc_ldt = paravirt_nop,
-	.free_ldt = paravirt_nop,
+	.alloc_ldt = native_alloc_ldt,
+	.free_ldt = native_free_ldt,
 
 	.load_sp0 = native_load_sp0,
 
@@ -377,8 +393,8 @@ __visible struct pv_cpu_ops pv_cpu_ops __read_only = {
 	.set_iopl_mask = native_set_iopl_mask,
 	.io_delay = native_io_delay,
 
-	.start_context_switch = paravirt_nop,
-	.end_context_switch = paravirt_nop,
+	.start_context_switch = native_start_context_switch,
+	.end_context_switch = native_end_context_switch,
 };
 
 /* At this point, native_get/set_debugreg has real function entries */
@@ -399,6 +415,50 @@ NOKPROBE_SYMBOL(native_load_idt);
 #define PTE_IDENT	__PV_IS_CALLEE_SAVE(_paravirt_ident_64)
 #endif
 
+static void native_pgd_free(struct mm_struct *mm, pgd_t *pgd)
+{
+}
+
+static void native_alloc_pte(struct mm_struct *mm, unsigned long pfn)
+{
+}
+
+static void native_alloc_pmd(struct mm_struct *mm, unsigned long pfn)
+{
+}
+
+static void native_alloc_pud(struct mm_struct *mm, unsigned long pfn)
+{
+}
+
+static void native_release_pte(unsigned long pfn)
+{
+}
+
+static void native_release_pmd(unsigned long pfn)
+{
+}
+
+static void native_release_pud(unsigned long pfn)
+{
+}
+
+static void native_pte_update(struct mm_struct *mm, unsigned long addr, pte_t *ptep)
+{
+}
+
+static void native_dup_mmap(struct mm_struct *oldmm, struct mm_struct *mm)
+{
+}
+
+static void native_exit_mmap(struct mm_struct *mm)
+{
+}
+
+static void native_activate_mm(struct mm_struct *prev, struct mm_struct *next)
+{
+}
+
 struct pv_mmu_ops pv_mmu_ops __read_only = {
 
 	.read_cr2 = native_read_cr2,
@@ -412,20 +472,20 @@ struct pv_mmu_ops pv_mmu_ops __read_only = {
 	.flush_tlb_others = native_flush_tlb_others,
 
 	.pgd_alloc = __paravirt_pgd_alloc,
-	.pgd_free = paravirt_nop,
+	.pgd_free = native_pgd_free,
 
-	.alloc_pte = paravirt_nop,
-	.alloc_pmd = paravirt_nop,
-	.alloc_pud = paravirt_nop,
-	.release_pte = paravirt_nop,
-	.release_pmd = paravirt_nop,
-	.release_pud = paravirt_nop,
+	.alloc_pte = native_alloc_pte,
+	.alloc_pmd = native_alloc_pmd,
+	.alloc_pud = native_alloc_pud,
+	.release_pte = native_release_pte,
+	.release_pmd = native_release_pmd,
+	.release_pud = native_release_pud,
 
 	.set_pte = native_set_pte,
 	.set_pte_at = native_set_pte_at,
 	.set_pmd = native_set_pmd,
 	.set_pmd_at = native_set_pmd_at,
-	.pte_update = paravirt_nop,
+	.pte_update = native_pte_update,
 
 	.ptep_modify_prot_start = __ptep_modify_prot_start,
 	.ptep_modify_prot_commit = __ptep_modify_prot_commit,
@@ -456,9 +516,9 @@ struct pv_mmu_ops pv_mmu_ops __read_only = {
 	.make_pte = PTE_IDENT,
 	.make_pgd = PTE_IDENT,
 
-	.dup_mmap = paravirt_nop,
-	.exit_mmap = paravirt_nop,
-	.activate_mm = paravirt_nop,
+	.dup_mmap = native_dup_mmap,
+	.exit_mmap = native_exit_mmap,
+	.activate_mm = native_activate_mm,
 
 	.lazy_mode = {
 		.enter = paravirt_nop,

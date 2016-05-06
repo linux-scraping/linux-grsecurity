@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2015 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011-2016 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2, or (at your option) v3
  *
  * Homepage:
@@ -592,7 +592,7 @@ static tree change_assign_rhs(struct visited *visited, gassign *stmt, const_tree
 	return get_lhs(assign);
 }
 
-tree handle_intentional_overflow(struct visited *visited, interesting_stmts_t expand_from, bool check_overflow, gassign *stmt, tree change_rhs, tree new_rhs2)
+tree handle_intentional_overflow(interesting_stmts_t expand_from, bool check_overflow, gassign *stmt, tree change_rhs, tree new_rhs2)
 {
 	tree new_rhs, orig_rhs;
 	void (*gimple_assign_set_rhs)(gimple, tree);
@@ -601,10 +601,10 @@ tree handle_intentional_overflow(struct visited *visited, interesting_stmts_t ex
 	tree lhs = gimple_assign_lhs(stmt);
 
 	if (!check_overflow)
-		return create_assign(visited, stmt, lhs, AFTER_STMT);
+		return create_assign(expand_from->visited, stmt, lhs, AFTER_STMT);
 
 	if (change_rhs == NULL_TREE)
-		return create_assign(visited, stmt, lhs, AFTER_STMT);
+		return create_assign(expand_from->visited, stmt, lhs, AFTER_STMT);
 
 	if (new_rhs2 == NULL_TREE) {
 		orig_rhs = rhs1;
@@ -616,11 +616,11 @@ tree handle_intentional_overflow(struct visited *visited, interesting_stmts_t ex
 
 	check_size_overflow(expand_from, stmt, TREE_TYPE(change_rhs), change_rhs, orig_rhs, BEFORE_STMT);
 
-	new_rhs = change_assign_rhs(visited, stmt, orig_rhs, change_rhs);
+	new_rhs = change_assign_rhs(expand_from->visited, stmt, orig_rhs, change_rhs);
 	gimple_assign_set_rhs(stmt, new_rhs);
 	update_stmt(stmt);
 
-	return create_assign(visited, stmt, lhs, AFTER_STMT);
+	return create_assign(expand_from->visited, stmt, lhs, AFTER_STMT);
 }
 
 static bool is_subtraction_special(struct visited *visited, const gassign *stmt)
@@ -726,7 +726,7 @@ static tree get_def_stmt_rhs(struct visited *visited, const_tree var)
 	}
 }
 
-tree handle_integer_truncation(struct visited *visited, interesting_stmts_t expand_from, const_tree lhs)
+tree handle_integer_truncation(interesting_stmts_t expand_from, const_tree lhs)
 {
 	tree new_rhs1, new_rhs2;
 	tree new_rhs1_def_stmt_rhs1, new_rhs2_def_stmt_rhs1, new_lhs;
@@ -734,28 +734,28 @@ tree handle_integer_truncation(struct visited *visited, interesting_stmts_t expa
 	tree rhs1 = gimple_assign_rhs1(stmt);
 	tree rhs2 = gimple_assign_rhs2(stmt);
 
-	if (!is_subtraction_special(visited, stmt))
+	if (!is_subtraction_special(expand_from->visited, stmt))
 		return NULL_TREE;
 
-	new_rhs1 = expand(visited, expand_from, rhs1);
-	new_rhs2 = expand(visited, expand_from, rhs2);
+	new_rhs1 = expand(expand_from, rhs1);
+	new_rhs2 = expand(expand_from, rhs2);
 
-	new_rhs1_def_stmt_rhs1 = get_def_stmt_rhs(visited, new_rhs1);
-	new_rhs2_def_stmt_rhs1 = get_def_stmt_rhs(visited, new_rhs2);
+	new_rhs1_def_stmt_rhs1 = get_def_stmt_rhs(expand_from->visited, new_rhs1);
+	new_rhs2_def_stmt_rhs1 = get_def_stmt_rhs(expand_from->visited, new_rhs2);
 
 	if (new_rhs1_def_stmt_rhs1 == NULL_TREE || new_rhs2_def_stmt_rhs1 == NULL_TREE)
 		return NULL_TREE;
 
 	if (!types_compatible_p(TREE_TYPE(new_rhs1_def_stmt_rhs1), TREE_TYPE(new_rhs2_def_stmt_rhs1))) {
-		new_rhs1_def_stmt_rhs1 = cast_to_TI_type(visited, stmt, new_rhs1_def_stmt_rhs1);
-		new_rhs2_def_stmt_rhs1 = cast_to_TI_type(visited, stmt, new_rhs2_def_stmt_rhs1);
+		new_rhs1_def_stmt_rhs1 = cast_to_TI_type(expand_from->visited, stmt, new_rhs1_def_stmt_rhs1);
+		new_rhs2_def_stmt_rhs1 = cast_to_TI_type(expand_from->visited, stmt, new_rhs2_def_stmt_rhs1);
 	}
 
-	assign = create_binary_assign(visited, MINUS_EXPR, stmt, new_rhs1_def_stmt_rhs1, new_rhs2_def_stmt_rhs1);
+	assign = create_binary_assign(expand_from->visited, MINUS_EXPR, stmt, new_rhs1_def_stmt_rhs1, new_rhs2_def_stmt_rhs1);
 	new_lhs = gimple_assign_lhs(assign);
 	check_size_overflow(expand_from, assign, TREE_TYPE(new_lhs), new_lhs, rhs1, AFTER_STMT);
 
-	return dup_assign(visited, stmt, lhs, new_rhs1, new_rhs2, NULL_TREE);
+	return dup_assign(expand_from->visited, stmt, lhs, new_rhs1, new_rhs2, NULL_TREE);
 }
 
 bool is_a_neg_overflow(const gassign *stmt, const_tree rhs)
@@ -1115,4 +1115,52 @@ bool uconst_neg_intentional_overflow(const gassign *stmt)
 
 	// _51 = _50 * gt signed type max;
 	return is_mult_const(rhs1) || is_mult_const(rhs2);
+}
+
+/* True:
+ * drivers/net/ethernet/via/via-velocity.c velocity_rx_refill()
+ * u16 = cpu_to_le16(s32) | const
+ * rd->size = cpu_to_le16(vptr->rx.buf_sz) | RX_INTEN;
+ *
+ * _36 = (signed short) _35;
+ * _37 = _36 | -32768;
+ * _38 = (short unsigned int) _37;
+ */
+
+bool short_or_neg_const_ushort(gassign *stmt)
+{
+	const_tree rhs, lhs_type, rhs_type;
+	const_tree def_rhs1, def_rhs2;
+	const_gimple def_stmt;
+	gimple def_def_stmt = NULL;
+
+	if (!gimple_assign_cast_p(stmt))
+		return false;
+
+	// _38 = (short unsigned int) _37;
+	lhs_type = TREE_TYPE(gimple_assign_lhs(stmt));
+	if (!TYPE_UNSIGNED(lhs_type))
+		return false;
+	if (TYPE_MODE(lhs_type) != HImode)
+		return false;
+	rhs = gimple_assign_rhs1(stmt);
+	rhs_type = TREE_TYPE(rhs);
+	if (TYPE_UNSIGNED(rhs_type))
+		return false;
+	if (TYPE_MODE(rhs_type) != HImode)
+		return false;
+
+	// _37 = _36 | -32768;
+	def_stmt = get_def_stmt(rhs);
+	if (!def_stmt || gimple_assign_rhs_code(def_stmt) != BIT_IOR_EXPR)
+		return false;
+	def_rhs1 = gimple_assign_rhs1(def_stmt);
+	def_rhs2 = gimple_assign_rhs2(def_stmt);
+	if (is_gimple_constant(def_rhs1) && !is_gt_zero(def_rhs1))
+		def_def_stmt = get_def_stmt(def_rhs2);
+	else if (is_gimple_constant(def_rhs2) && !is_gt_zero(def_rhs2))
+		def_def_stmt = get_def_stmt(def_rhs1);
+
+	// _36 = (signed short) _35;
+	return def_def_stmt && gimple_assign_cast_p(def_def_stmt);
 }

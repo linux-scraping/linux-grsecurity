@@ -1,7 +1,12 @@
 /*
- * Copyright 2014,2015 by Open Source Security, Inc., Brad Spengler <spender@grsecurity.net>
+ * Copyright 2014-2016 by Open Source Security, Inc., Brad Spengler <spender@grsecurity.net>
  *                   and PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
+ *
+ * Note: the choice of the license means that the compilation process is
+ *       NOT 'eligible' as defined by gcc's library exception to the GPL v3,
+ *       but for the kernel it doesn't matter since it doesn't link against
+ *       any of the gcc libraries
  *
  * Usage:
  * $ # for 4.5/4.6/C based 4.7

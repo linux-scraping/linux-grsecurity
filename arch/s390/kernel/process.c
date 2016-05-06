@@ -233,3 +233,16 @@ unsigned long get_wchan(struct task_struct *p)
 	}
 	return 0;
 }
+
+static inline unsigned long brk_rnd(void)
+{
+	return (get_random_int() & BRK_RND_MASK) << PAGE_SHIFT;
+}
+
+unsigned long arch_randomize_brk(struct mm_struct *mm)
+{
+	unsigned long ret;
+
+	ret = PAGE_ALIGN(mm->brk + brk_rnd());
+	return (ret > mm->brk) ? ret : mm->brk;
+}

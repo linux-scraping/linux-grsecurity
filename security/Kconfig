@@ -971,6 +971,8 @@ config PAX_RAP
 	  in order to detect and prevent attacks that try to hijack control
 	  flow by overwriting code pointers.
 
+	  Note that binary modules cannot be instrumented by this approach.
+
 	  Note that the implementation requires a gcc with plugin support,
 	  i.e., gcc 4.5 or newer.  You may need to install the supporting
 	  headers explicitly in addition to the normal gcc package.

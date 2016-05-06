@@ -194,6 +194,33 @@ void arch_pick_mmap_layout(struct mm_struct *mm)
 	}
 }
 
+static inline unsigned long brk_rnd(void)
+{
+	unsigned long rnd = get_random_long();
+
+	rnd = rnd << PAGE_SHIFT;
+	/* 8MB for 32bit, 256MB for 64bit */
+	if (TASK_IS_32BIT_ADDR)
+		rnd = rnd & 0x7ffffful;
+	else
+		rnd = rnd & 0xffffffful;
+
+	return rnd;
+}
+
+unsigned long arch_randomize_brk(struct mm_struct *mm)
+{
+	unsigned long base = mm->brk;
+	unsigned long ret;
+
+	ret = PAGE_ALIGN(base + brk_rnd());
+
+	if (ret < mm->brk)
+		return mm->brk;
+
+	return ret;
+}
+
 int __virt_addr_valid(const volatile void *kaddr)
 {
 	return pfn_valid(PFN_DOWN(virt_to_phys(kaddr)));

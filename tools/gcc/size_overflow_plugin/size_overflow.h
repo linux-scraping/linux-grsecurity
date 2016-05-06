@@ -196,14 +196,15 @@ extern const_tree get_attribute(const char* attr_name, const_tree decl);
 extern bool is_a_cast_and_const_overflow(const_tree no_const_rhs);
 extern bool is_const_plus_unsigned_signed_truncation(const_tree lhs);
 extern bool is_a_constant_overflow(const gassign *stmt, const_tree rhs);
-extern tree handle_intentional_overflow(struct visited *visited, interesting_stmts_t expand_from, bool check_overflow, gassign *stmt, tree change_rhs, tree new_rhs2);
-extern tree handle_integer_truncation(struct visited *visited, interesting_stmts_t expand_from, const_tree lhs);
+extern tree handle_intentional_overflow(interesting_stmts_t expand_from, bool check_overflow, gassign *stmt, tree change_rhs, tree new_rhs2);
+extern tree handle_integer_truncation(interesting_stmts_t expand_from, const_tree lhs);
 extern bool is_a_neg_overflow(const gassign *stmt, const_tree rhs);
 extern enum intentional_overflow_type add_mul_intentional_overflow(const gassign *stmt);
 extern void unsigned_signed_cast_intentional_overflow(struct visited *visited, gassign *stmt);
 extern bool neg_short_add_intentional_overflow(gassign *stmt);
 extern bool is_bitfield_unnamed_cast(const_tree decl, gassign *assign);
 extern bool uconst_neg_intentional_overflow(const gassign *stmt);
+extern bool short_or_neg_const_ushort(gassign *stmt);
 
 
 // insert_size_overflow_asm.c
@@ -246,6 +247,7 @@ struct interesting_stmts {
 	gimple first_stmt;
 	tree orig_node;
 	unsigned int num;
+	struct visited *visited;
 };
 
 extern unsigned int size_overflow_function_transform(struct cgraph_node *node);
@@ -255,7 +257,7 @@ extern tree handle_fnptr_assign(const_gimple stmt);
 // size_overflow_transform_core.c
 extern tree cast_to_new_size_overflow_type(struct visited *visited, gimple stmt, tree rhs, tree size_overflow_type, bool before);
 extern tree get_size_overflow_type(struct visited *visited, const_gimple stmt, const_tree node);
-extern tree expand(struct visited *visited, interesting_stmts_t expand_from, tree lhs);
+extern tree expand(interesting_stmts_t expand_from, tree lhs);
 extern void check_size_overflow(interesting_stmts_t expand_from, gimple stmt, tree size_overflow_type, tree cast_rhs, tree rhs, bool before);
 extern tree dup_assign(struct visited *visited, gassign *oldstmt, const_tree node, tree rhs1, tree rhs2, tree __unused rhs3);
 extern tree create_assign(struct visited *visited, gimple oldstmt, tree rhs1, bool before);

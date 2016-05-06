@@ -220,7 +220,7 @@ pax_getxattr(struct dentry *dentry, void *value, size_t size)
 		return error;
 
 	if (inode->i_op->getxattr)
-		error = inode->i_op->getxattr(dentry, XATTR_NAME_PAX_FLAGS, value, size);
+		error = inode->i_op->getxattr(dentry, XATTR_NAME_USER_PAX_FLAGS, value, size);
 	else
 		error = -EOPNOTSUPP;
 

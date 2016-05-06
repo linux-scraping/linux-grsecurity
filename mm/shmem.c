@@ -2677,12 +2677,10 @@ static int shmem_user_xattr_handler_set(const struct xattr_handler *handler,
 {
 	struct shmem_inode_info *info = SHMEM_I(d_inode(dentry));
 
-#ifdef CONFIG_PAX_XATTR_PAX_FLAGS
 	if (strcmp(name, XATTR_NAME_PAX_FLAGS))
 		return -EOPNOTSUPP;
 	if (size > 8)
 		return -EINVAL;
-#endif
 
 	name = xattr_full_name(handler, name);
 	return simple_xattr_set(&info->xattrs, name, value, size, flags);

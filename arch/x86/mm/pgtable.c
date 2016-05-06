@@ -655,7 +655,7 @@ void __native_set_fixmap(enum fixed_addresses idx, pte_t pte)
 	fix_user_fixmap(idx, address);
 }
 
-void native_set_fixmap(enum fixed_addresses idx, phys_addr_t phys,
+void native_set_fixmap(unsigned int idx, phys_addr_t phys,
 		       pgprot_t flags)
 {
 	__native_set_fixmap(idx, pfn_pte(phys >> PAGE_SHIFT, flags));

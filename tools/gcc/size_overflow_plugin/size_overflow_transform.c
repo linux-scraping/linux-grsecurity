@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2015 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011-2016 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2, or (at your option) v3
  *
  * Homepage:
@@ -255,24 +255,23 @@ static interesting_stmts_t search_interesting_rets(interesting_stmts_t head, nex
 	return search_interesting_stmt(head, next_node_ret, ret, first_node, 0);
 }
 
-static void handle_binary_assign(struct visited *visited, interesting_stmts_t expand_from, gassign *assign, tree rhs)
+static void handle_binary_assign(interesting_stmts_t expand_from, gassign *assign, tree rhs)
 {
 	tree new_node;
 	gimple def_orig_node;
 
-	new_node = expand(visited, expand_from, rhs);
+	new_node = expand(expand_from, rhs);
 	if (new_node == NULL_TREE)
 		return;
 
 	def_orig_node = get_def_stmt(rhs);
-	change_orig_node(visited, assign, rhs, new_node, 0);
-
-	if (pointer_set_contains(visited->no_cast_check, def_orig_node))
+	if (pointer_set_contains(expand_from->visited->no_cast_check, def_orig_node))
 		return;
+	change_orig_node(expand_from->visited, assign, rhs, new_node, 0);
 	check_size_overflow(expand_from, assign, TREE_TYPE(new_node), new_node, rhs, BEFORE_STMT);
 }
 
-static bool search_error_codes(struct visited *visited, gimple_set *visited_error_codes, interesting_stmts_t expand_from, tree lhs, bool error_code)
+static bool search_error_codes(gimple_set *visited_error_codes, interesting_stmts_t expand_from, tree lhs, bool error_code)
 {
 	gimple def_stmt;
 
@@ -298,7 +297,7 @@ static bool search_error_codes(struct visited *visited, gimple_set *visited_erro
 
 		switch (gimple_num_ops(assign)) {
 		case 2:
-			return search_error_codes(visited, visited_error_codes, expand_from, gimple_assign_rhs1(def_stmt), error_code);
+			return search_error_codes(visited_error_codes, expand_from, gimple_assign_rhs1(def_stmt), error_code);
 		case 3:
 			if (!error_code)
 				return error_code;
@@ -308,9 +307,9 @@ static bool search_error_codes(struct visited *visited, gimple_set *visited_erro
 			 * before the error code PHI.
 			 */
 			rhs1 = gimple_assign_rhs1(assign);
-			handle_binary_assign(visited, expand_from, assign, rhs1);
+			handle_binary_assign(expand_from, assign, rhs1);
 			rhs2 = gimple_assign_rhs2(assign);
-			handle_binary_assign(visited, expand_from, assign, rhs2);
+			handle_binary_assign(expand_from, assign, rhs2);
 			return error_code;
 		}
 		gcc_unreachable();
@@ -320,7 +319,7 @@ static bool search_error_codes(struct visited *visited, gimple_set *visited_erro
 
 		error_code = has_error_code(as_a_gphi(def_stmt));
 		for (i = 0; i < gimple_phi_num_args(def_stmt); i++) {
-			error_code = search_error_codes(visited, visited_error_codes, expand_from, gimple_phi_arg_def(def_stmt, i), error_code);
+			error_code = search_error_codes(visited_error_codes, expand_from, gimple_phi_arg_def(def_stmt, i), error_code);
 		}
 		return error_code;
 	}
@@ -331,7 +330,7 @@ static bool search_error_codes(struct visited *visited, gimple_set *visited_erro
 	}
 }
 
-static bool handle_error_codes(struct visited *visited, interesting_stmts_t expand_from)
+static bool handle_error_codes(interesting_stmts_t expand_from)
 {
 	bool error_code;
 	gimple_set *visited_error_codes;
@@ -341,7 +340,7 @@ static bool handle_error_codes(struct visited *visited, interesting_stmts_t expa
 		return false;
 
 	visited_error_codes = pointer_set_create();
-	error_code = search_error_codes(visited, visited_error_codes, expand_from, expand_from->orig_node, false);
+	error_code = search_error_codes(visited_error_codes, expand_from, expand_from->orig_node, false);
 	pointer_set_destroy(visited_error_codes);
 
 	return error_code;
@@ -355,19 +354,18 @@ static void handle_interesting_stmt(struct visited *visited, interesting_stmts_t
 		tree new_node;
 		gimple orig_def_stmt;
 
-		if (handle_error_codes(visited, cur))
+		cur->visited = visited;
+		if (handle_error_codes(cur))
 			continue;
 
-		new_node = expand(visited, cur, cur->orig_node);
+		new_node = expand(cur, cur->orig_node);
 		if (new_node == NULL_TREE)
 			continue;
 
 		orig_def_stmt = get_def_stmt(cur->orig_node);
-
-		change_orig_node(visited, cur->first_stmt, cur->orig_node, new_node, cur->num);
-
 		if (pointer_set_contains(visited->no_cast_check, orig_def_stmt))
 			continue;
+		change_orig_node(visited, cur->first_stmt, cur->orig_node, new_node, cur->num);
 		check_size_overflow(cur, cur->first_stmt, TREE_TYPE(new_node), new_node, cur->orig_node, BEFORE_STMT);
 	}
 }
