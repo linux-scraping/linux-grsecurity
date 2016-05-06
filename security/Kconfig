@@ -964,7 +964,7 @@ config PAX_LATENT_ENTROPY
 
 config PAX_RAP
 	bool "Prevent code reuse attacks"
-	depends on X86_64 && !PARAVIRT
+	depends on X86_64
 	default y if GRKERNSEC_CONFIG_AUTO
 	help
 	  By saying Y here the kernel will check indirect control transfers
