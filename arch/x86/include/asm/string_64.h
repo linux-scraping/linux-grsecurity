@@ -27,8 +27,8 @@ static __always_inline void *__inline_memcpy(void *to, const void *from, size_t 
    function. */
 
 #define __HAVE_ARCH_MEMCPY 1
-extern void *memcpy(void *to, const void *from, size_t len);
-extern void *__memcpy(void *to, const void *from, size_t len);
+extern void *memcpy(void *to, const void *from, size_t len) __nocapture(2);
+extern void *__memcpy(void *to, const void *from, size_t len) __nocapture(2);
 
 #ifndef CONFIG_KMEMCHECK
 #if (__GNUC__ == 4 && __GNUC_MINOR__ < 3) || __GNUC__ < 4
@@ -56,14 +56,14 @@ void *memset(void *s, int c, size_t n);
 void *__memset(void *s, int c, size_t n);
 
 #define __HAVE_ARCH_MEMMOVE
-void *memmove(void *dest, const void *src, size_t count);
-void *__memmove(void *dest, const void *src, size_t count);
+void *memmove(void *dest, const void *src, size_t count) __nocapture(2);
+void *__memmove(void *dest, const void *src, size_t count) __nocapture(2);
 
-int memcmp(const void *cs, const void *ct, size_t count);
+int memcmp(const void *cs, const void *ct, size_t count) __nocapture(1, 2);
 size_t strlen(const char *s);
-char *strcpy(char *dest, const char *src);
-char *strcat(char *dest, const char *src);
-int strcmp(const char *cs, const char *ct);
+char *strcpy(char *dest, const char *src) __nocapture(2);
+char *strcat(char *dest, const char *src) __nocapture(2);
+int strcmp(const char *cs, const char *ct) __nocapture(1, 2);
 
 #if defined(CONFIG_KASAN) && !defined(__SANITIZE_ADDRESS__)
 

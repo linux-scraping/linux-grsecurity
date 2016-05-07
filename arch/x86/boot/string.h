@@ -6,9 +6,9 @@
 #undef memset
 #undef memcmp
 
-void *memcpy(void *dst, const void *src, size_t len);
+void *memcpy(void *dst, const void *src, size_t len) __nocapture(2);
 void *memset(void *dst, int c, size_t len);
-int memcmp(const void *s1, const void *s2, size_t len);
+int memcmp(const void *s1, const void *s2, size_t len) __nocapture(1, 2);
 
 /*
  * Access builtin version by default. If one needs to use optimized version,

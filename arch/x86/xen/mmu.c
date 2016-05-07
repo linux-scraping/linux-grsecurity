@@ -2439,6 +2439,10 @@ static void xen_leave_lazy_mmu(void)
 	preempt_enable();
 }
 
+static void xen_pte_update(struct mm_struct *mm, unsigned long addr, pte_t *ptep)
+{
+}
+
 static const struct pv_mmu_ops xen_mmu_ops __initconst = {
 	.read_cr2 = xen_read_cr2,
 	.write_cr2 = xen_write_cr2,
@@ -2451,7 +2455,7 @@ static const struct pv_mmu_ops xen_mmu_ops __initconst = {
 	.flush_tlb_single = xen_flush_tlb_single,
 	.flush_tlb_others = xen_flush_tlb_others,
 
-	.pte_update = paravirt_nop,
+	.pte_update = xen_pte_update,
 
 	.pgd_alloc = xen_pgd_alloc,
 	.pgd_free = xen_pgd_free,

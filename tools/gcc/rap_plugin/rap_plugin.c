@@ -239,6 +239,7 @@ static void rap_finish_unit(void *gcc_data __unused, void *user_data __unused)
 		ASM_OUTPUT_LABEL(asm_out_file, name);
 		free(name);
 	}
+
 	if (hash.hash)
 		fprintf(asm_out_file, "\t.previous\n");
 }
