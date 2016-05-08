@@ -545,7 +545,7 @@ fatal_error:
 
 }
 
-static int cpmac_start_xmit(struct sk_buff *skb, struct net_device *dev)
+static netdev_tx_t cpmac_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	int queue, len;
 	struct cpmac_desc *desc;

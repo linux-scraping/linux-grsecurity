@@ -74,6 +74,11 @@ static void tpm_dev_release(struct device *dev)
 	kfree(chip);
 }
 
+static void tpm_put_device(void *dev)
+{
+	put_device(dev);
+}
+
 /**
  * tpmm_chip_alloc() - allocate a new struct tpm_chip instance
  * @dev: device to which the chip is associated
@@ -136,7 +141,7 @@ struct tpm_chip *tpmm_chip_alloc(struct device *dev,
 	chip->cdev.owner = chip->pdev->driver->owner;
 	chip->cdev.kobj.parent = &chip->dev.kobj;
 
-	devm_add_action(dev, (void (*)(void *)) put_device, &chip->dev);
+	devm_add_action(dev, tpm_put_device, &chip->dev);
 
 	return chip;
 }

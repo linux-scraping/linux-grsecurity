@@ -1122,7 +1122,7 @@ static int ftgmac100_stop(struct net_device *netdev)
 	return 0;
 }
 
-static int ftgmac100_hard_start_xmit(struct sk_buff *skb,
+static netdev_tx_t ftgmac100_hard_start_xmit(struct sk_buff *skb,
 				     struct net_device *netdev)
 {
 	struct ftgmac100 *priv = netdev_priv(netdev);

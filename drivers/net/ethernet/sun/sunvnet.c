@@ -1152,15 +1152,15 @@ vnet_select_queue(struct net_device *dev, struct sk_buff *skb,
 	return port->q_index;
 }
 
-static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev);
+static netdev_tx_t vnet_start_xmit(struct sk_buff *skb, struct net_device *dev);
 
-static int vnet_handle_offloads(struct vnet_port *port, struct sk_buff *skb)
+static netdev_tx_t vnet_handle_offloads(struct vnet_port *port, struct sk_buff *skb)
 {
 	struct net_device *dev = port->vp->dev;
 	struct vio_dring_state *dr = &port->vio.drings[VIO_DRIVER_TX_RING];
 	struct sk_buff *segs;
 	int maclen, datalen;
-	int status;
+	netdev_tx_t status;
 	int gso_size, gso_type, gso_segs;
 	int hlen = skb_transport_header(skb) - skb_mac_header(skb);
 	int proto = IPPROTO_IP;
@@ -1216,7 +1216,7 @@ static int vnet_handle_offloads(struct vnet_port *port, struct sk_buff *skb)
 	skb_push(skb, maclen);
 	skb_reset_mac_header(skb);
 
-	status = 0;
+	status = NETDEV_TX_OK;
 	while (segs) {
 		struct sk_buff *curr = segs;
 
@@ -1255,7 +1255,7 @@ out_dropped:
 	return NETDEV_TX_OK;
 }
 
-static int vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+static netdev_tx_t vnet_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct vnet *vp = netdev_priv(dev);
 	struct vnet_port *port = NULL;

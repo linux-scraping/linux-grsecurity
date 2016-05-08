@@ -142,7 +142,7 @@ void xenvif_wake_queue(struct xenvif_queue *queue)
 	netif_tx_wake_queue(netdev_get_tx_queue(dev, id));
 }
 
-static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+static netdev_tx_t xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct xenvif *vif = netdev_priv(dev);
 	struct xenvif_queue *queue = NULL;
