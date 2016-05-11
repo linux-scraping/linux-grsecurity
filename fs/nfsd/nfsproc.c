@@ -175,7 +175,7 @@ static __be32
 nfsd_proc_read(struct svc_rqst *rqstp, void *_argp,
 				       void *_resp)
 {
-	struct nfsd_readargs *argp = argp;
+	struct nfsd_readargs *argp = _argp;
 	struct nfsd_readres *resp = _resp;
 	__be32	nfserr;
 
