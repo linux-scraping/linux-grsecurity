@@ -130,6 +130,7 @@ static void rap_begin_function(tree decl)
 	cgraph_node_ptr node;
 	rap_hash_t imprecise_rap_hash;
 	unsigned HOST_WIDE_INT skip;
+	const int rap_hash_offset = TARGET_64BIT ? 2 * sizeof(rap_hash_t) : sizeof(rap_hash_t);
 
 	gcc_assert(debug_hooks == &rap_debug_hooks);
 
@@ -139,8 +140,8 @@ static void rap_begin_function(tree decl)
 
 	// align the rap hash if necessary
 	skip = 1ULL << align_functions_log;
-	if (skip > 4 * sizeof(rap_hash_t))
-		ASM_OUTPUT_SKIP(asm_out_file, skip - 4 * sizeof(rap_hash_t));
+	if (skip > rap_hash_offset)
+		ASM_OUTPUT_SKIP(asm_out_file, skip - rap_hash_offset);
 
 	// don't compute hash for functions called only directly
 	node = cgraph_get_node(decl);
@@ -154,7 +155,10 @@ static void rap_begin_function(tree decl)
 	if (report_func_hash)
 		inform(DECL_SOURCE_LOCATION(decl), "func rap_hash: %x %s", imprecise_rap_hash.hash, IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(decl)));
 
-	fprintf(asm_out_file, ASM_QUAD " %#lx\t%s __rap_hash_%s\n", (long)imprecise_rap_hash.hash, ASM_COMMENT_START, IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(decl)));
+	if (TARGET_64BIT)
+		fprintf(asm_out_file, ".quad %#lx\t%s __rap_hash_%s\n", (long)imprecise_rap_hash.hash, ASM_COMMENT_START, IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(decl)));
+	else
+		fprintf(asm_out_file, ".long %#lx\t%s __rap_hash_%s\n", imprecise_rap_hash.hash, ASM_COMMENT_START, IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(decl)));
 }
 
 static void rap_start_unit_common(void *gcc_data __unused, void *user_data __unused)
@@ -390,7 +394,7 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 			value = strtok_r(values, ",", &saveptr);
 			while (value) {
 				if (!strcmp(value, "call"))
-					enable_call = TARGET_64BIT;//true;
+					enable_call = true;
 				else
 					error(G_("unknown value supplied for option '-fplugin-arg-%s-%s=%s'"), plugin_name, argv[i].key, value);
 				value = strtok_r(NULL, ",", &saveptr);
@@ -468,13 +472,9 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 		register_callback(plugin_name, PLUGIN_REGISTER_GGC_ROOTS, NULL, (void *)&gt_ggc_r_gt_rap);
 		if (enable_abs_finish)
 			register_callback(plugin_name, PLUGIN_FINISH_UNIT, rap_finish_unit, NULL);
-	}
-
-	if (enable_call)
 		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &rap_fptr_pass_info);
-
-	if (enable_call)
 		register_callback(plugin_name, PLUGIN_ALL_IPA_PASSES_START, rap_calculate_func_hashes, NULL);
+	}
 
 	return 0;
 }

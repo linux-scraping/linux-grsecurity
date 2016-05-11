@@ -1280,7 +1280,7 @@ _esb_loop_\@:
 * poly = x^128 + x^127 + x^126 + x^121 + 1
 *
 *****************************************************************************/
-ENTRY(aesni_gcm_dec)
+RAP_ENTRY(aesni_gcm_dec)
 	push	%r15
 	push	%r13
 	push	%r14
@@ -1541,7 +1541,7 @@ ENDPROC(aesni_gcm_dec)
 *
 * poly = x^128 + x^127 + x^126 + x^121 + 1
 ***************************************************************************/
-ENTRY(aesni_gcm_enc)
+RAP_ENTRY(aesni_gcm_enc)
 	push	%r15
 	push	%r13
 	push	%r14
@@ -2617,7 +2617,7 @@ ENDPROC(_aesni_inc)
  * void aesni_ctr_enc(struct crypto_aes_ctx *ctx, const u8 *dst, u8 *src,
  *		      size_t len, u8 *iv)
  */
-ENTRY(aesni_ctr_enc)
+RAP_ENTRY(aesni_ctr_enc)
 	cmp $16, LEN
 	jb .Lctr_enc_just_ret
 	mov 480(KEYP), KLEN

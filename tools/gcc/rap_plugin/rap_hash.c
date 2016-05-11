@@ -204,6 +204,7 @@ static void rap_hash_tree(const_tree type, rap_hash_flags_t flags, unsigned char
 		break;
 
 	case POINTER_TYPE:
+	case REFERENCE_TYPE:
 		rap_hash_tree(TREE_TYPE(type), flags, sip_hash);
 		break;
 

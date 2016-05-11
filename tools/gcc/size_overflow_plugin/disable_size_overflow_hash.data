@@ -12438,3 +12438,4 @@ enable_so_inbufBits_bunzip_data_13788 inbufBits bunzip_data 0 13788 NULL
 enable_so_i_ino_inode_8428 i_ino inode 0 8428 NULL
 enable_so_squashfs_iget_fndecl_37485 squashfs_iget fndecl 3 37485 NULL
 enable_so_new_offset_mdp_superblock_1_6501 new_offset mdp_superblock_1 0 6501 NULL
+enable_so_lookup_memtype_fndecl_20192 lookup_memtype fndecl 1 20192 NULL

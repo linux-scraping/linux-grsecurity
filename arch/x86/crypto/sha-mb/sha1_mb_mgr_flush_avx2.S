@@ -112,7 +112,7 @@ offset = \_offset
 
 # JOB* sha1_mb_mgr_flush_avx2(MB_MGR *state)
 # arg 1 : rcx : state
-ENTRY(sha1_mb_mgr_flush_avx2)
+RAP_ENTRY(sha1_mb_mgr_flush_avx2)
 	mov	%rsp, %r10
 	sub     $STACK_SPACE, %rsp
 	and     $~31, %rsp
@@ -251,7 +251,7 @@ ENDPROC(sha1_mb_mgr_flush_avx2)
 #################################################################
 
 .align 16
-ENTRY(sha1_mb_mgr_get_comp_job_avx2)
+RAP_ENTRY(sha1_mb_mgr_get_comp_job_avx2)
 	push    %rbx
 
 	## if bit 32+3 is set, then all lanes are empty

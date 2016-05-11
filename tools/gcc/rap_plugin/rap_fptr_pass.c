@@ -49,7 +49,7 @@ static basic_block rap_instrument_fptr(gimple_stmt_iterator *gsi)
 #endif
 	basic_block cond_bb, join_bb, true_bb;
 	edge e;
-	const HOST_WIDE_INT rap_hash_offset = 2 * sizeof(rap_hash_t);
+	const int rap_hash_offset = TARGET_64BIT ? 2 * sizeof(rap_hash_t) : sizeof(rap_hash_t);
 
 	call_stmt = gsi_stmt(*gsi);
 	loc = gimple_location(call_stmt);

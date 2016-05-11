@@ -100,7 +100,7 @@ STACK_SPACE     = 8*8 + 16*10 + 8
 # JOB* submit_mb_mgr_submit_avx2(MB_MGR *state, job_sha1 *job)
 # arg 1 : rcx : state
 # arg 2 : rdx : job
-ENTRY(sha1_mb_mgr_submit_avx2)
+RAP_ENTRY(sha1_mb_mgr_submit_avx2)
 
 	mov	%rsp, %r10
 	sub     $STACK_SPACE, %rsp

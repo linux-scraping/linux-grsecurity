@@ -276,7 +276,7 @@ RAP_ENTRY(twofish_enc_blk)
 	ret
 ENDPROC(twofish_enc_blk)
 
-ENTRY(twofish_dec_blk)
+RAP_ENTRY(twofish_dec_blk)
 	push	%ebp			/* save registers according to calling convention*/
 	push    %ebx
 	push    %esi

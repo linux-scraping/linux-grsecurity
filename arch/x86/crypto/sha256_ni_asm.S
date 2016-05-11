@@ -97,7 +97,7 @@
 
 .text
 .align 32
-ENTRY(sha256_ni_transform)
+RAP_ENTRY(sha256_ni_transform)
 
 	shl		$6, NUM_BLKS		/*  convert to bytes */
 	jz		.Ldone_hash
