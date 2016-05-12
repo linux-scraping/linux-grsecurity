@@ -1035,6 +1035,7 @@ static ssize_t environ_read(struct file *file, char __user *buf,
 	struct mm_struct *mm = file->private_data;
 	unsigned long env_start, env_end;
 
+	/* Ensure the process spawned far enough to have an environment. */
 	if (!mm || !mm->env_end)
 		return 0;
 
