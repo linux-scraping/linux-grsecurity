@@ -125,12 +125,39 @@ static bool rap_cgraph_indirectly_callable(cgraph_node_ptr node)
 	return cgraph_for_node_and_aliases(node, __rap_cgraph_indirectly_callable, NULL, true);
 }
 
+static void rap_hash_align(tree decl)
+{
+	const unsigned HOST_WIDE_INT rap_hash_offset = TARGET_64BIT ? 2 * sizeof(rap_hash_t) : sizeof(rap_hash_t);
+	unsigned HOST_WIDE_INT skip;
+
+	skip = 1ULL << align_functions_log;
+	if (DECL_USER_ALIGN(decl))
+		return;
+
+	if (!optimize_function_for_speed_p(cfun))
+		return;
+
+	if (skip <= rap_hash_offset)
+		return;
+
+#ifdef TARGET_386
+	{
+		char padding[skip - rap_hash_offset];
+
+		// this byte sequence helps disassemblers not trip up on the following rap hash
+		memset(padding, 0xcc, sizeof padding - 1);
+		padding[sizeof padding - 1] = 0xb8;
+		ASM_OUTPUT_ASCII(asm_out_file, padding, sizeof padding);
+	}
+#else
+	ASM_OUTPUT_SKIP(asm_out_file, skip - rap_hash_offset);
+#endif
+}
+
 static void rap_begin_function(tree decl)
 {
 	cgraph_node_ptr node;
 	rap_hash_t imprecise_rap_hash;
-	unsigned HOST_WIDE_INT skip;
-	const unsigned HOST_WIDE_INT rap_hash_offset = TARGET_64BIT ? 2 * sizeof(rap_hash_t) : sizeof(rap_hash_t);
 
 	gcc_assert(debug_hooks == &rap_debug_hooks);
 
@@ -139,9 +166,7 @@ static void rap_begin_function(tree decl)
 		old_debug_hooks->begin_function(decl);
 
 	// align the rap hash if necessary
-	skip = 1ULL << align_functions_log;
-	if (skip > rap_hash_offset)
-		ASM_OUTPUT_SKIP(asm_out_file, skip - rap_hash_offset);
+	rap_hash_align(decl);
 
 	// don't compute hash for functions called only directly
 	node = cgraph_get_node(decl);
@@ -156,9 +181,9 @@ static void rap_begin_function(tree decl)
 		inform(DECL_SOURCE_LOCATION(decl), "func rap_hash: %x %s", imprecise_rap_hash.hash, IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(decl)));
 
 	if (TARGET_64BIT)
-		fprintf(asm_out_file, ".quad %#lx\t%s __rap_hash_%s\n", (long)imprecise_rap_hash.hash, ASM_COMMENT_START, IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(decl)));
+		fprintf(asm_out_file, "\t.quad %#lx\t%s __rap_hash_%s\n", (long)imprecise_rap_hash.hash, ASM_COMMENT_START, IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(decl)));
 	else
-		fprintf(asm_out_file, ".long %#x\t%s __rap_hash_%s\n", imprecise_rap_hash.hash, ASM_COMMENT_START, IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(decl)));
+		fprintf(asm_out_file, "\t.long %#x\t%s __rap_hash_%s\n", imprecise_rap_hash.hash, ASM_COMMENT_START, IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(decl)));
 }
 
 static void rap_start_unit_common(void *gcc_data __unused, void *user_data __unused)

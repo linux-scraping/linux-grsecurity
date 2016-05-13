@@ -1594,7 +1594,6 @@ enable_so_need_tx_headroom_prism2_helper_functions_4902 need_tx_headroom prism2_
 enable_so_SYSC_fgetxattr_fndecl_4904 SYSC_fgetxattr fndecl 4 4904 NULL
 enable_so_diva_um_idi_read_fndecl_4912 diva_um_idi_read fndecl 0 4912 NULL
 enable_so_tree_mod_log_eb_move_fndecl_4920 tree_mod_log_eb_move fndecl 5 4920 NULL
-enable_so_inofreefwd_iag_4921 inofreefwd iag 0 4921 NULL
 enable_so_leaf_copy_items_fndecl_4923 leaf_copy_items fndecl 5 4923 NULL
 enable_so_ui_size_ubifs_inode_4934 ui_size ubifs_inode 0 4934 NULL
 enable_so_bpp_drm_mode_fb_cmd_4936 bpp drm_mode_fb_cmd 0 4936 NULL
@@ -1683,7 +1682,6 @@ enable_so_ext4_es_insert_extent_fndecl_5178 ext4_es_insert_extent fndecl 0-3-2 5
 enable_so_len_bts_file_action_5178 len bts_file_action 0 5178 &enable_so_ext4_es_insert_extent_fndecl_5178
 enable_so_lpfc_issue_ct_rsp_fndecl_5182 lpfc_issue_ct_rsp fndecl 6 5182 NULL
 enable_so_port_mlx5_ib_qp_5186 port mlx5_ib_qp 0 5186 NULL
-enable_so_inofree_iagctl_5194 inofree iagctl 0 5194 NULL
 enable_so_SyS_lsetxattr_fndecl_5195 SyS_lsetxattr fndecl 4 5195 NULL
 enable_so_size_drm_amdgpu_gem_userptr_5196 size drm_amdgpu_gem_userptr 0 5196 NULL
 enable_so_hidp_raw_request_fndecl_5198 hidp_raw_request fndecl 4 5198 NULL
@@ -7692,7 +7690,6 @@ enable_so_read_swap_header_fndecl_23222 read_swap_header fndecl 0 23222 NULL
 enable_so_num_channels_sh_mtu2_device_23224 num_channels sh_mtu2_device 0 23224 NULL
 enable_so_clk_core_get_rate_fndecl_23225 clk_core_get_rate fndecl 0 23225 NULL nohasharray
 enable_so_vid_hdr_offset_ubi_device_23225 vid_hdr_offset ubi_device 0 23225 &enable_so_clk_core_get_rate_fndecl_23225
-enable_so_iagnum_iag_23227 iagnum iag 0 23227 NULL
 enable_so_nvkm_client_map_fndecl_23228 nvkm_client_map fndecl 3-2 23228 NULL
 enable_so_ubifs_prep_grp_node_fndecl_23231 ubifs_prep_grp_node fndecl 3 23231 NULL nohasharray
 enable_so_ivtv_v4l2_read_fndecl_23231 ivtv_v4l2_read fndecl 3 23231 &enable_so_ubifs_prep_grp_node_fndecl_23231
