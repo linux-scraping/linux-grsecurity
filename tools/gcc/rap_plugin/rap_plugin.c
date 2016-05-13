@@ -130,7 +130,7 @@ static void rap_begin_function(tree decl)
 	cgraph_node_ptr node;
 	rap_hash_t imprecise_rap_hash;
 	unsigned HOST_WIDE_INT skip;
-	const int rap_hash_offset = TARGET_64BIT ? 2 * sizeof(rap_hash_t) : sizeof(rap_hash_t);
+	const unsigned HOST_WIDE_INT rap_hash_offset = TARGET_64BIT ? 2 * sizeof(rap_hash_t) : sizeof(rap_hash_t);
 
 	gcc_assert(debug_hooks == &rap_debug_hooks);
 
@@ -158,7 +158,7 @@ static void rap_begin_function(tree decl)
 	if (TARGET_64BIT)
 		fprintf(asm_out_file, ".quad %#lx\t%s __rap_hash_%s\n", (long)imprecise_rap_hash.hash, ASM_COMMENT_START, IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(decl)));
 	else
-		fprintf(asm_out_file, ".long %#lx\t%s __rap_hash_%s\n", imprecise_rap_hash.hash, ASM_COMMENT_START, IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(decl)));
+		fprintf(asm_out_file, ".long %#x\t%s __rap_hash_%s\n", imprecise_rap_hash.hash, ASM_COMMENT_START, IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(decl)));
 }
 
 static void rap_start_unit_common(void *gcc_data __unused, void *user_data __unused)
@@ -238,7 +238,10 @@ static void rap_finish_unit(void *gcc_data __unused, void *user_data __unused)
 			inform(DECL_SOURCE_LOCATION(fndecl), "abs rap_hash: %x %s", hash.hash, IDENTIFIER_POINTER(DECL_ASSEMBLER_NAME(fndecl)));
 
 		fprintf(asm_out_file, GLOBAL_ASM_OP " %s\n", name);
-		fprintf(asm_out_file, "\t.offset %#lx\n", (long)hash.hash);
+		if (TARGET_64BIT)
+			fprintf(asm_out_file, "\t.offset %#lx\n", (long)hash.hash);
+		else
+			fprintf(asm_out_file, "\t.offset %#x\n", hash.hash);
 		ASM_OUTPUT_TYPE_DIRECTIVE(asm_out_file, name, "object");
 		ASM_OUTPUT_LABEL(asm_out_file, name);
 		free(name);
@@ -286,7 +289,10 @@ static void rap_finish_decl(void *event_data, void *data __unused)
 		inform(DECL_SOURCE_LOCATION(fndecl), "abs rap_hash: %x %s", hash.hash, asmname);
 
 	fprintf(asm_out_file, GLOBAL_ASM_OP " %s\n", name);
-	fprintf(asm_out_file, "\t.offset %#lx\n", (long)hash.hash);
+	if (TARGET_64BIT)
+		fprintf(asm_out_file, "\t.offset %#lx\n", (long)hash.hash);
+	else
+		fprintf(asm_out_file, "\t.offset %#x\n", hash.hash);
 	ASM_OUTPUT_TYPE_DIRECTIVE(asm_out_file, name, "object");
 	ASM_OUTPUT_LABEL(asm_out_file, name);
 	free(name);

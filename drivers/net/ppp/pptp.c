@@ -368,7 +368,6 @@ allow_packet:
 		}
 
 		skb->ip_summed = CHECKSUM_NONE;
-		skb_set_network_header(skb, skb->head-skb->data);
 		skb->network_header = 0;
 		ppp_input(&po->chan, skb);
 
