@@ -1152,7 +1152,7 @@ bool short_or_neg_const_ushort(gassign *stmt)
 
 	// _37 = _36 | -32768;
 	def_stmt = get_def_stmt(rhs);
-	if (!def_stmt || !gimple_assign_cast_p(def_stmt) || gimple_assign_rhs_code(def_stmt) != BIT_IOR_EXPR)
+	if (!def_stmt || !is_gimple_assign(def_stmt) || gimple_assign_rhs_code(def_stmt) != BIT_IOR_EXPR)
 		return false;
 	def_rhs1 = gimple_assign_rhs1(def_stmt);
 	def_rhs2 = gimple_assign_rhs2(def_stmt);
