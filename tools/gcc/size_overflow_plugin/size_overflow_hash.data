@@ -8603,6 +8603,7 @@ enable_so_cookie_offset_nfsd4_readdir_25834 cookie_offset nfsd4_readdir 0 25834 
 enable_so_mmc_test_area_map_fndecl_25839 mmc_test_area_map fndecl 2-4 25839 NULL
 enable_so_start_cxgb4_range_25845 start cxgb4_range 0 25845 NULL
 enable_so_ric_ies_len_cfg80211_ft_event_params_25853 ric_ies_len cfg80211_ft_event_params 0 25853 NULL
+enable_so_do_tune_cpucache_fndecl_25855 do_tune_cpucache fndecl 2-3-4 25855 NULL
 enable_so_table_size_drm_ati_pcigart_info_25856 table_size drm_ati_pcigart_info 0 25856 NULL
 enable_so_num_sg_lists_vardecl_25860 num_sg_lists vardecl 0 25860 NULL
 enable_so_asize_mypriv_25864 asize mypriv 0 25864 NULL

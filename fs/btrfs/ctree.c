@@ -19,6 +19,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/rbtree.h>
+#include <linux/vmalloc.h>
 #include "ctree.h"
 #include "disk-io.h"
 #include "transaction.h"
@@ -5364,10 +5365,13 @@ int btrfs_compare_trees(struct btrfs_root *left_root,
 		goto out;
 	}
 
-	tmp_buf = kmalloc(left_root->nodesize, GFP_NOFS);
+	tmp_buf = kmalloc(left_root->nodesize, GFP_KERNEL | __GFP_NOWARN);
 	if (!tmp_buf) {
-		ret = -ENOMEM;
-		goto out;
+		tmp_buf = vmalloc(left_root->nodesize);
+		if (!tmp_buf) {
+			ret = -ENOMEM;
+			goto out;
+		}
 	}
 
 	left_path->search_commit_root = 1;
@@ -5568,7 +5572,7 @@ int btrfs_compare_trees(struct btrfs_root *left_root,
 out:
 	btrfs_free_path(left_path);
 	btrfs_free_path(right_path);
-	kfree(tmp_buf);
+	kvfree(tmp_buf);
 	return ret;
 }
 

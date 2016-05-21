@@ -59,6 +59,7 @@
 #include "props.h"
 #include "sysfs.h"
 #include "qgroup.h"
+#include "tree-log.h"
 
 #ifdef CONFIG_64BIT
 /* If we have a 32-bit userspace and 64-bit kernel, then the UAPI
@@ -1656,7 +1657,7 @@ static noinline int btrfs_ioctl_snap_create_transid(struct file *file,
 
 		src_inode = file_inode(src.file);
 		if (src_inode->i_sb != file_inode(file)->i_sb) {
-			btrfs_info(BTRFS_I(src_inode)->root->fs_info,
+			btrfs_info(BTRFS_I(file_inode(file))->root->fs_info,
 				   "Snapshot src from another FS");
 			ret = -EXDEV;
 		} else if (!inode_owner_or_capable(src_inode)) {
@@ -2097,8 +2098,6 @@ static noinline int search_ioctl(struct inode *inode,
 		key.offset = (u64)-1;
 		root = btrfs_read_fs_root_no_name(info, &key);
 		if (IS_ERR(root)) {
-			btrfs_err(info, "could not find root %llu",
-			       sk->tree_id);
 			btrfs_free_path(path);
 			return -ENOENT;
 		}
@@ -2475,6 +2474,8 @@ static noinline int btrfs_ioctl_snap_destroy(struct file *file,
 	}
 	trans->block_rsv = &block_rsv;
 	trans->bytes_reserved = block_rsv.size;
+
+	btrfs_record_snapshot_destroy(trans, dir);
 
 	ret = btrfs_unlink_subvol(trans, root, dir,
 				dest->root_key.objectid,
@@ -3066,6 +3067,9 @@ static int btrfs_extent_same(struct inode *src, u64 loff, u64 olen,
 		inode_lock(src);
 
 		ret = extent_same_check_offsets(src, loff, &len, olen);
+		if (ret)
+			goto out_unlock;
+		ret = extent_same_check_offsets(src, dst_loff, &len, olen);
 		if (ret)
 			goto out_unlock;
 

@@ -4211,11 +4211,20 @@ static int truncate_space_check(struct btrfs_trans_handle *trans,
 {
 	int ret;
 
+	/*
+	 * This is only used to apply pressure to the enospc system, we don't
+	 * intend to use this reservation at all.
+	 */
 	bytes_deleted = btrfs_csum_bytes_to_leaves(root, bytes_deleted);
+	bytes_deleted *= root->nodesize;
 	ret = btrfs_block_rsv_add(root, &root->fs_info->trans_block_rsv,
 				  bytes_deleted, BTRFS_RESERVE_NO_FLUSH);
-	if (!ret)
+	if (!ret) {
+		trace_btrfs_space_reservation(root->fs_info, "transaction",
+					      trans->transid,
+					      bytes_deleted, 1);
 		trans->bytes_reserved += bytes_deleted;
+	}
 	return ret;
 
 }
@@ -7414,7 +7423,26 @@ static int lock_extent_direct(struct inode *inode, u64 lockstart, u64 lockend,
 				     cached_state, GFP_NOFS);
 
 		if (ordered) {
-			btrfs_start_ordered_extent(inode, ordered, 1);
+			/*
+			 * If we are doing a DIO read and the ordered extent we
+			 * found is for a buffered write, we can not wait for it
+			 * to complete and retry, because if we do so we can
+			 * deadlock with concurrent buffered writes on page
+			 * locks. This happens only if our DIO read covers more
+			 * than one extent map, if at this point has already
+			 * created an ordered extent for a previous extent map
+			 * and locked its range in the inode's io tree, and a
+			 * concurrent write against that previous extent map's
+			 * range and this range started (we unlock the ranges
+			 * in the io tree only when the bios complete and
+			 * buffered writes always lock pages before attempting
+			 * to lock range in the io tree).
+			 */
+			if (writing ||
+			    test_bit(BTRFS_ORDERED_DIRECT, &ordered->flags))
+				btrfs_start_ordered_extent(inode, ordered, 1);
+			else
+				ret = -ENOTBLK;
 			btrfs_put_ordered_extent(ordered);
 		} else {
 			/*
@@ -7431,8 +7459,10 @@ static int lock_extent_direct(struct inode *inode, u64 lockstart, u64 lockend,
 			 * that page.
 			 */
 			ret = -ENOTBLK;
-			break;
 		}
+
+		if (ret)
+			break;
 
 		cond_resched();
 	}
