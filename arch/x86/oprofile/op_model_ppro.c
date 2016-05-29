@@ -223,8 +223,8 @@ static void arch_perfmon_setup_counters(void)
 	num_counters = min((int)eax.split.num_counters, OP_MAX_COUNTER);
 
 	pax_open_kernel();
-	*(unsigned int *)&op_arch_perfmon_spec.num_counters = num_counters;
-	*(unsigned int *)&op_arch_perfmon_spec.num_controls = num_counters;
+	const_cast(op_arch_perfmon_spec.num_counters) = num_counters;
+	const_cast(op_arch_perfmon_spec.num_controls) = num_counters;
 	pax_close_kernel();
 }
 

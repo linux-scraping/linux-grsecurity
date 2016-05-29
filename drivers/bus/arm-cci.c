@@ -1250,7 +1250,7 @@ static int cci_pmu_init_attrs(struct cci_pmu *cci_pmu, struct platform_device *p
 		if (!attrs)
 			return -ENOMEM;
 		pax_open_kernel();
-		*(struct attribute ***)&pmu_event_attr_group.attrs = attrs;
+		const_cast(pmu_event_attr_group.attrs) = attrs;
 		pax_close_kernel();
 	}
 	if (model->nformat_attrs) {
@@ -1259,11 +1259,11 @@ static int cci_pmu_init_attrs(struct cci_pmu *cci_pmu, struct platform_device *p
 		if (!attrs)
 			return -ENOMEM;
 		pax_open_kernel();
-		*(struct attribute ***)&pmu_format_attr_group.attrs = attrs;
+		const_cast(pmu_format_attr_group.attrs) = attrs;
 		pax_close_kernel();
 	}
 	pax_open_kernel();
-	*(void **)&pmu_cpumask_attr.var = cci_pmu;
+	const_cast(pmu_cpumask_attr.var) = cci_pmu;
 	pax_close_kernel();
 
 	return 0;

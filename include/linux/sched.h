@@ -2407,6 +2407,7 @@ static inline void populate_stack(void)
 
 	while (ptr < end) {
 		c = *(volatile int *)ptr;
+		(void)c;
 		ptr += PAGE_SIZE/sizeof(int);
 	}
 }

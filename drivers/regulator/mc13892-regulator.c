@@ -587,8 +587,8 @@ static int mc13892_regulator_probe(struct platform_device *pdev)
 	pax_open_kernel();
 	memcpy((void *)&mc13892_vcam_ops, mc13892_regulators[MC13892_VCAM].desc.ops,
 						sizeof(struct regulator_ops));
-	*(void **)&mc13892_vcam_ops.set_mode = mc13892_vcam_set_mode,
-	*(void **)&mc13892_vcam_ops.get_mode = mc13892_vcam_get_mode,
+	const_cast(mc13892_vcam_ops.set_mode) = mc13892_vcam_set_mode,
+	const_cast(mc13892_vcam_ops.get_mode) = mc13892_vcam_get_mode,
 	pax_close_kernel();
 	mc13892_regulators[MC13892_VCAM].desc.ops = &mc13892_vcam_ops;
 

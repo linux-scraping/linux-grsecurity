@@ -2315,7 +2315,7 @@ int cpufreq_boost_trigger_state(int state)
 
 	write_lock_irqsave(&cpufreq_driver_lock, flags);
 	pax_open_kernel();
-	*(bool *)&cpufreq_driver->boost_enabled = state;
+	const_cast(cpufreq_driver->boost_enabled) = state;
 	pax_close_kernel();
 	write_unlock_irqrestore(&cpufreq_driver_lock, flags);
 
@@ -2323,7 +2323,7 @@ int cpufreq_boost_trigger_state(int state)
 	if (ret) {
 		write_lock_irqsave(&cpufreq_driver_lock, flags);
 		pax_open_kernel();
-		*(bool *)&cpufreq_driver->boost_enabled = !state;
+		const_cast(cpufreq_driver->boost_enabled) = !state;
 		pax_close_kernel();
 		write_unlock_irqrestore(&cpufreq_driver_lock, flags);
 
@@ -2366,7 +2366,7 @@ int cpufreq_enable_boost_support(void)
 		return 0;
 
 	pax_open_kernel();
-	*(void **)&cpufreq_driver->set_boost = cpufreq_boost_set_sw;
+	const_cast(cpufreq_driver->set_boost) = cpufreq_boost_set_sw;
 	pax_close_kernel();
 
 	/* This will get removed on driver unregister */
@@ -2426,7 +2426,7 @@ int cpufreq_register_driver(struct cpufreq_driver *driver_data)
 
 	if (driver_data->setpolicy) {
 		pax_open_kernel();
-		*(u8 *)&driver_data->flags |= CPUFREQ_CONST_LOOPS;
+		const_cast(driver_data->flags) |= CPUFREQ_CONST_LOOPS;
 		pax_close_kernel();
 	}
 

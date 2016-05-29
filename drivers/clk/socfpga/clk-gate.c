@@ -204,8 +204,8 @@ static void __init __socfpga_gate_init(struct device_node *node,
 		socfpga_clk->hw.bit_idx = clk_gate[1];
 
 		pax_open_kernel();
-		*(void **)&gateclk_ops.enable = clk_gate_ops.enable;
-		*(void **)&gateclk_ops.disable = clk_gate_ops.disable;
+		const_cast(gateclk_ops.enable) = clk_gate_ops.enable;
+		const_cast(gateclk_ops.disable) = clk_gate_ops.disable;
 		pax_close_kernel();
 	}
 

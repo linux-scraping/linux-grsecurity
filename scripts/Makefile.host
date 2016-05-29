@@ -178,8 +178,9 @@ quiet_cmd_host-cshlib	= HOSTLLD -shared $@
       cmd_host-cshlib	= $(HOSTCC) $(HOSTLDFLAGS) -shared -o $@ \
 			  $(addprefix $(obj)/,$($(@F:.so=-objs))) \
 			  $(HOST_LOADLIBES) $(HOSTLOADLIBES_$(@F))
-$(host-cshlib): $(obj)/%: $(host-cshobjs) FORCE
+$(host-cshlib): FORCE
 	$(call if_changed,host-cshlib)
+$(call multi_depend, $(host-cshlib), .so, -objs -cshobjs)
 
 # Link a shared library, based on position independent .o files
 # *.o -> .so shared library (host-cxxshlib)
@@ -187,8 +188,9 @@ quiet_cmd_host-cxxshlib	= HOSTLLD -shared $@
       cmd_host-cxxshlib	= $(HOSTCXX) $(HOSTLDFLAGS) -shared -o $@ \
 			  $(addprefix $(obj)/,$($(@F:.so=-objs))) \
 			  $(HOST_LOADLIBES) $(HOSTLOADLIBES_$(@F))
-$(host-cxxshlib): $(obj)/%: $(host-cxxshobjs) FORCE
+$(host-cxxshlib): FORCE
 	$(call if_changed,host-cxxshlib)
+$(call multi_depend, $(host-cxxshlib), .so, -objs -cxxshobjs)
 
 targets += $(host-csingle)  $(host-cmulti) $(host-cobjs)\
 	   $(host-cxxmulti) $(host-cxxobjs) $(host-cshlib) $(host-cshobjs) $(host-cxxshlib) $(host-cxxshobjs)

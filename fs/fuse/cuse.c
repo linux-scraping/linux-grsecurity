@@ -613,9 +613,9 @@ static int __init cuse_init(void)
 	/* inherit and extend fuse_dev_operations */
 	pax_open_kernel();
 	memcpy((void *)&cuse_channel_fops, &fuse_dev_operations, sizeof(fuse_dev_operations));
-	*(void **)&cuse_channel_fops.owner	= THIS_MODULE;
-	*(void **)&cuse_channel_fops.open	= cuse_channel_open;
-	*(void **)&cuse_channel_fops.release	= cuse_channel_release;
+	const_cast(cuse_channel_fops.owner)	= THIS_MODULE;
+	const_cast(cuse_channel_fops.open)	= cuse_channel_open;
+	const_cast(cuse_channel_fops.release)	= cuse_channel_release;
 	pax_close_kernel();
 
 	cuse_class = class_create(THIS_MODULE, "cuse");

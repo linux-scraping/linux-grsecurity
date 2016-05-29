@@ -11437,8 +11437,8 @@ lpfc_init(void)
 
 	if (lpfc_enable_npiv) {
 		pax_open_kernel();
-		*(void **)&lpfc_transport_functions.vport_create = lpfc_vport_create;
-		*(void **)&lpfc_transport_functions.vport_delete = lpfc_vport_delete;
+		const_cast(lpfc_transport_functions.vport_create) = lpfc_vport_create;
+		const_cast(lpfc_transport_functions.vport_delete) = lpfc_vport_delete;
 		pax_close_kernel();
 	}
 	lpfc_transport_template =

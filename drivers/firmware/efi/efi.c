@@ -181,11 +181,11 @@ static efivar_operations_no_const generic_ops __read_only;
 static int generic_ops_register(void)
 {
 	pax_open_kernel();
-	*(void **)&generic_ops.get_variable = efi.get_variable;
-	*(void **)&generic_ops.set_variable = efi.set_variable;
-	*(void **)&generic_ops.set_variable_nonblocking = efi.set_variable_nonblocking;
-	*(void **)&generic_ops.get_next_variable = efi.get_next_variable;
-	*(void **)&generic_ops.query_variable_store = efi_query_variable_store;
+	const_cast(generic_ops.get_variable) = efi.get_variable;
+	const_cast(generic_ops.set_variable) = efi.set_variable;
+	const_cast(generic_ops.set_variable_nonblocking) = efi.set_variable_nonblocking;
+	const_cast(generic_ops.get_next_variable) = efi.get_next_variable;
+	const_cast(generic_ops.query_variable_store) = efi_query_variable_store;
 	pax_close_kernel();
 
 	return efivars_register(&generic_efivars, &generic_ops, efi_kobj);

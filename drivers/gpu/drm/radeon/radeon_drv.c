@@ -563,7 +563,7 @@ static int __init radeon_init(void)
 		pdriver = &radeon_kms_pci_driver;
 
 		pax_open_kernel();
-		*(int *)&driver->num_ioctls = radeon_max_kms_ioctl;
+		const_cast(driver->num_ioctls) = radeon_max_kms_ioctl;
 		pax_close_kernel();
 
 		radeon_register_atpx_handler();

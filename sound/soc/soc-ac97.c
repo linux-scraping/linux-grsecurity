@@ -417,8 +417,8 @@ int snd_soc_set_ac97_ops_of_reset(struct snd_ac97_bus_ops *ops,
 		return ret;
 
 	pax_open_kernel();
-	*(void **)&ops->warm_reset = snd_soc_ac97_warm_reset;
-	*(void **)&ops->reset = snd_soc_ac97_reset;
+	const_cast(ops->warm_reset) = snd_soc_ac97_warm_reset;
+	const_cast(ops->reset) = snd_soc_ac97_reset;
 	pax_close_kernel();
 
 	snd_ac97_rst_cfg = cfg;

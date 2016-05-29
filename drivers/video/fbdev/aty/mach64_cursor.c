@@ -220,7 +220,7 @@ int aty_init_cursor(struct fb_info *info)
 	info->sprite.flags = FB_PIXMAP_IO;
 
 	pax_open_kernel();
-	*(void **)&info->fbops->fb_cursor = atyfb_cursor;
+	const_cast(info->fbops->fb_cursor) = atyfb_cursor;
 	pax_close_kernel();
 
 	return 0;

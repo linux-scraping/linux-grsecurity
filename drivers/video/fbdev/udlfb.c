@@ -992,7 +992,7 @@ static int dlfb_ops_release(struct fb_info *info, int user)
 		kfree(info->fbdefio);
 		info->fbdefio = NULL;
 		pax_open_kernel();
-		*(void **)&info->fbops->fb_mmap = dlfb_ops_mmap;
+		const_cast(info->fbops->fb_mmap) = dlfb_ops_mmap;
 		pax_close_kernel();
 	}
 

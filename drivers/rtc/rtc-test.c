@@ -113,8 +113,8 @@ static int test_probe(struct platform_device *plat_dev)
 
 	if (test_mmss64) {
 		pax_open_kernel();
-		*(void **)&test_rtc_ops.set_mmss64 = test_rtc_set_mmss64;
-		*(void **)&test_rtc_ops.set_mmss = NULL;
+		const_cast(test_rtc_ops.set_mmss64) = test_rtc_set_mmss64;
+		const_cast(test_rtc_ops.set_mmss) = NULL;
 		pax_close_kernel();
 	}
 

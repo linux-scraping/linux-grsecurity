@@ -520,9 +520,9 @@ static int op_amd_init(struct oprofile_operations *ops)
 	}
 
 	pax_open_kernel();
-	*(unsigned int *)&op_amd_spec.num_counters = num_counters;
-	*(unsigned int *)&op_amd_spec.num_controls = num_counters;
-	*(unsigned int *)&op_amd_spec.num_virt_counters = max(num_counters, NUM_VIRT_COUNTERS);
+	const_cast(op_amd_spec.num_counters) = num_counters;
+	const_cast(op_amd_spec.num_controls) = num_counters;
+	const_cast(op_amd_spec.num_virt_counters) = max(num_counters, NUM_VIRT_COUNTERS);
 	pax_close_kernel();
 
 	return 0;

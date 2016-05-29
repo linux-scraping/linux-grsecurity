@@ -3439,11 +3439,11 @@ static void cgroup_exit_cftypes(struct cftype *cfts)
 			kfree(cft->kf_ops);
 
 		pax_open_kernel();
-		*(void **)&cft->kf_ops = NULL;
-		*(void **)&cft->ss = NULL;
+		const_cast(cft->kf_ops) = NULL;
+		const_cast(cft->ss) = NULL;
 
 		/* revert flags set by cgroup core while adding @cfts */
-		*(unsigned int *)&cft->flags &= ~(__CFTYPE_ONLY_ON_DFL | __CFTYPE_NOT_ON_DFL);
+		const_cast(cft->flags) &= ~(__CFTYPE_ONLY_ON_DFL | __CFTYPE_NOT_ON_DFL);
 		pax_close_kernel();
 	}
 }
@@ -3476,8 +3476,8 @@ static int cgroup_init_cftypes(struct cgroup_subsys *ss, struct cftype *cfts)
 		}
 
 		pax_open_kernel();
-		*(void **)&cft->kf_ops = kf_ops;
-		*(void **)&cft->ss = ss;
+		const_cast(cft->kf_ops) = kf_ops;
+		const_cast(cft->ss) = ss;
 		pax_close_kernel();
 	}
 
@@ -3571,7 +3571,7 @@ int cgroup_add_dfl_cftypes(struct cgroup_subsys *ss, struct cftype *cfts)
 
 	pax_open_kernel();
 	for (cft = cfts; cft && cft->name[0] != '\0'; cft++)
-		*(unsigned int *)&cft->flags |= __CFTYPE_ONLY_ON_DFL;
+		const_cast(cft->flags) |= __CFTYPE_ONLY_ON_DFL;
 	pax_close_kernel();
 	return cgroup_add_cftypes(ss, cfts);
 }
@@ -3590,7 +3590,7 @@ int cgroup_add_legacy_cftypes(struct cgroup_subsys *ss, struct cftype *cfts)
 
 	pax_open_kernel();
 	for (cft = cfts; cft && cft->name[0] != '\0'; cft++)
-		*(unsigned int *)&cft->flags |= __CFTYPE_NOT_ON_DFL;
+		const_cast(cft->flags) |= __CFTYPE_NOT_ON_DFL;
 	pax_close_kernel();
 	return cgroup_add_cftypes(ss, cfts);
 }

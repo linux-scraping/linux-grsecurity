@@ -2590,16 +2590,16 @@ void ath9k_fill_chanctx_ops(void)
 		return;
 
 	pax_open_kernel();
-	*(void **)&ath9k_ops.hw_scan                  = ath9k_hw_scan;
-	*(void **)&ath9k_ops.cancel_hw_scan           = ath9k_cancel_hw_scan;
-	*(void **)&ath9k_ops.remain_on_channel        = ath9k_remain_on_channel;
-	*(void **)&ath9k_ops.cancel_remain_on_channel = ath9k_cancel_remain_on_channel;
-	*(void **)&ath9k_ops.add_chanctx              = ath9k_add_chanctx;
-	*(void **)&ath9k_ops.remove_chanctx           = ath9k_remove_chanctx;
-	*(void **)&ath9k_ops.change_chanctx           = ath9k_change_chanctx;
-	*(void **)&ath9k_ops.assign_vif_chanctx       = ath9k_assign_vif_chanctx;
-	*(void **)&ath9k_ops.unassign_vif_chanctx     = ath9k_unassign_vif_chanctx;
-	*(void **)&ath9k_ops.mgd_prepare_tx           = ath9k_mgd_prepare_tx;
+	const_cast(ath9k_ops.hw_scan)                  = ath9k_hw_scan;
+	const_cast(ath9k_ops.cancel_hw_scan)           = ath9k_cancel_hw_scan;
+	const_cast(ath9k_ops.remain_on_channel)        = ath9k_remain_on_channel;
+	const_cast(ath9k_ops.cancel_remain_on_channel) = ath9k_cancel_remain_on_channel;
+	const_cast(ath9k_ops.add_chanctx)              = ath9k_add_chanctx;
+	const_cast(ath9k_ops.remove_chanctx)           = ath9k_remove_chanctx;
+	const_cast(ath9k_ops.change_chanctx)           = ath9k_change_chanctx;
+	const_cast(ath9k_ops.assign_vif_chanctx)       = ath9k_assign_vif_chanctx;
+	const_cast(ath9k_ops.unassign_vif_chanctx)     = ath9k_unassign_vif_chanctx;
+	const_cast(ath9k_ops.mgd_prepare_tx)           = ath9k_mgd_prepare_tx;
 	pax_close_kernel();
 }
 

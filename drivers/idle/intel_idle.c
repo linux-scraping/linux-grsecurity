@@ -1061,8 +1061,8 @@ static void sklh_idle_state_table_update(void)
 	}
 
 	pax_open_kernel();
-	*(bool *)&skl_cstates[5].disabled = 1;	/* C8-SKL */
-	*(bool *)&skl_cstates[6].disabled = 1;	/* C9-SKL */
+	const_cast(skl_cstates[5].disabled) = 1;	/* C8-SKL */
+	const_cast(skl_cstates[6].disabled) = 1;	/* C9-SKL */
 	pax_close_kernel();
 }
 /*

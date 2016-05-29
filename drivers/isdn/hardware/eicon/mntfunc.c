@@ -29,7 +29,7 @@ static DESCRIPTOR MAdapter;
 
 static void didd_nothing(ENTITY IDI_CALL_ENTITY_T *e)
 {
-	diva_maint_prtComp(e);
+	diva_maint_prtComp((char *)e);
 }
 static DESCRIPTOR MaintDescriptor =
 { IDI_DIMAINT, 0, 0, didd_nothing };

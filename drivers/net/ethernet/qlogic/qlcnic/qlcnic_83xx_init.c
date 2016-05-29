@@ -2325,7 +2325,7 @@ int qlcnic_83xx_configure_opmode(struct qlcnic_adapter *adapter)
 	} else if (ret == QLC_83XX_DEFAULT_OPMODE) {
 		ahw->nic_mode = QLCNIC_DEFAULT_MODE;
 		pax_open_kernel();
-		*(void **)&adapter->nic_ops->init_driver = qlcnic_83xx_init_default_driver;
+		const_cast(adapter->nic_ops->init_driver) = qlcnic_83xx_init_default_driver;
 		pax_close_kernel();
 		ahw->idc.state_entry = qlcnic_83xx_idc_ready_state_entry;
 		max_sds_rings = QLCNIC_MAX_SDS_RINGS;

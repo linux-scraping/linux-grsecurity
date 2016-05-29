@@ -488,9 +488,9 @@ static void univ8250_release_port(struct uart_port *port)
 
 static void univ8250_rsa_support(struct uart_ops *ops)
 {
-	*(void **)&ops->config_port  = univ8250_config_port;
-	*(void **)&ops->request_port = univ8250_request_port;
-	*(void **)&ops->release_port = univ8250_release_port;
+	const_cast(ops->config_port)  = univ8250_config_port;
+	const_cast(ops->request_port) = univ8250_request_port;
+	const_cast(ops->release_port) = univ8250_release_port;
 }
 
 #else

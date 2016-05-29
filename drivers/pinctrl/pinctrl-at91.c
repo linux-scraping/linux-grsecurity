@@ -1611,7 +1611,7 @@ static int at91_gpio_of_irq_setup(struct platform_device *pdev,
 
 	/* Setup proper .irq_set_type function */
 	pax_open_kernel();
-	*(void **)&gpio_irqchip.irq_set_type = at91_gpio->ops->irq_type;
+	const_cast(gpio_irqchip.irq_set_type) = at91_gpio->ops->irq_type;
 	pax_close_kernel();
 
 	/* Disable irqs of this PIO controller */

@@ -788,7 +788,7 @@ int __init op_nmi_init(struct oprofile_operations *ops)
 
 	if (!model->num_virt_counters) {
 		pax_open_kernel();
-		*(unsigned int *)&model->num_virt_counters = model->num_counters;
+		const_cast(model->num_virt_counters) = model->num_counters;
 		pax_close_kernel();
 	}
 

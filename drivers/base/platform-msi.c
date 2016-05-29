@@ -85,9 +85,9 @@ static void platform_msi_update_dom_ops(struct msi_domain_info *info)
 
 	pax_open_kernel();
 	if (ops->msi_init == NULL)
-		*(void **)&ops->msi_init = platform_msi_init;
+		const_cast(ops->msi_init) = platform_msi_init;
 	if (ops->set_desc == NULL)
-		*(void **)&ops->set_desc = platform_msi_set_desc;
+		const_cast(ops->set_desc) = platform_msi_set_desc;
 	pax_close_kernel();
 }
 
@@ -108,15 +108,15 @@ static void platform_msi_update_chip_ops(struct msi_domain_info *info)
 	BUG_ON(!chip);
 	pax_open_kernel();
 	if (!chip->irq_mask)
-		*(void **)&chip->irq_mask = irq_chip_mask_parent;
+		const_cast(chip->irq_mask) = irq_chip_mask_parent;
 	if (!chip->irq_unmask)
-		*(void **)&chip->irq_unmask = irq_chip_unmask_parent;
+		const_cast(chip->irq_unmask) = irq_chip_unmask_parent;
 	if (!chip->irq_eoi)
-		*(void **)&chip->irq_eoi = irq_chip_eoi_parent;
+		const_cast(chip->irq_eoi) = irq_chip_eoi_parent;
 	if (!chip->irq_set_affinity)
-		*(void **)&chip->irq_set_affinity = msi_domain_set_affinity;
+		const_cast(chip->irq_set_affinity) = msi_domain_set_affinity;
 	if (!chip->irq_write_msi_msg)
-		*(void **)&chip->irq_write_msi_msg = platform_msi_write_msg;
+		const_cast(chip->irq_write_msi_msg) = platform_msi_write_msg;
 	pax_close_kernel();
 }
 

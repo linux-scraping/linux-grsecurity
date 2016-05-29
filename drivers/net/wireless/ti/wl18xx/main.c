@@ -2019,8 +2019,8 @@ static int wl18xx_setup(struct wl1271 *wl)
 
 	if (!checksum_param) {
 		pax_open_kernel();
-		*(void **)&wl18xx_ops.set_rx_csum = NULL;
-		*(void **)&wl18xx_ops.init_vif = NULL;
+		const_cast(wl18xx_ops.set_rx_csum) = NULL;
+		const_cast(wl18xx_ops.init_vif) = NULL;
 		pax_close_kernel();
 	}
 

@@ -208,7 +208,7 @@ static int __init at91_reset_probe(struct platform_device *pdev)
 
 	match = of_match_node(at91_reset_of_match, pdev->dev.of_node);
 	pax_open_kernel();
-	*(void **)&at91_restart_nb.notifier_call = match->data;
+	const_cast(at91_restart_nb.notifier_call) = match->data;
 	pax_close_kernel();
 
 	sclk = devm_clk_get(&pdev->dev, NULL);

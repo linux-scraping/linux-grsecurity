@@ -273,8 +273,8 @@ static int int3400_thermal_probe(struct platform_device *pdev)
 
 	if (priv->uuid_bitmap & 1 << INT3400_THERMAL_PASSIVE_1) {
 		pax_open_kernel();
-		*(void **)&int3400_thermal_ops.get_mode = int3400_thermal_get_mode;
-		*(void **)&int3400_thermal_ops.set_mode = int3400_thermal_set_mode;
+		const_cast(int3400_thermal_ops.get_mode) = int3400_thermal_get_mode;
+		const_cast(int3400_thermal_ops.set_mode) = int3400_thermal_set_mode;
 		pax_close_kernel();
 	}
 	priv->thermal = thermal_zone_device_register("INT3400 Thermal", 0, 0,

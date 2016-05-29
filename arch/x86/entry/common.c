@@ -422,7 +422,7 @@ __always_inline void do_syscall_32_irqs_on(struct pt_regs *regs)
 			  [param4] "m" (regs->si),
 			  [param5] "m" (regs->di),
 			  [param6] "m" (regs->bp)
-			: "di", "si", "dx", "cx", "r8", "r9", "memory");
+			: "ax", "di", "si", "dx", "cx", "r8", "r9", "r10", "r11", "memory");
 #else
 		asm volatile("pushl %[param6]\n\t"
 			     "pushl %[param5]\n\t"

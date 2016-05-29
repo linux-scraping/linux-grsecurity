@@ -419,9 +419,9 @@ thermal_zone_of_add_sensor(struct device_node *zone,
 	tz->sensor_data = data;
 
 	pax_open_kernel();
-	*(void **)&tzd->ops->get_temp = of_thermal_get_temp;
-	*(void **)&tzd->ops->get_trend = of_thermal_get_trend;
-	*(void **)&tzd->ops->set_emul_temp = of_thermal_set_emul_temp;
+	const_cast(tzd->ops->get_temp) = of_thermal_get_temp;
+	const_cast(tzd->ops->get_trend) = of_thermal_get_trend;
+	const_cast(tzd->ops->set_emul_temp) = of_thermal_set_emul_temp;
 	pax_close_kernel();
 	mutex_unlock(&tzd->lock);
 
@@ -549,9 +549,9 @@ void thermal_zone_of_sensor_unregister(struct device *dev,
 
 	mutex_lock(&tzd->lock);
 	pax_open_kernel();
-	*(void **)&tzd->ops->get_temp = NULL;
-	*(void **)&tzd->ops->get_trend = NULL;
-	*(void **)&tzd->ops->set_emul_temp = NULL;
+	const_cast(tzd->ops->get_temp) = NULL;
+	const_cast(tzd->ops->get_trend) = NULL;
+	const_cast(tzd->ops->set_emul_temp) = NULL;
 	pax_close_kernel();
 
 	tz->ops = NULL;

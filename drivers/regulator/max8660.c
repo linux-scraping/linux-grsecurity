@@ -424,8 +424,8 @@ static int max8660_probe(struct i2c_client *client,
 	} else {
 		/* Otherwise devices can be toggled via software */
 		pax_open_kernel();
-		*(void **)&max8660_dcdc_ops.enable = max8660_dcdc_enable;
-		*(void **)&max8660_dcdc_ops.disable = max8660_dcdc_disable;
+		const_cast(max8660_dcdc_ops.enable) = max8660_dcdc_enable;
+		const_cast(max8660_dcdc_ops.disable) = max8660_dcdc_disable;
 		pax_close_kernel();
 	}
 

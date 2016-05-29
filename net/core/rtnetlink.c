@@ -309,7 +309,7 @@ int __rtnl_link_register(struct rtnl_link_ops *ops)
 	 */
 	if (ops->setup && !ops->dellink) {
 		pax_open_kernel();
-		*(void **)&ops->dellink = unregister_netdevice_queue;
+		const_cast(ops->dellink) = unregister_netdevice_queue;
 		pax_close_kernel();
 	}
 

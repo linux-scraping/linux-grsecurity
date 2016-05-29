@@ -281,7 +281,7 @@ static int __init qxl_init(void)
 		return -EINVAL;
 
 	pax_open_kernel();
-	*(int *)&qxl_driver.num_ioctls = qxl_max_ioctls;
+	const_cast(qxl_driver.num_ioctls) = qxl_max_ioctls;
 	pax_close_kernel();
 
 	return drm_pci_init(&qxl_driver, &qxl_pci_driver);

@@ -647,7 +647,7 @@ static void _aac_probe_container2(void * context, struct fib * fibptr)
 	}
 	aac_fib_complete(fibptr);
 	aac_fib_free(fibptr);
-	callback = scsicmd->SCp.ptr;
+	callback = (int (*)(struct scsi_cmnd *))(scsicmd->SCp.ptr);
 	scsicmd->SCp.ptr = NULL;
 	(*callback)(scsicmd);
 	return;
@@ -726,7 +726,7 @@ static int _aac_probe_container(struct scsi_cmnd * scsicmd, int (*callback)(stru
 
 		dinfo->count = cpu_to_le32(scmd_id(scsicmd));
 		dinfo->type = cpu_to_le32(FT_FILESYS);
-		scsicmd->SCp.ptr = callback;
+		scsicmd->SCp.ptr = (char *)callback;
 
 		status = aac_fib_send(ContainerCommand,
 			  fibptr,

@@ -93,7 +93,7 @@ static struct pci_driver mga_pci_driver = {
 static int __init mga_init(void)
 {
 	pax_open_kernel();
-	*(int *)&driver.num_ioctls = mga_max_ioctl;
+	const_cast(driver.num_ioctls) = mga_max_ioctl;
 	pax_close_kernel();
 
 	return drm_pci_init(&driver, &mga_pci_driver);

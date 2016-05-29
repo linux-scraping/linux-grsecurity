@@ -270,7 +270,7 @@ static int create_constraint_attribute(int id, const char *name,
 		return -ENOMEM;
 
 	pax_open_kernel();
-	*(const char **)&dev_attr->attr.name = name;
+	const_cast(dev_attr->attr.name) = name;
 	pax_close_kernel();
 
 	return 0;
@@ -424,9 +424,9 @@ static void create_power_zone_common_attributes(
 	if (power_zone->ops->get_energy_uj) {
 		pax_open_kernel();
 		if (power_zone->ops->reset_energy_uj)
-			*(umode_t *)&dev_attr_energy_uj.attr.mode = S_IWUSR | S_IRUGO;
+			const_cast(dev_attr_energy_uj.attr.mode) = S_IWUSR | S_IRUGO;
 		else
-			*(umode_t *)&dev_attr_energy_uj.attr.mode = S_IRUGO;
+			const_cast(dev_attr_energy_uj.attr.mode) = S_IRUGO;
 		pax_close_kernel();
 		power_zone->zone_dev_attrs[count++] =
 					&dev_attr_energy_uj.attr;

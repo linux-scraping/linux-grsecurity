@@ -116,8 +116,8 @@ static __init struct clk *__socfpga_pll_init(struct device_node *node,
 
 	pll_clk->hw.bit_idx = SOCFPGA_PLL_EXT_ENA;
 	pax_open_kernel();
-	*(void **)&clk_pll_ops.enable = clk_gate_ops.enable;
-	*(void **)&clk_pll_ops.disable = clk_gate_ops.disable;
+	const_cast(clk_pll_ops.enable) = clk_gate_ops.enable;
+	const_cast(clk_pll_ops.disable) = clk_gate_ops.disable;
 	pax_close_kernel();
 
 	clk = clk_register(NULL, &pll_clk->hw.hw);

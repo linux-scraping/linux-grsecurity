@@ -260,7 +260,7 @@ int xfrm_register_mode(struct xfrm_mode *mode, int family)
 		goto out;
 
 	pax_open_kernel();
-	*(const void **)&mode->afinfo = afinfo;
+	const_cast(mode->afinfo) = afinfo;
 	modemap[mode->encap] = mode;
 	pax_close_kernel();
 	err = 0;

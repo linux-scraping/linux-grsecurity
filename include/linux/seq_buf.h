@@ -16,7 +16,7 @@
  * @readpos:	The next position to read in the buffer.
  */
 struct seq_buf {
-	char			*buffer;
+	unsigned char		*buffer;
 	size_t			size;
 	size_t			len;
 	loff_t			readpos;

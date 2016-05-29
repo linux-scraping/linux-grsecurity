@@ -923,7 +923,7 @@ struct c2port_device *c2port_device_register(char *name,
 	c2dev->id = ret;
 
 	pax_open_kernel();
-	*(size_t *)&bin_attr_flash_data.size = ops->blocks_num * ops->block_size;
+	const_cast(bin_attr_flash_data.size) = ops->blocks_num * ops->block_size;
 	pax_close_kernel();
 
 	c2dev->dev = device_create(c2port_class, NULL, 0, c2dev,

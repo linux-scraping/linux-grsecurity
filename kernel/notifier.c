@@ -28,7 +28,7 @@ static int notifier_chain_register(struct notifier_block **nl,
 		nl = (struct notifier_block **)&((*nl)->next);
 	}
 	pax_open_kernel();
-	*(const void **)&n->next = *nl;
+	const_cast(n->next) = *nl;
 	rcu_assign_pointer(*nl, n);
 	pax_close_kernel();
 	return 0;
@@ -45,7 +45,7 @@ static int notifier_chain_cond_register(struct notifier_block **nl,
 		nl = (struct notifier_block **)&((*nl)->next);
 	}
 	pax_open_kernel();
-	*(const void **)&n->next = *nl;
+	const_cast(n->next) = *nl;
 	rcu_assign_pointer(*nl, n);
 	pax_close_kernel();
 	return 0;

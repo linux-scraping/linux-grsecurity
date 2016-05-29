@@ -11,6 +11,7 @@ menu "Grsecurity"
 
 	config PAX_KERNEXEC_PLUGIN
 	bool
+	depends on GCC_PLUGINS
 
 	config PAX_PER_CPU_PGD
 	bool
@@ -784,7 +785,7 @@ config PAX_MEMORY_SANITIZE
 config PAX_MEMORY_STACKLEAK
 	bool "Sanitize kernel stack"
 	default y if (GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_PRIORITY_SECURITY)
-	depends on X86
+	depends on X86 && GCC_PLUGINS
 	help
 	  By saying Y here the kernel will erase the kernel stack before it
 	  returns from a system call.  This in turn reduces the information
@@ -810,6 +811,7 @@ config PAX_MEMORY_STACKLEAK
 config PAX_MEMORY_STRUCTLEAK
 	bool "Forcibly initialize local variables copied to userland"
 	default y if (GRKERNSEC_CONFIG_AUTO && GRKERNSEC_CONFIG_PRIORITY_SECURITY)
+	depends on GCC_PLUGINS
 	help
 	  By saying Y here the kernel will zero initialize some local
 	  variables that are going to be copied to userland.  This in
@@ -926,6 +928,7 @@ config PAX_USERCOPY_DEBUG
 config PAX_SIZE_OVERFLOW
 	bool "Prevent various integer overflows in function size parameters"
 	default y if GRKERNSEC_CONFIG_AUTO
+	depends on GCC_PLUGINS
 	help
 	  By saying Y here the kernel recomputes expressions of function
 	  arguments marked by a size_overflow attribute with double integer
@@ -943,6 +946,7 @@ config PAX_SIZE_OVERFLOW
 config PAX_LATENT_ENTROPY
 	bool "Generate some entropy during boot and runtime"
 	default y if GRKERNSEC_CONFIG_AUTO
+	depends on GCC_PLUGINS
 	help
 	  By saying Y here the kernel will instrument some kernel code to
 	  extract some entropy from both original and artificially created

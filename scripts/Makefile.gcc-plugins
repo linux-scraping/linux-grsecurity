@@ -1,69 +1,71 @@
-__PLUGINCC := $(call cc-ifversion, -ge, 0408, $(HOSTCXX), $(HOSTCC))
-PLUGINCC := $(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-plugin.sh "$(__PLUGINCC)" "$(HOSTCXX)" "$(CC)")
-ifneq ($(PLUGINCC),)
-ifdef CONFIG_PAX_CONSTIFY_PLUGIN
-CONSTIFY_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/constify_plugin.so -DCONSTIFY_PLUGIN
-endif
-ifdef CONFIG_PAX_MEMORY_STACKLEAK
-STACKLEAK_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/stackleak_plugin.so -DSTACKLEAK_PLUGIN
-STACKLEAK_PLUGIN_CFLAGS += -fplugin-arg-stackleak_plugin-track-lowest-sp=100
-endif
-ifdef CONFIG_KALLOCSTAT_PLUGIN
-KALLOCSTAT_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/kallocstat_plugin.so
-endif
-ifdef CONFIG_PAX_KERNEXEC_PLUGIN
-KERNEXEC_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/kernexec_plugin.so
-KERNEXEC_PLUGIN_CFLAGS += -fplugin-arg-kernexec_plugin-method=$(CONFIG_PAX_KERNEXEC_PLUGIN_METHOD) -DKERNEXEC_PLUGIN
-KERNEXEC_PLUGIN_AFLAGS := -DKERNEXEC_PLUGIN
-endif
-ifdef CONFIG_CHECKER_PLUGIN
-ifeq ($(call cc-ifversion, -ge, 0406, y), y)
-CHECKER_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/checker_plugin.so -DCHECKER_PLUGIN
-ifdef CONFIG_CHECKER_PLUGIN_USER
-CHECKER_PLUGIN_CFLAGS += -fplugin-arg-checker_plugin-user -DCHECKER_PLUGIN_USER
-endif
-ifdef CONFIG_CHECKER_PLUGIN_CONTEXT
-CHECKER_PLUGIN_CFLAGS += -fplugin-arg-checker_plugin-context -DCHECKER_PLUGIN_CONTEXT
-endif
-endif
-endif
-COLORIZE_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/colorize_plugin.so
-ifdef CONFIG_PAX_SIZE_OVERFLOW
-SIZE_OVERFLOW_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/size_overflow_plugin/size_overflow_plugin.so -DSIZE_OVERFLOW_PLUGIN
-endif
-ifdef CONFIG_PAX_LATENT_ENTROPY
-LATENT_ENTROPY_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/latent_entropy_plugin.so -DLATENT_ENTROPY_PLUGIN
-endif
-ifdef CONFIG_PAX_MEMORY_STRUCTLEAK
-STRUCTLEAK_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/structleak_plugin.so -DSTRUCTLEAK_PLUGIN
-endif
-INITIFY_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/initify_plugin.so -DINITIFY_PLUGIN
-ifdef CONFIG_PAX_RAP
-RAP_PLUGIN_CFLAGS := -fplugin=$(objtree)/tools/gcc/rap_plugin/rap_plugin.so -fplugin-arg-rap_plugin-check=call -DRAP_PLUGIN
-#RAP_PLUGIN_CFLAGS += -fplugin-arg-rap_plugin-report=func,fptr,abs
-RAP_PLUGIN_ABS_CFLAGS := -fplugin-arg-rap_plugin-hash=abs-finish
-RAP_PLUGIN_AFLAGS := -DRAP_PLUGIN
-endif
-GCC_PLUGINS_CFLAGS := $(CONSTIFY_PLUGIN_CFLAGS) $(STACKLEAK_PLUGIN_CFLAGS) $(KALLOCSTAT_PLUGIN_CFLAGS)
-GCC_PLUGINS_CFLAGS += $(KERNEXEC_PLUGIN_CFLAGS) $(CHECKER_PLUGIN_CFLAGS) $(COLORIZE_PLUGIN_CFLAGS)
-GCC_PLUGINS_CFLAGS += $(SIZE_OVERFLOW_PLUGIN_CFLAGS) $(LATENT_ENTROPY_PLUGIN_CFLAGS) $(STRUCTLEAK_PLUGIN_CFLAGS)
-GCC_PLUGINS_CFLAGS += $(INITIFY_PLUGIN_CFLAGS)
-GCC_PLUGINS_CFLAGS += $(RAP_PLUGIN_CFLAGS) $(RAP_PLUGIN_ABS_CFLAGS)
-GCC_PLUGINS_AFLAGS := $(KERNEXEC_PLUGIN_AFLAGS) $(RAP_PLUGIN_AFLAGS)
-export PLUGINCC GCC_PLUGINS_CFLAGS GCC_PLUGINS_AFLAGS CONSTIFY_PLUGIN LATENT_ENTROPY_PLUGIN_CFLAGS RAP_PLUGIN_CFLAGS RAP_PLUGIN_ABS_CFLAGS
-ifeq ($(KBUILD_EXTMOD),)
-gcc-plugins:
-	$(Q)$(MAKE) $(build)=tools/gcc
-else
-gcc-plugins: ;
-endif
-else
-gcc-plugins:
-ifeq ($(call cc-ifversion, -ge, 0405, y), y)
-	$(warning warning, your gcc installation does not support plugins, perhaps the necessary headers are missing?)
-	$(CONFIG_SHELL) -x $(srctree)/scripts/gcc-plugin.sh "$(__PLUGINCC)" "$(HOSTCXX)" "$(CC)"
-else
-	$(warning warning, your gcc version does not support plugins, you should upgrade it to gcc 4.5 at least)
-endif
-	$(warning PAX_MEMORY_STACKLEAK and other features will be less secure)
+ifdef CONFIG_GCC_PLUGINS
+  __PLUGINCC := $(call cc-ifversion, -ge, 0408, $(HOSTCXX), $(HOSTCC))
+  PLUGINCC := $(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-plugin.sh "$(__PLUGINCC)" "$(HOSTCXX)" "$(CC)")
+
+  gcc-plugin-$(CONFIG_PAX_CONSTIFY_PLUGIN)		+= constify_plugin.so
+  gcc-plugin-cflags-$(CONFIG_PAX_CONSTIFY_PLUGIN)	+= -DCONSTIFY_PLUGIN
+
+  gcc-plugin-$(CONFIG_PAX_MEMORY_STACKLEAK)		+= stackleak_plugin.so
+  gcc-plugin-cflags-$(CONFIG_PAX_MEMORY_STACKLEAK)	+= -DSTACKLEAK_PLUGIN -fplugin-arg-stackleak_plugin-track-lowest-sp=100
+
+  gcc-plugin-$(CONFIG_KALLOCSTAT_PLUGIN)		+= kallocstat_plugin.so
+
+  gcc-plugin-$(CONFIG_PAX_KERNEXEC_PLUGIN)		+= kernexec_plugin.so
+  gcc-plugin-cflags-$(CONFIG_PAX_KERNEXEC_PLUGIN)	+= -DKERNEXEC_PLUGIN -fplugin-arg-kernexec_plugin-method=$(CONFIG_PAX_KERNEXEC_PLUGIN_METHOD)
+  gcc-plugin-aflags-$(CONFIG_PAX_KERNEXEC_PLUGIN)	+= -DKERNEXEC_PLUGIN
+
+  ifdef CONFIG_CHECKER_PLUGIN
+    ifeq ($(call cc-ifversion, -ge, 0406, y), y)
+      gcc-plugin-$(CONFIG_CHECKER_PLUGIN)		+= checker_plugin.so
+      gcc-plugin-cflags-$(CONFIG_CHECKER_PLUGIN)	+= -DCHECKER_PLUGIN
+      gcc-plugin-cflags-$(CONFIG_CHECKER_PLUGIN_USER)	+= -DCHECKER_PLUGIN_USER -fplugin-arg-checker_plugin-user
+      gcc-plugin-cflags-$(CONFIG_CHECKER_PLUGIN_CONTEXT)+= -DCHECKER_PLUGIN_CONTEXT -fplugin-arg-checker_plugin-context
+    endif
+  endif
+
+  gcc-plugin-y						+= colorize_plugin.so
+
+  gcc-plugin-$(CONFIG_PAX_SIZE_OVERFLOW)		+= size_overflow_plugin/size_overflow_plugin.so
+  gcc-plugin-cflags-$(CONFIG_PAX_SIZE_OVERFLOW)		+= -DSIZE_OVERFLOW_PLUGIN
+
+  gcc-plugin-$(CONFIG_PAX_LATENT_ENTROPY)		+= latent_entropy_plugin.so
+  gcc-plugin-cflags-$(CONFIG_PAX_LATENT_ENTROPY)	+= -DLATENT_ENTROPY_PLUGIN
+  ifdef CONFIG_PAX_LATENT_ENTROPY
+    DISABLE_LATENT_ENTROPY_PLUGIN				+= -fplugin-arg-latent_entropy_plugin-disable
+  endif
+
+  gcc-plugin-$(CONFIG_PAX_MEMORY_STRUCTLEAK)		+= structleak_plugin.so
+  gcc-plugin-cflags-$(CONFIG_PAX_MEMORY_STRUCTLEAK)	+= -DSTRUCTLEAK_PLUGIN
+
+  gcc-plugin-y						+= initify_plugin.so
+  gcc-plugin-cflags-y					+= -DINITIFY_PLUGIN
+
+  gcc-plugin-$(CONFIG_PAX_RAP)				+= rap_plugin/rap_plugin.so
+  gcc-plugin-cflags-$(CONFIG_PAX_RAP)			+= -DRAP_PLUGIN -fplugin-arg-rap_plugin-check=call
+#  gcc-plugin-cflags-$(CONFIG_PAX_RAP)			+= -fplugin-arg-rap_plugin-report=func,fptr,abs
+  gcc-plugin-aflags-$(CONFIG_PAX_RAP)			+= -DRAP_PLUGIN
+  ifdef CONFIG_PAX_RAP
+    RAP_PLUGIN_ABS_CFLAGS				:= -fplugin-arg-rap_plugin-hash=abs-finish
+  endif
+  gcc-plugin-cflags-$(CONFIG_PAX_RAP)			+= $(RAP_PLUGIN_ABS_CFLAGS)
+
+  GCC_PLUGINS_CFLAGS := $(strip $(addprefix -fplugin=$(objtree)/scripts/gcc-plugins/, $(gcc-plugin-y)) $(gcc-plugin-cflags-y))
+  GCC_PLUGINS_AFLAGS := $(gcc-plugin-aflags-y)
+
+  export DISABLE_LATENT_ENTROPY_PLUGIN RAP_PLUGIN_ABS_CFLAGS
+
+  ifeq ($(PLUGINCC),)
+    ifneq ($(GCC_PLUGINS_CFLAGS),)
+      ifeq ($(call cc-ifversion, -ge, 0405, y), y)
+        PLUGINCC := $(shell $(CONFIG_SHELL) -x $(srctree)/scripts/gcc-plugin.sh "$(__PLUGINCC)" "$(HOSTCXX)" "$(CC)")
+        $(warning warning, your gcc installation does not support plugins, perhaps the necessary headers are missing?)
+      else
+        $(warning warning, your gcc version does not support plugins, you should upgrade it to gcc 4.5 at least)
+      endif
+      $(warning PAX_MEMORY_STACKLEAK and other features will be less secure)
+    endif
+  endif
+
+  KBUILD_CFLAGS += $(GCC_PLUGINS_CFLAGS)
+  KBUILD_AFLAGS += $(GCC_PLUGINS_AFLAGS)
 endif

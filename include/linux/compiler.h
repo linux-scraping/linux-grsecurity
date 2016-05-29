@@ -464,6 +464,10 @@ void __read_once_size_nocheck(const volatile void *p, void *res, int size)
 # define __nocapture(...)
 #endif
 
+#ifndef const_cast
+# define const_cast(x)	(x)
+#endif
+
 /*
  * Tell gcc if a function is cold. The compiler will assume any path
  * directly leading to the call is unlikely.

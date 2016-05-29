@@ -681,6 +681,13 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 			 */
 			// dmb(); implied by the exception
 			regs->ARM_pc = regs->ARM_lr;
+#ifdef CONFIG_ARM_THUMB
+			if (regs->ARM_lr & 1) {
+				regs->ARM_cpsr |= PSR_T_BIT;
+				regs->ARM_pc &= ~0x1U;
+			} else
+				regs->ARM_cpsr &= ~PSR_T_BIT;
+#endif
 			return;
 		}
 		if (pc == 0xffff0fc0UL) {
@@ -703,6 +710,13 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 			 */
 			regs->ARM_r0 = current_thread_info()->tp_value[0];
 			regs->ARM_pc = regs->ARM_lr;
+#ifdef CONFIG_ARM_THUMB
+			if (regs->ARM_lr & 1) {
+				regs->ARM_cpsr |= PSR_T_BIT;
+				regs->ARM_pc &= ~0x1U;
+			} else
+				regs->ARM_cpsr &= ~PSR_T_BIT;
+#endif
 			return;
 		}
 	}

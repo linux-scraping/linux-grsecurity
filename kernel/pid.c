@@ -515,7 +515,7 @@ EXPORT_SYMBOL_GPL(find_get_pid);
 
 pid_t pid_nr_ns(const struct pid *pid, const struct pid_namespace *ns)
 {
-	struct upid *upid;
+	const struct upid *upid;
 	pid_t nr = 0;
 
 	if (pid && ns->level <= pid->level) {

@@ -20,11 +20,11 @@
 
 int plugin_is_GPL_compatible;
 
-static bool constify = true;
+static bool enabled = true;
 
 static struct plugin_info const_plugin_info = {
-	.version	= "201602181345",
-	.help		= "no-constify\tturn off constification\n",
+	.version	= "201605212045",
+	.help		= "disable\tturn off constification\n",
 };
 
 typedef struct {
@@ -234,7 +234,7 @@ static tree handle_no_const_attribute(tree *node, tree name, tree args, int flag
 
 	constifiable(type, &cinfo);
 	if ((cinfo.has_fptr_field && !cinfo.has_writable_field && !cinfo.has_no_const_field) || lookup_attribute("do_const", TYPE_ATTRIBUTES(type))) {
-		if (constify) {
+		if (enabled) {
 			if TYPE_P(*node)
 				deconstify_type(*node);
 			else
@@ -247,7 +247,7 @@ static tree handle_no_const_attribute(tree *node, tree name, tree args, int flag
 		return NULL_TREE;
 	}
 
-	if (constify && TYPE_FIELDS(type))
+	if (enabled && TYPE_FIELDS(type))
 		error("%qE attribute used on type %qT that is not constified", name, type);
 	return NULL_TREE;
 }
@@ -496,8 +496,8 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	}
 
 	for (i = 0; i < argc; ++i) {
-		if (!(strcmp(argv[i].key, "no-constify"))) {
-			constify = false;
+		if (!(strcmp(argv[i].key, "disable"))) {
+			enabled = false;
 			continue;
 		}
 		error(G_("unkown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
@@ -505,11 +505,11 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 
 	if (strncmp(lang_hooks.name, "GNU C", 5) && !strncmp(lang_hooks.name, "GNU C+", 6)) {
 		inform(UNKNOWN_LOCATION, G_("%s supports C only, not %s"), plugin_name, lang_hooks.name);
-		constify = false;
+		enabled = false;
 	}
 
 	register_callback(plugin_name, PLUGIN_INFO, NULL, &const_plugin_info);
-	if (constify) {
+	if (enabled) {
 		register_callback(plugin_name, PLUGIN_ALL_IPA_PASSES_START, check_global_variables, NULL);
 		register_callback(plugin_name, PLUGIN_FINISH_TYPE, finish_type, NULL);
 		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &check_local_variables_pass_info);

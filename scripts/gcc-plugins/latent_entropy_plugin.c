@@ -23,11 +23,13 @@
 
 int plugin_is_GPL_compatible;
 
+static bool enabled = true;
+
 static GTY(()) tree latent_entropy_decl;
 
 static struct plugin_info latent_entropy_plugin_info = {
-	.version	= "201604022010",
-	.help		= NULL
+	.version	= "201605212030",
+	.help		= "disable\tturn off latent entropy instrumentation\n",
 };
 
 static unsigned HOST_WIDE_INT seed;
@@ -390,6 +392,10 @@ static void latent_entropy_start_unit(void *gcc_data, void *user_data)
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
 	const char * const plugin_name = plugin_info->base_name;
+	const int argc = plugin_info->argc;
+	const struct plugin_argument * const argv = plugin_info->argv;
+	int i;
+
 	struct register_pass_info latent_entropy_pass_info;
 
 	latent_entropy_pass_info.pass				= make_latent_entropy_pass();
@@ -412,10 +418,20 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 		return 1;
 	}
 
+	for (i = 0; i < argc; ++i) {
+		if (!(strcmp(argv[i].key, "disable"))) {
+			enabled = false;
+			continue;
+		}
+		error(G_("unkown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
+	}
+
 	register_callback(plugin_name, PLUGIN_INFO, NULL, &latent_entropy_plugin_info);
-	register_callback(plugin_name, PLUGIN_START_UNIT, &latent_entropy_start_unit, NULL);
-	register_callback(plugin_name, PLUGIN_REGISTER_GGC_ROOTS, NULL, (void *)&gt_ggc_r_gt_latent_entropy);
-	register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &latent_entropy_pass_info);
+	if (enabled) {
+		register_callback(plugin_name, PLUGIN_START_UNIT, &latent_entropy_start_unit, NULL);
+		register_callback(plugin_name, PLUGIN_REGISTER_GGC_ROOTS, NULL, (void *)&gt_ggc_r_gt_latent_entropy);
+		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &latent_entropy_pass_info);
+	}
 	register_callback(plugin_name, PLUGIN_ATTRIBUTES, register_attributes, NULL);
 
 	return 0;

@@ -631,7 +631,7 @@ int register_cdrom(struct cdrom_device_info *cdi)
 
 	if (!cdo->generic_packet) {
 		pax_open_kernel();
-		*(void **)&cdo->generic_packet = cdrom_dummy_generic_packet;
+		const_cast(cdo->generic_packet) = cdrom_dummy_generic_packet;
 		pax_close_kernel();
 	}
 

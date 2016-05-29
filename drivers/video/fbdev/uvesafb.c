@@ -1478,7 +1478,7 @@ static void uvesafb_init_info(struct fb_info *info, struct vbe_mode_ib *mode)
 	/* Disable blanking if the user requested so. */
 	if (!blank) {
 		pax_open_kernel();
-		*(void **)&info->fbops->fb_blank = NULL;
+		const_cast(info->fbops->fb_blank) = NULL;
 		pax_close_kernel();
 	}
 
@@ -1553,7 +1553,7 @@ static void uvesafb_init_info(struct fb_info *info, struct vbe_mode_ib *mode)
 
 	if (!par->ypan) {
 		pax_open_kernel();
-		*(void **)&info->fbops->fb_pan_display = NULL;
+		const_cast(info->fbops->fb_pan_display) = NULL;
 		pax_close_kernel();
 	}
 }

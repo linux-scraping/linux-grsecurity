@@ -374,7 +374,7 @@ static void vmd_teardown_dma_ops(struct vmd_dev *vmd)
 #define ASSIGN_VMD_DMA_OPS(source, dest, fn)	\
 	do {					\
 		if (source->fn)			\
-			*(void **)&dest->fn = vmd_##fn;	\
+			const_cast(dest->fn) = vmd_##fn;	\
 	} while (0)
 
 static void vmd_setup_dma_ops(struct vmd_dev *vmd)

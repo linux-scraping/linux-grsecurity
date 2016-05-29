@@ -41,7 +41,7 @@ static bool is_empty_dir(struct ctl_table_header *head)
 static void set_empty_dir(struct ctl_dir *dir)
 {
 	pax_open_kernel();
-	*(const void **)&dir->header.ctl_table[0].child = sysctl_mount_point;
+	const_cast(dir->header.ctl_table[0].child) = sysctl_mount_point;
 	pax_close_kernel();
 }
 
@@ -49,7 +49,7 @@ static void clear_empty_dir(struct ctl_dir *dir)
 
 {
 	pax_open_kernel();
-	*(void **)&dir->header.ctl_table[0].child = NULL;
+	const_cast(dir->header.ctl_table[0].child) = NULL;
 	pax_close_kernel();
 }
 
@@ -559,7 +559,7 @@ static ssize_t proc_sys_call_handler(struct file *filp, void __user *buf,
 	if (gr_handle_chroot_sysctl(op))
 		goto out;
 	dget(filp->f_path.dentry);
-	if (gr_handle_sysctl_mod(filp->f_path.dentry->d_parent->d_name.name, table->procname, op)) {
+	if (gr_handle_sysctl_mod((const char *)filp->f_path.dentry->d_parent->d_name.name, table->procname, op)) {
 		dput(filp->f_path.dentry);
 		goto out;
 	}

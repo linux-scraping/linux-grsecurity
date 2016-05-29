@@ -661,10 +661,10 @@ static int nvidiafb_set_par(struct fb_info *info)
 				 info->var.bits_per_pixel) >> 3;
 	if (info->var.accel_flags) {
 		pax_open_kernel();
-		*(void **)&info->fbops->fb_imageblit = nvidiafb_imageblit;
-		*(void **)&info->fbops->fb_fillrect = nvidiafb_fillrect;
-		*(void **)&info->fbops->fb_copyarea = nvidiafb_copyarea;
-		*(void **)&info->fbops->fb_sync = nvidiafb_sync;
+		const_cast(info->fbops->fb_imageblit) = nvidiafb_imageblit;
+		const_cast(info->fbops->fb_fillrect) = nvidiafb_fillrect;
+		const_cast(info->fbops->fb_copyarea) = nvidiafb_copyarea;
+		const_cast(info->fbops->fb_sync) = nvidiafb_sync;
 		pax_close_kernel();
 		info->pixmap.scan_align = 4;
 		info->flags &= ~FBINFO_HWACCEL_DISABLED;
@@ -672,10 +672,10 @@ static int nvidiafb_set_par(struct fb_info *info)
 		NVResetGraphics(info);
 	} else {
 		pax_open_kernel();
-		*(void **)&info->fbops->fb_imageblit = cfb_imageblit;
-		*(void **)&info->fbops->fb_fillrect = cfb_fillrect;
-		*(void **)&info->fbops->fb_copyarea = cfb_copyarea;
-		*(void **)&info->fbops->fb_sync = NULL;
+		const_cast(info->fbops->fb_imageblit) = cfb_imageblit;
+		const_cast(info->fbops->fb_fillrect) = cfb_fillrect;
+		const_cast(info->fbops->fb_copyarea) = cfb_copyarea;
+		const_cast(info->fbops->fb_sync) = NULL;
 		pax_close_kernel();
 		info->pixmap.scan_align = 1;
 		info->flags |= FBINFO_HWACCEL_DISABLED;
@@ -1170,7 +1170,7 @@ static int nvidia_set_fbinfo(struct fb_info *info)
 
 	if (!hwcur) {
 		pax_open_kernel();
-		*(void **)&info->fbops->fb_cursor = NULL;
+		const_cast(info->fbops->fb_cursor) = NULL;
 		pax_close_kernel();
 	}
 

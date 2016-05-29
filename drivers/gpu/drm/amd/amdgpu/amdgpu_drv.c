@@ -565,7 +565,7 @@ static int __init amdgpu_init(void)
 	DRM_INFO("amdgpu kernel modesetting enabled.\n");
 
 	pax_open_kernel();
-	*(int *)&kms_driver.num_ioctls = amdgpu_max_kms_ioctl;
+	const_cast(kms_driver.num_ioctls) = amdgpu_max_kms_ioctl;
 	pax_close_kernel();
 
 	amdgpu_register_atpx_handler();

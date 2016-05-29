@@ -478,8 +478,8 @@ static int qxl_ttm_debugfs_init(struct qxl_device *qdev)
 	};
 
 	pax_open_kernel();
-	*(void **)&qxl_mem_types_list[0].data = qdev->mman.bdev.man[TTM_PL_VRAM].priv;
-	*(void **)&qxl_mem_types_list[1].data = qdev->mman.bdev.man[TTM_PL_PRIV0].priv;
+	const_cast(qxl_mem_types_list[0].data) = qdev->mman.bdev.man[TTM_PL_VRAM].priv;
+	const_cast(qxl_mem_types_list[1].data) = qdev->mman.bdev.man[TTM_PL_PRIV0].priv;
 	pax_close_kernel();
 
 	return qxl_debugfs_add_files(qdev, qxl_mem_types_list, QXL_DEBUGFS_MEM_TYPES);

@@ -32,12 +32,12 @@ chkpw(struct gr_arg *entry, unsigned char *salt, unsigned char *sum)
 
 	sg_init_table(sg, 2);
 	sg_set_buf(&sg[0], salt, GR_SALT_LEN);
-	sg_set_buf(&sg[1], entry->pw, strlen(entry->pw));
+	sg_set_buf(&sg[1], entry->pw, strlen((const char *)entry->pw));
 
 	desc.tfm = tfm;
 	desc.flags = 0;
 
-	cryptres = crypto_hash_digest(&desc, sg, GR_SALT_LEN + strlen(entry->pw),
+	cryptres = crypto_hash_digest(&desc, sg, GR_SALT_LEN + strlen((const char *)entry->pw),
 					temp_sum);
 
 	memset(entry->pw, 0, GR_PW_LEN);

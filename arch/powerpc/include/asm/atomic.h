@@ -299,11 +299,6 @@ static __inline__ int atomic_dec_if_positive(atomic_t *v)
 }
 #define atomic_dec_if_positive atomic_dec_if_positive
 
-#define smp_mb__before_atomic_dec()     smp_mb()
-#define smp_mb__after_atomic_dec()      smp_mb()
-#define smp_mb__before_atomic_inc()     smp_mb()
-#define smp_mb__after_atomic_inc()      smp_mb()
-
 #ifdef __powerpc64__
 
 #define ATOMIC64_INIT(i)	{ (i) }
@@ -480,7 +475,7 @@ static inline long atomic64_cmpxchg_unchecked(atomic64_unchecked_t *v, long old,
 	return cmpxchg(&(v->counter), old, new);
 }
 
-static inline long atomic64_xchg_unchecked(atomic64_unchecked_t *v, long new) 
+static inline long atomic64_xchg_unchecked(atomic64_unchecked_t *v, long new)
 {
 	return xchg(&(v->counter), new);
 }

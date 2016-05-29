@@ -353,7 +353,7 @@ static int centrino_cpu_init(struct cpufreq_policy *policy)
 
 	if (cpu_has(cpu, X86_FEATURE_CONSTANT_TSC)) {
 		pax_open_kernel();
-		*(u8 *)&centrino_driver.flags |= CPUFREQ_CONST_LOOPS;
+		const_cast(centrino_driver.flags) |= CPUFREQ_CONST_LOOPS;
 		pax_close_kernel();
 	}
 

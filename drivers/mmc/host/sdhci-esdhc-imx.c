@@ -1196,7 +1196,7 @@ static int sdhci_esdhc_imx_probe(struct platform_device *pdev)
 
 	if (imx_data->socdata->flags & ESDHC_FLAG_MAN_TUNING) {
 		pax_open_kernel();
-		*(void **)&sdhci_esdhc_ops.platform_execute_tuning =
+		const_cast(sdhci_esdhc_ops.platform_execute_tuning) =
 					esdhc_executing_tuning;
 		pax_close_kernel();
 	}

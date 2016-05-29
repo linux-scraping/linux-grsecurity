@@ -480,7 +480,7 @@ static int vesafb_probe(struct platform_device *dev)
 
 	if (!ypan) {
 		pax_open_kernel();
-		*(void **)&info->fbops->fb_pan_display = NULL;
+		const_cast(info->fbops->fb_pan_display) = NULL;
 		pax_close_kernel();
 	}
 

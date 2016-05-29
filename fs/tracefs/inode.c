@@ -495,8 +495,8 @@ struct dentry *tracefs_create_instance_dir(const char *name, struct dentry *pare
 		return NULL;
 
 	pax_open_kernel();
-	*(void **)&tracefs_ops.mkdir = mkdir;
-	*(void **)&tracefs_ops.rmdir = rmdir;
+	const_cast(tracefs_ops.mkdir) = mkdir;
+	const_cast(tracefs_ops.rmdir) = rmdir;
 	pax_close_kernel();
 
 	return dentry;

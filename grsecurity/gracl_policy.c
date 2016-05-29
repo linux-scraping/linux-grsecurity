@@ -350,7 +350,7 @@ insert_name_entry(char *name, const u64 inode, const dev_t device, __u8 deleted)
 	struct name_entry **curr, *nentry;
 	struct inodev_entry *ientry;
 	unsigned int len = strlen(name);
-	unsigned int key = full_name_hash(name, len);
+	unsigned int key = full_name_hash((const unsigned char *)name, len);
 	unsigned int index = key % polstate->name_set.n_size;
 
 	curr = &polstate->name_set.n_hash[index];
@@ -1375,7 +1375,7 @@ lookup_special_role_auth(__u16 mode, const char *rolename, unsigned char **salt,
 	FOR_EACH_ROLE_END(r)
 
 	for (i = 0; i < polstate->num_sprole_pws; i++) {
-		if (!strcmp(rolename, polstate->acl_special_roles[i]->rolename)) {
+		if (!strcmp(rolename, (const char *)polstate->acl_special_roles[i]->rolename)) {
 			*salt = polstate->acl_special_roles[i]->salt;
 			*sum = polstate->acl_special_roles[i]->sum;
 			return 1;
@@ -1662,11 +1662,11 @@ write_grsec_handler(struct file *file, const char __user * buf, size_t count, lo
 		}
 
 		if (lookup_special_role_auth
-		    (gr_usermode->mode, gr_usermode->sp_role, &sprole_salt, &sprole_sum)
+		    (gr_usermode->mode, (const char *)gr_usermode->sp_role, &sprole_salt, &sprole_sum)
 		    && ((!sprole_salt && !sprole_sum)
 			|| !(chkpw(gr_usermode, sprole_salt, sprole_sum)))) {
 			char *p = "";
-			assign_special_role(gr_usermode->sp_role);
+			assign_special_role((const char *)gr_usermode->sp_role);
 			read_lock(&tasklist_lock);
 			if (current->real_parent)
 				p = current->real_parent->role->rolename;

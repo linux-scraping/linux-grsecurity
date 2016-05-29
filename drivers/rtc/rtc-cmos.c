@@ -736,7 +736,7 @@ cmos_do_probe(struct device *dev, struct resource *ports, int rtc_irq)
 
 	/* export at least the first block of NVRAM */
 	pax_open_kernel();
-	*(size_t *)&nvram.size = address_space - NVRAM_OFFSET;
+	const_cast(nvram.size) = address_space - NVRAM_OFFSET;
 	pax_close_kernel();
 	retval = sysfs_create_bin_file(&dev->kobj, &nvram);
 	if (retval < 0) {

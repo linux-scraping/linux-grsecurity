@@ -783,7 +783,7 @@ static int lynxfb_set_fbinfo(struct fb_info *info, int index)
 	memset_io(crtc->cursor.vstart, 0, crtc->cursor.size);
 	if (!g_hwcursor) {
 		pax_open_kernel();
-		*(void **)&lynxfb_ops.fb_cursor = NULL;
+		const_cast(lynxfb_ops.fb_cursor) = NULL;
 		pax_close_kernel();
 		hw_cursor_disable(&crtc->cursor);
 	}
@@ -792,9 +792,9 @@ static int lynxfb_set_fbinfo(struct fb_info *info, int index)
 	if (!sm750_dev->accel_off) {
 		/* use 2d acceleration */
 		pax_open_kernel();
-		*(void **)&lynxfb_ops.fb_fillrect = lynxfb_ops_fillrect;
-		*(void **)&lynxfb_ops.fb_copyarea = lynxfb_ops_copyarea;
-		*(void **)&lynxfb_ops.fb_imageblit = lynxfb_ops_imageblit;
+		const_cast(lynxfb_ops.fb_fillrect) = lynxfb_ops_fillrect;
+		const_cast(lynxfb_ops.fb_copyarea) = lynxfb_ops_copyarea;
+		const_cast(lynxfb_ops.fb_imageblit) = lynxfb_ops_imageblit;
 		pax_close_kernel();
 	}
 	info->fbops = &lynxfb_ops;

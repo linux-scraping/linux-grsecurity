@@ -723,9 +723,9 @@ int twl4030_init_irq(struct device *dev, int irq_num)
 	 */
 	pax_open_kernel();
 	memcpy((void *)&twl4030_irq_chip, &dummy_irq_chip, sizeof twl4030_irq_chip);
-	*(const char **)&twl4030_irq_chip.name = "twl4030";
+	const_cast(twl4030_irq_chip.name) = "twl4030";
 
-	*(void **)&twl4030_sih_irq_chip.irq_ack = dummy_irq_chip.irq_ack;
+	const_cast(twl4030_sih_irq_chip.irq_ack) = dummy_irq_chip.irq_ack;
 	pax_close_kernel();
 
 	for (i = irq_base; i < irq_end; i++) {

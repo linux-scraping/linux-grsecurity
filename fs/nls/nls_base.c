@@ -240,7 +240,7 @@ int __register_nls(struct nls_table *nls, struct module *owner)
 		return -EBUSY;
 
 	pax_open_kernel();
-	*(void **)&nls->owner = owner;
+	const_cast(nls->owner) = owner;
 	pax_close_kernel();
 	spin_lock(&nls_lock);
 	while (tmp) {
@@ -251,7 +251,7 @@ int __register_nls(struct nls_table *nls, struct module *owner)
 		tmp = tmp->next;
 	}
 	pax_open_kernel();
-	*(struct nls_table **)&nls->next = tables;
+	const_cast(nls->next) = tables;
 	pax_close_kernel();
 	tables = nls;
 	spin_unlock(&nls_lock);

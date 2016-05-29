@@ -163,11 +163,11 @@ int omapdss_register_display(struct omap_dss_device *dssdev)
 
 	pax_open_kernel();
 	if (drv && drv->get_resolution == NULL)
-		*(void **)&drv->get_resolution = omapdss_default_get_resolution;
+		const_cast(drv->get_resolution) = omapdss_default_get_resolution;
 	if (drv && drv->get_recommended_bpp == NULL)
-		*(void **)&drv->get_recommended_bpp = omapdss_default_get_recommended_bpp;
+		const_cast(drv->get_recommended_bpp) = omapdss_default_get_recommended_bpp;
 	if (drv && drv->get_timings == NULL)
-		*(void **)&drv->get_timings = omapdss_default_get_timings;
+		const_cast(drv->get_timings) = omapdss_default_get_timings;
 	pax_close_kernel();
 
 	mutex_lock(&panel_list_mutex);

@@ -902,7 +902,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	/* Update our support page sizes to reflect the page table format */
 	pax_open_kernel();
-	*(unsigned long *)&arm_smmu_ops.pgsize_bitmap = pgtbl_cfg.pgsize_bitmap;
+	const_cast(arm_smmu_ops.pgsize_bitmap) = pgtbl_cfg.pgsize_bitmap;
 	pax_close_kernel();
 
 	/* Initialise the context bank with our page table cfg */
@@ -1688,7 +1688,7 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	}
 
 	pax_open_kernel();
-	*(unsigned long *)&arm_smmu_ops.pgsize_bitmap &= size;
+	const_cast(arm_smmu_ops.pgsize_bitmap) &= size;
 	pax_close_kernel();
 	dev_notice(smmu->dev, "\tSupported page sizes: 0x%08lx\n", size);
 

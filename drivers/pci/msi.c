@@ -1235,11 +1235,11 @@ static void pci_msi_domain_update_dom_ops(struct msi_domain_info *info)
 	} else {
 		pax_open_kernel();
 		if (ops->set_desc == NULL)
-			*(void **)&ops->set_desc = pci_msi_domain_set_desc;
+			const_cast(ops->set_desc) = pci_msi_domain_set_desc;
 		if (ops->msi_check == NULL)
-			*(void **)&ops->msi_check = pci_msi_domain_check_cap;
+			const_cast(ops->msi_check) = pci_msi_domain_check_cap;
 		if (ops->handle_error == NULL)
-			*(void **)&ops->handle_error = pci_msi_domain_handle_error;
+			const_cast(ops->handle_error) = pci_msi_domain_handle_error;
 		pax_close_kernel();
 	}
 }
@@ -1251,11 +1251,11 @@ static void pci_msi_domain_update_chip_ops(struct msi_domain_info *info)
 	BUG_ON(!chip);
 	pax_open_kernel();
 	if (!chip->irq_write_msi_msg)
-		*(void **)&chip->irq_write_msi_msg = pci_msi_domain_write_msg;
+		const_cast(chip->irq_write_msi_msg) = pci_msi_domain_write_msg;
 	if (!chip->irq_mask)
-		*(void **)&chip->irq_mask = pci_msi_mask_irq;
+		const_cast(chip->irq_mask) = pci_msi_mask_irq;
 	if (!chip->irq_unmask)
-		*(void **)&chip->irq_unmask = pci_msi_unmask_irq;
+		const_cast(chip->irq_unmask) = pci_msi_unmask_irq;
 	pax_close_kernel();
 }
 

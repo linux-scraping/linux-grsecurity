@@ -225,9 +225,9 @@ static int zt5550_hc_init_one(struct pci_dev *pdev, const struct pci_device_id *
 		zt5550_hpc.dev_id = hc_dev;
 
 		pax_open_kernel();
-		*(void **)&zt5550_hpc_ops.enable_irq = zt5550_hc_enable_irq;
-		*(void **)&zt5550_hpc_ops.disable_irq = zt5550_hc_disable_irq;
-		*(void **)&zt5550_hpc_ops.check_irq = zt5550_hc_check_irq;
+		const_cast(zt5550_hpc_ops.enable_irq) = zt5550_hc_enable_irq;
+		const_cast(zt5550_hpc_ops.disable_irq) = zt5550_hc_disable_irq;
+		const_cast(zt5550_hpc_ops.check_irq) = zt5550_hc_check_irq;
 		pax_open_kernel();
 	} else {
 		info("using ENUM# polling mode");

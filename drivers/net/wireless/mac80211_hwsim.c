@@ -3220,17 +3220,17 @@ static int __init init_mac80211_hwsim(void)
 
 	pax_open_kernel();
 	memcpy((void *)&mac80211_hwsim_mchan_ops, &mac80211_hwsim_ops, sizeof mac80211_hwsim_mchan_ops);
-	*(void **)&mac80211_hwsim_mchan_ops.hw_scan = mac80211_hwsim_hw_scan;
-	*(void **)&mac80211_hwsim_mchan_ops.cancel_hw_scan = mac80211_hwsim_cancel_hw_scan;
-	*(void **)&mac80211_hwsim_mchan_ops.sw_scan_start = NULL;
-	*(void **)&mac80211_hwsim_mchan_ops.sw_scan_complete = NULL;
-	*(void **)&mac80211_hwsim_mchan_ops.remain_on_channel = mac80211_hwsim_roc;
-	*(void **)&mac80211_hwsim_mchan_ops.cancel_remain_on_channel = mac80211_hwsim_croc;
-	*(void **)&mac80211_hwsim_mchan_ops.add_chanctx = mac80211_hwsim_add_chanctx;
-	*(void **)&mac80211_hwsim_mchan_ops.remove_chanctx = mac80211_hwsim_remove_chanctx;
-	*(void **)&mac80211_hwsim_mchan_ops.change_chanctx = mac80211_hwsim_change_chanctx;
-	*(void **)&mac80211_hwsim_mchan_ops.assign_vif_chanctx = mac80211_hwsim_assign_vif_chanctx;
-	*(void **)&mac80211_hwsim_mchan_ops.unassign_vif_chanctx = mac80211_hwsim_unassign_vif_chanctx;
+	const_cast(mac80211_hwsim_mchan_ops.hw_scan) = mac80211_hwsim_hw_scan;
+	const_cast(mac80211_hwsim_mchan_ops.cancel_hw_scan) = mac80211_hwsim_cancel_hw_scan;
+	const_cast(mac80211_hwsim_mchan_ops.sw_scan_start) = NULL;
+	const_cast(mac80211_hwsim_mchan_ops.sw_scan_complete) = NULL;
+	const_cast(mac80211_hwsim_mchan_ops.remain_on_channel) = mac80211_hwsim_roc;
+	const_cast(mac80211_hwsim_mchan_ops.cancel_remain_on_channel) = mac80211_hwsim_croc;
+	const_cast(mac80211_hwsim_mchan_ops.add_chanctx) = mac80211_hwsim_add_chanctx;
+	const_cast(mac80211_hwsim_mchan_ops.remove_chanctx) = mac80211_hwsim_remove_chanctx;
+	const_cast(mac80211_hwsim_mchan_ops.change_chanctx) = mac80211_hwsim_change_chanctx;
+	const_cast(mac80211_hwsim_mchan_ops.assign_vif_chanctx) = mac80211_hwsim_assign_vif_chanctx;
+	const_cast(mac80211_hwsim_mchan_ops.unassign_vif_chanctx) = mac80211_hwsim_unassign_vif_chanctx;
 	pax_close_kernel();
 
 	spin_lock_init(&hwsim_radio_lock);

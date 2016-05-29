@@ -3239,7 +3239,7 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
 
 		if (num_iqueues > 1) {
 			pax_open_kernel();
-			*(void **)&lionetdevops.ndo_select_queue = select_q;
+			const_cast(lionetdevops.ndo_select_queue) = select_q;
 			pax_close_kernel();
 		}
 

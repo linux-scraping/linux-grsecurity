@@ -126,7 +126,7 @@ static int jffs2_readpage (struct file *filp, struct page *pg)
 	int ret;
 
 	mutex_lock(&f->sem);
-	ret = jffs2_do_readpage_unlock(pg->mapping->host, pg);
+	ret = jffs2_do_readpage_unlock((struct file *)pg->mapping->host, pg);
 	mutex_unlock(&f->sem);
 	return ret;
 }

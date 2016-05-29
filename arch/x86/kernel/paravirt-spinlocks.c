@@ -32,7 +32,7 @@ static void native_wait(u8 *ptr, u8 val)
 static void native_kick(int cpu)
 {
 }
-//#else /* !CONFIG_QUEUED_SPINLOCKS */
+#else /* !CONFIG_QUEUED_SPINLOCKS */
 static void native_unlock_kick(struct arch_spinlock *lock, __ticket_t ticket)
 {
 }

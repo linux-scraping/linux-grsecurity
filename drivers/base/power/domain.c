@@ -1805,8 +1805,8 @@ int genpd_dev_pm_attach(struct device *dev)
 	}
 
 	pax_open_kernel();
-	*(void **)&dev->pm_domain->detach = genpd_dev_pm_detach;
-	*(void **)&dev->pm_domain->sync = genpd_dev_pm_sync;
+	const_cast(dev->pm_domain->detach) = genpd_dev_pm_detach;
+	const_cast(dev->pm_domain->sync) = genpd_dev_pm_sync;
 	pax_close_kernel();
 
 	mutex_lock(&pd->lock);

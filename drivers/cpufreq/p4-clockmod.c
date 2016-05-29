@@ -135,12 +135,12 @@ static unsigned int cpufreq_p4_get_frequency(struct cpuinfo_x86 *c)
 		case 0x16: /* Celeron Core */
 		case 0x1C: /* Atom */
 			pax_open_kernel();
-			*(u8 *)&p4clockmod_driver.flags |= CPUFREQ_CONST_LOOPS;
+			const_cast(p4clockmod_driver.flags) |= CPUFREQ_CONST_LOOPS;
 			pax_close_kernel();
 			return speedstep_get_frequency(SPEEDSTEP_CPU_PCORE);
 		case 0x0D: /* Pentium M (Dothan) */
 			pax_open_kernel();
-			*(u8 *)&p4clockmod_driver.flags |= CPUFREQ_CONST_LOOPS;
+			const_cast(p4clockmod_driver.flags) |= CPUFREQ_CONST_LOOPS;
 			pax_close_kernel();
 			/* fall through */
 		case 0x09: /* Pentium M (Banias) */
@@ -154,7 +154,7 @@ static unsigned int cpufreq_p4_get_frequency(struct cpuinfo_x86 *c)
 	/* on P-4s, the TSC runs with constant frequency independent whether
 	 * throttling is active or not. */
 	pax_open_kernel();
-	*(u8 *)&p4clockmod_driver.flags |= CPUFREQ_CONST_LOOPS;
+	const_cast(p4clockmod_driver.flags) |= CPUFREQ_CONST_LOOPS;
 	pax_close_kernel();
 
 	if (speedstep_detect_processor() == SPEEDSTEP_CPU_P4M) {

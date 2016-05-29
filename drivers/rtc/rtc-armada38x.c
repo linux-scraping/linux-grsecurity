@@ -248,8 +248,8 @@ static __init int armada38x_rtc_probe(struct platform_device *pdev)
 		 * use the alarm
 		 */
 		pax_open_kernel();
-		*(void **)&armada38x_rtc_ops.set_alarm = NULL;
-		*(void **)&armada38x_rtc_ops.alarm_irq_enable = NULL;
+		const_cast(armada38x_rtc_ops.set_alarm) = NULL;
+		const_cast(armada38x_rtc_ops.alarm_irq_enable) = NULL;
 		pax_close_kernel();
 	}
 	platform_set_drvdata(pdev, rtc);

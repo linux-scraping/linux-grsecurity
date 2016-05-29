@@ -865,7 +865,7 @@ static int arasan_cf_probe(struct platform_device *pdev)
 	if (quirk) {
 		if (quirk & CF_BROKEN_PIO) {
 			pax_open_kernel();
-			*(void **)&ap->ops->set_piomode = NULL;
+			const_cast(ap->ops->set_piomode) = NULL;
 			pax_close_kernel();
 			ap->pio_mask = 0;
 		}

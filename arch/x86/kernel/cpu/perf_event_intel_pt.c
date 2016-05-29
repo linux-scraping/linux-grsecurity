@@ -149,18 +149,18 @@ static int __init pt_pmu_hw_init(void)
 	for (i = 0; i < ARRAY_SIZE(pt_caps); i++) {
 		struct dev_ext_attribute *de_attr = &de_attrs[i];
 
-		*(const char **)&de_attr->attr.attr.name = pt_caps[i].name;
+		const_cast(de_attr->attr.attr.name) = pt_caps[i].name;
 
 		sysfs_attr_init(&de_attr->attr.attr);
 
-		*(umode_t *)&de_attr->attr.attr.mode	= S_IRUGO;
-		*(void **)&de_attr->attr.show		= pt_cap_show;
-		*(void **)&de_attr->var			= (void *)i;
+		const_cast(de_attr->attr.attr.mode)	= S_IRUGO;
+		const_cast(de_attr->attr.show)		= pt_cap_show;
+		const_cast(de_attr->var)		= (void *)i;
 
 		attrs[i] = &de_attr->attr.attr;
 	}
 
-	*(struct attribute ***)&pt_cap_group.attrs = attrs;
+	const_cast(pt_cap_group.attrs) = attrs;
 	pax_close_kernel();
 
 	return 0;

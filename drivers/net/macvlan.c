@@ -1485,13 +1485,13 @@ int macvlan_link_register(struct rtnl_link_ops *ops)
 {
 	/* common fields */
 	pax_open_kernel();
-	*(size_t *)&ops->priv_size	= sizeof(struct macvlan_dev);
-	*(void **)&ops->validate	= macvlan_validate;
-	*(int *)&ops->maxtype		= IFLA_MACVLAN_MAX;
-	*(const void **)&ops->policy	= macvlan_policy;
-	*(void **)&ops->changelink	= macvlan_changelink;
-	*(void **)&ops->get_size	= macvlan_get_size;
-	*(void **)&ops->fill_info	= macvlan_fill_info;
+	const_cast(ops->priv_size)	= sizeof(struct macvlan_dev);
+	const_cast(ops->validate)	= macvlan_validate;
+	const_cast(ops->maxtype)	= IFLA_MACVLAN_MAX;
+	const_cast(ops->policy)		= macvlan_policy;
+	const_cast(ops->changelink)	= macvlan_changelink;
+	const_cast(ops->get_size)	= macvlan_get_size;
+	const_cast(ops->fill_info)	= macvlan_fill_info;
 	pax_close_kernel();
 
 	return rtnl_link_register(ops);

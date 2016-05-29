@@ -54,7 +54,7 @@ static int kgdb_nmi_console_setup(struct console *co, char *options)
 	 * be displayed on the dbg_io.
 	 */
 	pax_open_kernel();
-	*(int *)&dbg_io_ops->is_console = true;
+	const_cast(dbg_io_ops->is_console) = true;
 	pax_close_kernel();
 
 	return 0;

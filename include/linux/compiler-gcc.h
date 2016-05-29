@@ -201,6 +201,7 @@
 #ifdef CONSTIFY_PLUGIN
 #define __no_const __attribute__((no_const))
 #define __do_const __attribute__((do_const))
+#define const_cast(x) (*(typeof((typeof(x))0) *)&(x))
 #endif
 
 #ifdef SIZE_OVERFLOW_PLUGIN

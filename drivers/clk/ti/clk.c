@@ -87,8 +87,8 @@ int ti_clk_setup_ll_ops(struct ti_clk_ll_ops *ops)
 
 	ti_clk_ll_ops = ops;
 	pax_open_kernel();
-	*(void **)&ops->clk_readl = clk_memmap_readl;
-	*(void **)&ops->clk_writel = clk_memmap_writel;
+	const_cast(ops->clk_readl) = clk_memmap_readl;
+	const_cast(ops->clk_writel) = clk_memmap_writel;
 	pax_close_kernel();
 
 	return 0;

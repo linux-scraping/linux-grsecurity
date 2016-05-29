@@ -87,8 +87,8 @@ static int __init bgrt_init(void)
 		return -ENODEV;
 
 	pax_open_kernel();
-	*(void **)&bin_attr_image.private = bgrt_image;
-	*(size_t *)&bin_attr_image.size = bgrt_image_size;
+	const_cast(bin_attr_image.private) = bgrt_image;
+	const_cast(bin_attr_image.size) = bgrt_image_size;
 	pax_close_kernel();
 
 	bgrt_kobj = kobject_create_and_add("bgrt", acpi_kobj);

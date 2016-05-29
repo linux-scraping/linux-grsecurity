@@ -3635,7 +3635,7 @@ il3945_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	if (il3945_mod_params.disable_hw_scan) {
 		D_INFO("Disabling hw_scan\n");
 		pax_open_kernel();
-		*(void **)&il3945_mac_ops.hw_scan = NULL;
+		const_cast(il3945_mac_ops.hw_scan) = NULL;
 		pax_close_kernel();
 	}
 

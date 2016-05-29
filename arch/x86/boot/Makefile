@@ -58,9 +58,6 @@ clean-files += cpustr.h
 # ---------------------------------------------------------------------------
 
 KBUILD_CFLAGS	:= $(USERINCLUDE) $(REALMODE_CFLAGS) -D_SETUP
-ifdef CONSTIFY_PLUGIN
-KBUILD_CFLAGS	+= -fplugin-arg-constify_plugin-no-constify
-endif
 KBUILD_AFLAGS	:= $(KBUILD_CFLAGS) -D__ASSEMBLY__
 GCOV_PROFILE := n
 UBSAN_SANITIZE := n

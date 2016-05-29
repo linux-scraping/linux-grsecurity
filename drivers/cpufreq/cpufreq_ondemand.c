@@ -594,7 +594,7 @@ void od_register_powersave_bias_handler(unsigned int (*f)
 		unsigned int powersave_bias)
 {
 	pax_open_kernel();
-	*(void **)&od_ops.powersave_bias_target = f;
+	const_cast(od_ops.powersave_bias_target) = f;
 	pax_close_kernel();
 	od_set_powersave_bias(powersave_bias);
 }
@@ -603,7 +603,7 @@ EXPORT_SYMBOL_GPL(od_register_powersave_bias_handler);
 void od_unregister_powersave_bias_handler(void)
 {
 	pax_open_kernel();
-	*(void **)&od_ops.powersave_bias_target = generic_powersave_bias_target;
+	const_cast(od_ops.powersave_bias_target) = generic_powersave_bias_target;
 	pax_close_kernel();
 	od_set_powersave_bias(0);
 }

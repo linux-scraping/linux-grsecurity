@@ -1131,7 +1131,7 @@ bool short_or_neg_const_ushort(gassign *stmt)
 {
 	const_tree rhs, lhs_type, rhs_type;
 	const_tree def_rhs1, def_rhs2;
-	gimple def_stmt;
+	const_gimple def_stmt;
 	gimple def_def_stmt = NULL;
 
 	if (!gimple_assign_cast_p(stmt))

@@ -362,9 +362,9 @@ static void init_8259A(int auto_eoi)
 		 * In AEOI mode we just have to mask the interrupt
 		 * when acking.
 		 */
-		*(void **)&i8259A_chip.irq_mask_ack = disable_8259A_irq;
+		const_cast(i8259A_chip.irq_mask_ack) = disable_8259A_irq;
 	else
-		*(void **)&i8259A_chip.irq_mask_ack = mask_and_ack_8259A;
+		const_cast(i8259A_chip.irq_mask_ack) = mask_and_ack_8259A;
 	pax_close_kernel();
 
 	udelay(100);		/* wait for 8259A to initialize */
