@@ -210,9 +210,11 @@ gr_handle_crash(struct task_struct *task, const int sig)
 
 	if ((curr->crashes >= curr->res[GR_CRASH_RES].rlim_cur) &&
 	    time_after(curr->expires, get_seconds())) {
+		int is_priv = is_privileged_binary(task->mm->exe_file->f_path.dentry);
+
 		rcu_read_lock();
 		cred = __task_cred(task);
-		if (gr_is_global_nonroot(cred->uid) && is_privileged_binary(task->mm->exe_file->f_path.dentry)) {
+		if (gr_is_global_nonroot(cred->uid) && is_priv) {
 			gr_log_crash1(GR_DONT_AUDIT, GR_SEGVSTART_ACL_MSG, task, curr->res[GR_CRASH_RES].rlim_max);
 			spin_lock(&gr_uid_lock);
 			gr_insert_uid(cred->uid, curr->expires);

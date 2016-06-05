@@ -42,7 +42,7 @@ gr_tpe_allow(const struct file *file)
 		msg2 = "file in non-root-owned directory";
 	else if (inode->i_mode & S_IWOTH)
 		msg2 = "file in world-writable directory";
-	else if (inode->i_mode & S_IWGRP)
+	else if ((inode->i_mode & S_IWGRP) && gr_is_global_nonroot_gid(inode->i_gid))
 		msg2 = "file in group-writable directory";
 	else if (file_inode->i_mode & S_IWOTH)
 		msg2 = "file is world-writable";
@@ -63,7 +63,7 @@ next_check:
 		msg = "directory not owned by user";
 	else if (inode->i_mode & S_IWOTH)
 		msg = "file in world-writable directory";
-	else if (inode->i_mode & S_IWGRP)
+	else if ((inode->i_mode & S_IWGRP) && gr_is_global_nonroot_gid(inode->i_gid))
 		msg = "file in group-writable directory";
 	else if (file_inode->i_mode & S_IWOTH)
 		msg = "file is world-writable";

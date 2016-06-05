@@ -83,16 +83,19 @@ void gr_handle_brute_attach(int dumpable)
 #ifdef CONFIG_GRKERNSEC_BRUTE
 	struct task_struct *p = current;
 	kuid_t uid = GLOBAL_ROOT_UID;
+	int is_priv = 0;
 	int daemon = 0;
 
 	if (!grsec_enable_brute)
 		return;
 
+	if (is_privileged_binary(p->mm->exe_file->f_path.dentry))
+		is_priv = 1;
+
 	rcu_read_lock();
 	read_lock(&tasklist_lock);
 	read_lock(&grsec_exec_file_lock);
-	if (p->real_parent && gr_is_same_file(p->real_parent->exec_file, p->exec_file) &&
-	    !is_privileged_binary(p->mm->exe_file->f_path.dentry)) {
+	if (!is_priv && p->real_parent && gr_is_same_file(p->real_parent->exec_file, p->exec_file)) {
 		p->real_parent->brute_expires = get_seconds() + GR_DAEMON_BRUTE_TIME;
 		p->real_parent->brute = 1;
 		daemon = 1;
