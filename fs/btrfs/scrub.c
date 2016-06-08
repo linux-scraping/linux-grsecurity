@@ -2125,6 +2125,8 @@ static void scrub_missing_raid56_end_io(struct bio *bio)
 	if (bio->bi_error)
 		sblock->no_io_error_seen = 0;
 
+	bio_put(bio);
+
 	btrfs_queue_work(fs_info->scrub_workers, &sblock->work);
 }
 
@@ -2177,7 +2179,7 @@ static void scrub_missing_raid56_pages(struct scrub_block *sblock)
 	struct btrfs_fs_info *fs_info = sctx->dev_root->fs_info;
 	u64 length = sblock->page_count * PAGE_SIZE;
 	u64 logical = sblock->pagev[0]->logical;
-	struct btrfs_bio *bbio;
+	struct btrfs_bio *bbio = NULL;
 	struct bio *bio;
 	struct btrfs_raid_bio *rbio;
 	int ret;
@@ -2858,7 +2860,7 @@ static noinline_for_stack int scrub_raid56_parity(struct scrub_ctx *sctx,
 	int extent_mirror_num;
 	int stop_loop = 0;
 
-	nsectors = map->stripe_len / root->sectorsize;
+	nsectors = div_u64(map->stripe_len, root->sectorsize);
 	bitmap_len = scrub_calc_parity_bitmap_len(nsectors);
 	sparity = kzalloc(sizeof(struct scrub_parity) + 2 * bitmap_len,
 			  GFP_NOFS);
@@ -2978,6 +2980,7 @@ again:
 						       extent_len);
 
 			mapped_length = extent_len;
+			bbio = NULL;
 			ret = btrfs_map_block(fs_info, READ, extent_logical,
 					      &mapped_length, &bbio, 0);
 			if (!ret) {

@@ -4849,8 +4849,8 @@ static long btrfs_ioctl_qgroup_assign(struct file *file, void __user *arg)
 	/* update qgroup status and info */
 	err = btrfs_run_qgroups(trans, root->fs_info);
 	if (err < 0)
-		btrfs_std_error(root->fs_info, ret,
-			    "failed to update qgroup status and info\n");
+		btrfs_std_error(root->fs_info, err,
+			    "failed to update qgroup status and info");
 	err = btrfs_end_transaction(trans, root);
 	if (err && !ret)
 		ret = err;
@@ -5397,9 +5397,15 @@ static int btrfs_ioctl_set_features(struct file *file, void __user *arg)
 	if (ret)
 		return ret;
 
+	ret = mnt_want_write_file(file);
+	if (ret)
+		return ret;
+
 	trans = btrfs_start_transaction(root, 0);
-	if (IS_ERR(trans))
-		return PTR_ERR(trans);
+	if (IS_ERR(trans)) {
+		ret = PTR_ERR(trans);
+		goto out_drop_write;
+	}
 
 	spin_lock(&root->fs_info->super_lock);
 	newflags = btrfs_super_compat_flags(super_block);
@@ -5418,7 +5424,11 @@ static int btrfs_ioctl_set_features(struct file *file, void __user *arg)
 	btrfs_set_super_incompat_flags(super_block, newflags);
 	spin_unlock(&root->fs_info->super_lock);
 
-	return btrfs_commit_transaction(trans, root);
+	ret = btrfs_commit_transaction(trans, root);
+out_drop_write:
+	mnt_drop_write_file(file);
+
+	return ret;
 }
 
 long btrfs_ioctl(struct file *file, unsigned int
@@ -5555,3 +5565,24 @@ long btrfs_ioctl(struct file *file, unsigned int
 
 	return -ENOTTY;
 }
+
+#ifdef CONFIG_COMPAT
+long btrfs_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	switch (cmd) {
+	case FS_IOC32_GETFLAGS:
+		cmd = FS_IOC_GETFLAGS;
+		break;
+	case FS_IOC32_SETFLAGS:
+		cmd = FS_IOC_SETFLAGS;
+		break;
+	case FS_IOC32_GETVERSION:
+		cmd = FS_IOC_GETVERSION;
+		break;
+	default:
+		return -ENOIOCTLCMD;
+	}
+
+	return btrfs_ioctl(file, cmd, (unsigned long) compat_ptr(arg));
+}
+#endif

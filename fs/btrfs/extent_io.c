@@ -875,8 +875,14 @@ __set_extent_bit(struct extent_io_tree *tree, u64 start, u64 end,
 	bits |= EXTENT_FIRST_DELALLOC;
 again:
 	if (!prealloc && gfpflags_allow_blocking(mask)) {
+		/*
+		 * Don't care for allocation failure here because we might end
+		 * up not needing the pre-allocated extent state at all, which
+		 * is the case if we only have in the tree extent states that
+		 * cover our input range and don't cover too any other range.
+		 * If we end up needing a new extent state we allocate it later.
+		 */
 		prealloc = alloc_extent_state(mask);
-		BUG_ON(!prealloc);
 	}
 
 	spin_lock(&tree->lock);
@@ -4385,8 +4391,12 @@ int extent_fiemap(struct inode *inode, struct fiemap_extent_info *fieinfo,
 	if (ret < 0) {
 		btrfs_free_path(path);
 		return ret;
+	} else {
+		WARN_ON(!ret);
+		if (ret == 1)
+			ret = 0;
 	}
-	WARN_ON(!ret);
+
 	path->slots[0]--;
 	btrfs_item_key_to_cpu(path->nodes[0], &found_key, path->slots[0]);
 	found_type = found_key.type;

@@ -3,9 +3,9 @@
 #include "libgcc.h"
 
 #ifdef CONFIG_64BIT
-DWtype __ashrti3(DWtype u, word_type b)
+DWtype notrace __ashrti3(DWtype u, word_type b)
 #else
-DWtype __ashrdi3(DWtype u, word_type b)
+DWtype notrace __ashrdi3(DWtype u, word_type b)
 #endif
 {
 	DWunion uu, w;
