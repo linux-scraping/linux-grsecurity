@@ -13,6 +13,7 @@
 #include <linux/percpu.h>
 #include <linux/kthread.h>
 #include <linux/smpboot.h>
+#include <asm/pgtable.h>
 
 #include "smpboot.h"
 
@@ -359,7 +360,9 @@ int smpboot_update_cpumask_percpu_thread(struct smp_hotplug_thread *plug_thread,
 	for_each_cpu_and(cpu, tmp, cpu_online_mask)
 		smpboot_unpark_thread(plug_thread, cpu);
 
+	pax_open_kernel();
 	cpumask_copy(old, new);
+	pax_close_kernel();
 
 	mutex_unlock(&smpboot_threads_lock);
 	put_online_cpus();

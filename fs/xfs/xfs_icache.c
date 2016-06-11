@@ -91,13 +91,6 @@ xfs_inode_free_callback(
 	struct inode		*inode = container_of(head, struct inode, i_rcu);
 	struct xfs_inode	*ip = XFS_I(inode);
 
-	kmem_zone_free(xfs_inode_zone, ip);
-}
-
-void
-xfs_inode_free(
-	struct xfs_inode	*ip)
-{
 	switch (ip->i_d.di_mode & S_IFMT) {
 	case S_IFREG:
 	case S_IFDIR:
@@ -115,6 +108,25 @@ xfs_inode_free(
 		ip->i_itemp = NULL;
 	}
 
+	kmem_zone_free(xfs_inode_zone, ip);
+}
+
+static void
+__xfs_inode_free(
+	struct xfs_inode	*ip)
+{
+	/* asserts to verify all state is correct here */
+	ASSERT(atomic_read(&ip->i_pincount) == 0);
+	ASSERT(!xfs_isiflocked(ip));
+	XFS_STATS_DEC(ip->i_mount, vn_active);
+
+	call_rcu(&VFS_I(ip)->i_rcu, xfs_inode_free_callback);
+}
+
+void
+xfs_inode_free(
+	struct xfs_inode	*ip)
+{
 	/*
 	 * Because we use RCU freeing we need to ensure the inode always
 	 * appears to be reclaimed with an invalid inode number when in the
@@ -126,12 +138,7 @@ xfs_inode_free(
 	ip->i_ino = 0;
 	spin_unlock(&ip->i_flags_lock);
 
-	/* asserts to verify all state is correct here */
-	ASSERT(atomic_read(&ip->i_pincount) == 0);
-	ASSERT(!xfs_isiflocked(ip));
-	XFS_STATS_DEC(ip->i_mount, vn_active);
-
-	call_rcu(&VFS_I(ip)->i_rcu, xfs_inode_free_callback);
+	__xfs_inode_free(ip);
 }
 
 /*
@@ -741,8 +748,7 @@ __xfs_inode_set_reclaim_tag(
 	if (!pag->pag_ici_reclaimable) {
 		/* propagate the reclaim tag up into the perag radix tree */
 		spin_lock(&ip->i_mount->m_perag_lock);
-		radix_tree_tag_set(&ip->i_mount->m_perag_tree,
-				XFS_INO_TO_AGNO(ip->i_mount, ip->i_ino),
+		radix_tree_tag_set(&ip->i_mount->m_perag_tree, pag->pag_agno,
 				XFS_ICI_RECLAIM_TAG);
 		spin_unlock(&ip->i_mount->m_perag_lock);
 
@@ -786,8 +792,7 @@ __xfs_inode_clear_reclaim(
 	if (!pag->pag_ici_reclaimable) {
 		/* clear the reclaim tag from the perag radix tree */
 		spin_lock(&ip->i_mount->m_perag_lock);
-		radix_tree_tag_clear(&ip->i_mount->m_perag_tree,
-				XFS_INO_TO_AGNO(ip->i_mount, ip->i_ino),
+		radix_tree_tag_clear(&ip->i_mount->m_perag_tree, pag->pag_agno,
 				XFS_ICI_RECLAIM_TAG);
 		spin_unlock(&ip->i_mount->m_perag_lock);
 		trace_xfs_perag_clear_reclaim(ip->i_mount, pag->pag_agno,
@@ -898,6 +903,7 @@ xfs_reclaim_inode(
 	int			sync_mode)
 {
 	struct xfs_buf		*bp = NULL;
+	xfs_ino_t		ino = ip->i_ino; /* for radix_tree_delete */
 	int			error;
 
 restart:
@@ -962,6 +968,22 @@ restart:
 
 	xfs_iflock(ip);
 reclaim:
+	/*
+	 * Because we use RCU freeing we need to ensure the inode always appears
+	 * to be reclaimed with an invalid inode number when in the free state.
+	 * We do this as early as possible under the ILOCK and flush lock so
+	 * that xfs_iflush_cluster() can be guaranteed to detect races with us
+	 * here. By doing this, we guarantee that once xfs_iflush_cluster has
+	 * locked both the XFS_ILOCK and the flush lock that it will see either
+	 * a valid, flushable inode that will serialise correctly against the
+	 * locks below, or it will see a clean (and invalid) inode that it can
+	 * skip.
+	 */
+	spin_lock(&ip->i_flags_lock);
+	ip->i_flags = XFS_IRECLAIM;
+	ip->i_ino = 0;
+	spin_unlock(&ip->i_flags_lock);
+
 	xfs_ifunlock(ip);
 	xfs_iunlock(ip, XFS_ILOCK_EXCL);
 
@@ -975,7 +997,7 @@ reclaim:
 	 */
 	spin_lock(&pag->pag_ici_lock);
 	if (!radix_tree_delete(&pag->pag_ici_root,
-				XFS_INO_TO_AGINO(ip->i_mount, ip->i_ino)))
+				XFS_INO_TO_AGINO(ip->i_mount, ino)))
 		ASSERT(0);
 	__xfs_inode_clear_reclaim(pag, ip);
 	spin_unlock(&pag->pag_ici_lock);
@@ -992,7 +1014,7 @@ reclaim:
 	xfs_qm_dqdetach(ip);
 	xfs_iunlock(ip, XFS_ILOCK_EXCL);
 
-	xfs_inode_free(ip);
+	__xfs_inode_free(ip);
 	return error;
 
 out_ifunlock:

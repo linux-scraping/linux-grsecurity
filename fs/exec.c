@@ -2083,7 +2083,7 @@ void pax_report_refcount_overflow(struct pt_regs *regs)
 
 #ifdef CONFIG_PAX_USERCOPY
 /* 0: not at all, 1: fully, 2: fully inside frame, -1: partially (implies an error) */
-static noinline int check_stack_object(const void *obj, unsigned long len)
+static noinline int check_stack_object(unsigned long obj, unsigned long len)
 {
 	const void * const stack = task_stack_page(current);
 	const void * const stackend = stack + THREAD_SIZE;
@@ -2096,10 +2096,10 @@ static noinline int check_stack_object(const void *obj, unsigned long len)
 	if (obj + len < obj)
 		return -1;
 
-	if (obj + len <= stack || stackend <= obj)
+	if (obj + len <= (unsigned long)stack || (unsigned long)stackend <= obj)
 		return 0;
 
-	if (obj < stack || stackend < obj + len)
+	if (obj < (unsigned long)stack || (unsigned long)stackend < obj + len)
 		return -1;
 
 #if defined(CONFIG_FRAME_POINTER) && defined(CONFIG_X86)
@@ -2118,8 +2118,8 @@ static noinline int check_stack_object(const void *obj, unsigned long len)
 		   causing us to bail out and correctly report
 		   the copy as invalid
 		*/
-		if (obj + len <= frame)
-			return obj >= oldframe + 2 * sizeof(void *) ? 2 : -1;
+		if (obj + len <= (unsigned long)frame)
+			return obj >= (unsigned long)oldframe + 2 * sizeof(void *) ? 2 : -1;
 		oldframe = frame;
 		frame = *(const void * const *)frame;
 	}
@@ -2200,7 +2200,7 @@ void __check_object_size(const void *ptr, unsigned long n, bool to_user, bool co
 
 	type = check_heap_object(ptr, n);
 	if (!type) {
-		int ret = check_stack_object(ptr, n);
+		int ret = check_stack_object((unsigned long)ptr, n);
 		if (ret == 1 || ret == 2)
 			return;
 		if (ret == 0) {
