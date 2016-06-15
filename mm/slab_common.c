@@ -432,13 +432,6 @@ kmem_cache_create(const char *name, size_t size, size_t align,
 	 */
 	flags &= CACHE_CREATE_MASK;
 
-#ifdef CONFIG_PAX_MEMORY_SANITIZE
-	if (pax_sanitize_slab == PAX_SANITIZE_SLAB_OFF || (flags & SLAB_DESTROY_BY_RCU))
-		flags |= SLAB_NO_SANITIZE;
-	else if (pax_sanitize_slab == PAX_SANITIZE_SLAB_FULL)
-		flags &= ~SLAB_NO_SANITIZE;
-#endif
-
 	s = __kmem_cache_alias(name, size, align, flags, ctor);
 	if (s)
 		goto out_unlock;

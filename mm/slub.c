@@ -2770,10 +2770,11 @@ static __always_inline void slab_free(struct kmem_cache *s, struct page *page,
 
 #ifdef CONFIG_PAX_MEMORY_SANITIZE
 	if (!(s->flags & SLAB_NO_SANITIZE)) {
+		int offset = s->offset ? 0 : sizeof(void *);
 		void *x = head;
 
 		while (1) {
-			memset(x, PAX_MEMORY_SANITIZE_VALUE, s->object_size);
+			memset(x + offset, PAX_MEMORY_SANITIZE_VALUE, s->object_size - offset);
 			if (s->ctor)
 				s->ctor(x);
 			if (x == tail_obj)
@@ -3280,9 +3281,6 @@ static int calculate_sizes(struct kmem_cache *s, int forced_order)
 	s->inuse = size;
 
 	if (((flags & (SLAB_DESTROY_BY_RCU | SLAB_POISON)) ||
-#ifdef CONFIG_PAX_MEMORY_SANITIZE
-		(!(flags & SLAB_NO_SANITIZE)) ||
-#endif
 		s->ctor)) {
 		/*
 		 * Relocate free pointer after the object if it is not
@@ -4048,6 +4046,8 @@ __kmem_cache_alias(const char *name, size_t size, size_t align,
 int __kmem_cache_create(struct kmem_cache *s, unsigned long flags)
 {
 	int err;
+
+	flags = pax_sanitize_slab_flags(flags);
 
 	err = kmem_cache_open(s, flags);
 	if (err)

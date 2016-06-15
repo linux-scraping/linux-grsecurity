@@ -77,7 +77,22 @@ enum pax_sanitize_mode {
 	PAX_SANITIZE_SLAB_FAST,
 	PAX_SANITIZE_SLAB_FULL,
 };
+
 extern enum pax_sanitize_mode pax_sanitize_slab;
+
+static inline unsigned long pax_sanitize_slab_flags(unsigned long flags)
+{
+	if (pax_sanitize_slab == PAX_SANITIZE_SLAB_OFF || (flags & SLAB_DESTROY_BY_RCU))
+		flags |= SLAB_NO_SANITIZE;
+	else if (pax_sanitize_slab == PAX_SANITIZE_SLAB_FULL)
+		flags &= ~SLAB_NO_SANITIZE;
+	return flags;
+}
+#else
+static inline unsigned long pax_sanitize_slab_flags(unsigned long flags)
+{
+	return flags;
+}
 #endif
 
 unsigned long calculate_alignment(unsigned long flags,

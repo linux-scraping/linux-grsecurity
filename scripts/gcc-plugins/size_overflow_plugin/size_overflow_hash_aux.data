@@ -1,6 +1,7 @@
 enable_so_spa_set_aux_vdevs_fndecl_746 spa_set_aux_vdevs fndecl 3 746 NULL
 enable_so_zfs_lookup_fndecl_2144 zfs_lookup fndecl 0 2144 NULL
 enable_so_mappedread_fndecl_2627 mappedread fndecl 2 2627 NULL
+enable_so_SMACL_Alloc_fndecl_2775 SMACL_Alloc fndecl 1 2775 NULL
 enable_so_vdev_disk_dio_alloc_fndecl_2957 vdev_disk_dio_alloc fndecl 1 2957 NULL
 enable_so_nv_alloc_pushpage_spl_fndecl_4286 nv_alloc_pushpage_spl fndecl 2 4286 NULL
 enable_so_zpl_xattr_get_fndecl_4574 zpl_xattr_get fndecl 0 4574 NULL
@@ -19,6 +20,7 @@ enable_so_zpl_read_common_fndecl_14389 zpl_read_common fndecl 0 14389 NULL
 enable_so_dmu_snapshot_realname_fndecl_14632 dmu_snapshot_realname fndecl 4 14632 NULL
 enable_so_kmem_alloc_debug_fndecl_14852 kmem_alloc_debug fndecl 1 14852 NULL
 enable_so_kmalloc_node_nofail_fndecl_15151 kmalloc_node_nofail fndecl 1 15151 NULL
+enable_so_size_VNet_EventHeader_15382 size VNet_EventHeader 0 15382 NULL
 enable_so_dmu_write_uio_fndecl_16351 dmu_write_uio fndecl 4 16351 NULL
 enable_so_zfs_log_write_fndecl_16524 zfs_log_write fndecl 6-5 16524 NULL
 enable_so_sa_build_layouts_fndecl_16910 sa_build_layouts fndecl 3 16910 NULL
@@ -47,6 +49,7 @@ enable_so_dmu_read_uio_fndecl_31467 dmu_read_uio fndecl 4 31467 NULL
 enable_so_zfs_replay_fuids_fndecl_31479 zfs_replay_fuids fndecl 4 31479 NULL
 enable_so_spa_history_log_to_phys_fndecl_31632 spa_history_log_to_phys fndecl 0-1 31632 NULL
 enable_so___zpl_xattr_get_fndecl_32601 __zpl_xattr_get fndecl 0 32601 NULL
+enable_so_VNetUserListenerRead_fndecl_34039 VNetUserListenerRead fndecl 4 34039 NULL
 enable_so_proc_copyout_string_fndecl_34049 proc_copyout_string fndecl 2 34049 NULL
 enable_so_nv_alloc_sleep_spl_fndecl_34544 nv_alloc_sleep_spl fndecl 2 34544 NULL
 enable_so_nv_alloc_nosleep_spl_fndecl_34761 nv_alloc_nosleep_spl fndecl 2 34761 NULL
@@ -80,6 +83,8 @@ enable_so_kcopy_copy_pages_to_user_fndecl_49823 kcopy_copy_pages_to_user fndecl 
 enable_so_zfs_log_write_fndecl_50162 zfs_log_write fndecl 6-5 50162 NULL
 enable_so_i_fm_alloc_fndecl_51038 i_fm_alloc fndecl 2 51038 NULL
 enable_so_copyout_fndecl_51409 copyout fndecl 3 51409 NULL
+enable_so_VNetKernel_MemoryAllocate_fndecl_53131 VNetKernel_MemoryAllocate fndecl 1 53131 NULL
+enable_so_VNetUserIfWrite_fndecl_54044 VNetUserIfWrite fndecl 4 54044 NULL
 enable_so_zvol_log_write_fndecl_54898 zvol_log_write fndecl 4-3 54898 NULL
 enable_so_zfs_acl_node_alloc_fndecl_55641 zfs_acl_node_alloc fndecl 1 55641 NULL
 enable_so_get_nvlist_fndecl_56685 get_nvlist fndecl 2 56685 NULL

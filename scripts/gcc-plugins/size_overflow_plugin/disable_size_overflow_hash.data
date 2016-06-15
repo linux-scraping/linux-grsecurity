@@ -12442,3 +12442,4 @@ enable_so_lookup_memtype_fndecl_20192 lookup_memtype fndecl 1 20192 NULL
 enable_so_inofree_iagctl_5194 inofree iagctl 0 5194 NULL
 enable_so_inofreefwd_iag_4921 inofreefwd iag 0 4921 NULL
 enable_so_iagnum_iag_23227 iagnum iag 0 23227 NULL
+enable_so_offset_lv_35617 offset lv 0 35617 NULL

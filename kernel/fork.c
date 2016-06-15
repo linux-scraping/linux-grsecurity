@@ -214,7 +214,8 @@ static inline struct thread_info *gr_alloc_thread_info_node(struct task_struct *
 	if (ret == NULL) {
 		free_thread_info(*lowmem_stack);
 		*lowmem_stack = NULL;
-	}
+	} else
+		populate_stack(ret);
 
 out:
 	return ret;

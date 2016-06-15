@@ -2398,12 +2398,11 @@ extern u64 sched_clock_cpu(int cpu);
 extern void sched_clock_init(void);
 
 #ifdef CONFIG_GRKERNSEC_KSTACKOVERFLOW
-static inline void populate_stack(void)
+static inline void populate_stack(void *stack)
 {
-	struct task_struct *curtask = current;
 	int c;
-	int *ptr = curtask->stack;
-	int *end = curtask->stack + THREAD_SIZE;
+	int *ptr = stack;
+	int *end = stack + THREAD_SIZE;
 
 	while (ptr < end) {
 		c = *(volatile int *)ptr;
@@ -2412,7 +2411,7 @@ static inline void populate_stack(void)
 	}
 }
 #else
-static inline void populate_stack(void)
+static inline void populate_stack(void *stack)
 {
 }
 #endif
