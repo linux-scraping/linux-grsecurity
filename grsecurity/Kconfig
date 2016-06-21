@@ -141,14 +141,14 @@ config GRKERNSEC_PROC_MEMMAP
 config GRKERNSEC_KSTACKOVERFLOW
 	bool "Prevent kernel stack overflows"
 	default y if GRKERNSEC_CONFIG_AUTO
-	depends on !IA64 && 64BIT
+	depends on X86_64
 	help
 	  If you say Y here, the kernel's process stacks will be allocated
 	  with vmalloc instead of the kernel's default allocator.  This
 	  introduces guard pages that in combination with the alloca checking
-	  of the STACKLEAK feature prevents all forms of kernel process stack
-	  overflow abuse.  Note that this is different from kernel stack
-	  buffer overflows.
+	  of the STACKLEAK feature and removal of thread_info from the kernel
+	  stack prevents all forms of kernel process stack overflow abuse.
+          Note that this is different from kernel stack buffer overflows.
 
 config GRKERNSEC_BRUTE
 	bool "Deter exploit bruteforcing"
