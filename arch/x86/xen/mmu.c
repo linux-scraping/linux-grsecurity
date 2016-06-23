@@ -1950,7 +1950,10 @@ void __init xen_setup_kernel_pagetable(pgd_t *pgd, unsigned long max_pfn)
 		 * L3_k[511] -> level2_fixmap_pgt */
 		convert_pfn_mfn(level3_kernel_pgt);
 
-		convert_pfn_mfn(level3_vmalloc_start_pgt);
+		convert_pfn_mfn(level3_vmalloc_start_pgt[0]);
+		convert_pfn_mfn(level3_vmalloc_start_pgt[1]);
+		convert_pfn_mfn(level3_vmalloc_start_pgt[2]);
+		convert_pfn_mfn(level3_vmalloc_start_pgt[3]);
 		convert_pfn_mfn(level3_vmalloc_end_pgt);
 		convert_pfn_mfn(level3_vmemmap_pgt);
 		/* L3_k[511][506] -> level1_fixmap_pgt */
@@ -1984,7 +1987,10 @@ void __init xen_setup_kernel_pagetable(pgd_t *pgd, unsigned long max_pfn)
 		set_page_prot(init_level4_pgt, PAGE_KERNEL_RO);
 		set_page_prot(level3_ident_pgt, PAGE_KERNEL_RO);
 		set_page_prot(level3_kernel_pgt, PAGE_KERNEL_RO);
-		set_page_prot(level3_vmalloc_start_pgt, PAGE_KERNEL_RO);
+		set_page_prot(level3_vmalloc_start_pgt[0], PAGE_KERNEL_RO);
+		set_page_prot(level3_vmalloc_start_pgt[1], PAGE_KERNEL_RO);
+		set_page_prot(level3_vmalloc_start_pgt[2], PAGE_KERNEL_RO);
+		set_page_prot(level3_vmalloc_start_pgt[3], PAGE_KERNEL_RO);
 		set_page_prot(level3_vmalloc_end_pgt, PAGE_KERNEL_RO);
 		set_page_prot(level3_vmemmap_pgt, PAGE_KERNEL_RO);
 		set_page_prot(level3_user_vsyscall, PAGE_KERNEL_RO);

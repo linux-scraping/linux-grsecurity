@@ -16,7 +16,7 @@
 
 extern pud_t level3_kernel_pgt[512];
 extern pud_t level3_ident_pgt[512];
-extern pud_t level3_vmalloc_start_pgt[512];
+extern pud_t level3_vmalloc_start_pgt[4][512];
 extern pud_t level3_vmalloc_end_pgt[512];
 extern pud_t level3_vmemmap_pgt[512];
 extern pud_t level2_vmemmap_pgt[512];

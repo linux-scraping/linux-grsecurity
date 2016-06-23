@@ -160,8 +160,10 @@ typedef unsigned __bitwise__ oom_flags_t;
 
 #ifdef CONFIG_PHYS_ADDR_T_64BIT
 typedef u64 phys_addr_t;
+#define RESOURCE_SIZE_MAX ULLONG_MAX
 #else
 typedef u32 phys_addr_t;
+#define RESOURCE_SIZE_MAX ULONG_MAX
 #endif
 
 typedef phys_addr_t resource_size_t;

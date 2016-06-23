@@ -85,8 +85,10 @@ static ssize_t msr_write(struct file *file, const char __user *buf,
 	ssize_t bytes = 0;
 
 #ifdef CONFIG_GRKERNSEC_KMEM
-	gr_handle_msr_write();
-	return -EPERM;
+	if (reg != MSR_IA32_ENERGY_PERF_BIAS) {
+		gr_handle_msr_write();
+		return -EPERM;
+	}
 #endif
 
 	if (count % 8)

@@ -835,10 +835,9 @@ static int dma_buf_describe(struct seq_file *s)
 
 static int dma_buf_show(struct seq_file *s, void *unused)
 {
-	void (*func)(struct seq_file *) = s->private;
+	int (*func)(struct seq_file *) = s->private;
 
-	func(s);
-	return 0;
+	return func(s);
 }
 
 static int dma_buf_debug_open(struct inode *inode, struct file *file)
