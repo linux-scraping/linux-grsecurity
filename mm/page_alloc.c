@@ -1054,7 +1054,6 @@ static void __free_pages_ok(struct page *page, unsigned int order)
 	local_irq_restore(flags);
 }
 
-#ifdef CONFIG_PAX_LATENT_ENTROPY
 bool __meminitdata extra_latent_entropy;
 
 static int __init setup_pax_extra_latent_entropy(char *str)
@@ -1064,6 +1063,7 @@ static int __init setup_pax_extra_latent_entropy(char *str)
 }
 early_param("pax_extra_latent_entropy", setup_pax_extra_latent_entropy);
 
+#ifdef LATENT_ENTROPY_PLUGIN
 volatile u64 latent_entropy __latent_entropy;
 EXPORT_SYMBOL(latent_entropy);
 #endif
@@ -1084,7 +1084,6 @@ static void __init __free_pages_boot_core(struct page *page,
 	__ClearPageReserved(p);
 	set_page_count(p, 0);
 
-#ifdef CONFIG_PAX_LATENT_ENTROPY
 	if (extra_latent_entropy && !PageHighMem(page) && page_to_pfn(page) < 0x100000) {
 		u64 hash = 0;
 		size_t index, end = PAGE_SIZE * nr_pages / sizeof hash;
@@ -1092,10 +1091,13 @@ static void __init __free_pages_boot_core(struct page *page,
 
 		for (index = 0; index < end; index++)
 			hash ^= hash + data[index];
+#ifdef LATENT_ENTROPY_PLUGIN
 		latent_entropy ^= hash;
 		add_device_randomness((const void *)&latent_entropy, sizeof(latent_entropy));
-	}
+#else
+		add_device_randomness((const void *)&hash, sizeof(hash));
 #endif
+	}
 
 	page_zone(page)->managed_pages += nr_pages;
 	set_page_refcounted(page);

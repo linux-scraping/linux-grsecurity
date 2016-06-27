@@ -2797,7 +2797,8 @@ static struct mnt_namespace *alloc_mnt_ns(struct user_namespace *user_ns)
 	return new_ns;
 }
 
-__latent_entropy struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
+__latent_entropy
+struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
 		struct user_namespace *user_ns, struct fs_struct *new_fs)
 {
 	struct mnt_namespace *new_ns;

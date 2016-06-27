@@ -26,3 +26,5 @@ $(objtree)/$(obj)/disable_size_overflow_hash.h: $(src)/disable_size_overflow_has
 	$(call if_changed,build_disable_size_overflow_hash)
 
 targets += size_overflow_hash.h size_overflow_hash_aux.h disable_size_overflow_hash.h
+
+clean-files += *.so

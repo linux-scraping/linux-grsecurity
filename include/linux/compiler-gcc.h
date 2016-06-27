@@ -209,8 +209,10 @@
 #define __intentional_overflow(...) __attribute__((intentional_overflow(__VA_ARGS__)))
 #endif
 
+#ifndef __CHECKER__
 #ifdef LATENT_ENTROPY_PLUGIN
 #define __latent_entropy __attribute__((latent_entropy))
+#endif
 #endif
 
 #ifdef INITIFY_PLUGIN

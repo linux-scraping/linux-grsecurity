@@ -526,16 +526,16 @@ static int tf_tonga_thermal_disable_alert(struct pp_hwmgr *hwmgr, void *input, v
 }
 
 static struct phm_master_table_item tonga_thermal_start_thermal_controller_master_list[] = {
-	{ NULL, tf_tonga_thermal_initialize },
-	{ NULL, tf_tonga_thermal_set_temperature_range },
-	{ NULL, tf_tonga_thermal_enable_alert },
+	{ .tableFunction = tf_tonga_thermal_initialize },
+	{ .tableFunction = tf_tonga_thermal_set_temperature_range },
+	{ .tableFunction = tf_tonga_thermal_enable_alert },
 /* We should restrict performance levels to low before we halt the SMC.
  * On the other hand we are still in boot state when we do this so it would be pointless.
  * If this assumption changes we have to revisit this table.
  */
-	{ NULL, tf_tonga_thermal_setup_fan_table},
-	{ NULL, tf_tonga_thermal_start_smc_fan_control},
-	{ NULL, NULL }
+	{ .tableFunction = tf_tonga_thermal_setup_fan_table},
+	{ .tableFunction = tf_tonga_thermal_start_smc_fan_control},
+	{ }
 };
 
 static struct phm_master_table_header tonga_thermal_start_thermal_controller_master = {
@@ -545,10 +545,10 @@ static struct phm_master_table_header tonga_thermal_start_thermal_controller_mas
 };
 
 static struct phm_master_table_item tonga_thermal_set_temperature_range_master_list[] = {
-	{ NULL, tf_tonga_thermal_disable_alert},
-	{ NULL, tf_tonga_thermal_set_temperature_range},
-	{ NULL, tf_tonga_thermal_enable_alert},
-	{ NULL, NULL }
+	{ .tableFunction = tf_tonga_thermal_disable_alert},
+	{ .tableFunction = tf_tonga_thermal_set_temperature_range},
+	{ .tableFunction = tf_tonga_thermal_enable_alert},
+	{ }
 };
 
 struct phm_master_table_header tonga_thermal_set_temperature_range_master = {

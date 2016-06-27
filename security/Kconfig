@@ -952,7 +952,8 @@ config PAX_LATENT_ENTROPY
 	  extract some entropy from both original and artificially created
 	  program state.  This will help especially embedded systems where
 	  there is little 'natural' source of entropy normally.  The cost
-	  is some slowdown of the boot process and fork and irq processing.
+	  is some slowdown of the boot process (about 0.5%) and fork and
+	  irq processing.
 
 	  When pax_extra_latent_entropy is passed on the kernel command line,
 	  entropy will be extracted from up to the first 4GB of RAM while the

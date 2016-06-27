@@ -25,13 +25,19 @@ ifdef CONFIG_GCC_PLUGINS
 
   gcc-plugin-y						+= colorize_plugin.so
 
+  gcc-plugin-subdir-$(CONFIG_PAX_SIZE_OVERFLOW)		+= size_overflow_plugin
   gcc-plugin-$(CONFIG_PAX_SIZE_OVERFLOW)		+= size_overflow_plugin/size_overflow_plugin.so
   gcc-plugin-cflags-$(CONFIG_PAX_SIZE_OVERFLOW)		+= -DSIZE_OVERFLOW_PLUGIN
+
+  gcc-plugin-$(CONFIG_GRKERNSEC_RANDSTRUCT)		+= randomize_layout_plugin.so
+  gcc-plugin-cflags-$(CONFIG_GRKERNSEC_RANDSTRUCT)	+= -DRANDSTRUCT_PLUGIN
+  gcc-plugin-cflags-$(CONFIG_GRKERNSEC_RANDSTRUCT_PERFORMANCE) += -fplugin-arg-randomize_layout_plugin-performance-mode
+
 
   gcc-plugin-$(CONFIG_PAX_LATENT_ENTROPY)		+= latent_entropy_plugin.so
   gcc-plugin-cflags-$(CONFIG_PAX_LATENT_ENTROPY)	+= -DLATENT_ENTROPY_PLUGIN
   ifdef CONFIG_PAX_LATENT_ENTROPY
-    DISABLE_LATENT_ENTROPY_PLUGIN				+= -fplugin-arg-latent_entropy_plugin-disable
+    DISABLE_LATENT_ENTROPY_PLUGIN			+= -fplugin-arg-latent_entropy_plugin-disable
   endif
 
   gcc-plugin-$(CONFIG_PAX_MEMORY_STRUCTLEAK)		+= structleak_plugin.so
@@ -40,6 +46,7 @@ ifdef CONFIG_GCC_PLUGINS
   gcc-plugin-y						+= initify_plugin.so
   gcc-plugin-cflags-y					+= -DINITIFY_PLUGIN
 
+  gcc-plugin-subdir-$(CONFIG_PAX_RAP)			+= rap_plugin
   gcc-plugin-$(CONFIG_PAX_RAP)				+= rap_plugin/rap_plugin.so
   gcc-plugin-cflags-$(CONFIG_PAX_RAP)			+= -DRAP_PLUGIN -fplugin-arg-rap_plugin-check=call
 #  gcc-plugin-cflags-$(CONFIG_PAX_RAP)			+= -fplugin-arg-rap_plugin-report=func,fptr,abs
@@ -52,20 +59,38 @@ ifdef CONFIG_GCC_PLUGINS
   GCC_PLUGINS_CFLAGS := $(strip $(addprefix -fplugin=$(objtree)/scripts/gcc-plugins/, $(gcc-plugin-y)) $(gcc-plugin-cflags-y))
   GCC_PLUGINS_AFLAGS := $(gcc-plugin-aflags-y)
 
+  export PLUGINCC GCC_PLUGIN GCC_PLUGIN_SUBDIR GCC_PLUGINS_CFLAGS GCC_PLUGINS_AFLAGS
   export DISABLE_LATENT_ENTROPY_PLUGIN RAP_PLUGIN_ABS_CFLAGS
-
-  ifeq ($(PLUGINCC),)
-    ifneq ($(GCC_PLUGINS_CFLAGS),)
-      ifeq ($(call cc-ifversion, -ge, 0405, y), y)
-        PLUGINCC := $(shell $(CONFIG_SHELL) -x $(srctree)/scripts/gcc-plugin.sh "$(__PLUGINCC)" "$(HOSTCXX)" "$(CC)")
-        $(warning warning, your gcc installation does not support plugins, perhaps the necessary headers are missing?)
-      else
-        $(warning warning, your gcc version does not support plugins, you should upgrade it to gcc 4.5 at least)
-      endif
-      $(warning PAX_MEMORY_STACKLEAK and other features will be less secure)
-    endif
-  endif
 
   KBUILD_CFLAGS += $(GCC_PLUGINS_CFLAGS)
   KBUILD_AFLAGS += $(GCC_PLUGINS_AFLAGS)
+  GCC_PLUGIN := $(gcc-plugin-y)
+  GCC_PLUGIN_SUBDIR := $(gcc-plugin-subdir-y)
 endif
+
+# If plugins aren't supported, abort the build before hard-to-read compiler
+# errors start getting spewed by the main build.
+PHONY += gcc-plugins-check
+gcc-plugins-check: FORCE
+ifdef CONFIG_GCC_PLUGINS
+  ifeq ($(PLUGINCC),)
+    ifneq ($(GCC_PLUGINS_CFLAGS),)
+      ifeq ($(call cc-ifversion, -ge, 0405, y), y)
+	$(Q)$(srctree)/scripts/gcc-plugin.sh --show-error "$(__PLUGINCC)" "$(HOSTCXX)" "$(CC)" || true
+	@echo "Cannot use CONFIG_GCC_PLUGINS: your gcc installation does not support plugins, perhaps the necessary headers are missing?" >&2
+      else
+	@echo "Cannot use CONFIG_GCC_PLUGINS: your gcc version does not support plugins, you should upgrade it to at least gcc 4.5" >&2
+      endif
+	@echo "PAX_MEMORY_STACKLEAK and other features will be less secure" >&2 && exit 1
+    endif
+  endif
+endif
+	@:
+
+# Actually do the build, if requested.
+PHONY += gcc-plugins
+gcc-plugins: scripts_basic gcc-plugins-check
+ifdef CONFIG_GCC_PLUGINS
+	$(Q)$(MAKE) $(build)=scripts/gcc-plugins
+endif
+	@:

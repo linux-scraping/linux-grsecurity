@@ -95,7 +95,7 @@ u64 hv_do_hypercall(u64 control, void *input, void *output)
 {
 	u64 input_address = (input) ? virt_to_phys(input) : 0;
 	u64 output_address = (output) ? virt_to_phys(output) : 0;
-	void *hypercall_page = (void *)ktva_ktla((unsigned long)hv_context.hypercall_page);
+	void *hypercall_page = hv_context.hypercall_page;
 #ifdef CONFIG_X86_64
 	u64 hv_status = 0;
 

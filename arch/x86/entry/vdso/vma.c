@@ -184,7 +184,7 @@ static int map_vdso(const struct vdso_image *image, bool calculate_addr)
 
 up_fail:
 	if (ret)
-		current->mm->context.vdso = 0;
+		mm->context.vdso = 0;
 
 	up_write(&mm->mmap_sem);
 	return ret;
