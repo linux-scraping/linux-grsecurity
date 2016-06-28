@@ -1686,6 +1686,11 @@ static __latent_entropy struct task_struct *copy_process(unsigned long clone_fla
 	*/
 	gr_copy_label(p);
 
+#ifdef CONFIG_GRKERNSEC_SETXID
+	if (p->delayed_cred)
+		get_cred(p->delayed_cred);
+#endif
+
 	if (likely(p->pid)) {
 		ptrace_init_task(p, (clone_flags & CLONE_PTRACE) || trace);
 
