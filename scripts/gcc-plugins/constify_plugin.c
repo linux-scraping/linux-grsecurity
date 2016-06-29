@@ -23,8 +23,23 @@ int plugin_is_GPL_compatible;
 static bool enabled = true;
 
 static struct plugin_info const_plugin_info = {
-	.version	= "201605212045",
+	.version	= "201606280200",
 	.help		= "disable\tturn off constification\n",
+};
+
+static struct {
+	const char *name;
+	const char *asm_op;
+} const_sections[] = {
+	{".init.rodata",     "\t.section\t.init.rodata,\"a\""},
+	{".ref.rodata",      "\t.section\t.ref.rodata,\"a\""},
+	{".devinit.rodata",  "\t.section\t.devinit.rodata,\"a\""},
+	{".devexit.rodata",  "\t.section\t.devexit.rodata,\"a\""},
+	{".cpuinit.rodata",  "\t.section\t.cpuinit.rodata,\"a\""},
+	{".cpuexit.rodata",  "\t.section\t.cpuexit.rodata,\"a\""},
+	{".meminit.rodata",  "\t.section\t.meminit.rodata,\"a\""},
+	{".memexit.rodata",  "\t.section\t.memexit.rodata,\"a\""},
+	{".data..read_only", "\t.section\t.data..read_only,\"a\""},
 };
 
 typedef struct {
@@ -374,33 +389,85 @@ static void finish_type(void *event_data, void *data)
 	TYPE_CONSTIFY_VISITED(type) = 1;
 }
 
+static bool is_constified_var(varpool_node_ptr node)
+{
+	tree var = NODE_DECL(node);
+	tree type = TREE_TYPE(var);
+
+	if (DECL_EXTERNAL(var))
+		return false;
+
+	// XXX handle more complex nesting of arrays/structs
+	if (TREE_CODE(type) == ARRAY_TYPE)
+		type = TREE_TYPE(type);
+
+	if (TREE_CODE(type) != RECORD_TYPE && TREE_CODE(type) != UNION_TYPE)
+		return false;
+
+	if (!TYPE_READONLY(type) || !C_TYPE_FIELDS_READONLY(type))
+		return false;
+
+	if (!TYPE_CONSTIFY_VISITED(type))
+		return false;
+
+	return true;
+}
+
+static void check_section_mismatch(varpool_node_ptr node)
+{
+	tree var, section;
+	size_t i;
+
+	var = NODE_DECL(node);
+	section = lookup_attribute("section", DECL_ATTRIBUTES(var));
+	if (!section) {
+		gcc_assert(!get_decl_section_name(var));
+		return;
+	} else
+		gcc_assert(get_decl_section_name(var));
+
+//fprintf(stderr, "SECTIONAME: [%s] ", get_decl_section_name(var));
+//debug_tree(var);
+
+	gcc_assert(!TREE_CHAIN(section));
+	gcc_assert(TREE_VALUE(section));
+
+	section = TREE_VALUE(TREE_VALUE(section));
+	gcc_assert(!strcmp(TREE_STRING_POINTER(section), get_decl_section_name(var)));
+//debug_tree(section);
+
+	for (i = 0; i < ARRAY_SIZE(const_sections); i++)
+		if (!strcmp(const_sections[i].name, get_decl_section_name(var)))
+			return;
+
+	error_at(DECL_SOURCE_LOCATION(var), "constified variable %qD placed into writable section %E", var, section);
+}
+
+// this works around a gcc bug/feature where uninitialized globals
+// are moved into the .bss section regardless of any constification
+// see gcc/varasm.c:bss_initializer_p()
+static void fix_initializer(varpool_node_ptr node)
+{
+	tree var = NODE_DECL(node);
+	tree type = TREE_TYPE(var);
+
+	if (DECL_INITIAL(var))
+		return;
+
+	DECL_INITIAL(var) = build_constructor(type, NULL);
+//	inform(DECL_SOURCE_LOCATION(var), "constified variable %qE moved into .rodata", var);
+}
+
 static void check_global_variables(void *event_data, void *data)
 {
 	varpool_node_ptr node;
 
 	FOR_EACH_VARIABLE(node) {
-		tree var = NODE_DECL(node);
-		tree type = TREE_TYPE(var);
-
-		if (TREE_CODE(type) != RECORD_TYPE && TREE_CODE(type) != UNION_TYPE)
+		if (!is_constified_var(node))
 			continue;
 
-		if (!TYPE_READONLY(type) || !C_TYPE_FIELDS_READONLY(type))
-			continue;
-
-		if (!TYPE_CONSTIFY_VISITED(type))
-			continue;
-
-		if (DECL_EXTERNAL(var))
-			continue;
-
-		if (DECL_INITIAL(var))
-			continue;
-
-		// this works around a gcc bug/feature where uninitialized globals
-		// are moved into the .bss section regardless of any constification
-		DECL_INITIAL(var) = build_constructor(type, NULL);
-//		inform(DECL_SOURCE_LOCATION(var), "constified variable %qE moved into .rodata", var);
+		check_section_mismatch(node);
+		fix_initializer(node);
 	}
 }
 
@@ -437,30 +504,16 @@ static unsigned int check_local_variables_execute(void)
 #define NO_GATE
 #include "gcc-generate-gimple-pass.h"
 
-static struct {
-	const char *name;
-	const char *asm_op;
-} sections[] = {
-	{".init.rodata",     "\t.section\t.init.rodata,\"a\""},
-	{".ref.rodata",      "\t.section\t.ref.rodata,\"a\""},
-	{".devinit.rodata",  "\t.section\t.devinit.rodata,\"a\""},
-	{".devexit.rodata",  "\t.section\t.devexit.rodata,\"a\""},
-	{".cpuinit.rodata",  "\t.section\t.cpuinit.rodata,\"a\""},
-	{".cpuexit.rodata",  "\t.section\t.cpuexit.rodata,\"a\""},
-	{".meminit.rodata",  "\t.section\t.meminit.rodata,\"a\""},
-	{".memexit.rodata",  "\t.section\t.memexit.rodata,\"a\""},
-	{".data..read_only", "\t.section\t.data..read_only,\"a\""},
-};
-
 static unsigned int (*old_section_type_flags)(tree decl, const char *name, int reloc);
 
 static unsigned int constify_section_type_flags(tree decl, const char *name, int reloc)
 {
 	size_t i;
 
-	for (i = 0; i < ARRAY_SIZE(sections); i++)
-		if (!strcmp(sections[i].name, name))
+	for (i = 0; i < ARRAY_SIZE(const_sections); i++)
+		if (!strcmp(const_sections[i].name, name))
 			return 0;
+
 	return old_section_type_flags(decl, name, reloc);
 }
 
@@ -468,9 +521,9 @@ static void constify_start_unit(void *gcc_data, void *user_data)
 {
 //	size_t i;
 
-//	for (i = 0; i < ARRAY_SIZE(sections); i++)
-//		sections[i].section = get_unnamed_section(0, output_section_asm_op, sections[i].asm_op);
-//		sections[i].section = get_section(sections[i].name, 0, NULL);
+//	for (i = 0; i < ARRAY_SIZE(const_sections); i++)
+//		const_sections[i].section = get_unnamed_section(0, output_section_asm_op, const_sections[i].asm_op);
+//		const_sections[i].section = get_section(const_sections[i].name, 0, NULL);
 
 	old_section_type_flags = targetm.section_type_flags;
 	targetm.section_type_flags = constify_section_type_flags;

@@ -254,7 +254,11 @@ static int proc_maps_open(struct inode *inode, struct file *file,
 		return -ENOMEM;
 
 	priv->inode = inode;
-	priv->mm = proc_mem_open(inode, PTRACE_MODE_READ);
+#ifdef CONFIG_GRKERNSEC
+	priv->mm = proc_mem_open(inode, PTRACE_MODE_READ, &priv->ptracer_exec_id);
+#else
+	priv->mm = proc_mem_open(inode, PTRACE_MODE_READ, NULL);
+#endif
 	if (IS_ERR(priv->mm)) {
 		int err = PTR_ERR(priv->mm);
 
@@ -309,7 +313,7 @@ static int is_stack(struct proc_maps_private *priv,
 }
 
 static void
-show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
+show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid, bool restrict)
 {
 	struct mm_struct *mm = vma->vm_mm;
 	struct file *file = vma->vm_file;
@@ -328,13 +332,8 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 		pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
 	}
 
-#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-	start = PAX_RAND_FLAGS(mm) ? 0UL : vma->vm_start;
-	end = PAX_RAND_FLAGS(mm) ? 0UL : vma->vm_end;
-#else
-	start = vma->vm_start;
-	end = vma->vm_end;
-#endif
+	start = restrict ? 0UL : vma->vm_start;
+	end = restrict ? 0UL : vma->vm_end;
 
 	seq_setwidth(m, 25 + sizeof(void *) * 6 - 1);
 	seq_printf(m, "%08lx-%08lx %c%c%c%c %08llx %02x:%02x %lu ",
@@ -344,11 +343,7 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 			flags & VM_WRITE ? 'w' : '-',
 			flags & VM_EXEC ? 'x' : '-',
 			flags & VM_MAYSHARE ? 's' : 'p',
-#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-			PAX_RAND_FLAGS(mm) ? 0UL : pgoff,
-#else
-			pgoff,
-#endif
+			restrict ? 0UL : pgoff,
 			MAJOR(dev), MINOR(dev), ino);
 
 	/*
@@ -394,13 +389,20 @@ done:
 
 static int show_map(struct seq_file *m, void *v, int is_pid)
 {
+	bool restrict = false;
+
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-	if (current->exec_id != m->exec_id) {
+	struct vm_area_struct *vma = (struct vm_area_struct *)v;
+	struct proc_maps_private *priv = m->private;
+	restrict = current->exec_id != priv->ptracer_exec_id;
+	if (current->exec_id != m->exec_id && restrict) {
 		gr_log_badprocpid("maps");
 		return 0;
 	}
+	if (restrict)
+		restrict = PAX_RAND_FLAGS(vma->vm_mm);
 #endif
-	show_map_vma(m, v, is_pid);
+	show_map_vma(m, v, is_pid, restrict);
 	m_cache_vma(m, v);
 	return 0;
 }
@@ -751,6 +753,7 @@ static int show_smap(struct seq_file *m, void *v, int is_pid)
 		.mm = vma->vm_mm,
 		.private = &mss,
 	};
+	bool restrict = false;
 
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
 	if (current->exec_id != m->exec_id) {
@@ -785,12 +788,14 @@ static int show_smap(struct seq_file *m, void *v, int is_pid)
 #endif
 
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-	if (!PAX_RAND_FLAGS(vma->vm_mm))
+	if (PAX_RAND_FLAGS(vma->vm_mm))
+		restrict = true;
+	else
 #endif
 		/* mmap_sem is held in m_start */
 		walk_page_vma(vma, &smaps_walk);
 
-	show_map_vma(m, vma, is_pid);
+	show_map_vma(m, vma, is_pid, restrict);
 
 	seq_printf(m,
 		   "Size:           %8lu kB\n"
@@ -810,11 +815,7 @@ static int show_smap(struct seq_file *m, void *v, int is_pid)
 		   "KernelPageSize: %8lu kB\n"
 		   "MMUPageSize:    %8lu kB\n"
 		   "Locked:         %8lu kB\n",
-#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-		   PAX_RAND_FLAGS(vma->vm_mm) ? 0UL : (vma->vm_end - vma->vm_start) >> 10,
-#else
-		   (vma->vm_end - vma->vm_start) >> 10,
-#endif
+		   restrict ? 0UL : (vma->vm_end - vma->vm_start) >> 10,
 		   mss.resident >> 10,
 		   (unsigned long)(mss.pss >> (10 + PSS_SHIFT)),
 		   mss.shared_clean  >> 10,
@@ -1462,7 +1463,7 @@ static int pagemap_open(struct inode *inode, struct file *file)
 {
 	struct mm_struct *mm;
 
-	mm = proc_mem_open(inode, PTRACE_MODE_READ);
+	mm = proc_mem_open(inode, PTRACE_MODE_READ, NULL);
 	if (IS_ERR(mm))
 		return PTR_ERR(mm);
 	file->private_data = mm;

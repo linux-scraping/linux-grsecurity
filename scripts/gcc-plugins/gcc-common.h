@@ -537,6 +537,14 @@ static inline const greturn *as_a_const_greturn(const_gimple stmt)
 
 typedef struct rtx_def rtx_insn;
 
+static inline const char *get_decl_section_name(const_tree decl)
+{
+	if (!DECL_SECTION_NAME(decl))
+		return  NULL;
+
+	return TREE_STRING_POINTER(DECL_SECTION_NAME(decl));
+}
+
 static inline void set_decl_section_name(tree node, const char *value)
 {
 	if (value)
@@ -653,6 +661,11 @@ inline bool is_a_helper<const gassign *>::test(const_gimple gs)
 //#define TREE_INT_CST_HIGH(NODE) ({ TREE_INT_CST_EXT_NUNITS(NODE) > 1 ? (unsigned HOST_WIDE_INT)TREE_INT_CST_ELT(NODE, 1) : 0; })
 
 #define INSN_DELETED_P(insn) (insn)->deleted()
+
+static inline const char *get_decl_section_name(const_tree decl)
+{
+	return DECL_SECTION_NAME(decl);
+}
 
 /* symtab/cgraph related */
 #define debug_cgraph_node(node) (node)->debug()

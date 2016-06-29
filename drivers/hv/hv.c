@@ -183,8 +183,7 @@ static struct clocksource hyperv_cs_tsc = {
 };
 #endif
 
-extern char hv_hypercall_page[PAGE_SIZE] __aligned(PAGE_SIZE);
-asm(".text; .balign 4096; hv_hypercall_page: .fill 4096,1,0xcc; .previous;");
+static char hv_hypercall_page[PAGE_SIZE] __aligned(PAGE_SIZE) __used __section(".text");
 
 /*
  * hv_init - Main initialization routine.

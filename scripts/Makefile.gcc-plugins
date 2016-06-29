@@ -45,6 +45,8 @@ ifdef CONFIG_GCC_PLUGINS
 
   gcc-plugin-y						+= initify_plugin.so
   gcc-plugin-cflags-y					+= -DINITIFY_PLUGIN
+# -fplugin-arg-initify_plugin-search_init_exit_functions
+#  gcc-plugin-cflags-y					+= -fplugin-arg-initify_plugin-verbose
 
   gcc-plugin-subdir-$(CONFIG_PAX_RAP)			+= rap_plugin
   gcc-plugin-$(CONFIG_PAX_RAP)				+= rap_plugin/rap_plugin.so

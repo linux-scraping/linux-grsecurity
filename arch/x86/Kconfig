@@ -184,11 +184,13 @@ config MMU
 	def_bool y
 
 config ARCH_MMAP_RND_BITS_MIN
-	default 28 if 64BIT
+	default 28 if 64BIT && !PAX_PER_CPU_PGD
+	default 27 if 64BIT && PAX_PER_CPU_PGD
 	default 8
 
 config ARCH_MMAP_RND_BITS_MAX
-	default 32 if 64BIT
+	default 32 if 64BIT && !PAX_PER_CPU_PGD
+	default 27 if 64BIT && PAX_PER_CPU_PGD
 	default 16
 
 config ARCH_MMAP_RND_COMPAT_BITS_MIN

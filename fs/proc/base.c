@@ -864,10 +864,13 @@ static const struct file_operations proc_single_file_operations = {
 };
 
 
-struct mm_struct *proc_mem_open(struct inode *inode, unsigned int mode)
+struct mm_struct *proc_mem_open(struct inode *inode, unsigned int mode, u64 *ptracer_exec_id)
 {
 	struct task_struct *task = get_proc_task(inode);
 	struct mm_struct *mm = ERR_PTR(-ESRCH);
+
+	if (ptracer_exec_id)
+		*ptracer_exec_id = 0;
 
 	if (task) {
 		mm = mm_access(task, mode | PTRACE_MODE_FSCREDS);
@@ -875,6 +878,10 @@ struct mm_struct *proc_mem_open(struct inode *inode, unsigned int mode)
 			mmput(mm);
 			mm = ERR_PTR(-EPERM);
 		}
+#ifdef CONFIG_GRKERNSEC
+		if (ptracer_exec_id)
+			current_is_ptracer(task, ptracer_exec_id);
+#endif
 		put_task_struct(task);
 
 		if (!IS_ERR_OR_NULL(mm)) {
@@ -890,7 +897,7 @@ struct mm_struct *proc_mem_open(struct inode *inode, unsigned int mode)
 
 static int __mem_open(struct inode *inode, struct file *file, unsigned int mode)
 {
-	struct mm_struct *mm = proc_mem_open(inode, mode);
+	struct mm_struct *mm = proc_mem_open(inode, mode, NULL);
 
 	if (IS_ERR(mm))
 		return PTR_ERR(mm);
@@ -923,14 +930,23 @@ static ssize_t mem_rw(struct file *file, char __user *buf,
 	char *page;
 
 #ifdef CONFIG_GRKERNSEC
-	if (write)
+	struct task_struct *task = get_proc_task(file_inode(file));
+	bool is_by_ptracer = false;
+
+	if (task) {
+		is_by_ptracer = current_is_ptracer(task, NULL);
+		put_task_struct(task);
+	}
+
+	if (write && !is_by_ptracer)
 		return -EPERM;
-#endif
+
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-	if (file->f_version != current->exec_id) {
+	if (file->f_version != current->exec_id && !is_by_ptracer) {
 		gr_log_badprocpid("mem");
 		return 0;
 	}
+#endif
 #endif
 
 	if (!mm)

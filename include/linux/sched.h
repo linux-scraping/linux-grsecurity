@@ -2416,6 +2416,27 @@ static inline void populate_stack(void *stack)
 }
 #endif
 
+#ifdef CONFIG_GRKERNSEC
+static inline bool current_is_ptracer(struct task_struct *task, u64 *exec_id)
+{
+	bool ret = false;
+        if (!task->ptrace)
+		return ret;
+
+	rcu_read_lock();
+	read_lock(&tasklist_lock);
+	if (task->parent && task->parent == current) {
+		ret = true;
+		if (exec_id)
+			*exec_id = task->parent->exec_id;
+	}
+	read_unlock(&tasklist_lock);
+	rcu_read_unlock();
+
+	return ret;
+}
+#endif
+
 #ifndef CONFIG_HAVE_UNSTABLE_SCHED_CLOCK
 static inline void sched_clock_tick(void)
 {
