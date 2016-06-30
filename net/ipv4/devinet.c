@@ -2372,7 +2372,7 @@ static __net_exit void devinet_exit_net(struct net *net)
 	kfree(net->ipv4.devconf_all);
 }
 
-static __net_initdata struct pernet_operations devinet_ops = {
+static __net_initconst struct pernet_operations devinet_ops = {
 	.init = devinet_init_net,
 	.exit = devinet_exit_net,
 };

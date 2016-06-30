@@ -1011,7 +1011,7 @@ static __net_exit void ipv4_sysctl_exit_net(struct net *net)
 	kfree(table);
 }
 
-static __net_initdata struct pernet_operations ipv4_sysctl_ops = {
+static __net_initconst struct pernet_operations ipv4_sysctl_ops = {
 	.init = ipv4_sysctl_init_net,
 	.exit = ipv4_sysctl_exit_net,
 };

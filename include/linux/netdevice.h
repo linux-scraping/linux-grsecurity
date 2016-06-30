@@ -4070,7 +4070,7 @@ static inline void netif_keep_dst(struct net_device *dev)
 	dev->priv_flags &= ~(IFF_XMIT_DST_RELEASE | IFF_XMIT_DST_RELEASE_PERM);
 }
 
-extern struct pernet_operations __net_initdata loopback_net_ops;
+extern struct pernet_operations __net_initconst loopback_net_ops;
 
 /* Logging, debugging and troubleshooting/diagnostic helpers. */
 

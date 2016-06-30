@@ -368,7 +368,7 @@ static void __net_exit xfrm4_net_exit(struct net *net)
 	dst_entries_destroy(&net->xfrm.xfrm4_dst_ops);
 }
 
-static struct pernet_operations __net_initdata xfrm4_net_ops = {
+static struct pernet_operations __net_initconst xfrm4_net_ops = {
 	.init	= xfrm4_net_init,
 	.exit	= xfrm4_net_exit,
 };

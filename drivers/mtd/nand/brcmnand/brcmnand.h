@@ -24,7 +24,7 @@ struct brcmnand_soc {
 	bool (*ctlrdy_ack)(struct brcmnand_soc *soc);
 	void (*ctlrdy_set_enabled)(struct brcmnand_soc *soc, bool en);
 	void (*prepare_data_bus)(struct brcmnand_soc *soc, bool prepare);
-};
+} __no_const;
 
 static inline void brcmnand_soc_data_bus_prepare(struct brcmnand_soc *soc)
 {

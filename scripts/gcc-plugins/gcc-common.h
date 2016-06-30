@@ -539,8 +539,8 @@ typedef struct rtx_def rtx_insn;
 
 static inline const char *get_decl_section_name(const_tree decl)
 {
-	if (!DECL_SECTION_NAME(decl))
-		return  NULL;
+	if (DECL_SECTION_NAME(decl) == NULL_TREE)
+		return NULL;
 
 	return TREE_STRING_POINTER(DECL_SECTION_NAME(decl));
 }
@@ -675,6 +675,7 @@ static inline const char *get_decl_section_name(const_tree decl)
 #define cgraph_n_nodes symtab->cgraph_count
 #define cgraph_max_uid symtab->cgraph_max_uid
 #define varpool_get_node(decl) varpool_node::get(decl)
+#define dump_varpool_node(file, node) (node)->dump(file)
 
 #define cgraph_create_edge(caller, callee, call_stmt, count, freq, nest) \
 	(caller)->create_edge((callee), (call_stmt), (count), (freq))

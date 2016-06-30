@@ -532,7 +532,7 @@ static __net_exit void ip_proc_exit_net(struct net *net)
 	remove_proc_entry("sockstat", net->proc_net);
 }
 
-static __net_initdata struct pernet_operations ip_proc_ops = {
+static __net_initconst struct pernet_operations ip_proc_ops = {
 	.init = ip_proc_init_net,
 	.exit = ip_proc_exit_net,
 };

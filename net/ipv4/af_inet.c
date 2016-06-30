@@ -1591,7 +1591,7 @@ static __net_exit void ipv4_mib_exit_net(struct net *net)
 	free_percpu(net->mib.tcp_statistics);
 }
 
-static __net_initdata struct pernet_operations ipv4_mib_ops = {
+static __net_initconst struct pernet_operations ipv4_mib_ops = {
 	.init = ipv4_mib_init_net,
 	.exit = ipv4_mib_exit_net,
 };
@@ -1624,7 +1624,7 @@ static __net_exit void inet_exit_net(struct net *net)
 {
 }
 
-static __net_initdata struct pernet_operations af_inet_ops = {
+static __net_initconst struct pernet_operations af_inet_ops = {
 	.init = inet_init_net,
 	.exit = inet_exit_net,
 };

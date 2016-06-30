@@ -3072,7 +3072,7 @@ static void __net_exit xfrm_net_exit(struct net *net)
 	xfrm_statistics_fini(net);
 }
 
-static struct pernet_operations __net_initdata xfrm_net_ops = {
+static struct pernet_operations __net_initconst xfrm_net_ops = {
 	.init = xfrm_net_init,
 	.exit = xfrm_net_exit,
 };

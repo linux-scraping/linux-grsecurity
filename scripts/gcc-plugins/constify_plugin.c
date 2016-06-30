@@ -394,6 +394,9 @@ static bool is_constified_var(varpool_node_ptr node)
 	tree var = NODE_DECL(node);
 	tree type = TREE_TYPE(var);
 
+	if (node->alias)
+		return false;
+
 	if (DECL_EXTERNAL(var))
 		return false;
 
@@ -421,7 +424,13 @@ static void check_section_mismatch(varpool_node_ptr node)
 	var = NODE_DECL(node);
 	section = lookup_attribute("section", DECL_ATTRIBUTES(var));
 	if (!section) {
-		gcc_assert(!get_decl_section_name(var));
+		const char *name = get_decl_section_name(var);
+
+		if (name) {
+			fprintf(stderr, "DECL_SECTION [%s] ", name);
+			dump_varpool_node(stderr, node);
+			gcc_unreachable();
+		}
 		return;
 	} else
 		gcc_assert(get_decl_section_name(var));

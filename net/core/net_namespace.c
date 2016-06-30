@@ -526,7 +526,7 @@ static __net_exit void net_ns_net_exit(struct net *net)
 	ns_free_inum(&net->ns);
 }
 
-static struct pernet_operations __net_initdata net_ns_ops = {
+static struct pernet_operations __net_initconst net_ns_ops = {
 	.init = net_ns_net_init,
 	.exit = net_ns_net_exit,
 };

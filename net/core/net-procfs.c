@@ -358,7 +358,7 @@ static void __net_exit dev_proc_net_exit(struct net *net)
 	remove_proc_entry("dev", net->proc_net);
 }
 
-static struct pernet_operations __net_initdata dev_proc_ops = {
+static struct pernet_operations __net_initconst dev_proc_ops = {
 	.init = dev_proc_net_init,
 	.exit = dev_proc_net_exit,
 };
@@ -420,7 +420,7 @@ static void __net_exit dev_mc_net_exit(struct net *net)
 	remove_proc_entry("dev_mcast", net->proc_net);
 }
 
-static struct pernet_operations __net_initdata dev_mc_net_ops = {
+static struct pernet_operations __net_initconst dev_mc_net_ops = {
 	.init = dev_mc_net_init,
 	.exit = dev_mc_net_exit,
 };

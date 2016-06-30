@@ -1156,7 +1156,7 @@ static void __net_exit audit_net_exit(struct net *net)
 	netlink_kernel_release(sock);
 }
 
-static struct pernet_operations audit_net_ops __net_initdata = {
+static struct pernet_operations audit_net_ops __net_initconst = {
 	.init = audit_net_init,
 	.exit = audit_net_exit,
 	.id = &audit_net_id,
