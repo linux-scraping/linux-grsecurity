@@ -752,25 +752,19 @@ ENTRY(initial_code)
 ENTRY(setup_once_ref)
 	.long setup_once
 
-/*
- * BSS section
- */
+__READ_ONLY
+	.balign	PAGE_SIZE
 #ifdef CONFIG_X86_PAE
-.section .initial_pg_pmd,"a",@progbits
 initial_pg_pmd:
 	.fill 1024*KPMDS,4,0
 #else
-.section .initial_page_table,"a",@progbits
 ENTRY(initial_page_table)
 	.fill 1024,4,0
 #endif
-.section .initial_pg_fixmap,"a",@progbits
 initial_pg_fixmap:
 	.fill 1024,4,0
-.section .empty_zero_page,"a",@progbits
 ENTRY(empty_zero_page)
 	.fill 4096,1,0
-.section .swapper_pg_dir,"a",@progbits
 ENTRY(swapper_pg_dir)
 #ifdef CONFIG_X86_PAE
 	.fill PTRS_PER_PGD,8,0
@@ -782,7 +776,8 @@ ENTRY(swapper_pg_dir)
  * This starts the data section.
  */
 #ifdef CONFIG_X86_PAE
-.section .initial_page_table,"a",@progbits
+__READ_ONLY
+	.balign	PAGE_SIZE
 ENTRY(initial_page_table)
 	.long	pa(initial_pg_pmd+PGD_IDENT_ATTR),0	/* low identity map */
 # if KPMDS == 3
@@ -800,14 +795,14 @@ ENTRY(initial_page_table)
 # else
 #  error "Kernel PMDs should be 1, 2 or 3"
 # endif
-	.align PAGE_SIZE		/* needs to be page-sized too */
+	.balign PAGE_SIZE		/* needs to be page-sized too */
 
-#ifdef CONFIG_PAX_PER_CPU_PGD
+# ifdef CONFIG_PAX_PER_CPU_PGD
 ENTRY(cpu_pgd)
 	.rept 2*NR_CPUS
 	.fill	PTRS_PER_PGD,8,0
 	.endr
-#endif
+# endif
 
 #endif
 
@@ -842,7 +837,7 @@ fault_msg:
  * segment size, and 32-bit linear address value:
  */
 
-.section .rodata,"a",@progbits
+__READ_ONLY
 .globl boot_gdt_descr
 .globl idt_descr
 

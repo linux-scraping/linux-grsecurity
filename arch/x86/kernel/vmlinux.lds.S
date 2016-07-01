@@ -149,18 +149,6 @@ SECTIONS
 		_etext = . - __KERNEL_TEXT_OFFSET;
 	}
 
-#ifdef CONFIG_X86_32
-	. = ALIGN(PAGE_SIZE);
-	.rodata.page_aligned : AT(ADDR(.rodata.page_aligned) - LOAD_OFFSET) {
-		. = ALIGN(PAGE_SIZE);
-		*(.empty_zero_page)
-		*(.initial_pg_fixmap)
-		*(.initial_pg_pmd)
-		*(.initial_page_table)
-		*(.swapper_pg_dir)
-	} :rodata
-#endif
-
 	. = ALIGN(PAGE_SIZE);
 	NOTES :rodata :note
 

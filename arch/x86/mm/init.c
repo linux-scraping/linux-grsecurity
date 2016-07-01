@@ -18,7 +18,6 @@
 #include <asm/proto.h>
 #include <asm/dma.h>		/* for MAX_DMA_PFN */
 #include <asm/microcode.h>
-#include <asm/desc.h>
 #include <asm/bios_ebda.h>
 
 /*
@@ -683,44 +682,6 @@ int devmem_is_allowed(unsigned long pagenr)
 	return 0;
 }
 
-void free_init_pages(char *what, unsigned long begin, unsigned long end)
-{
-	unsigned long begin_aligned, end_aligned;
-
-	/* Make sure boundaries are page aligned */
-	begin_aligned = PAGE_ALIGN(begin);
-	end_aligned   = end & PAGE_MASK;
-
-	if (WARN_ON(begin_aligned != begin || end_aligned != end)) {
-		begin = begin_aligned;
-		end   = end_aligned;
-	}
-
-	if (begin >= end)
-		return;
-
-	/*
-	 * If debugging page accesses then do not free this memory but
-	 * mark them not present - any buggy init-section access will
-	 * create a kernel page fault:
-	 */
-#ifdef CONFIG_DEBUG_PAGEALLOC
-	printk(KERN_INFO "debug: unmapping init [mem %#010lx-%#010lx]\n",
-		begin, end - 1);
-	set_memory_np(begin, (end - begin) >> PAGE_SHIFT);
-#else
-	/*
-	 * We just marked the kernel text read only above, now that
-	 * we are going to free part of that, we need to make that
-	 * writeable and non-executable first.
-	 */
-	set_memory_nx(begin, (end - begin) >> PAGE_SHIFT);
-	set_memory_rw(begin, (end - begin) >> PAGE_SHIFT);
-
-	free_reserved_area((void *)begin, (void *)end, POISON_FREE_INITMEM, what);
-#endif
-}
-
 #ifdef CONFIG_GRKERNSEC_KMEM
 static inline void gr_init_ebda(void)
 {
@@ -744,103 +705,47 @@ static inline void gr_init_ebda(void)
 static inline void gr_init_ebda(void) { }
 #endif
 
+void free_init_pages(char *what, unsigned long begin, unsigned long end)
+{
+	unsigned long begin_aligned, end_aligned;
+
+	/* Make sure boundaries are page aligned */
+	begin_aligned = PAGE_ALIGN(begin);
+	end_aligned   = end & PAGE_MASK;
+
+	if (WARN_ON(begin_aligned != begin || end_aligned != end)) {
+		begin = begin_aligned;
+		end   = end_aligned;
+	}
+
+	if (begin >= end)
+		return;
+
+	/*
+	 * If debugging page accesses then do not free this memory but
+	 * mark them not present - any buggy init-section access will
+	 * create a kernel page fault:
+	 */
+#ifdef CONFIG_DEBUG_PAGEALLOC
+	printk(KERN_INFO "debug: unmapping init [mem %#010lx-%#010lx]\n",
+	       begin, end - 1);
+	set_memory_np(begin, (end - begin) >> PAGE_SHIFT);
+#else
+	/*
+	 * We just marked the kernel text read only above, now that
+	 * we are going to free part of that, we need to make that
+	 * writeable and non-executable first.
+	 */
+	set_memory_nx(begin, (end - begin) >> PAGE_SHIFT);
+	set_memory_rw(begin, (end - begin) >> PAGE_SHIFT);
+
+	free_reserved_area((void *)begin, (void *)end, POISON_FREE_INITMEM, what);
+#endif
+}
+
 void free_initmem(void)
 {
-#ifdef CONFIG_PAX_KERNEXEC
-#ifdef CONFIG_X86_32
-	/* PaX: limit KERNEL_CS to actual size */
-	unsigned long addr, limit;
-	struct desc_struct d;
-	int cpu;
-#else
-	pgd_t *pgd;
-	pud_t *pud;
-	pmd_t *pmd;
-	unsigned long addr, end;
-#endif
-#endif
-
 	gr_init_ebda();
-
-#ifdef CONFIG_PAX_KERNEXEC
-#ifdef CONFIG_X86_32
-	limit = paravirt_enabled() ? ktva_ktla(0xffffffff) : (unsigned long)&_etext;
-	limit = (limit - 1UL) >> PAGE_SHIFT;
-
-	memset(__LOAD_PHYSICAL_ADDR + PAGE_OFFSET, POISON_FREE_INITMEM, PAGE_SIZE);
-	for (cpu = 0; cpu < nr_cpu_ids; cpu++) {
-		pack_descriptor(&d, get_desc_base(&get_cpu_gdt_table(cpu)[GDT_ENTRY_KERNEL_CS]), limit, 0x9B, 0xC);
-		write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_KERNEL_CS, &d, DESCTYPE_S);
-		write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_KERNEXEC_KERNEL_CS, &d, DESCTYPE_S);
-	}
-
-	/* PaX: make KERNEL_CS read-only */
-	addr = PFN_ALIGN(ktla_ktva((unsigned long)&_text));
-	if (!paravirt_enabled())
-		set_memory_ro(addr, (PFN_ALIGN(_sdata) - addr) >> PAGE_SHIFT);
-/*
-		for (addr = ktla_ktva((unsigned long)&_text); addr < (unsigned long)&_sdata; addr += PMD_SIZE) {
-			pgd = pgd_offset_k(addr);
-			pud = pud_offset(pgd, addr);
-			pmd = pmd_offset(pud, addr);
-			set_pmd(pmd, __pmd(pmd_val(*pmd) & ~_PAGE_RW));
-		}
-*/
-#ifdef CONFIG_X86_PAE
-	set_memory_nx(PFN_ALIGN(__init_begin), (PFN_ALIGN(__init_end) - PFN_ALIGN(__init_begin)) >> PAGE_SHIFT);
-/*
-	for (addr = (unsigned long)&__init_begin; addr < (unsigned long)&__init_end; addr += PMD_SIZE) {
-		pgd = pgd_offset_k(addr);
-		pud = pud_offset(pgd, addr);
-		pmd = pmd_offset(pud, addr);
-		set_pmd(pmd, __pmd(pmd_val(*pmd) | (_PAGE_NX & __supported_pte_mask)));
-	}
-*/
-#endif
-
-#ifdef CONFIG_MODULES
-	set_memory_4k((unsigned long)MODULES_EXEC_VADDR, (MODULES_EXEC_END - MODULES_EXEC_VADDR) >> PAGE_SHIFT);
-#endif
-
-#else
-	/* PaX: make kernel code/rodata read-only, rest non-executable */
-	set_memory_ro((unsigned long)_text, ((unsigned long)(_sdata - _text) >> PAGE_SHIFT));
-	set_memory_nx((unsigned long)_sdata, (__START_KERNEL_map + KERNEL_IMAGE_SIZE - (unsigned long)_sdata) >> PAGE_SHIFT);
-
-	for (addr = __START_KERNEL_map; addr < __START_KERNEL_map + KERNEL_IMAGE_SIZE; addr += PMD_SIZE) {
-		pgd = pgd_offset_k(addr);
-		pud = pud_offset(pgd, addr);
-		pmd = pmd_offset(pud, addr);
-		if (!pmd_present(*pmd))
-			continue;
-		if (addr >= (unsigned long)_text)
-			BUG_ON(!pmd_large(*pmd));
-		if ((unsigned long)_text <= addr && addr < (unsigned long)_sdata)
-			BUG_ON(pmd_write(*pmd));
-//			set_pmd(pmd, __pmd(pmd_val(*pmd) & ~_PAGE_RW));
-		else
-			BUG_ON(!(pmd_flags(*pmd) & _PAGE_NX));
-//			set_pmd(pmd, __pmd(pmd_val(*pmd) | (_PAGE_NX & __supported_pte_mask)));
-	}
-
-	addr = (unsigned long)__va(__pa(__START_KERNEL_map));
-	end = addr + KERNEL_IMAGE_SIZE;
-	for (; addr < end; addr += PMD_SIZE) {
-	pgd = pgd_offset_k(addr);
-		pud = pud_offset(pgd, addr);
-		pmd = pmd_offset(pud, addr);
-		if (!pmd_present(*pmd))
-			continue;
-		if (addr >= (unsigned long)_text)
-			BUG_ON(!pmd_large(*pmd));
-		if ((unsigned long)__va(__pa(_text)) <= addr && addr < (unsigned long)__va(__pa(_sdata)))
-			BUG_ON(pmd_write(*pmd));
-//			set_pmd(pmd, __pmd(pmd_val(*pmd) & ~_PAGE_RW));
-	}
-#endif
-
-	flush_tlb_all();
-#endif
 
 	free_init_pages("unused kernel",
 			(unsigned long)(&__init_begin),

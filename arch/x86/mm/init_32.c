@@ -915,7 +915,7 @@ static void mark_nxdata_nx(void)
 	 * When this called, init has already been executed and released,
 	 * so everything past _etext should be NX.
 	 */
-	unsigned long start = PFN_ALIGN(_etext);
+	unsigned long start = ktla_ktva(PFN_ALIGN(_etext));
 	/*
 	 * This comes from is_kernel_text upper limit. Also HPAGE where used:
 	 */
@@ -931,27 +931,47 @@ void mark_rodata_ro(void)
 	unsigned long start = PFN_ALIGN(_text);
 	unsigned long size = PFN_ALIGN(_etext) - start;
 
-	start = ktla_ktva(start);
-	set_pages_ro(virt_to_page(start), size >> PAGE_SHIFT);
-	printk(KERN_INFO "Write protecting the kernel text: %luk\n",
-		size >> 10);
+	if (config_enabled(CONFIG_PAX_KERNEXEC)) {
+		/* PaX: limit KERNEL_CS to actual size */
+		unsigned long limit;
+		struct desc_struct d;
+		int cpu;
 
-	kernel_set_to_readonly = 1;
+		limit = paravirt_enabled() ? ktva_ktla(0xffffffff) : (unsigned long)&_etext;
+		limit = (limit - 1UL) >> PAGE_SHIFT;
+
+		memset(__LOAD_PHYSICAL_ADDR + PAGE_OFFSET, POISON_FREE_INITMEM, PAGE_SIZE);
+		for (cpu = 0; cpu < nr_cpu_ids; cpu++) {
+			pack_descriptor(&d, get_desc_base(&get_cpu_gdt_table(cpu)[GDT_ENTRY_KERNEL_CS]), limit, 0x9B, 0xC);
+			write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_KERNEL_CS, &d, DESCTYPE_S);
+			write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_KERNEXEC_KERNEL_CS, &d, DESCTYPE_S);
+		}
+
+		if (config_enabled(CONFIG_MODULES))
+			set_memory_4k((unsigned long)MODULES_EXEC_VADDR, (MODULES_EXEC_END - MODULES_EXEC_VADDR) >> PAGE_SHIFT);
+	}
+
+	start = ktla_ktva(start);
+	/* PaX: make KERNEL_CS read-only */
+	if (config_enabled(CONFIG_PAX_KERNEXEC) && !paravirt_enabled()) {
+		set_pages_ro(virt_to_page(start), size >> PAGE_SHIFT);
+		printk(KERN_INFO "Write protecting the kernel text: %luk\n", size >> 10);
+
+		kernel_set_to_readonly = 1;
 
 #ifdef CONFIG_CPA_DEBUG
-	printk(KERN_INFO "Testing CPA: Reverting %lx-%lx\n",
-		start, start+size);
-	set_pages_rw(virt_to_page(start), size>>PAGE_SHIFT);
+		printk(KERN_INFO "Testing CPA: Reverting %lx-%lx\n", start, start+size);
+		set_pages_rw(virt_to_page(start), size>>PAGE_SHIFT);
 
-	printk(KERN_INFO "Testing CPA: write protecting again\n");
-	set_pages_ro(virt_to_page(start), size>>PAGE_SHIFT);
+		printk(KERN_INFO "Testing CPA: write protecting again\n");
+		set_pages_ro(virt_to_page(start), size>>PAGE_SHIFT);
 #endif
+	}
 
 	start += size;
-	size = (unsigned long)__end_rodata - start;
+	size = PFN_ALIGN(_sdata) - start;
 	set_pages_ro(virt_to_page(start), size >> PAGE_SHIFT);
-	printk(KERN_INFO "Write protecting the kernel read-only data: %luk\n",
-		size >> 10);
+	printk(KERN_INFO "Write protecting the kernel read-only data: %luk\n", size >> 10);
 	rodata_test();
 
 #ifdef CONFIG_CPA_DEBUG

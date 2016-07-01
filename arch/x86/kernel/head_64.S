@@ -246,7 +246,10 @@ ENTRY(secondary_startup_64)
 	je	1f
 	btsq	$_PAGE_BIT_NX,early_pmd_flags(%rip)
 	btsq	$_PAGE_BIT_NX, init_level4_pgt + 8*L4_PAGE_OFFSET(%rip)
-	btsq	$_PAGE_BIT_NX, init_level4_pgt + 8*L4_VMALLOC_START(%rip)
+	btsq	$_PAGE_BIT_NX, init_level4_pgt + (8*L4_VMALLOC_START)(%rip)
+	btsq	$_PAGE_BIT_NX, init_level4_pgt + (8*L4_VMALLOC_START) + 8(%rip)
+	btsq	$_PAGE_BIT_NX, init_level4_pgt + (8*L4_VMALLOC_START) + 16(%rip)
+	btsq	$_PAGE_BIT_NX, init_level4_pgt + (8*L4_VMALLOC_START) + 24(%rip)
 	btsq	$_PAGE_BIT_NX, init_level4_pgt + 8*L4_VMALLOC_END(%rip)
 	btsq	$_PAGE_BIT_NX, init_level4_pgt + 8*L4_VMEMMAP_START(%rip)
 	btsq	$_PAGE_BIT_NX, level2_fixmap_pgt + 8*504(%rip)
@@ -476,7 +479,7 @@ ENDPROC(early_idt_handler_common)
 early_recursion_flag:
 	.long 0
 
-	.section .rodata,"a",@progbits
+	__READ_ONLY
 #ifdef CONFIG_EARLY_PRINTK
 early_idt_msg:
 	.asciz "PANIC: early exception %02lx rip %lx:%lx error %lx cr2 %lx\n"
@@ -504,7 +507,7 @@ NEXT_PAGE(early_level4_pgt)
 NEXT_PAGE(early_dynamic_pgts)
 	.fill	512*EARLY_DYNAMIC_PAGE_TABLES,8,0
 
-	.section .rodata,"a",@progbits
+	__READ_ONLY
 
 NEXT_PAGE(init_level4_pgt)
 	.org    init_level4_pgt + L4_PAGE_OFFSET*8, 0

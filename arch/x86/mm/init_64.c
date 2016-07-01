@@ -1135,8 +1135,7 @@ void set_kernel_text_ro(void)
 	if (!kernel_set_to_readonly)
 		return;
 
-	pr_debug("Set kernel text: %lx - %lx for read only\n",
-		 start, end);
+	pr_debug("Set kernel text: %lx - %lx for read only\n", start, end);
 
 	/*
 	 * Set the kernel identity mapping for text RO.
@@ -1146,15 +1145,20 @@ void set_kernel_text_ro(void)
 
 void mark_rodata_ro(void)
 {
+	unsigned long addr;
 	unsigned long start = PFN_ALIGN(_text);
 	unsigned long rodata_start = PFN_ALIGN(__start_rodata);
+#ifdef CONFIG_PAX_KERNEXEC
+	unsigned long end = PFN_ALIGN(_sdata);
+	unsigned long text_end = end;
+#else
 	unsigned long end = (unsigned long) &__end_rodata_hpage_align;
 	unsigned long text_end = PFN_ALIGN(&__stop___ex_table);
+#endif
 	unsigned long rodata_end = PFN_ALIGN(&__end_rodata);
 	unsigned long all_end;
 
-	printk(KERN_INFO "Write protecting the kernel read-only data: %luk\n",
-	       (end - start) >> 10);
+	printk(KERN_INFO "Write protecting the kernel read-only data: %luk\n", (end - start) >> 10);
 	set_memory_ro(start, (end - start) >> PAGE_SHIFT);
 
 	kernel_set_to_readonly = 1;
@@ -1184,12 +1188,54 @@ void mark_rodata_ro(void)
 	set_memory_ro(start, (end-start) >> PAGE_SHIFT);
 #endif
 
+#ifdef CONFIG_PAX_KERNEXEC
+	/* PaX: ensure that kernel code/rodata is read-only, the rest is non-executable */
+	for (addr = __START_KERNEL_map; addr < __START_KERNEL_map + KERNEL_IMAGE_SIZE; addr += PMD_SIZE) {
+		pgd_t *pgd;
+		pud_t *pud;
+		pmd_t *pmd;
+
+		pgd = pgd_offset_k(addr);
+		pud = pud_offset(pgd, addr);
+		pmd = pmd_offset(pud, addr);
+		if (!pmd_present(*pmd))
+			continue;
+		if (addr >= (unsigned long)_text)
+			BUG_ON(!pmd_large(*pmd));
+		if ((unsigned long)_text <= addr && addr < (unsigned long)_sdata)
+			BUG_ON(pmd_write(*pmd));
+//			set_pmd(pmd, __pmd(pmd_val(*pmd) & ~_PAGE_RW));
+		else
+			BUG_ON(!(pmd_flags(*pmd) & _PAGE_NX));
+//			set_pmd(pmd, __pmd(pmd_val(*pmd) | (_PAGE_NX & __supported_pte_mask)));
+	}
+
+	addr = (unsigned long)__va(__pa(__START_KERNEL_map));
+	end = addr + KERNEL_IMAGE_SIZE;
+	for (; addr < end; addr += PMD_SIZE) {
+		pgd_t *pgd;
+		pud_t *pud;
+		pmd_t *pmd;
+
+		pgd = pgd_offset_k(addr);
+		pud = pud_offset(pgd, addr);
+		pmd = pmd_offset(pud, addr);
+		if (!pmd_present(*pmd))
+			continue;
+		if (addr >= (unsigned long)_text)
+			BUG_ON(!pmd_large(*pmd));
+		if ((unsigned long)__va(__pa(_text)) <= addr && addr < (unsigned long)__va(__pa(_sdata)))
+			BUG_ON(pmd_write(*pmd));
+//			set_pmd(pmd, __pmd(pmd_val(*pmd) & ~_PAGE_RW));
+	}
+#else
 	free_init_pages("unused kernel",
 			(unsigned long) __va(__pa_symbol(text_end)),
 			(unsigned long) __va(__pa_symbol(rodata_start)));
 	free_init_pages("unused kernel",
 			(unsigned long) __va(__pa_symbol(rodata_end)),
 			(unsigned long) __va(__pa_symbol(_sdata)));
+#endif
 
 	debug_checkwx();
 }

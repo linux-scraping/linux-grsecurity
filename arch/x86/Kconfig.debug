@@ -78,7 +78,6 @@ config EFI_PGT_DUMP
 config DEBUG_RODATA
 	bool "Write protect kernel read-only data structures"
 	default y
-	depends on DEBUG_KERNEL && BROKEN
 	---help---
 	  Mark the kernel read-only data as write-protected in the pagetables,
 	  in order to catch accidental (and incorrect) writes to such const
