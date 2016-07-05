@@ -439,7 +439,7 @@ struct drm_encoder_helper_funcs {
 	 * can be modified by this callback and does not need to match mode.
 	 *
 	 * This function is used by both legacy CRTC helpers and atomic helpers.
-	 * With atomic helpers it is optional.
+	 * This hook is optional.
 	 *
 	 * NOTE:
 	 *
@@ -772,6 +772,7 @@ struct drm_connector_helper_funcs {
 	struct drm_encoder *(*atomic_best_encoder)(struct drm_connector *connector,
 						   struct drm_connector_state *connector_state);
 };
+typedef struct drm_connector_helper_funcs __no_const drm_connector_helper_funcs_no_const;
 
 /**
  * drm_connector_helper_add - sets the helper vtable for a connector

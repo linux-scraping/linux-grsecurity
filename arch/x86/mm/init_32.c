@@ -392,7 +392,6 @@ repeat:
 }
 
 pte_t *kmap_pte;
-pgprot_t kmap_prot;
 
 static inline pte_t *kmap_get_fixmap_pte(unsigned long vaddr)
 {
@@ -409,8 +408,6 @@ static void __init kmap_init(void)
 	 */
 	kmap_vstart = __fix_to_virt(FIX_KMAP_BEGIN);
 	kmap_pte = kmap_get_fixmap_pte(kmap_vstart);
-
-	kmap_prot = PAGE_KERNEL;
 }
 
 #ifdef CONFIG_HIGHMEM
@@ -873,7 +870,6 @@ static noinline int do_test_wp_bit(void)
 	return flag;
 }
 
-#ifdef CONFIG_DEBUG_RODATA
 const int rodata_test_data = 0xC3;
 EXPORT_SYMBOL_GPL(rodata_test_data);
 
@@ -931,7 +927,8 @@ void mark_rodata_ro(void)
 	unsigned long start = PFN_ALIGN(_text);
 	unsigned long size = PFN_ALIGN(_etext) - start;
 
-	if (config_enabled(CONFIG_PAX_KERNEXEC)) {
+#ifdef CONFIG_PAX_KERNEXEC
+	{
 		/* PaX: limit KERNEL_CS to actual size */
 		unsigned long limit;
 		struct desc_struct d;
@@ -950,6 +947,7 @@ void mark_rodata_ro(void)
 		if (config_enabled(CONFIG_MODULES))
 			set_memory_4k((unsigned long)MODULES_EXEC_VADDR, (MODULES_EXEC_END - MODULES_EXEC_VADDR) >> PAGE_SHIFT);
 	}
+#endif
 
 	start = ktla_ktva(start);
 	/* PaX: make KERNEL_CS read-only */
@@ -985,5 +983,3 @@ void mark_rodata_ro(void)
 	if (__supported_pte_mask & _PAGE_NX)
 		debug_checkwx();
 }
-#endif
-

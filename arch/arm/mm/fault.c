@@ -379,7 +379,7 @@ retry:
 	up_read(&mm->mmap_sem);
 
 	/*
-	 * Handle the "normal" case first - VM_FAULT_MAJOR / VM_FAULT_MINOR
+	 * Handle the "normal" case first - VM_FAULT_MAJOR
 	 */
 	if (likely(!(fault & (VM_FAULT_ERROR | VM_FAULT_BADMAP | VM_FAULT_BADACCESS))))
 		return 0;
@@ -744,7 +744,7 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 #else
 		unsigned int bkpt;
 
-		if (!probe_kernel_address(pc, bkpt) && cpu_to_le32(bkpt) == 0xe12f1073) {
+		if (!probe_kernel_address((const void *)pc, bkpt) && cpu_to_le32(bkpt) == 0xe12f1073) {
 #endif
 			current->thread.error_code = ifsr;
 			current->thread.trap_no = 0;

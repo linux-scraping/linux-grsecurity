@@ -134,7 +134,8 @@ print_context_stack_bp(struct task_struct *task, void *stack_start,
 		if (!__kernel_text_address(addr))
 			break;
 
-		ops->address(data, addr, 1);
+		if (ops->address(data, addr, 1))
+			break;
 		frame = frame->next_frame;
 		ret_addr = &frame->return_address;
 		print_ftrace_graph_addr(addr, data, ops, task, graph);
@@ -153,10 +154,11 @@ static int print_trace_stack(void *data, char *name)
 /*
  * Print one address/symbol entries per line.
  */
-static void print_trace_address(void *data, unsigned long addr, int reliable)
+static int print_trace_address(void *data, unsigned long addr, int reliable)
 {
 	touch_nmi_watchdog();
 	printk_stack_address(addr, reliable, data);
+	return 0;
 }
 
 static const struct stacktrace_ops print_trace_ops = {
@@ -269,9 +271,8 @@ int __die(const char *str, struct pt_regs *regs, long err)
 #ifdef CONFIG_SMP
 	printk("SMP ");
 #endif
-#ifdef CONFIG_DEBUG_PAGEALLOC
-	printk("DEBUG_PAGEALLOC ");
-#endif
+	if (debug_pagealloc_enabled())
+		printk("DEBUG_PAGEALLOC ");
 #ifdef CONFIG_KASAN
 	printk("KASAN");
 #endif

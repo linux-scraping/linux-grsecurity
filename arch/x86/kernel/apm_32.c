@@ -1102,7 +1102,7 @@ static int apm_get_battery_status(u_short which, u_short *status,
  *	@device: identity of device
  *	@enable: on/off
  *
- *	Activate or deactive power management on either a specific device
+ *	Activate or deactivate power management on either a specific device
  *	or the entire system (%APM_DEVICE_ALL).
  */
 

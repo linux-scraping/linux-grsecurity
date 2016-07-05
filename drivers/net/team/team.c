@@ -758,6 +758,8 @@ static rx_handler_result_t team_handle_frame(struct sk_buff **pskb)
 		u64_stats_update_end(&pcpu_stats->syncp);
 
 		skb->dev = team->dev;
+	} else if (res == RX_HANDLER_EXACT) {
+		this_cpu_inc(team->pcpu_stats->rx_nohandler);
 	} else {
 		this_cpu_inc(team->pcpu_stats->rx_dropped);
 	}
@@ -988,7 +990,7 @@ static void team_port_disable(struct team *team,
 #define TEAM_ENC_FEATURES	(NETIF_F_HW_CSUM | NETIF_F_SG | \
 				 NETIF_F_RXCSUM | NETIF_F_ALL_TSO)
 
-static void __team_compute_features(struct team *team)
+static void ___team_compute_features(struct team *team)
 {
 	struct team_port *port;
 	u32 vlan_features = TEAM_VLAN_FEATURES & NETIF_F_ALL_FOR_ALL;
@@ -1019,15 +1021,20 @@ static void __team_compute_features(struct team *team)
 	team->dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
 	if (dst_release_flag == (IFF_XMIT_DST_RELEASE | IFF_XMIT_DST_RELEASE_PERM))
 		team->dev->priv_flags |= IFF_XMIT_DST_RELEASE;
+}
 
+static void __team_compute_features(struct team *team)
+{
+	___team_compute_features(team);
 	netdev_change_features(team->dev);
 }
 
 static void team_compute_features(struct team *team)
 {
 	mutex_lock(&team->lock);
-	__team_compute_features(team);
+	___team_compute_features(team);
 	mutex_unlock(&team->lock);
+	netdev_change_features(team->dev);
 }
 
 static int team_port_enter(struct team *team, struct team_port *port)
@@ -1196,6 +1203,9 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
 		goto err_dev_open;
 	}
 
+	dev_uc_sync_multiple(port_dev, dev);
+	dev_mc_sync_multiple(port_dev, dev);
+
 	err = vlan_vids_add_by_dev(port_dev, dev);
 	if (err) {
 		netdev_err(dev, "Failed to add vlan ids to device %s\n",
@@ -1259,6 +1269,8 @@ err_enable_netpoll:
 	vlan_vids_del_by_dev(port_dev, dev);
 
 err_vids_add:
+	dev_uc_unsync(port_dev, dev);
+	dev_mc_unsync(port_dev, dev);
 	dev_close(port_dev);
 
 err_dev_open:
@@ -1807,7 +1819,7 @@ team_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
 	struct team *team = netdev_priv(dev);
 	struct team_pcpu_stats *p;
 	u64 rx_packets, rx_bytes, rx_multicast, tx_packets, tx_bytes;
-	u32 rx_dropped = 0, tx_dropped = 0;
+	u32 rx_dropped = 0, tx_dropped = 0, rx_nohandler = 0;
 	unsigned int start;
 	int i;
 
@@ -1828,14 +1840,16 @@ team_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
 		stats->tx_packets	+= tx_packets;
 		stats->tx_bytes		+= tx_bytes;
 		/*
-		 * rx_dropped & tx_dropped are u32, updated
-		 * without syncp protection.
+		 * rx_dropped, tx_dropped & rx_nohandler are u32,
+		 * updated without syncp protection.
 		 */
 		rx_dropped	+= p->rx_dropped;
 		tx_dropped	+= p->tx_dropped;
+		rx_nohandler	+= p->rx_nohandler;
 	}
 	stats->rx_dropped	= rx_dropped;
 	stats->tx_dropped	= tx_dropped;
+	stats->rx_nohandler	= rx_nohandler;
 	return stats;
 }
 
@@ -2078,7 +2092,6 @@ static void team_setup(struct net_device *dev)
 	dev->netdev_ops = &team_netdev_ops;
 	dev->ethtool_ops = &team_ethtool_ops;
 	dev->destructor	= team_destructor;
-	dev->flags |= IFF_MULTICAST;
 	dev->priv_flags &= ~(IFF_XMIT_DST_RELEASE | IFF_TX_SKB_SHARING);
 	dev->priv_flags |= IFF_NO_QUEUE;
 	dev->priv_flags |= IFF_TEAM;
@@ -2809,12 +2822,12 @@ static void __team_port_change_send(struct team_port *port, bool linkup)
 	port->state.linkup = linkup;
 	team_refresh_port_linkup(port);
 	if (linkup) {
-		struct ethtool_cmd ecmd;
+		struct ethtool_link_ksettings ecmd;
 
-		err = __ethtool_get_settings(port->dev, &ecmd);
+		err = __ethtool_get_link_ksettings(port->dev, &ecmd);
 		if (!err) {
-			port->state.speed = ethtool_cmd_speed(&ecmd);
-			port->state.duplex = ecmd.duplex;
+			port->state.speed = ecmd.base.speed;
+			port->state.duplex = ecmd.base.duplex;
 			goto send_event;
 		}
 	}

@@ -60,6 +60,8 @@ struct technisat_usb2_state {
 	u8 power_state;
 
 	u16 last_scan_code;
+
+	u8 buf[64];
 };
 
 /* debug print helpers */
@@ -229,21 +231,19 @@ enum technisat_usb2_led_state {
 	TECH_LED_UNDEFINED
 };
 
-static int technisat_usb2_set_led(struct dvb_usb_device *d, int red, enum technisat_usb2_led_state state)
+static int technisat_usb2_set_led(struct dvb_usb_device *d, int red,
+				  enum technisat_usb2_led_state st)
 {
+	struct technisat_usb2_state *state = d->priv;
+	u8 *led = state->buf;
 	int ret;
-
-	u8 *led = kzalloc(8, GFP_KERNEL);
-
-	if (led == NULL)
-		return -ENOMEM;
-
-	if (disable_led_control && state != TECH_LED_OFF)
-		return 0;
 
 	led[0] = red ? SET_RED_LED_VENDOR_REQUEST : SET_GREEN_LED_VENDOR_REQUEST;
 
-	switch (state) {
+	if (disable_led_control && st != TECH_LED_OFF)
+		return 0;
+
+	switch (st) {
 	case TECH_LED_ON:
 		led[1] = 0x82;
 		break;
@@ -277,19 +277,16 @@ static int technisat_usb2_set_led(struct dvb_usb_device *d, int red, enum techni
 		led, 8, 500);
 
 	mutex_unlock(&d->i2c_mutex);
-
-	kfree(led);
-
 	return ret;
 }
 
 static int technisat_usb2_set_led_timer(struct dvb_usb_device *d, u8 red, u8 green)
 {
+	struct technisat_usb2_state *state = d->priv;
+	u8 *b = state->buf;
 	int ret;
-	u8 *b = kzalloc(1, GFP_KERNEL);
 
-	if (b == NULL)
-		return -ENOMEM;
+	b[0] = 0;
 
 	if (mutex_lock_interruptible(&d->i2c_mutex) < 0)
 		return -EAGAIN;
@@ -301,8 +298,6 @@ static int technisat_usb2_set_led_timer(struct dvb_usb_device *d, u8 red, u8 gre
 		b, 1, 500);
 
 	mutex_unlock(&d->i2c_mutex);
-
-	kfree(b);
 
 	return ret;
 }
@@ -347,7 +342,11 @@ static int technisat_usb2_identify_state(struct usb_device *udev,
 		struct dvb_usb_device_description **desc, int *cold)
 {
 	int ret;
-	u8 *version = kmalloc(3, GFP_KERNEL);
+	u8 *version;
+
+	version = kmalloc(3, GFP_KERNEL);
+	if (!version)
+		return -ENOMEM;
 
 	/* first select the interface */
 	if (usb_set_interface(udev, 0, 1) != 0)
@@ -356,9 +355,6 @@ static int technisat_usb2_identify_state(struct usb_device *udev,
 		info("set alternate setting");
 
 	*cold = 0; /* by default do not download a firmware - just in case something is wrong */
-
-	if (version == NULL)
-		return 0;
 
 	ret = usb_control_msg(udev, usb_rcvctrlpipe(udev, 0),
 		GET_VERSION_INFO_VENDOR_REQUEST,
@@ -536,7 +532,7 @@ static int technisat_usb2_frontend_attach(struct dvb_usb_adapter *a)
 			&a->dev->i2c_adap, STV090x_DEMODULATOR_0);
 
 	if (a->fe_adap[0].fe) {
-		struct stv6110x_devctl *ctl;
+		const struct stv6110x_devctl *ctl;
 
 		ctl = dvb_attach(stv6110x_attach,
 				a->fe_adap[0].fe,
@@ -618,14 +614,11 @@ static int technisat_usb2_frontend_attach(struct dvb_usb_adapter *a)
 
 static int technisat_usb2_get_ir(struct dvb_usb_device *d)
 {
-	u8 *buf, *b;
+	struct technisat_usb2_state *state = d->priv;
+	u8 *buf = state->buf;
+	u8 *b;
 	int ret;
 	struct ir_raw_event ev;
-
-	buf = kmalloc(62, GFP_KERNEL);
-
-	if (buf == NULL)
-		return -ENOMEM;
 
 	buf[0] = GET_IR_DATA_VENDOR_REQUEST;
 	buf[1] = 0x08;
@@ -654,15 +647,11 @@ static int technisat_usb2_get_ir(struct dvb_usb_device *d)
 unlock:
 	mutex_unlock(&d->i2c_mutex);
 
-	if (ret < 0) {
-		kfree(buf);
+	if (ret < 0)
 		return ret;
-	}
 
-	if (ret == 1) {
-		kfree(buf);
+	if (ret == 1)
 		return 0; /* no key pressed */
-	}
 
 	/* decoding */
 	b = buf+1;
@@ -688,8 +677,6 @@ unlock:
 	}
 
 	ir_raw_event_handle(d->rc_dev);
-
-	kfree(buf);
 
 	return 1;
 }

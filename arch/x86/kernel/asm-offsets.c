@@ -106,4 +106,5 @@ void common(void) {
 
 	BLANK();
 	DEFINE(PTREGS_SIZE, sizeof(struct pt_regs));
+	DEFINE(TSS_size, sizeof(struct tss_struct));
 }

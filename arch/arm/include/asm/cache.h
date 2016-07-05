@@ -26,6 +26,5 @@
 #endif
 
 #define __read_mostly __attribute__((__section__(".data..read_mostly")))
-#define __read_only __attribute__ ((__section__(".data..read_only")))
 
 #endif

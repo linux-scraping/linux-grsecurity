@@ -112,8 +112,8 @@ EXPORT_SYMBOL(atomic64_##op##_return);
 #define ATOMIC_OPS(op) ATOMIC_OP(op) ATOMIC_OP_RETURN(op)
 
 ATOMIC_OPS(add)
-EXPORT_SYMBOL(atomic_add_ret_unchecked);
-EXPORT_SYMBOL(atomic64_add_ret_unchecked);
+EXPORT_SYMBOL(atomic_add_return_unchecked);
+EXPORT_SYMBOL(atomic64_add_return_unchecked);
 ATOMIC_OPS(sub)
 ATOMIC_OP(and)
 ATOMIC_OP(or)

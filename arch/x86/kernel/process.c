@@ -59,6 +59,9 @@ struct tss_struct cpu_tss[NR_CPUS] __visible ____cacheline_internodealigned_in_s
 	  */
 	.io_bitmap		= { [0 ... IO_BITMAP_LONGS] = ~0 },
 #endif
+#ifdef CONFIG_X86_32
+	.SYSENTER_stack_canary	= STACK_END_MAGIC,
+#endif
 }
 };
 EXPORT_PER_CPU_SYMBOL(cpu_tss);
@@ -443,9 +446,9 @@ static void mwait_idle(void)
 	if (!current_set_polling_and_test()) {
 		trace_cpu_idle_rcuidle(1, smp_processor_id());
 		if (this_cpu_has(X86_BUG_CLFLUSH_MONITOR)) {
-			smp_mb(); /* quirk */
+			mb(); /* quirk */
 			clflush((void *)&current_thread_info()->flags);
-			smp_mb(); /* quirk */
+			mb(); /* quirk */
 		}
 
 		__monitor((void *)&current_thread_info()->flags, 0, 0);

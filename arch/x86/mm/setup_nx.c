@@ -4,6 +4,7 @@
 
 #include <asm/pgtable.h>
 #include <asm/proto.h>
+#include <asm/cpufeature.h>
 
 #if defined(CONFIG_X86_64) || defined(CONFIG_X86_PAE)
 static int disable_nx;

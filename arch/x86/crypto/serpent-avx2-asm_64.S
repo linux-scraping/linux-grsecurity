@@ -15,6 +15,7 @@
  */
 
 #include <linux/linkage.h>
+#include <asm/frame.h>
 #include <asm/alternative-asm.h>
 #include "glue_helper-asm-avx2.S"
 
@@ -676,6 +677,7 @@ RAP_ENTRY(serpent_ecb_enc_16way)
 	 *	%rsi: dst
 	 *	%rdx: src
 	 */
+	FRAME_BEGIN
 
 	vzeroupper;
 
@@ -687,6 +689,7 @@ RAP_ENTRY(serpent_ecb_enc_16way)
 
 	vzeroupper;
 
+	FRAME_END
 	pax_force_retaddr
 	ret;
 ENDPROC(serpent_ecb_enc_16way)
@@ -697,6 +700,7 @@ RAP_ENTRY(serpent_ecb_dec_16way)
 	 *	%rsi: dst
 	 *	%rdx: src
 	 */
+	FRAME_BEGIN
 
 	vzeroupper;
 
@@ -708,6 +712,7 @@ RAP_ENTRY(serpent_ecb_dec_16way)
 
 	vzeroupper;
 
+	FRAME_END
 	pax_force_retaddr
 	ret;
 ENDPROC(serpent_ecb_dec_16way)
@@ -718,6 +723,7 @@ RAP_ENTRY(serpent_cbc_dec_16way)
 	 *	%rsi: dst
 	 *	%rdx: src
 	 */
+	FRAME_BEGIN
 
 	vzeroupper;
 
@@ -730,6 +736,7 @@ RAP_ENTRY(serpent_cbc_dec_16way)
 
 	vzeroupper;
 
+	FRAME_END
 	pax_force_retaddr
 	ret;
 ENDPROC(serpent_cbc_dec_16way)
@@ -741,6 +748,7 @@ RAP_ENTRY(serpent_ctr_16way)
 	 *	%rdx: src (16 blocks)
 	 *	%rcx: iv (little endian, 128bit)
 	 */
+	FRAME_BEGIN
 
 	vzeroupper;
 
@@ -754,6 +762,7 @@ RAP_ENTRY(serpent_ctr_16way)
 
 	vzeroupper;
 
+	FRAME_END
 	pax_force_retaddr
 	ret;
 ENDPROC(serpent_ctr_16way)
@@ -765,6 +774,7 @@ RAP_ENTRY(serpent_xts_enc_16way)
 	 *	%rdx: src (16 blocks)
 	 *	%rcx: iv (t ⊕ αⁿ ∈ GF(2¹²⁸))
 	 */
+	FRAME_BEGIN
 
 	vzeroupper;
 
@@ -779,6 +789,7 @@ RAP_ENTRY(serpent_xts_enc_16way)
 
 	vzeroupper;
 
+	FRAME_END
 	pax_force_retaddr
 	ret;
 ENDPROC(serpent_xts_enc_16way)
@@ -790,6 +801,7 @@ RAP_ENTRY(serpent_xts_dec_16way)
 	 *	%rdx: src (16 blocks)
 	 *	%rcx: iv (t ⊕ αⁿ ∈ GF(2¹²⁸))
 	 */
+	FRAME_BEGIN
 
 	vzeroupper;
 
@@ -804,6 +816,7 @@ RAP_ENTRY(serpent_xts_dec_16way)
 
 	vzeroupper;
 
+	FRAME_END
 	pax_force_retaddr
 	ret;
 ENDPROC(serpent_xts_dec_16way)

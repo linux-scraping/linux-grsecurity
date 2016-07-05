@@ -992,7 +992,7 @@ static inline int sctp_v4_xmit(struct sk_buff *skb,
 
 static struct sctp_af sctp_af_inet;
 
-static struct sctp_pf sctp_pf_inet __read_only = {
+static struct sctp_pf sctp_pf_inet = {
 	.event_msgname = sctp_inet_event_msgname,
 	.skb_msgname   = sctp_inet_skb_msgname,
 	.af_supported  = sctp_inet_af_supported,

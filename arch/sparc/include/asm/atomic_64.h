@@ -167,6 +167,11 @@ static inline long atomic64_xchg_unchecked(atomic64_unchecked_t *v, long new)
 {
 	return xchg(&v->counter, new);
 }
+static inline long atomic64_cmpxchg_unchecked(atomic64_unchecked_t *v, long old,
+					      long new)
+{
+	return cmpxchg(&(v->counter), old, new);
+}
 
 static inline long atomic64_add_unless(atomic64_t *v, long a, long u)
 {

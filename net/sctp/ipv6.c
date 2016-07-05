@@ -1019,7 +1019,7 @@ static struct sctp_af sctp_af_inet6 __read_only = {
 #endif
 };
 
-static struct sctp_pf sctp_pf_inet6 __read_only = {
+static struct sctp_pf sctp_pf_inet6 = {
 	.event_msgname = sctp_inet6_event_msgname,
 	.skb_msgname   = sctp_inet6_skb_msgname,
 	.af_supported  = sctp_inet6_af_supported,

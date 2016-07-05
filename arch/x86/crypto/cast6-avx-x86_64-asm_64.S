@@ -24,6 +24,7 @@
  */
 
 #include <linux/linkage.h>
+#include <asm/frame.h>
 #include <asm/alternative-asm.h>
 #include "glue_helper-asm-avx.S"
 
@@ -352,6 +353,7 @@ RAP_ENTRY(cast6_ecb_enc_8way)
 	 *	%rsi: dst
 	 *	%rdx: src
 	 */
+	FRAME_BEGIN
 
 	movq %rsi, %r11;
 
@@ -361,6 +363,7 @@ RAP_ENTRY(cast6_ecb_enc_8way)
 
 	store_8way(%r11, RA1, RB1, RC1, RD1, RA2, RB2, RC2, RD2);
 
+	FRAME_END
 	pax_force_retaddr
 	ret;
 ENDPROC(cast6_ecb_enc_8way)
@@ -371,6 +374,7 @@ RAP_ENTRY(cast6_ecb_dec_8way)
 	 *	%rsi: dst
 	 *	%rdx: src
 	 */
+	FRAME_BEGIN
 
 	movq %rsi, %r11;
 
@@ -380,6 +384,7 @@ RAP_ENTRY(cast6_ecb_dec_8way)
 
 	store_8way(%r11, RA1, RB1, RC1, RD1, RA2, RB2, RC2, RD2);
 
+	FRAME_END
 	pax_force_retaddr
 	ret;
 ENDPROC(cast6_ecb_dec_8way)
@@ -390,6 +395,7 @@ RAP_ENTRY(cast6_cbc_dec_8way)
 	 *	%rsi: dst
 	 *	%rdx: src
 	 */
+	FRAME_BEGIN
 
 	pushq %r14;
 
@@ -404,6 +410,7 @@ RAP_ENTRY(cast6_cbc_dec_8way)
 
 	popq %r14;
 
+	FRAME_END
 	pax_force_retaddr
 	ret;
 ENDPROC(cast6_cbc_dec_8way)
@@ -415,6 +422,7 @@ RAP_ENTRY(cast6_ctr_8way)
 	 *	%rdx: src
 	 *	%rcx: iv (little endian, 128bit)
 	 */
+	FRAME_BEGIN
 
 	pushq %r14;
 
@@ -430,6 +438,7 @@ RAP_ENTRY(cast6_ctr_8way)
 
 	popq %r14;
 
+	FRAME_END
 	pax_force_retaddr
 	ret;
 ENDPROC(cast6_ctr_8way)
@@ -441,6 +450,7 @@ RAP_ENTRY(cast6_xts_enc_8way)
 	 *	%rdx: src
 	 *	%rcx: iv (t ⊕ αⁿ ∈ GF(2¹²⁸))
 	 */
+	FRAME_BEGIN
 
 	movq %rsi, %r11;
 
@@ -453,6 +463,7 @@ RAP_ENTRY(cast6_xts_enc_8way)
 	/* dst <= regs xor IVs(in dst) */
 	store_xts_8way(%r11, RA1, RB1, RC1, RD1, RA2, RB2, RC2, RD2);
 
+	FRAME_END
 	pax_force_retaddr
 	ret;
 ENDPROC(cast6_xts_enc_8way)
@@ -464,6 +475,7 @@ RAP_ENTRY(cast6_xts_dec_8way)
 	 *	%rdx: src
 	 *	%rcx: iv (t ⊕ αⁿ ∈ GF(2¹²⁸))
 	 */
+	FRAME_BEGIN
 
 	movq %rsi, %r11;
 
@@ -476,6 +488,7 @@ RAP_ENTRY(cast6_xts_dec_8way)
 	/* dst <= regs xor IVs(in dst) */
 	store_xts_8way(%r11, RA1, RB1, RC1, RD1, RA2, RB2, RC2, RD2);
 
+	FRAME_END
 	pax_force_retaddr
 	ret;
 ENDPROC(cast6_xts_dec_8way)

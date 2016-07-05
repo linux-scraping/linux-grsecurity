@@ -26,13 +26,15 @@
 #ifdef CONFIG_SPARSE_RCU_POINTER
 # define __rcu		__attribute__((noderef, address_space(4)))
 # define __force_rcu	__force __rcu
-#else
+#else /* CONFIG_SPARSE_RCU_POINTER */
 # define __rcu
 # define __force_rcu
-#endif
+#endif /* CONFIG_SPARSE_RCU_POINTER */
+# define __private	__attribute__((noderef))
 extern void __chk_user_ptr(const volatile void __user *);
 extern void __chk_io_ptr(const volatile void __iomem *);
-#else
+# define ACCESS_PRIVATE(p, member) (*((typeof((p)->member) __force *) &(p)->member))
+#else /* __CHECKER__ */
 # ifdef CHECKER_PLUGIN
 #  ifdef CHECKER_PLUGIN_USER
 //#  define __user
@@ -92,7 +94,9 @@ extern void __chk_io_ptr(const volatile void __iomem *);
 # define __force_rcu
 # define __pmem
 # define __force_pmem
-#endif
+# define __private
+# define ACCESS_PRIVATE(p, member) ((p)->member)
+#endif /* __CHECKER__ */
 
 /* Indirect macros required for expanded argument pasting, eg. __LINE__. */
 #define ___PASTE(a,b) a##b
@@ -293,8 +297,9 @@ void __read_once_size_nocheck(const volatile void *p, void *res, int size)
  * In contrast to ACCESS_ONCE these two macros will also work on aggregate
  * data types like structs or unions. If the size of the accessed data
  * type exceeds the word size of the machine (e.g., 32 bits or 64 bits)
- * READ_ONCE() and WRITE_ONCE()  will fall back to memcpy and print a
- * compile-time warning.
+ * READ_ONCE() and WRITE_ONCE() will fall back to memcpy(). There's at
+ * least two memcpy()s: one for the __builtin_memcpy() and then one for
+ * the macro doing the copy of variable - '__u' allocated on the stack.
  *
  * Their two major use cases are: (1) Mediating communication between
  * process-level code and irq/NMI handlers, all running on the same CPU,

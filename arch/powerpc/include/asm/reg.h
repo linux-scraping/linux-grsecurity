@@ -75,6 +75,14 @@
 #define MSR_HV		0
 #endif
 
+/*
+ * To be used in shared book E/book S, this avoids needing to worry about
+ * book S/book E in shared code
+ */
+#ifndef MSR_SPE
+#define MSR_SPE 	0
+#endif
+
 #define MSR_VEC		__MASK(MSR_VEC_LG)	/* Enable AltiVec */
 #define MSR_VSX		__MASK(MSR_VSX_LG)	/* Enable VSX */
 #define MSR_POW		__MASK(MSR_POW_LG)	/* Enable Power Management */
@@ -377,7 +385,7 @@
 #define SPRN_TSCR	0x399	/* Thread Switch Control Register */
 
 #define SPRN_DEC	0x016		/* Decrement Register */
-#define SPRN_DER	0x095		/* Debug Enable Regsiter */
+#define SPRN_DER	0x095		/* Debug Enable Register */
 #define DER_RSTE	0x40000000	/* Reset Interrupt */
 #define DER_CHSTPE	0x20000000	/* Check Stop */
 #define DER_MCIE	0x10000000	/* Machine Check Interrupt */
@@ -402,7 +410,7 @@
 #define SPRN_DPDES	0x0B0		/* Directed Priv. Doorbell Exc. State */
 #define SPRN_EAR	0x11A		/* External Address Register */
 #define SPRN_HASH1	0x3D2		/* Primary Hash Address Register */
-#define SPRN_HASH2	0x3D3		/* Secondary Hash Address Resgister */
+#define SPRN_HASH2	0x3D3		/* Secondary Hash Address Register */
 #define SPRN_HID0	0x3F0		/* Hardware Implementation Register 0 */
 #define HID0_HDICE_SH	(63 - 23)	/* 970 HDEC interrupt enable */
 #define HID0_EMCP	(1<<31)		/* Enable Machine Check pin */
@@ -515,7 +523,7 @@
 #define ICTRL_EICP	0x00000100	/* enable icache par. check */
 #define SPRN_IMISS	0x3D4		/* Instruction TLB Miss Register */
 #define SPRN_IMMR	0x27E		/* Internal Memory Map Register */
-#define SPRN_L2CR	0x3F9		/* Level 2 Cache Control Regsiter */
+#define SPRN_L2CR	0x3F9		/* Level 2 Cache Control Register */
 #define SPRN_L2CR2	0x3f8
 #define L2CR_L2E		0x80000000	/* L2 enable */
 #define L2CR_L2PE		0x40000000	/* L2 parity enable */
@@ -550,7 +558,7 @@
 #define L2CR_L2DO_745x		0x00010000	/* L2 data only (745x) */
 #define L2CR_L2REP_745x		0x00001000	/* L2 repl. algorithm (745x) */
 #define L2CR_L2HWF_745x		0x00000800	/* L2 hardware flush (745x) */
-#define SPRN_L3CR		0x3FA	/* Level 3 Cache Control Regsiter */
+#define SPRN_L3CR		0x3FA	/* Level 3 Cache Control Register */
 #define L3CR_L3E		0x80000000	/* L3 enable */
 #define L3CR_L3PE		0x40000000	/* L3 data parity enable */
 #define L3CR_L3APE		0x20000000	/* L3 addr parity enable */
@@ -708,7 +716,7 @@
 #define   MMCR0_FCWAIT	0x00000002UL /* freeze counter in WAIT state */
 #define   MMCR0_FCHV	0x00000001UL /* freeze conditions in hypervisor mode */
 #define SPRN_MMCR1	798
-#define SPRN_MMCR2	769
+#define SPRN_MMCR2	785
 #define SPRN_MMCRA	0x312
 #define   MMCRA_SDSYNC	0x80000000UL /* SDAR synced with SIAR */
 #define   MMCRA_SDAR_DCACHE_MISS 0x40000000UL
@@ -745,13 +753,13 @@
 #define SPRN_PMC6	792
 #define SPRN_PMC7	793
 #define SPRN_PMC8	794
-#define SPRN_SIAR	780
-#define SPRN_SDAR	781
 #define SPRN_SIER	784
 #define   SIER_SIPR		0x2000000	/* Sampled MSR_PR */
 #define   SIER_SIHV		0x1000000	/* Sampled MSR_HV */
 #define   SIER_SIAR_VALID	0x0400000	/* SIAR contents valid */
 #define   SIER_SDAR_VALID	0x0200000	/* SDAR contents valid */
+#define SPRN_SIAR	796
+#define SPRN_SDAR	797
 #define SPRN_TACR	888
 #define SPRN_TCSCR	889
 #define SPRN_CSIGR	890
@@ -1212,9 +1220,11 @@ static inline void mtmsr_isync(unsigned long val)
 #define mfspr(rn)	({unsigned long rval; \
 			asm volatile("mfspr %0," __stringify(rn) \
 				: "=r" (rval)); rval;})
+#ifndef mtspr
 #define mtspr(rn, v)	asm volatile("mtspr " __stringify(rn) ",%0" : \
 				     : "r" ((unsigned long)(v)) \
 				     : "memory")
+#endif
 
 extern void msr_check_and_set(unsigned long bits);
 extern bool strict_msr_control;

@@ -48,29 +48,28 @@ ENTRY(phys_startup_64)
 jiffies_64 = jiffies;
 #endif
 
-#if defined(CONFIG_X86_64) && defined(CONFIG_DEBUG_RODATA)
+#if defined(CONFIG_X86_64)
 /*
- * On 64-bit, align RODATA to 2MB so that even with CONFIG_DEBUG_RODATA
- * we retain large page mappings for boundaries spanning kernel text, rodata
- * and data sections.
+ * On 64-bit, align RODATA to 2MB so we retain large page mappings for
+ * boundaries spanning kernel text, rodata and data sections.
  *
  * However, kernel identity mappings will have different RWX permissions
  * to the pages mapping to text and to the pages padding (which are freed) the
  * text section. Hence kernel identity mappings will be broken to smaller
  * pages. For 64-bit, kernel text and kernel identity mappings are different,
- * so we can enable protection checks that come with CONFIG_DEBUG_RODATA,
- * as well as retain 2MB large page mappings for kernel text.
+ * so we can enable protection checks as well as retain 2MB large page
+ * mappings for kernel text.
  */
-#define X64_ALIGN_DEBUG_RODATA_BEGIN	. = ALIGN(HPAGE_SIZE);
+#define X64_ALIGN_RODATA_BEGIN	. = ALIGN(HPAGE_SIZE);
 
-#define X64_ALIGN_DEBUG_RODATA_END				\
+#define X64_ALIGN_RODATA_END					\
 		. = ALIGN(HPAGE_SIZE);				\
 		__end_rodata_hpage_align = .;
 
 #else
 
-#define X64_ALIGN_DEBUG_RODATA_BEGIN
-#define X64_ALIGN_DEBUG_RODATA_END
+#define X64_ALIGN_RODATA_BEGIN
+#define X64_ALIGN_RODATA_END
 
 #endif
 
@@ -107,11 +106,12 @@ SECTIONS
 	.text (. - __KERNEL_TEXT_OFFSET): AT(ADDR(.text) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
 		/* bootstrapping code */
 #ifdef CONFIG_X86_32
-		phys_startup_32 = startup_32 - LOAD_OFFSET + __KERNEL_TEXT_OFFSET;
-#else
-		phys_startup_64 = startup_64 - LOAD_OFFSET + __KERNEL_TEXT_OFFSET;
-#endif
+		phys_startup_32 = ABSOLUTE(startup_32 - LOAD_OFFSET + __KERNEL_TEXT_OFFSET);
 		__LOAD_PHYSICAL_ADDR = . - LOAD_OFFSET + __KERNEL_TEXT_OFFSET;
+#else
+		phys_startup_64 = ABSOLUTE(startup_64 - LOAD_OFFSET + __KERNEL_TEXT_OFFSET);
+		__LOAD_PHYSICAL_ADDR = ABSOLUTE(. - LOAD_OFFSET + __KERNEL_TEXT_OFFSET);
+#endif
 		_text = .;
 		HEAD_TEXT
 		. = ALIGN(8);
@@ -122,6 +122,7 @@ SECTIONS
 		KPROBES_TEXT
 		ENTRY_TEXT
 		IRQENTRY_TEXT
+		SOFTIRQENTRY_TEXT
 		*(.fixup)
 		*(.gnu.warning)
 	} :text = 0x9090
@@ -154,13 +155,11 @@ SECTIONS
 
 	EXCEPTION_TABLE(16) :rodata
 
-#if defined(CONFIG_DEBUG_RODATA)
 	/* .text should occupy whole number of pages */
 	. = ALIGN(PAGE_SIZE);
-#endif
-	X64_ALIGN_DEBUG_RODATA_BEGIN
+	X64_ALIGN_RODATA_BEGIN
 	RO_DATA(PAGE_SIZE)
-	X64_ALIGN_DEBUG_RODATA_END
+	X64_ALIGN_RODATA_END
 
 	/* Data */
 	.data : AT(ADDR(.data) - LOAD_OFFSET) {
@@ -252,6 +251,17 @@ SECTIONS
 	} :text.init
 
 	/*
+	 * Section for code used exclusively before alternatives are run. All
+	 * references to such code must be patched out by alternatives, normally
+	 * by using X86_FEATURE_ALWAYS CPU feature bit.
+	 *
+	 * See static_cpu_has() for an example.
+	 */
+	.altinstr_aux : AT(ADDR(.altinstr_aux) - LOAD_OFFSET + __KERNEL_TEXT_OFFSET) {
+		*(.altinstr_aux)
+	}
+
+	/*
 	 * .exit.text is discard at runtime, not link time, to deal with
 	 *  references from .altinstructions and .eh_frame
 	 */
@@ -266,7 +276,7 @@ SECTIONS
 #endif
 
 	} :text.exit
-	. = init_begin + SIZEOF(.init.text) + SIZEOF(.exit.text);
+	. = init_begin + SIZEOF(.init.text) + SIZEOF(.altinstr_aux) + SIZEOF(.exit.text);
 
 	. = ALIGN(PAGE_SIZE);
 	INIT_DATA_SECTION(16) :init
@@ -387,6 +397,7 @@ SECTIONS
 		__brk_limit = .;
 	}
 
+	. = ALIGN(PAGE_SIZE);
 	_end = .;
 
         STABS_DEBUG
@@ -394,7 +405,10 @@ SECTIONS
 
 	/* Sections to be discarded */
 	DISCARDS
-	/DISCARD/ : { *(.eh_frame) }
+	/DISCARD/ : {
+		*(.eh_frame)
+		*(__func_stack_frame_non_standard)
+	}
 }
 
 

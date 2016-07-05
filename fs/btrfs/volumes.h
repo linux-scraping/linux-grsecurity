@@ -347,7 +347,7 @@ struct map_lookup {
 	u64 type;
 	int io_align;
 	int io_width;
-	u64 stripe_len;
+	int stripe_len;
 	int sector_size;
 	int num_stripes;
 	int sub_stripes;

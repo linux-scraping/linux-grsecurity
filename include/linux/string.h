@@ -128,7 +128,13 @@ extern char **argv_split(gfp_t gfp, const char *str, int *argcp);
 extern void argv_free(char **argv);
 
 extern bool sysfs_streq(const char *s1, const char *s2) __nocapture(1, 2);
-extern int strtobool(const char *s, bool *res) __nocapture(1);
+extern int kstrtobool(const char *s, bool *res) __nocapture(1);
+static inline int strtobool(const char *s, bool *res)
+{
+	return kstrtobool(s, res);
+}
+
+int match_string(const char * const *array, size_t n, const char *string);
 
 #ifdef CONFIG_BINARY_PRINTF
 int vbin_printf(u32 *bin_buf, size_t size, const char *fmt, va_list args) __nocapture(3);

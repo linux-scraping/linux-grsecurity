@@ -911,9 +911,12 @@ void scsi_io_completion(struct scsi_cmnd *cmd, unsigned int good_bytes)
 	}
 
 	/*
-	 * If we finished all bytes in the request we are done now.
+	 * special case: failed zero length commands always need to
+	 * drop down into the retry code. Otherwise, if we finished
+	 * all bytes in the request we are done now.
 	 */
-	if (!scsi_end_request(req, error, good_bytes, 0))
+	if (!(blk_rq_bytes(req) == 0 && error) &&
+	    !scsi_end_request(req, error, good_bytes, 0))
 		return;
 
 	/*
@@ -2700,6 +2703,7 @@ static void scsi_evt_emit(struct scsi_device *sdev, struct scsi_event *evt)
 		envp[idx++] = "SDEV_MEDIA_CHANGE=1";
 		break;
 	case SDEV_EVT_INQUIRY_CHANGE_REPORTED:
+		scsi_rescan_device(&sdev->sdev_gendev);
 		envp[idx++] = "SDEV_UA=INQUIRY_DATA_HAS_CHANGED";
 		break;
 	case SDEV_EVT_CAPACITY_CHANGE_REPORTED:

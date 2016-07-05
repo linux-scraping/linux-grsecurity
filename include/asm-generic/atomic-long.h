@@ -114,7 +114,12 @@ ATOMIC_LONG_ADD_SUB_OP(sub, _release,)
 #define atomic_long_xchg(v, new) \
 	(ATOMIC_LONG_PFX(_xchg)((ATOMIC_LONG_PFX(_t) *)(v), (new)))
 
-static inline void atomic_long_inc(atomic_long_t *l)
+#ifdef CONFIG_PAX_REFCOUNT
+#define atomic_long_xchg_unchecked(v, new) \
+	(ATOMIC_LONG_PFX(_xchg_unchecked)((ATOMIC_LONG_PFX(_unchecked_t) *)(v), (new)))
+#endif
+
+static __always_inline void atomic_long_inc(atomic_long_t *l)
 {
 	ATOMIC_LONG_PFX(_t) *v = (ATOMIC_LONG_PFX(_t) *)l;
 
@@ -122,7 +127,7 @@ static inline void atomic_long_inc(atomic_long_t *l)
 }
 
 #ifdef CONFIG_PAX_REFCOUNT
-static inline void atomic_long_inc_unchecked(atomic_long_unchecked_t *l)
+static __always_inline void atomic_long_inc_unchecked(atomic_long_unchecked_t *l)
 {
 	ATOMIC_LONG_PFX(_unchecked_t) *v = (ATOMIC_LONG_PFX(_unchecked_t) *)l;
 
@@ -130,7 +135,7 @@ static inline void atomic_long_inc_unchecked(atomic_long_unchecked_t *l)
 }
 #endif
 
-static inline void atomic_long_dec(atomic_long_t *l)
+static __always_inline void atomic_long_dec(atomic_long_t *l)
 {
 	ATOMIC_LONG_PFX(_t) *v = (ATOMIC_LONG_PFX(_t) *)l;
 
@@ -138,7 +143,7 @@ static inline void atomic_long_dec(atomic_long_t *l)
 }
 
 #ifdef CONFIG_PAX_REFCOUNT
-static inline void atomic_long_dec_unchecked(atomic_long_unchecked_t *l)
+static __always_inline void atomic_long_dec_unchecked(atomic_long_unchecked_t *l)
 {
 	ATOMIC_LONG_PFX(_unchecked_t) *v = (ATOMIC_LONG_PFX(_unchecked_t) *)l;
 
@@ -147,7 +152,7 @@ static inline void atomic_long_dec_unchecked(atomic_long_unchecked_t *l)
 #endif
 
 #define ATOMIC_LONG_OP(op, suffix)					\
-static inline void							\
+static __always_inline void						\
 atomic_long_##op##suffix(long i, atomic_long##suffix##_t *l)		\
 {									\
 	ATOMIC_LONG_PFX(suffix##_t) *v = (ATOMIC_LONG_PFX(suffix##_t) *)l;\
@@ -273,6 +278,7 @@ static inline void pax_refcount_needs_these_functions(void)
 #define atomic_long_add_return_unchecked(i, v) atomic_long_add_return((i), (v))
 #define atomic_long_inc_return_unchecked(v) atomic_long_inc_return(v)
 #define atomic_long_dec_unchecked(v) atomic_long_dec(v)
+#define atomic_long_xchg_unchecked(v, i) atomic_long_xchg((v), (i))
 #endif
 
 #endif  /*  _ASM_GENERIC_ATOMIC_LONG_H  */

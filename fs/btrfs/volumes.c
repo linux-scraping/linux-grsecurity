@@ -138,7 +138,7 @@ static struct btrfs_fs_devices *__alloc_fs_devices(void)
 {
 	struct btrfs_fs_devices *fs_devs;
 
-	fs_devs = kzalloc(sizeof(*fs_devs), GFP_NOFS);
+	fs_devs = kzalloc(sizeof(*fs_devs), GFP_KERNEL);
 	if (!fs_devs)
 		return ERR_PTR(-ENOMEM);
 
@@ -220,7 +220,7 @@ static struct btrfs_device *__alloc_device(void)
 {
 	struct btrfs_device *dev;
 
-	dev = kzalloc(sizeof(*dev), GFP_NOFS);
+	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev)
 		return ERR_PTR(-ENOMEM);
 
@@ -733,7 +733,8 @@ static struct btrfs_fs_devices *clone_fs_devices(struct btrfs_fs_devices *orig)
 		 * uuid mutex so nothing we touch in here is going to disappear.
 		 */
 		if (orig_dev->name) {
-			name = rcu_string_strdup(orig_dev->name->str, GFP_NOFS);
+			name = rcu_string_strdup(orig_dev->name->str,
+					GFP_KERNEL);
 			if (!name) {
 				kfree(device);
 				goto error;
@@ -1024,16 +1025,16 @@ int btrfs_scan_one_device(const char *path, fmode_t flags, void *holder,
 	}
 
 	/* make sure our super fits in the device */
-	if (bytenr + PAGE_CACHE_SIZE >= i_size_read(bdev->bd_inode))
+	if (bytenr + PAGE_SIZE >= i_size_read(bdev->bd_inode))
 		goto error_bdev_put;
 
 	/* make sure our super fits in the page */
-	if (sizeof(*disk_super) > PAGE_CACHE_SIZE)
+	if (sizeof(*disk_super) > PAGE_SIZE)
 		goto error_bdev_put;
 
 	/* make sure our super doesn't straddle pages on disk */
-	index = bytenr >> PAGE_CACHE_SHIFT;
-	if ((bytenr + sizeof(*disk_super) - 1) >> PAGE_CACHE_SHIFT != index)
+	index = bytenr >> PAGE_SHIFT;
+	if ((bytenr + sizeof(*disk_super) - 1) >> PAGE_SHIFT != index)
 		goto error_bdev_put;
 
 	/* pull in the page with our super */
@@ -1046,7 +1047,7 @@ int btrfs_scan_one_device(const char *path, fmode_t flags, void *holder,
 	p = kmap(page);
 
 	/* align our pointer to the offset of the super block */
-	disk_super = p + (bytenr & ~PAGE_CACHE_MASK);
+	disk_super = p + (bytenr & ~PAGE_MASK);
 
 	if (btrfs_super_bytenr(disk_super) != bytenr ||
 	    btrfs_super_magic(disk_super) != BTRFS_MAGIC)
@@ -1074,7 +1075,7 @@ int btrfs_scan_one_device(const char *path, fmode_t flags, void *holder,
 
 error_unmap:
 	kunmap(page);
-	page_cache_release(page);
+	put_page(page);
 
 error_bdev_put:
 	blkdev_put(bdev, flags);
@@ -1714,12 +1715,12 @@ int btrfs_rm_device(struct btrfs_root *root, char *device_path)
 	} while (read_seqretry(&root->fs_info->profiles_lock, seq));
 
 	num_devices = root->fs_info->fs_devices->num_devices;
-	btrfs_dev_replace_lock(&root->fs_info->dev_replace);
+	btrfs_dev_replace_lock(&root->fs_info->dev_replace, 0);
 	if (btrfs_dev_replace_is_ongoing(&root->fs_info->dev_replace)) {
 		WARN_ON(num_devices < 1);
 		num_devices--;
 	}
-	btrfs_dev_replace_unlock(&root->fs_info->dev_replace);
+	btrfs_dev_replace_unlock(&root->fs_info->dev_replace, 0);
 
 	if ((all_avail & BTRFS_BLOCK_GROUP_RAID10) && num_devices <= 4) {
 		ret = BTRFS_ERROR_DEV_RAID10_MIN_NOT_MET;
@@ -1971,8 +1972,11 @@ void btrfs_rm_dev_replace_remove_srcdev(struct btrfs_fs_info *fs_info,
 	if (srcdev->missing)
 		fs_devices->missing_devices--;
 
-	if (srcdev->writeable)
+	if (srcdev->writeable) {
 		fs_devices->rw_devices--;
+		/* zero out the old super if it is writable */
+		btrfs_scratch_superblocks(srcdev->bdev, srcdev->name->str);
+	}
 
 	if (srcdev->bdev)
 		fs_devices->open_devices--;
@@ -1983,10 +1987,6 @@ void btrfs_rm_dev_replace_free_srcdev(struct btrfs_fs_info *fs_info,
 {
 	struct btrfs_fs_devices *fs_devices = srcdev->fs_devices;
 
-	if (srcdev->writeable) {
-		/* zero out the old super if it is writable */
-		btrfs_scratch_superblocks(srcdev->bdev, srcdev->name->str);
-	}
 	call_rcu(&srcdev->rcu, free_device);
 
 	/*
@@ -2024,9 +2024,10 @@ void btrfs_destroy_dev_replace_tgtdev(struct btrfs_fs_info *fs_info,
 
 	btrfs_sysfs_rm_device_link(fs_info->fs_devices, tgtdev);
 
-	if (tgtdev->bdev)
+	if (tgtdev->bdev) {
+		btrfs_scratch_superblocks(tgtdev->bdev, tgtdev->name->str);
 		fs_info->fs_devices->open_devices--;
-
+	}
 	fs_info->fs_devices->num_devices--;
 
 	next_device = list_entry(fs_info->fs_devices->devices.next,
@@ -2037,18 +2038,10 @@ void btrfs_destroy_dev_replace_tgtdev(struct btrfs_fs_info *fs_info,
 		fs_info->fs_devices->latest_bdev = next_device->bdev;
 	list_del_rcu(&tgtdev->dev_list);
 
+	call_rcu(&tgtdev->rcu, free_device);
+
 	mutex_unlock(&fs_info->fs_devices->device_list_mutex);
 	mutex_unlock(&uuid_mutex);
-
-	/*
-	 * The update_dev_time() with in btrfs_scratch_superblocks()
-	 * may lead to a call to btrfs_show_devname() which will try
-	 * to hold device_list_mutex. And here this device
-	 * is already out of device list, so we don't have to hold
-	 * the device_list_mutex lock.
-	 */
-	btrfs_scratch_superblocks(tgtdev->bdev, tgtdev->name->str);
-	call_rcu(&tgtdev->rcu, free_device);
 }
 
 static int btrfs_find_device_by_path(struct btrfs_root *root, char *device_path,
@@ -2295,7 +2288,7 @@ int btrfs_init_new_device(struct btrfs_root *root, char *device_path)
 		goto error;
 	}
 
-	name = rcu_string_strdup(device_path, GFP_NOFS);
+	name = rcu_string_strdup(device_path, GFP_KERNEL);
 	if (!name) {
 		kfree(device);
 		ret = -ENOMEM;
@@ -2756,7 +2749,7 @@ int btrfs_remove_chunk(struct btrfs_trans_handle *trans,
 	    em->start + em->len < chunk_offset) {
 		/*
 		 * This is a logic error, but we don't want to just rely on the
-		 * user having built with ASSERT enabled, so if ASSERT doens't
+		 * user having built with ASSERT enabled, so if ASSERT doesn't
 		 * do anything we still error out.
 		 */
 		ASSERT(0);
@@ -2974,7 +2967,7 @@ static int insert_balance_item(struct btrfs_root *root,
 	}
 
 	key.objectid = BTRFS_BALANCE_OBJECTID;
-	key.type = BTRFS_BALANCE_ITEM_KEY;
+	key.type = BTRFS_TEMPORARY_ITEM_KEY;
 	key.offset = 0;
 
 	ret = btrfs_insert_empty_item(trans, root, path, &key,
@@ -3023,7 +3016,7 @@ static int del_balance_item(struct btrfs_root *root)
 	}
 
 	key.objectid = BTRFS_BALANCE_OBJECTID;
-	key.type = BTRFS_BALANCE_ITEM_KEY;
+	key.type = BTRFS_TEMPORARY_ITEM_KEY;
 	key.offset = 0;
 
 	ret = btrfs_search_slot(trans, root, &key, path, -1, 1);
@@ -3409,7 +3402,6 @@ static int __btrfs_balance(struct btrfs_fs_info *fs_info)
 	u32 count_meta = 0;
 	u32 count_sys = 0;
 	int chunk_reserved = 0;
-	u64 bytes_used = 0;
 
 	/* step one make some room on all the devices */
 	devices = &fs_info->fs_devices->devices;
@@ -3548,13 +3540,7 @@ again:
 			goto loop;
 		}
 
-		ASSERT(fs_info->data_sinfo);
-		spin_lock(&fs_info->data_sinfo->lock);
-		bytes_used = fs_info->data_sinfo->bytes_used;
-		spin_unlock(&fs_info->data_sinfo->lock);
-
-		if ((chunk_type & BTRFS_BLOCK_GROUP_DATA) &&
-		    !chunk_reserved && !bytes_used) {
+		if ((chunk_type & BTRFS_BLOCK_GROUP_DATA) && !chunk_reserved) {
 			trans = btrfs_start_transaction(chunk_root, 0);
 			if (IS_ERR(trans)) {
 				mutex_unlock(&fs_info->delete_unused_bgs_mutex);
@@ -3701,14 +3687,16 @@ int btrfs_balance(struct btrfs_balance_control *bctl,
 	}
 
 	num_devices = fs_info->fs_devices->num_devices;
-	btrfs_dev_replace_lock(&fs_info->dev_replace);
+	btrfs_dev_replace_lock(&fs_info->dev_replace, 0);
 	if (btrfs_dev_replace_is_ongoing(&fs_info->dev_replace)) {
 		BUG_ON(num_devices < 1);
 		num_devices--;
 	}
-	btrfs_dev_replace_unlock(&fs_info->dev_replace);
-	allowed = BTRFS_AVAIL_ALLOC_BIT_SINGLE | BTRFS_BLOCK_GROUP_DUP;
-	if (num_devices > 1)
+	btrfs_dev_replace_unlock(&fs_info->dev_replace, 0);
+	allowed = BTRFS_AVAIL_ALLOC_BIT_SINGLE;
+	if (num_devices == 1)
+		allowed |= BTRFS_BLOCK_GROUP_DUP;
+	else if (num_devices > 1)
 		allowed |= (BTRFS_BLOCK_GROUP_RAID0 | BTRFS_BLOCK_GROUP_RAID1);
 	if (num_devices > 2)
 		allowed |= BTRFS_BLOCK_GROUP_RAID5;
@@ -3880,7 +3868,7 @@ int btrfs_recover_balance(struct btrfs_fs_info *fs_info)
 		return -ENOMEM;
 
 	key.objectid = BTRFS_BALANCE_OBJECTID;
-	key.type = BTRFS_BALANCE_ITEM_KEY;
+	key.type = BTRFS_TEMPORARY_ITEM_KEY;
 	key.offset = 0;
 
 	ret = btrfs_search_slot(NULL, fs_info->tree_root, &key, path, 0, 0);
@@ -4131,7 +4119,7 @@ out:
  * Callback for btrfs_uuid_tree_iterate().
  * returns:
  * 0	check succeeded, the entry is not outdated.
- * < 0	if an error occured.
+ * < 0	if an error occurred.
  * > 0	if the check failed, which means the caller shall remove the entry.
  */
 static int btrfs_check_uuid_tree_entry(struct btrfs_fs_info *fs_info,
@@ -5075,10 +5063,10 @@ int btrfs_num_copies(struct btrfs_fs_info *fs_info, u64 logical, u64 len)
 		ret = 1;
 	free_extent_map(em);
 
-	btrfs_dev_replace_lock(&fs_info->dev_replace);
+	btrfs_dev_replace_lock(&fs_info->dev_replace, 0);
 	if (btrfs_dev_replace_is_ongoing(&fs_info->dev_replace))
 		ret++;
-	btrfs_dev_replace_unlock(&fs_info->dev_replace);
+	btrfs_dev_replace_unlock(&fs_info->dev_replace, 0);
 
 	return ret;
 }
@@ -5290,15 +5278,7 @@ static int __btrfs_map_block(struct btrfs_fs_info *fs_info, int rw,
 	stripe_nr = div64_u64(stripe_nr, stripe_len);
 
 	stripe_offset = stripe_nr * stripe_len;
-	if (offset < stripe_offset) {
-		btrfs_crit(fs_info, "stripe math has gone wrong, "
-			   "stripe_offset=%llu, offset=%llu, start=%llu, "
-			   "logical=%llu, stripe_len=%llu",
-			   stripe_offset, offset, em->start, logical,
-			   stripe_len);
-		free_extent_map(em);
-		return -EINVAL;
-	}
+	BUG_ON(offset < stripe_offset);
 
 	/* stripe_offset is the offset of this block in its stripe*/
 	stripe_offset = offset - stripe_offset;
@@ -5346,10 +5326,12 @@ static int __btrfs_map_block(struct btrfs_fs_info *fs_info, int rw,
 	if (!bbio_ret)
 		goto out;
 
-	btrfs_dev_replace_lock(dev_replace);
+	btrfs_dev_replace_lock(dev_replace, 0);
 	dev_replace_is_ongoing = btrfs_dev_replace_is_ongoing(dev_replace);
 	if (!dev_replace_is_ongoing)
-		btrfs_dev_replace_unlock(dev_replace);
+		btrfs_dev_replace_unlock(dev_replace, 0);
+	else
+		btrfs_dev_replace_set_lock_blocking(dev_replace);
 
 	if (dev_replace_is_ongoing && mirror_num == map->num_stripes + 1 &&
 	    !(rw & (REQ_WRITE | REQ_DISCARD | REQ_GET_READ_MIRRORS)) &&
@@ -5537,13 +5519,7 @@ static int __btrfs_map_block(struct btrfs_fs_info *fs_info, int rw,
 				&stripe_index);
 		mirror_num = stripe_index + 1;
 	}
-	if (stripe_index >= map->num_stripes) {
-		btrfs_crit(fs_info, "stripe index math went horribly wrong, "
-			   "got stripe_index=%u, num_stripes=%u",
-			   stripe_index, map->num_stripes);
-		ret = -EINVAL;
-		goto out;
-	}
+	BUG_ON(stripe_index >= map->num_stripes);
 
 	num_alloc_stripes = num_stripes;
 	if (dev_replace_is_ongoing) {
@@ -5778,8 +5754,10 @@ static int __btrfs_map_block(struct btrfs_fs_info *fs_info, int rw,
 		bbio->mirror_num = map->num_stripes + 1;
 	}
 out:
-	if (dev_replace_is_ongoing)
-		btrfs_dev_replace_unlock(dev_replace);
+	if (dev_replace_is_ongoing) {
+		btrfs_dev_replace_clear_lock_blocking(dev_replace);
+		btrfs_dev_replace_unlock(dev_replace, 0);
+	}
 	free_extent_map(em);
 	return ret;
 }
@@ -6264,7 +6242,7 @@ static int read_one_chunk(struct btrfs_root *root, struct btrfs_key *key,
 			"invalid chunk length %llu", length);
 		return -EIO;
 	}
-	if (!is_power_of_2(stripe_len) || stripe_len != BTRFS_STRIPE_LEN) {
+	if (!is_power_of_2(stripe_len)) {
 		btrfs_err(root->fs_info, "invalid chunk stripe length: %llu",
 			  stripe_len);
 		return -EIO;
@@ -6549,7 +6527,7 @@ int btrfs_read_sys_array(struct btrfs_root *root)
 	 * but sb spans only this function. Add an explicit SetPageUptodate call
 	 * to silence the warning eg. on PowerPC 64.
 	 */
-	if (PAGE_CACHE_SIZE > BTRFS_SUPER_INFO_SIZE)
+	if (PAGE_SIZE > BTRFS_SUPER_INFO_SIZE)
 		SetPageUptodate(sb->pages[0]);
 
 	write_extent_buffer(sb, super_copy, 0, BTRFS_SUPER_INFO_SIZE);
@@ -6732,8 +6710,8 @@ int btrfs_init_dev_stats(struct btrfs_fs_info *fs_info)
 		int item_size;
 		struct btrfs_dev_stats_item *ptr;
 
-		key.objectid = 0;
-		key.type = BTRFS_DEV_STATS_KEY;
+		key.objectid = BTRFS_DEV_STATS_OBJECTID;
+		key.type = BTRFS_PERSISTENT_ITEM_KEY;
 		key.offset = device->devid;
 		ret = btrfs_search_slot(NULL, dev_root, &key, path, 0, 0);
 		if (ret) {
@@ -6780,8 +6758,8 @@ static int update_dev_stat_item(struct btrfs_trans_handle *trans,
 	int ret;
 	int i;
 
-	key.objectid = 0;
-	key.type = BTRFS_DEV_STATS_KEY;
+	key.objectid = BTRFS_DEV_STATS_OBJECTID;
+	key.type = BTRFS_PERSISTENT_ITEM_KEY;
 	key.offset = device->devid;
 
 	path = btrfs_alloc_path();

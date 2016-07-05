@@ -128,6 +128,25 @@ static inline long long atomic64_xchg(atomic64_t *v, long long n)
 }
 
 /**
+ * atomic64_xchg_unchecked - xchg atomic64 variable
+ * @v: pointer to type atomic64_unchecked_t
+ * @n: value to assign
+ *
+ * Atomically xchgs the value of @v to @n and returns
+ * the old value.
+ */
+static inline long long atomic64_xchg_unchecked(atomic64_unchecked_t *v, long long n)
+{
+	long long o;
+	unsigned high = (unsigned)(n >> 32);
+	unsigned low = (unsigned)n;
+	alternative_atomic64(xchg, "=&A" (o),
+			     "S" (v), "b" (low), "c" (high)
+			     : "memory");
+	return o;
+}
+
+/**
  * atomic64_set - set atomic64 variable
  * @v: pointer to type atomic64_t
  * @i: value to assign

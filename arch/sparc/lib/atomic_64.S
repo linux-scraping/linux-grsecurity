@@ -109,7 +109,7 @@ ENTRY(atomic64_##op##_return##suffix) /* %o0 = increment, %o1 = atomic_ptr */\
 ENDPROC(atomic64_##op##_return);
 
 #define ATOMIC64_OP_RETURN(op) __ATOMIC64_OP_RETURN(op, , op, ) \
-i			       __ATOMIC64_OP_RETURN(op, _unchecked, __REFCOUNT_OP(op), __OVERFLOW_XOP)
+			       __ATOMIC64_OP_RETURN(op, _unchecked, __REFCOUNT_OP(op), __OVERFLOW_XOP)
 
 #define ATOMIC64_OPS(op) ATOMIC64_OP(op) ATOMIC64_OP_RETURN(op)
 

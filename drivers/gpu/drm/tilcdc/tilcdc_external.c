@@ -56,7 +56,7 @@ static int tilcdc_add_external_encoder(struct drm_device *dev, int *bpp,
 				       struct drm_connector *connector)
 {
 	struct tilcdc_drm_private *priv = dev->dev_private;
-	struct drm_connector_helper_funcs *connector_funcs;
+	drm_connector_helper_funcs_no_const *connector_funcs;
 
 	priv->connectors[priv->num_connectors] = connector;
 	priv->encoders[priv->num_encoders++] = connector->encoder;

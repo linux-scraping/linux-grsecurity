@@ -288,7 +288,7 @@ static __init void early_pci_serial_init(char *s)
 	}
 
 	/*
-	 * Lastly, initalize the hardware
+	 * Lastly, initialize the hardware
 	 */
 	if (*s) {
 		if (strcmp(s, "nocfg") == 0)

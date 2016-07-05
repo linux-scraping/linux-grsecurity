@@ -35,6 +35,8 @@ EXPORT_SYMBOL(copy_user_generic_unrolled);
 EXPORT_SYMBOL(copy_user_enhanced_fast_string);
 EXPORT_SYMBOL(__copy_user_nocache);
 
+EXPORT_SYMBOL_GPL(memcpy_mcsafe);
+
 EXPORT_SYMBOL(copy_page);
 EXPORT_SYMBOL(clear_page);
 

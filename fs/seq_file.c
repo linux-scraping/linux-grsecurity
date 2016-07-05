@@ -74,9 +74,11 @@ int seq_open(struct file *file, const struct seq_operations *op)
 
 	mutex_init(&p->lock);
 	p->op = op;
-#ifdef CONFIG_USER_NS
-	p->user_ns = file->f_cred->user_ns;
-#endif
+
+	// No refcounting: the lifetime of 'p' is constrained
+	// to the lifetime of the file.
+	p->file = file;
+
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
 	p->exec_id = current->exec_id;
 #endif

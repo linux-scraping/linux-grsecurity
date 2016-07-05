@@ -149,6 +149,11 @@ echo "else"
 echo '/sbin/new-kernel-pkg --mkinitrd --depmod --install --make-default '"$KERNELRELEASE"' || exit $?'
 echo "fi"
 echo ""
+echo "%preun"
+echo "if [ -x /sbin/new-kernel-pkg ]; then"
+echo "new-kernel-pkg --remove $KERNELRELEASE --rminitrd --initrdfile=/boot/initramfs-$KERNELRELEASE.img"
+echo "fi"
+echo ""
 echo "%files"
 echo '%defattr (400, root, root, 500)'
 echo "%exclude /lib/modules/$KERNELRELEASE/build"

@@ -26,6 +26,7 @@
 #include "print-tree.h"
 #include "backref.h"
 #include "hash.h"
+#include "compression.h"
 
 /* magic values for the inode_only field in btrfs_log_inode:
  *
@@ -1045,7 +1046,7 @@ again:
 
 		/*
 		 * NOTE: we have searched root tree and checked the
-		 * coresponding ref, it does not need to check again.
+		 * corresponding ref, it does not need to check again.
 		 */
 		*search_done = 1;
 	}
@@ -5157,7 +5158,7 @@ process_leaf:
 			}
 
 			ctx->log_new_dentries = false;
-			if (type == BTRFS_FT_DIR || type == BTRFS_FT_SYMLINK)
+			if (type == BTRFS_FT_DIR)
 				log_mode = LOG_INODE_ALL;
 			btrfs_release_path(path);
 			ret = btrfs_log_inode(trans, root, di_inode,
@@ -5277,16 +5278,11 @@ static int btrfs_log_all_parents(struct btrfs_trans_handle *trans,
 			if (IS_ERR(dir_inode))
 				continue;
 
-			if (ctx)
-				ctx->log_new_dentries = false;
 			ret = btrfs_log_inode(trans, root, dir_inode,
 					      LOG_INODE_ALL, 0, LLONG_MAX, ctx);
 			if (!ret &&
 			    btrfs_must_commit_transaction(trans, dir_inode))
 				ret = 1;
-			if (!ret && ctx && ctx->log_new_dentries)
-				ret = log_new_dir_dentries(trans, root,
-							   dir_inode, ctx);
 			iput(dir_inode);
 			if (ret)
 				goto out;
@@ -5656,9 +5652,11 @@ void btrfs_record_unlink_dir(struct btrfs_trans_handle *trans,
 	 * into the file.  When the file is logged we check it and
 	 * don't log the parents if the file is fully on disk.
 	 */
-	mutex_lock(&BTRFS_I(inode)->log_mutex);
-	BTRFS_I(inode)->last_unlink_trans = trans->transid;
-	mutex_unlock(&BTRFS_I(inode)->log_mutex);
+	if (S_ISREG(inode->i_mode)) {
+		mutex_lock(&BTRFS_I(inode)->log_mutex);
+		BTRFS_I(inode)->last_unlink_trans = trans->transid;
+		mutex_unlock(&BTRFS_I(inode)->log_mutex);
+	}
 
 	/*
 	 * if this directory was already logged any new

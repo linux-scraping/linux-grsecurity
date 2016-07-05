@@ -1480,7 +1480,7 @@ write_grsec_handler(struct file *file, const char __user * buf, size_t count, lo
 
 #ifdef CONFIG_COMPAT
 	pax_open_kernel();
-	if (is_compat_task()) {
+	if (in_compat_syscall()) {
 		copy_gr_arg_wrapper = &copy_gr_arg_wrapper_compat;
 		copy_gr_arg = &copy_gr_arg_compat;
 		copy_acl_object_label = &copy_acl_object_label_compat;

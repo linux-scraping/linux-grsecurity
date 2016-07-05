@@ -19,7 +19,7 @@ typedef struct {
 #endif
 
 	struct mutex lock;
-	unsigned long vdso;
+	unsigned long vdso;			/* vdso base address */
 
 #ifdef CONFIG_X86_32
 #if defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC)
@@ -32,6 +32,7 @@ typedef struct {
 
 #endif
 #endif
+	const struct vdso_image *vdso_image;	/* vdso image in use */
 
 	atomic_t perf_rdpmc_allowed;	/* nonzero if rdpmc is allowed */
 } mm_context_t;

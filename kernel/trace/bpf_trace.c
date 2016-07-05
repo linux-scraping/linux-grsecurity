@@ -13,8 +13,6 @@
 #include <linux/ctype.h>
 #include "trace.h"
 
-static DEFINE_PER_CPU(int, bpf_prog_active);
-
 /**
  * trace_call_bpf - invoke BPF program
  * @prog: BPF program
@@ -196,7 +194,7 @@ static u64 bpf_perf_event_read(u64 r1, u64 index, u64 r3, u64 r4, u64 r5)
 	if (unlikely(index >= array->map.max_entries))
 		return -E2BIG;
 
-	file = (struct file *)array->ptrs[index];
+	file = READ_ONCE(array->ptrs[index]);
 	if (unlikely(!file))
 		return -ENOENT;
 
@@ -240,7 +238,7 @@ static u64 bpf_perf_event_output(u64 r1, u64 r2, u64 index, u64 r4, u64 size)
 	if (unlikely(index >= array->map.max_entries))
 		return -E2BIG;
 
-	file = (struct file *)array->ptrs[index];
+	file = READ_ONCE(array->ptrs[index]);
 	if (unlikely(!file))
 		return -ENOENT;
 
@@ -299,6 +297,8 @@ static const struct bpf_func_proto *kprobe_prog_func_proto(enum bpf_func_id func
 		return &bpf_perf_event_read_proto;
 	case BPF_FUNC_perf_event_output:
 		return &bpf_perf_event_output_proto;
+	case BPF_FUNC_get_stackid:
+		return &bpf_get_stackid_proto;
 	default:
 		return NULL;
 	}

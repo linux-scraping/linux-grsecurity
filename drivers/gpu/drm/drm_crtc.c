@@ -430,9 +430,7 @@ EXPORT_SYMBOL(drm_framebuffer_init);
 static void __drm_framebuffer_unregister(struct drm_device *dev,
 					 struct drm_framebuffer *fb)
 {
-	mutex_lock(&dev->mode_config.idr_mutex);
-	idr_remove(&dev->mode_config.crtc_idr, fb->base.id);
-	mutex_unlock(&dev->mode_config.idr_mutex);
+	drm_mode_object_put(dev, &fb->base);
 
 	fb->base.id = 0;
 }
@@ -1150,6 +1148,29 @@ out_unlock:
 EXPORT_SYMBOL(drm_encoder_init);
 
 /**
+ * drm_encoder_index - find the index of a registered encoder
+ * @encoder: encoder to find index for
+ *
+ * Given a registered encoder, return the index of that encoder within a DRM
+ * device's list of encoders.
+ */
+unsigned int drm_encoder_index(struct drm_encoder *encoder)
+{
+	unsigned int index = 0;
+	struct drm_encoder *tmp;
+
+	drm_for_each_encoder(tmp, encoder->dev) {
+		if (tmp == encoder)
+			return index;
+
+		index++;
+	}
+
+	BUG();
+}
+EXPORT_SYMBOL(drm_encoder_index);
+
+/**
  * drm_encoder_cleanup - cleans up an initialised encoder
  * @encoder: encoder to cleanup
  *
@@ -1530,6 +1551,41 @@ static int drm_mode_create_standard_properties(struct drm_device *dev)
 	if (!prop)
 		return -ENOMEM;
 	dev->mode_config.prop_mode_id = prop;
+
+	prop = drm_property_create(dev,
+			DRM_MODE_PROP_BLOB,
+			"DEGAMMA_LUT", 0);
+	if (!prop)
+		return -ENOMEM;
+	dev->mode_config.degamma_lut_property = prop;
+
+	prop = drm_property_create_range(dev,
+			DRM_MODE_PROP_IMMUTABLE,
+			"DEGAMMA_LUT_SIZE", 0, UINT_MAX);
+	if (!prop)
+		return -ENOMEM;
+	dev->mode_config.degamma_lut_size_property = prop;
+
+	prop = drm_property_create(dev,
+			DRM_MODE_PROP_BLOB,
+			"CTM", 0);
+	if (!prop)
+		return -ENOMEM;
+	dev->mode_config.ctm_property = prop;
+
+	prop = drm_property_create(dev,
+			DRM_MODE_PROP_BLOB,
+			"GAMMA_LUT", 0);
+	if (!prop)
+		return -ENOMEM;
+	dev->mode_config.gamma_lut_property = prop;
+
+	prop = drm_property_create_range(dev,
+			DRM_MODE_PROP_IMMUTABLE,
+			"GAMMA_LUT_SIZE", 0, UINT_MAX);
+	if (!prop)
+		return -ENOMEM;
+	dev->mode_config.gamma_lut_size_property = prop;
 
 	return 0;
 }
@@ -3378,6 +3434,24 @@ int drm_mode_addfb2(struct drm_device *dev,
 	return 0;
 }
 
+struct drm_mode_rmfb_work {
+	struct work_struct work;
+	struct list_head fbs;
+};
+
+static void drm_mode_rmfb_work_fn(struct work_struct *w)
+{
+	struct drm_mode_rmfb_work *arg = container_of(w, typeof(*arg), work);
+
+	while (!list_empty(&arg->fbs)) {
+		struct drm_framebuffer *fb =
+			list_first_entry(&arg->fbs, typeof(*fb), filp_head);
+
+		list_del_init(&fb->filp_head);
+		drm_framebuffer_remove(fb);
+	}
+}
+
 /**
  * drm_mode_rmfb - remove an FB from the configuration
  * @dev: drm device for the ioctl
@@ -3418,7 +3492,25 @@ int drm_mode_rmfb(struct drm_device *dev,
 	mutex_unlock(&dev->mode_config.fb_lock);
 	mutex_unlock(&file_priv->fbs_lock);
 
-	drm_framebuffer_unreference(fb);
+	/*
+	 * we now own the reference that was stored in the fbs list
+	 *
+	 * drm_framebuffer_remove may fail with -EINTR on pending signals,
+	 * so run this in a separate stack as there's no way to correctly
+	 * handle this after the fb is already removed from the lookup table.
+	 */
+	if (atomic_read(&fb->refcount.refcount) > 1) {
+		struct drm_mode_rmfb_work arg;
+
+		INIT_WORK_ONSTACK(&arg.work, drm_mode_rmfb_work_fn);
+		INIT_LIST_HEAD(&arg.fbs);
+		list_add_tail(&fb->filp_head, &arg.fbs);
+
+		schedule_work(&arg.work);
+		flush_work(&arg.work);
+		destroy_work_on_stack(&arg.work);
+	} else
+		drm_framebuffer_unreference(fb);
 
 	return 0;
 
@@ -3571,7 +3663,6 @@ out_err1:
 	return ret;
 }
 
-
 /**
  * drm_fb_release - remove and free the FBs on this file
  * @priv: drm file for the ioctl
@@ -3586,6 +3677,9 @@ out_err1:
 void drm_fb_release(struct drm_file *priv)
 {
 	struct drm_framebuffer *fb, *tfb;
+	struct drm_mode_rmfb_work arg;
+
+	INIT_LIST_HEAD(&arg.fbs);
 
 	/*
 	 * When the file gets released that means no one else can access the fb
@@ -3598,10 +3692,22 @@ void drm_fb_release(struct drm_file *priv)
 	 * at it any more.
 	 */
 	list_for_each_entry_safe(fb, tfb, &priv->fbs, filp_head) {
-		list_del_init(&fb->filp_head);
+		if (atomic_read(&fb->refcount.refcount) > 1) {
+			list_move_tail(&fb->filp_head, &arg.fbs);
+		} else {
+			list_del_init(&fb->filp_head);
 
-		/* This drops the fpriv->fbs reference. */
-		drm_framebuffer_unreference(fb);
+			/* This drops the fpriv->fbs reference. */
+			drm_framebuffer_unreference(fb);
+		}
+	}
+
+	if (!list_empty(&arg.fbs)) {
+		INIT_WORK_ONSTACK(&arg.work, drm_mode_rmfb_work_fn);
+
+		schedule_work(&arg.work);
+		flush_work(&arg.work);
+		destroy_work_on_stack(&arg.work);
 	}
 }
 
@@ -5229,11 +5335,6 @@ out:
 	return ret;
 }
 
-static void drm_mode_page_flip_dmabuf_destroy(struct drm_pending_event *event)
-{
-	kfree(event);
-}
-
 /**
  * drm_mode_page_flip_ioctl - schedule an asynchronous fb update
  * @dev: DRM device
@@ -5259,7 +5360,6 @@ int drm_mode_page_flip_ioctl(struct drm_device *dev,
 	struct drm_crtc *crtc;
 	struct drm_framebuffer *fb = NULL;
 	struct drm_pending_vblank_event *e = NULL;
-	unsigned long flags;
 	int ret = -EINVAL;
 
 	if (page_flip->flags & ~DRM_MODE_PAGE_FLIP_FLAGS ||
@@ -5310,40 +5410,26 @@ int drm_mode_page_flip_ioctl(struct drm_device *dev,
 	}
 
 	if (page_flip->flags & DRM_MODE_PAGE_FLIP_EVENT) {
-		ret = -ENOMEM;
-		spin_lock_irqsave(&dev->event_lock, flags);
-		if (file_priv->event_space < sizeof(e->event)) {
-			spin_unlock_irqrestore(&dev->event_lock, flags);
+		e = kzalloc(sizeof *e, GFP_KERNEL);
+		if (!e) {
+			ret = -ENOMEM;
 			goto out;
 		}
-		file_priv->event_space -= sizeof(e->event);
-		spin_unlock_irqrestore(&dev->event_lock, flags);
-
-		e = kzalloc(sizeof(*e), GFP_KERNEL);
-		if (e == NULL) {
-			spin_lock_irqsave(&dev->event_lock, flags);
-			file_priv->event_space += sizeof(e->event);
-			spin_unlock_irqrestore(&dev->event_lock, flags);
-			goto out;
-		}
-
 		e->event.base.type = DRM_EVENT_FLIP_COMPLETE;
 		e->event.base.length = sizeof(e->event);
 		e->event.user_data = page_flip->user_data;
-		e->base.event = &e->event.base;
-		e->base.file_priv = file_priv;
-		e->base.destroy = drm_mode_page_flip_dmabuf_destroy;
+		ret = drm_event_reserve_init(dev, file_priv, &e->base, &e->event.base);
+		if (ret) {
+			kfree(e);
+			goto out;
+		}
 	}
 
 	crtc->primary->old_fb = crtc->primary->fb;
 	ret = crtc->funcs->page_flip(crtc, fb, e, page_flip->flags);
 	if (ret) {
-		if (page_flip->flags & DRM_MODE_PAGE_FLIP_EVENT) {
-			spin_lock_irqsave(&dev->event_lock, flags);
-			file_priv->event_space += sizeof(e->event);
-			spin_unlock_irqrestore(&dev->event_lock, flags);
-			kfree(e);
-		}
+		if (page_flip->flags & DRM_MODE_PAGE_FLIP_EVENT)
+			drm_event_cancel_free(dev, &e->base);
 		/* Keep the old fb, don't unref it. */
 		crtc->primary->old_fb = NULL;
 	} else {
@@ -5722,6 +5808,48 @@ int drm_format_vert_chroma_subsampling(uint32_t format)
 	}
 }
 EXPORT_SYMBOL(drm_format_vert_chroma_subsampling);
+
+/**
+ * drm_format_plane_width - width of the plane given the first plane
+ * @width: width of the first plane
+ * @format: pixel format
+ * @plane: plane index
+ *
+ * Returns:
+ * The width of @plane, given that the width of the first plane is @width.
+ */
+int drm_format_plane_width(int width, uint32_t format, int plane)
+{
+	if (plane >= drm_format_num_planes(format))
+		return 0;
+
+	if (plane == 0)
+		return width;
+
+	return width / drm_format_horz_chroma_subsampling(format);
+}
+EXPORT_SYMBOL(drm_format_plane_width);
+
+/**
+ * drm_format_plane_height - height of the plane given the first plane
+ * @height: height of the first plane
+ * @format: pixel format
+ * @plane: plane index
+ *
+ * Returns:
+ * The height of @plane, given that the height of the first plane is @height.
+ */
+int drm_format_plane_height(int height, uint32_t format, int plane)
+{
+	if (plane >= drm_format_num_planes(format))
+		return 0;
+
+	if (plane == 0)
+		return height;
+
+	return height / drm_format_vert_chroma_subsampling(format);
+}
+EXPORT_SYMBOL(drm_format_plane_height);
 
 /**
  * drm_rotation_simplify() - Try to simplify the rotation

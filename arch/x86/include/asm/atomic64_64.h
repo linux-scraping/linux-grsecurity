@@ -302,6 +302,11 @@ static inline long atomic64_xchg(atomic64_t *v, long new)
 	return xchg(&v->counter, new);
 }
 
+static inline long atomic64_xchg_unchecked(atomic64_unchecked_t *v, long new)
+{
+	return xchg(&v->counter, new);
+}
+
 /**
  * atomic64_add_unless - add unless the number is a given value
  * @v: pointer of type atomic64_t

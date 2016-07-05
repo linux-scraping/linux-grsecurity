@@ -152,13 +152,14 @@ static int page_size_mask;
 
 static void __init probe_page_size_mask(void)
 {
-#if !defined(CONFIG_DEBUG_PAGEALLOC) && !defined(CONFIG_KMEMCHECK)
+#if !defined(CONFIG_KMEMCHECK)
 	/*
-	 * For CONFIG_DEBUG_PAGEALLOC, identity mapping will use small pages.
+	 * For CONFIG_KMEMCHECK or pagealloc debugging, identity mapping will
+	 * use small pages.
 	 * This will simplify cpa(), which otherwise needs to support splitting
 	 * large pages into small in interrupt context, etc.
 	 */
-	if (cpu_has_pse)
+	if (cpu_has_pse && !debug_pagealloc_enabled())
 		page_size_mask |= 1 << PG_LEVEL_2M;
 #endif
 
@@ -682,6 +683,45 @@ int devmem_is_allowed(unsigned long pagenr)
 	return 0;
 }
 
+void free_init_pages(char *what, unsigned long begin, unsigned long end)
+{
+	unsigned long begin_aligned, end_aligned;
+
+	/* Make sure boundaries are page aligned */
+	begin_aligned = PAGE_ALIGN(begin);
+	end_aligned   = end & PAGE_MASK;
+
+	if (WARN_ON(begin_aligned != begin || end_aligned != end)) {
+		begin = begin_aligned;
+		end   = end_aligned;
+	}
+
+	if (begin >= end)
+		return;
+
+	/*
+	 * If debugging page accesses then do not free this memory but
+	 * mark them not present - any buggy init-section access will
+	 * create a kernel page fault:
+	 */
+	if (debug_pagealloc_enabled()) {
+		pr_info("debug: unmapping init [mem %#010lx-%#010lx]\n",
+			begin, end - 1);
+		set_memory_np(begin, (end - begin) >> PAGE_SHIFT);
+	} else {
+		/*
+		 * We just marked the kernel text read only above, now that
+		 * we are going to free part of that, we need to make that
+		 * writeable and non-executable first.
+		 */
+		set_memory_nx(begin, (end - begin) >> PAGE_SHIFT);
+		set_memory_rw(begin, (end - begin) >> PAGE_SHIFT);
+
+		free_reserved_area((void *)begin, (void *)end,
+				   POISON_FREE_INITMEM, what);
+	}
+}
+
 #ifdef CONFIG_GRKERNSEC_KMEM
 static inline void gr_init_ebda(void)
 {
@@ -704,44 +744,6 @@ static inline void gr_init_ebda(void)
 #else
 static inline void gr_init_ebda(void) { }
 #endif
-
-void free_init_pages(char *what, unsigned long begin, unsigned long end)
-{
-	unsigned long begin_aligned, end_aligned;
-
-	/* Make sure boundaries are page aligned */
-	begin_aligned = PAGE_ALIGN(begin);
-	end_aligned   = end & PAGE_MASK;
-
-	if (WARN_ON(begin_aligned != begin || end_aligned != end)) {
-		begin = begin_aligned;
-		end   = end_aligned;
-	}
-
-	if (begin >= end)
-		return;
-
-	/*
-	 * If debugging page accesses then do not free this memory but
-	 * mark them not present - any buggy init-section access will
-	 * create a kernel page fault:
-	 */
-#ifdef CONFIG_DEBUG_PAGEALLOC
-	printk(KERN_INFO "debug: unmapping init [mem %#010lx-%#010lx]\n",
-	       begin, end - 1);
-	set_memory_np(begin, (end - begin) >> PAGE_SHIFT);
-#else
-	/*
-	 * We just marked the kernel text read only above, now that
-	 * we are going to free part of that, we need to make that
-	 * writeable and non-executable first.
-	 */
-	set_memory_nx(begin, (end - begin) >> PAGE_SHIFT);
-	set_memory_rw(begin, (end - begin) >> PAGE_SHIFT);
-
-	free_reserved_area((void *)begin, (void *)end, POISON_FREE_INITMEM, what);
-#endif
-}
 
 void free_initmem(void)
 {
