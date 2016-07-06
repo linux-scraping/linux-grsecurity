@@ -878,7 +878,7 @@ struct mm_struct *proc_mem_open(struct inode *inode, unsigned int mode, u64 *ptr
 			mmput(mm);
 			mm = ERR_PTR(-EPERM);
 		}
-#ifdef CONFIG_GRKERNSEC
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
 		if (ptracer_exec_id)
 			current_is_ptracer(task, ptracer_exec_id);
 #endif

@@ -2449,8 +2449,10 @@ static inline bool current_is_ptracer(struct task_struct *task, u64 *exec_id)
 	read_lock(&tasklist_lock);
 	if (task->parent && task->parent == current) {
 		ret = true;
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
 		if (exec_id)
 			*exec_id = task->parent->exec_id;
+#endif
 	}
 	read_unlock(&tasklist_lock);
 	rcu_read_unlock();

@@ -292,7 +292,7 @@ struct proc_maps_private {
 #ifdef CONFIG_NUMA
 	struct mempolicy *task_mempolicy;
 #endif
-#ifdef CONFIG_GRKERNSEC
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
 	u64 ptracer_exec_id;
 #endif
 } __randomize_layout;
