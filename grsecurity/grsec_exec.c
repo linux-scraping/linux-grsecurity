@@ -88,8 +88,7 @@ gr_handle_exec_args(struct linux_binprm *bprm, struct user_arg_ptr argv)
 #ifdef CONFIG_GRKERNSEC
 extern int gr_acl_is_capable(const int cap);
 extern int gr_acl_is_capable_nolog(const int cap);
-extern int gr_task_acl_is_capable(const struct task_struct *task, const struct cred *cred, const int cap);
-extern int gr_task_acl_is_capable_nolog(const struct task_struct *task, const int cap);
+extern int gr_task_acl_is_capable(const struct task_struct *task, const struct cred *cred, const int cap, bool log);
 extern int gr_chroot_is_capable(const int cap);
 extern int gr_chroot_is_capable_nolog(const int cap);
 extern int gr_task_chroot_is_capable(const struct task_struct *task, const struct cred *cred, const int cap);
@@ -153,7 +152,7 @@ int gr_is_capable(const int cap)
 int gr_task_is_capable(const struct task_struct *task, const struct cred *cred, const int cap)
 {
 #ifdef CONFIG_GRKERNSEC
-	if (gr_task_acl_is_capable(task, cred, cap) && gr_task_chroot_is_capable(task, cred, cap))
+	if (gr_task_acl_is_capable(task, cred, cap, true) && gr_task_chroot_is_capable(task, cred, cap))
 		return 1;
 	return 0;
 #else
@@ -172,10 +171,10 @@ int gr_is_capable_nolog(const int cap)
 #endif
 }
 
-int gr_task_is_capable_nolog(const struct task_struct *task, const int cap)
+int gr_task_is_capable_nolog(const struct task_struct *task, const struct cred *cred, const int cap)
 {
 #ifdef CONFIG_GRKERNSEC
-	if (gr_task_acl_is_capable_nolog(task, cap) && gr_task_chroot_is_capable_nolog(task, cap))
+	if (gr_task_acl_is_capable(task, cred, cap, false) && gr_task_chroot_is_capable_nolog(task, cap))
 		return 1;
 	return 0;
 #else

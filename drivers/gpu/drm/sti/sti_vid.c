@@ -135,7 +135,7 @@ static int vid_debugfs_init(struct sti_vid *vid, struct drm_minor *minor)
 
 	pax_open_kernel();
 	for (i = 0; i < ARRAY_SIZE(vid_debugfs_files); i++)
-		const_cast(vid_debugfs_files[i].data) = vid;
+		vid_debugfs_files[i].data = vid;
 	pax_close_kernel();
 
 	return drm_debugfs_create_files(vid_debugfs_files,

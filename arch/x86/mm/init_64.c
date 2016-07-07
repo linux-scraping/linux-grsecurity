@@ -1106,7 +1106,7 @@ void __init mem_init(void)
 const int rodata_test_data = 0xC3;
 EXPORT_SYMBOL_GPL(rodata_test_data);
 
-int kernel_set_to_readonly;
+int kernel_set_to_readonly __read_only;
 
 void set_kernel_text_rw(void)
 {
@@ -1145,23 +1145,23 @@ void set_kernel_text_ro(void)
 
 void mark_rodata_ro(void)
 {
-	unsigned long addr;
 	unsigned long start = PFN_ALIGN(_text);
-	unsigned long rodata_start = PFN_ALIGN(__start_rodata);
 #ifdef CONFIG_PAX_KERNEXEC
+	unsigned long addr;
 	unsigned long end = PFN_ALIGN(_sdata);
 	unsigned long text_end = end;
 #else
+	unsigned long rodata_start = PFN_ALIGN(__start_rodata);
 	unsigned long end = (unsigned long) &__end_rodata_hpage_align;
 	unsigned long text_end = PFN_ALIGN(&__stop___ex_table);
-#endif
 	unsigned long rodata_end = PFN_ALIGN(&__end_rodata);
+#endif
 	unsigned long all_end;
+
+	kernel_set_to_readonly = 1;
 
 	printk(KERN_INFO "Write protecting the kernel read-only data: %luk\n", (end - start) >> 10);
 	set_memory_ro(start, (end - start) >> PAGE_SHIFT);
-
-	kernel_set_to_readonly = 1;
 
 	/*
 	 * The rodata/data/bss/brk section (but not the kernel text!)

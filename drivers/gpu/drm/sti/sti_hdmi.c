@@ -711,7 +711,7 @@ static int hdmi_debugfs_init(struct sti_hdmi *hdmi, struct drm_minor *minor)
 
 	pax_open_kernel();
 	for (i = 0; i < ARRAY_SIZE(hdmi_debugfs_files); i++)
-		const_cast(hdmi_debugfs_files[i].data) = hdmi;
+		hdmi_debugfs_files[i].data = hdmi;
 	pax_close_kernel();
 
 	return drm_debugfs_create_files(hdmi_debugfs_files,

@@ -40,7 +40,7 @@ gr_acl_is_enabled(void)
 }
 
 int
-gr_learn_cap(const struct task_struct *task, const struct cred *cred, const int cap)
+gr_learn_cap(const struct task_struct *task, const struct cred *cred, const int cap, bool log)
 {
 	return 0;
 }

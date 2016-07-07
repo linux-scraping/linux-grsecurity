@@ -383,7 +383,7 @@ SYSCALL_DEFINE2(setregid, gid_t, rgid, gid_t, egid)
 		   we may not log a CAP_SETGID check above, e.g.
 		   in the case where new rgid = old egid
 		*/
-		gr_learn_cap(current, new, CAP_SETGID);
+		gr_learn_cap(current, new, CAP_SETGID, true);
 	}
 
 	if (rgid != (gid_t) -1 ||
@@ -533,7 +533,7 @@ SYSCALL_DEFINE2(setreuid, uid_t, ruid, uid_t, euid)
 		   we may not log a CAP_SETUID check above, e.g.
 		   in the case where new ruid = old euid
 		*/
-		gr_learn_cap(current, new, CAP_SETUID);
+		gr_learn_cap(current, new, CAP_SETUID, true);
 		retval = set_user(new);
 		if (retval < 0)
 			goto error;

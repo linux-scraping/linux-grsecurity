@@ -873,7 +873,7 @@ static noinline int do_test_wp_bit(void)
 const int rodata_test_data = 0xC3;
 EXPORT_SYMBOL_GPL(rodata_test_data);
 
-int kernel_set_to_readonly __read_mostly;
+int kernel_set_to_readonly __read_only;
 
 void set_kernel_text_rw(void)
 {
@@ -928,43 +928,46 @@ void mark_rodata_ro(void)
 	unsigned long size = PFN_ALIGN(_etext) - start;
 
 #ifdef CONFIG_PAX_KERNEXEC
-	{
-		/* PaX: limit KERNEL_CS to actual size */
-		unsigned long limit;
-		struct desc_struct d;
-		int cpu;
+	/* PaX: limit KERNEL_CS to actual size */
+	unsigned long limit;
+	struct desc_struct d;
+	int cpu;
 
-		limit = paravirt_enabled() ? ktva_ktla(0xffffffff) : (unsigned long)&_etext;
-		limit = (limit - 1UL) >> PAGE_SHIFT;
+	limit = paravirt_enabled() ? ktva_ktla(0xffffffff) : (unsigned long)&_etext;
+	limit = (limit - 1UL) >> PAGE_SHIFT;
 
-		memset(__LOAD_PHYSICAL_ADDR + PAGE_OFFSET, POISON_FREE_INITMEM, PAGE_SIZE);
-		for (cpu = 0; cpu < nr_cpu_ids; cpu++) {
-			pack_descriptor(&d, get_desc_base(&get_cpu_gdt_table(cpu)[GDT_ENTRY_KERNEL_CS]), limit, 0x9B, 0xC);
-			write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_KERNEL_CS, &d, DESCTYPE_S);
-			write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_KERNEXEC_KERNEL_CS, &d, DESCTYPE_S);
-		}
-
-		if (config_enabled(CONFIG_MODULES))
-			set_memory_4k((unsigned long)MODULES_EXEC_VADDR, (MODULES_EXEC_END - MODULES_EXEC_VADDR) >> PAGE_SHIFT);
+	memset(__LOAD_PHYSICAL_ADDR + PAGE_OFFSET, POISON_FREE_INITMEM, PAGE_SIZE);
+	for (cpu = 0; cpu < nr_cpu_ids; cpu++) {
+		pack_descriptor(&d, get_desc_base(&get_cpu_gdt_table(cpu)[GDT_ENTRY_KERNEL_CS]), limit, 0x9B, 0xC);
+		write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_KERNEL_CS, &d, DESCTYPE_S);
+		write_gdt_entry(get_cpu_gdt_table(cpu), GDT_ENTRY_KERNEXEC_KERNEL_CS, &d, DESCTYPE_S);
 	}
+
+#ifdef CONFIG_MODULES
+	set_memory_4k((unsigned long)MODULES_EXEC_VADDR, (MODULES_EXEC_END - MODULES_EXEC_VADDR) >> PAGE_SHIFT);
+#endif
 #endif
 
 	start = ktla_ktva(start);
+#ifdef CONFIG_PAX_KERNEXEC
 	/* PaX: make KERNEL_CS read-only */
-	if (config_enabled(CONFIG_PAX_KERNEXEC) && !paravirt_enabled()) {
-		set_pages_ro(virt_to_page(start), size >> PAGE_SHIFT);
-		printk(KERN_INFO "Write protecting the kernel text: %luk\n", size >> 10);
+	if (!paravirt_enabled()) {
+#endif
+	kernel_set_to_readonly = 1;
 
-		kernel_set_to_readonly = 1;
+	set_pages_ro(virt_to_page(start), size >> PAGE_SHIFT);
+	printk(KERN_INFO "Write protecting the kernel text: %luk\n", size >> 10);
 
 #ifdef CONFIG_CPA_DEBUG
-		printk(KERN_INFO "Testing CPA: Reverting %lx-%lx\n", start, start+size);
-		set_pages_rw(virt_to_page(start), size>>PAGE_SHIFT);
+	printk(KERN_INFO "Testing CPA: Reverting %lx-%lx\n", start, start+size);
+	set_pages_rw(virt_to_page(start), size>>PAGE_SHIFT);
 
-		printk(KERN_INFO "Testing CPA: write protecting again\n");
-		set_pages_ro(virt_to_page(start), size>>PAGE_SHIFT);
+	printk(KERN_INFO "Testing CPA: write protecting again\n");
+	set_pages_ro(virt_to_page(start), size>>PAGE_SHIFT);
 #endif
+#ifdef CONFIG_PAX_KERNEXEC
 	}
+#endif
 
 	start += size;
 	size = PFN_ALIGN(_sdata) - start;

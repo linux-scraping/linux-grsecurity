@@ -497,7 +497,7 @@ static inline pgprot_t pgprot_modify(pgprot_t oldprot, pgprot_t newprot)
 
 #define canon_pgprot(p) __pgprot(massage_pgprot(p))
 
-static inline int is_new_memtype_allowed(u64 paddr, unsigned long size,
+static inline int is_new_memtype_allowed(u64 paddr, u64 size,
 					 enum page_cache_mode pcm,
 					 enum page_cache_mode new_pcm)
 {

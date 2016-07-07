@@ -342,7 +342,7 @@ bool has_ns_capability_noaudit(struct task_struct *t,
 	int ret;
 
 	rcu_read_lock();
-	ret = security_capable_noaudit(__task_cred(t), ns, cap) == 0 && gr_task_is_capable_nolog(t, cap);
+	ret = security_capable_noaudit(__task_cred(t), ns, cap) == 0 && gr_task_is_capable_nolog(t, __task_cred(t), cap);
 	rcu_read_unlock();
 
 	return ret;

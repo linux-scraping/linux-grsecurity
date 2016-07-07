@@ -744,7 +744,7 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 #else
 		unsigned int bkpt;
 
-		if (!probe_kernel_address((const void *)pc, bkpt) && cpu_to_le32(bkpt) == 0xe12f1073) {
+		if (!probe_kernel_address((const unsigned int *)pc, bkpt) && cpu_to_le32(bkpt) == 0xe12f1073) {
 #endif
 			current->thread.error_code = ifsr;
 			current->thread.trap_no = 0;

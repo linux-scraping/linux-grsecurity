@@ -131,7 +131,7 @@ static int cursor_dbg_show(struct seq_file *s, void *data)
 	return 0;
 }
 
-static struct drm_info_list cursor_debugfs_files[] __read_only = {
+static drm_info_list_no_const cursor_debugfs_files[] __read_only = {
 	{ "cursor", cursor_dbg_show, 0, NULL },
 };
 
@@ -142,7 +142,7 @@ static int cursor_debugfs_init(struct sti_cursor *cursor,
 
 	pax_open_kernel();
 	for (i = 0; i < ARRAY_SIZE(cursor_debugfs_files); i++)
-		const_cast(cursor_debugfs_files[i].data) = cursor;
+		cursor_debugfs_files[i].data = cursor;
 	pax_close_kernel();
 
 	return drm_debugfs_create_files(cursor_debugfs_files,
