@@ -254,7 +254,7 @@ static int proc_maps_open(struct inode *inode, struct file *file,
 		return -ENOMEM;
 
 	priv->inode = inode;
-#ifdef CONFIG_GRKERNSEC
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
 	priv->mm = proc_mem_open(inode, PTRACE_MODE_READ, &priv->ptracer_exec_id);
 #else
 	priv->mm = proc_mem_open(inode, PTRACE_MODE_READ, NULL);
