@@ -586,8 +586,8 @@ struct drbd_md {
 	u32 flags;
 	u32 md_size_sect;
 
-	s32 al_offset;	/* signed relative sector offset to activity log */
-	s32 bm_offset;	/* signed relative sector offset to bitmap */
+	s32 al_offset __intentional_overflow(0);	/* signed relative sector offset to activity log */
+	s32 bm_offset __intentional_overflow(0);	/* signed relative sector offset to bitmap */
 
 	/* cached value of bdev->disk_conf->meta_dev_idx (see below) */
 	s32 meta_dev_idx;

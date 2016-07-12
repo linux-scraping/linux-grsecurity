@@ -135,6 +135,7 @@ enable_so_result_iscsi_bsg_reply_409 result iscsi_bsg_reply 0 409 &enable_so_ext
 enable_so_fcp_resid_bnx2fc_cmd_412 fcp_resid bnx2fc_cmd 0 412 NULL
 enable_so_base_cbuf_417 base cbuf 0 417 NULL
 enable_so_mp_config_acpi_gsi_fndecl_419 mp_config_acpi_gsi fndecl 2 419 NULL
+enable_so_apparmor_setprocattr_fndecl_421 apparmor_setprocattr fndecl 4 421 NULL
 enable_so_fat_short2uni_fndecl_423 fat_short2uni fndecl 0 423 NULL
 enable_so_vol_reg_size_tas571x_chip_426 vol_reg_size tas571x_chip 0 426 NULL
 enable_so_status_netdev_desc_430 status netdev_desc 0 430 NULL
