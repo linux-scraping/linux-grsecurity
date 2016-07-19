@@ -162,6 +162,12 @@ static inline int __atomic_add_unless(atomic_t *v, int a, int u)
 
 #define atomic64_cmpxchg(v, o, n) \
 	((__typeof__((v)->counter))cmpxchg(&((v)->counter), (o), (n)))
+static inline long atomic64_cmpxchg_unchecked(atomic64_unchecked_t *v, long old,
+					      long new)
+{
+	return cmpxchg(&(v->counter), old, new);
+}
+
 #define atomic64_xchg(v, new) (xchg(&((v)->counter), new))
 static inline long atomic64_xchg_unchecked(atomic64_unchecked_t *v, long new)
 {

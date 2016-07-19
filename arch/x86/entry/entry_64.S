@@ -948,7 +948,7 @@ retint_kernel:
 
 	pax_exit_kernel
 
-#if defined(CONFIG_EFI) && defined(CONFIG_PAX_KERNEXEC)
+#if defined(CONFIG_EFI) && defined(CONFIG_PAX_KERNEXEC_PLUGIN)
 	/* This is a quirk to allow IRQs/NMIs/MCEs during early EFI setup,
 	 * namely calling EFI runtime services with a phys mapping. We're
 	 * starting off with NOPs and patch in the real instrumentation

@@ -102,12 +102,14 @@ union bpf_attr;
 #define __TYPE_IS_L(t)	(__same_type((t)0, 0L))
 #define __TYPE_IS_UL(t)	(__same_type((t)0, 0UL))
 #define __TYPE_IS_LL(t) (__same_type((t)0, 0LL) || __same_type((t)0, 0ULL))
-#define __SC_LONG(t, a)	__typeof__(				\
+#define __SC_TYPE(t) __typeof__(				\
 	__builtin_choose_expr(					\
 		sizeof(t) > sizeof(int),			\
 		(t) 0,						\
 		__builtin_choose_expr(__type_is_unsigned(t), 0UL, 0L)	\
-	)) a
+	))
+#define __SC_LONG(t, a)	__SC_TYPE(t) a
+#define __SC_WRAP(t, a)	(__SC_TYPE(t)) a
 #define __SC_CAST(t, a)	(t) a
 #define __SC_ARGS(t, a)	a
 #define __SC_TEST(t, a) (void)BUILD_BUG_ON_ZERO(!__TYPE_IS_LL(t) && sizeof(t) > sizeof(long))
@@ -207,7 +209,7 @@ extern struct trace_event_functions exit_syscall_print_funcs;
 	}								\
 	asmlinkage long sys##name(__MAP(x,__SC_DECL,__VA_ARGS__))	\
 	{								\
-		return SyS##name(__MAP(x,__SC_ARGS,__VA_ARGS__));	\
+		return SyS##name(__MAP(x,__SC_WRAP,__VA_ARGS__));	\
 	}								\
 	static inline long SYSC##name(__MAP(x,__SC_DECL,__VA_ARGS__))
 

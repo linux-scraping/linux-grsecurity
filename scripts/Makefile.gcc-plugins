@@ -11,7 +11,9 @@ ifdef CONFIG_GCC_PLUGINS
   gcc-plugin-$(CONFIG_KALLOCSTAT_PLUGIN)		+= kallocstat_plugin.so
 
   gcc-plugin-$(CONFIG_PAX_KERNEXEC_PLUGIN)		+= kernexec_plugin.so
-  gcc-plugin-cflags-$(CONFIG_PAX_KERNEXEC_PLUGIN)	+= -DKERNEXEC_PLUGIN -fplugin-arg-kernexec_plugin-method=$(CONFIG_PAX_KERNEXEC_PLUGIN_METHOD)
+  gcc-plugin-cflags-$(CONFIG_PAX_KERNEXEC_PLUGIN)	+= -DKERNEXEC_PLUGIN
+  gcc-plugin-cflags-$(CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_BTS)	+= -fplugin-arg-kernexec_plugin-method=bts
+  gcc-plugin-cflags-$(CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR)	+= -fplugin-arg-kernexec_plugin-method=or
   gcc-plugin-aflags-$(CONFIG_PAX_KERNEXEC_PLUGIN)	+= -DKERNEXEC_PLUGIN
 
   ifdef CONFIG_CHECKER_PLUGIN

@@ -37,12 +37,14 @@ read_learn(struct file *file, char __user * buf, size_t count, loff_t * ppos)
 	ssize_t retval = 0;
 
 	add_wait_queue(&learn_wait, &wait);
-	set_current_state(TASK_INTERRUPTIBLE);
 	do {
 		mutex_lock(&gr_learn_user_mutex);
+		set_current_state(TASK_INTERRUPTIBLE);
 		spin_lock(&gr_learn_lock);
-		if (learn_buffer_len)
+		if (learn_buffer_len) {
+			set_current_state(TASK_RUNNING);
 			break;
+		}
 		spin_unlock(&gr_learn_lock);
 		mutex_unlock(&gr_learn_user_mutex);
 		if (file->f_flags & O_NONBLOCK) {

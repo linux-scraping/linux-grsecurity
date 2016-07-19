@@ -224,6 +224,10 @@ static __always_inline void setup_smep(struct cpuinfo_x86 *c)
 {
 	if (cpu_has(c, X86_FEATURE_SMEP))
 		cr4_set_bits(X86_CR4_SMEP);
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_NONE
+	else
+		panic("PAX: this KERNEXEC configuration requires SMEP support\n");
+#endif
 }
 
 static __init int setup_disable_smap(char *arg)

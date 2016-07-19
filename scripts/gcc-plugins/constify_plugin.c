@@ -420,12 +420,12 @@ static void check_section_mismatch(varpool_node_ptr node)
 {
 	tree var, section;
 	size_t i;
+	const char *name;
 
 	var = NODE_DECL(node);
+	name = get_decl_section_name(var);
 	section = lookup_attribute("section", DECL_ATTRIBUTES(var));
 	if (!section) {
-		const char *name = get_decl_section_name(var);
-
 		if (name) {
 			fprintf(stderr, "DECL_SECTION [%s] ", name);
 			dump_varpool_node(stderr, node);
@@ -433,7 +433,7 @@ static void check_section_mismatch(varpool_node_ptr node)
 		}
 		return;
 	} else
-		gcc_assert(get_decl_section_name(var));
+		gcc_assert(name);
 
 //fprintf(stderr, "SECTIONAME: [%s] ", get_decl_section_name(var));
 //debug_tree(var);
@@ -442,11 +442,11 @@ static void check_section_mismatch(varpool_node_ptr node)
 	gcc_assert(TREE_VALUE(section));
 
 	section = TREE_VALUE(TREE_VALUE(section));
-	gcc_assert(!strcmp(TREE_STRING_POINTER(section), get_decl_section_name(var)));
+	gcc_assert(!strcmp(TREE_STRING_POINTER(section), name));
 //debug_tree(section);
 
 	for (i = 0; i < ARRAY_SIZE(const_sections); i++)
-		if (!strcmp(const_sections[i].name, get_decl_section_name(var)))
+		if (!strcmp(const_sections[i].name, name))
 			return;
 
 	error_at(DECL_SOURCE_LOCATION(var), "constified variable %qD placed into writable section %E", var, section);

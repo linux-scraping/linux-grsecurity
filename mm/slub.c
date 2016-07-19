@@ -3705,6 +3705,13 @@ const char *check_heap_object(const void *ptr, unsigned long n)
 		return s->name;
 
 	offset = (ptr - page_address(page)) % s->size;
+#ifdef CONFIG_SLUB_DEBUG
+	if (s->flags & SLAB_RED_ZONE) {
+		if (offset < s->red_left_pad)
+			return s->name;
+		offset -= s->red_left_pad;
+	}
+#endif
 	if (offset <= s->object_size && n <= s->object_size - offset)
 		return NULL;
 

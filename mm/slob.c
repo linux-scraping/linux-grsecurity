@@ -258,6 +258,7 @@ static void *slob_page_alloc(struct page *sp, size_t size, int align)
 			}
 
 			sp->units -= units;
+			BUG_ON(sp->units < 0);
 			if (!sp->units)
 				clear_slob_page_free(sp);
 			return cur;
@@ -354,7 +355,8 @@ static void slob_free(struct kmem_cache *c, void *block, int size)
 		return;
 	BUG_ON(!size);
 
-	sp = virt_to_page(block);
+	sp = virt_to_head_page(block);
+	BUG_ON(virt_to_page(block) != sp);
 	units = SLOB_UNITS(size);
 
 	spin_lock_irqsave(&slob_lock, flags);
@@ -517,11 +519,14 @@ void kfree(const void *block)
 	kmemleak_free(block);
 
 	VM_BUG_ON(!virt_addr_valid(block));
-	sp = virt_to_page(block);
+	sp = virt_to_head_page(block);
+	BUG_ON(virt_to_page(block) != sp);
 	VM_BUG_ON(!PageSlab(sp));
 	if (!sp->private) {
 		int align = max_t(size_t, ARCH_KMALLOC_MINALIGN, ARCH_SLAB_MINALIGN);
 		slob_t *m = (slob_t *)(block - align);
+
+		BUG_ON(sp->units < 0);
 		slob_free(NULL, m, m[0].units + align);
 	} else {
 		__ClearPageSlab(sp);
@@ -534,6 +539,11 @@ EXPORT_SYMBOL(kfree);
 
 bool is_usercopy_object(const void *ptr)
 {
+	struct page *page;
+
+	if (ZERO_OR_NULL_PTR(ptr))
+		return false;
+
 	if (!slab_is_available())
 		return false;
 
@@ -548,7 +558,16 @@ bool is_usercopy_object(const void *ptr)
 		return false;
 	}
 
-	// PAX: TODO
+	if (!virt_addr_valid(ptr))
+		return false;
+
+	page = virt_to_head_page(ptr);
+	BUG_ON(virt_to_page(ptr) != page);
+
+	if (!PageSlab(page))
+		return false;
+
+	// PAX: TODO check SLAB_USERCOPY
 
 	return false;
 }
@@ -568,27 +587,28 @@ const char *check_heap_object(const void *ptr, unsigned long n)
 		return NULL;
 
 	page = virt_to_head_page(ptr);
+	BUG_ON(virt_to_page(ptr) != page);
 	if (!PageSlab(page))
 		return NULL;
 
 	if (page->private) {
-		base = page;
+		base = page_address(page);
 		if (base <= ptr && n <= page->private - (ptr - base))
 			return NULL;
-		return "<slob>";
+		return "<slob 1>";
 	}
 
 	/* some tricky double walking to find the chunk */
 	spin_lock_irqsave(&slob_lock, flags);
-	base = (void *)((unsigned long)ptr & PAGE_MASK);
+	base = (const void *)((unsigned long)ptr & PAGE_MASK);
 	free = page->freelist;
 
-	while (!slob_last(free) && (void *)free <= ptr) {
+	while (!slob_last(free) && (const void *)free <= ptr) {
 		base = free + slob_units(free);
 		free = slob_next(free);
 	}
 
-	while (base < (void *)free) {
+	while (base < (const void *)free) {
 		slobidx_t m = ((slob_t *)base)[0].units, align = ((slob_t *)base)[1].units;
 		int size = SLOB_UNIT * SLOB_UNITS(m + align);
 		int offset;
@@ -610,7 +630,7 @@ const char *check_heap_object(const void *ptr, unsigned long n)
 	}
 
 	spin_unlock_irqrestore(&slob_lock, flags);
-	return "<slob>";
+	return "<slob 2>";
 }
 #endif
 
@@ -625,7 +645,8 @@ size_t ksize(const void *block)
 	if (unlikely(block == ZERO_SIZE_PTR))
 		return 0;
 
-	sp = virt_to_page(block);
+	sp = virt_to_head_page(block);
+	BUG_ON(virt_to_page(block) != sp);
 	VM_BUG_ON(!PageSlab(sp));
 	if (sp->private)
 		return sp->private;
@@ -709,7 +730,8 @@ static void __kmem_cache_free(struct kmem_cache *c, void *b, int size)
 {
 	struct page *sp;
 
-	sp = virt_to_page(b);
+	BUG_ON(virt_to_page(b) != virt_to_head_page(b));
+	sp = virt_to_head_page(b);
 	BUG_ON(!PageSlab(sp));
 	if (!sp->private)
 		slob_free(c, b, size);

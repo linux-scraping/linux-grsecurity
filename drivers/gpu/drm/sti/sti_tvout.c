@@ -607,7 +607,7 @@ static int tvout_debugfs_init(struct sti_tvout *tvout, struct drm_minor *minor)
 
 	pax_open_kernel();
 	for (i = 0; i < ARRAY_SIZE(tvout_debugfs_files); i++)
-		const_cast(tvout_debugfs_files[i].data) = tvout;
+		tvout_debugfs_files[i].data = tvout;
 	pax_close_kernel();
 
 	return drm_debugfs_create_files(tvout_debugfs_files,

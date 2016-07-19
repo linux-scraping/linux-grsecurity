@@ -740,6 +740,7 @@ void *__kprobes text_poke_early(void *addr, const void *opcode,
  */
 void *text_poke(void *addr, const void *opcode, size_t len)
 {
+	unsigned long flags;
 	unsigned char *vaddr = (void *)ktla_ktva((unsigned long)addr);
 	struct page *pages[2];
 	size_t i;
@@ -753,9 +754,29 @@ void *text_poke(void *addr, const void *opcode, size_t len)
 		pages[1] = virt_to_page(vaddr + PAGE_SIZE);
 	}
 	BUG_ON(!pages[0]);
+
+#ifdef CONFIG_PAX_KERNEXEC
 	text_poke_early(addr, opcode, len);
 	for (i = 0; i < len; i++)
 		BUG_ON((vaddr)[i] != ((const unsigned char *)opcode)[i]);
+#else
+	local_irq_save(flags);
+	set_fixmap(FIX_TEXT_POKE0, page_to_phys(pages[0]));
+	if (pages[1])
+		set_fixmap(FIX_TEXT_POKE1, page_to_phys(pages[1]));
+	vaddr = (char *)fix_to_virt(FIX_TEXT_POKE0);
+	memcpy(&vaddr[(unsigned long)addr & ~PAGE_MASK], opcode, len);
+	clear_fixmap(FIX_TEXT_POKE0);
+	if (pages[1])
+		clear_fixmap(FIX_TEXT_POKE1);
+	local_flush_tlb();
+	sync_core();
+	/* Could also do a CLFLUSH here to speed up CPU recovery; but
+	   that causes hangs on some VIA CPUs. */
+	for (i = 0; i < len; i++)
+		BUG_ON(((char *)addr)[i] != ((char *)opcode)[i]);
+	local_irq_restore(flags);
+#endif
 	return addr;
 }
 

@@ -643,7 +643,7 @@ static int hqvdp_debugfs_init(struct sti_hqvdp *hqvdp, struct drm_minor *minor)
 
 	pax_open_kernel();
 	for (i = 0; i < ARRAY_SIZE(hqvdp_debugfs_files); i++)
-		const_cast(hqvdp_debugfs_files[i].data) = hqvdp;
+		hqvdp_debugfs_files[i].data = hqvdp;
 	pax_close_kernel();
 
 	return drm_debugfs_create_files(hqvdp_debugfs_files,

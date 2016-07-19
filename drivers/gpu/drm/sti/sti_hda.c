@@ -417,7 +417,7 @@ static int hda_debugfs_init(struct sti_hda *hda, struct drm_minor *minor)
 
 	pax_open_kernel();
 	for (i = 0; i < ARRAY_SIZE(hda_debugfs_files); i++)
-		const_cast(hda_debugfs_files[i].data) = hda;
+		hda_debugfs_files[i].data = hda;
 	pax_close_kernel();
 
 	return drm_debugfs_create_files(hda_debugfs_files,
