@@ -3414,8 +3414,7 @@ disable_so_nla_put_ipaddr4_fndecl_18214 nla_put_ipaddr4 fndecl 0 18214 NULL
 disable_so_ring_dma_addr_netdev_private_18216 ring_dma_addr netdev_private 0 18216 NULL
 disable_so_fc_gid_ft_build_fndecl_18221 fc_gid_ft_build fndecl 0-3 18221 NULL
 disable_so_base_hi_mtrr_var_range_18224 base_hi mtrr_var_range 0 18224 NULL nohasharray
-disable_so_mISDNisac_irq_fndecl_18224 mISDNisac_irq fndecl 2 18224 &disable_so_base_hi_mtrr_var_range_18224 nohasharray
-enable_so_skb_mstamp_us_delta_fndecl_18224 skb_mstamp_us_delta fndecl 0 18224 &disable_so_mISDNisac_irq_fndecl_18224
+disable_so_mISDNisac_irq_fndecl_18224 mISDNisac_irq fndecl 2 18224 &disable_so_base_hi_mtrr_var_range_18224
 disable_so_no_bit_error_verify_fndecl_18225 no_bit_error_verify fndecl 4 18225 NULL
 disable_so_account_guest_time_fndecl_18233 account_guest_time fndecl 2-3 18233 NULL
 disable_so_show_port_gid_idx_fndecl_18237 show_port_gid_idx fndecl 0 18237 NULL
@@ -3786,8 +3785,7 @@ disable_so_urg_seq_tcp_sock_20171 urg_seq tcp_sock 0 20171 NULL
 disable_so_uid_crash_uid_20189 uid crash_uid 0 20189 NULL
 disable_so_force_addr_vardecl_i2c_sis5595_c_20194 force_addr vardecl_i2c-sis5595.c 0 20194 NULL
 disable_so_get_random_bytes_fndecl_20208 get_random_bytes fndecl 2 20208 NULL
-disable_so_end_pci_bus_region_20220 end pci_bus_region 0 20220 NULL nohasharray
-enable_so_epoch_start_bictcp_20220 epoch_start bictcp 0 20220 NULL &disable_so_end_pci_bus_region_20220
+disable_so_end_pci_bus_region_20220 end pci_bus_region 0 20220 NULL
 disable_so_ptp_devt_vardecl_ptp_clock_c_20222 ptp_devt vardecl_ptp_clock.c 0 20222 NULL
 disable_so_rp5c01_read_time_fndecl_20225 rp5c01_read_time fndecl 0 20225 NULL
 disable_so_scsi_inq_timeout_vardecl_scsi_scan_c_20228 scsi_inq_timeout vardecl_scsi_scan.c 0 20228 NULL
@@ -12445,4 +12443,3 @@ enable_so_inofree_iagctl_5194 inofree iagctl 0 5194 NULL
 enable_so_inofreefwd_iag_4921 inofreefwd iag 0 4921 NULL
 enable_so_iagnum_iag_23227 iagnum iag 0 23227 NULL
 enable_so_offset_lv_35617 offset lv 0 35617 NULL
-enable_so_srtt_us_tcp_sock_62907 srtt_us tcp_sock 0 62907 NULL
