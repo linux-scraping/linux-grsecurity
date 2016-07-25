@@ -23,7 +23,7 @@ int plugin_is_GPL_compatible;
 static bool enabled = true;
 
 static struct plugin_info const_plugin_info = {
-	.version	= "201606280200",
+	.version	= "201607241840",
 	.help		= "disable\tturn off constification\n",
 };
 
@@ -148,10 +148,8 @@ static void deconstify_type(tree type)
 				continue;
 			if (!constified(ptrtype))
 				continue;
-			if (TYPE_MAIN_VARIANT(ptrtype) == TYPE_MAIN_VARIANT(type)) {
-				TREE_TYPE(field) = copy_node(TREE_TYPE(field));
-				TREE_TYPE(TREE_TYPE(field)) = build_qualified_type(type, TYPE_QUALS(ptrtype) & ~TYPE_QUAL_CONST);
-			}
+			if (TYPE_MAIN_VARIANT(ptrtype) == TYPE_MAIN_VARIANT(type))
+				TREE_TYPE(field) = build_pointer_type(build_qualified_type(type, TYPE_QUALS(ptrtype) & ~TYPE_QUAL_CONST));
 			continue;
 		}
 		if (TREE_CODE(fieldtype) != RECORD_TYPE && TREE_CODE(fieldtype) != UNION_TYPE)
@@ -269,6 +267,7 @@ static tree handle_no_const_attribute(tree *node, tree name, tree args, int flag
 
 static void constify_type(tree type)
 {
+	gcc_assert(type == TYPE_MAIN_VARIANT(type));
 	TYPE_READONLY(type) = 1;
 	C_TYPE_FIELDS_READONLY(type) = 1;
 	TYPE_CONSTIFY_VISITED(type) = 1;

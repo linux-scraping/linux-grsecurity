@@ -99,7 +99,7 @@ extern int _cond_resched(void);
 	unsigned long __size = size;					\
 	unsigned long __addr = (unsigned long)addr;			\
 	bool __ret_ao = __range_not_ok(__addr, __size, user_addr_max()) == 0;\
-	if (__ret_ao && __size) {					\
+	if (__ret_ao && __size < 256 * PAGE_SIZE) {			\
 		unsigned long __addr_ao = __addr & PAGE_MASK;		\
 		unsigned long __end_ao = __addr + __size - 1;		\
 		if (unlikely((__end_ao ^ __addr_ao) & PAGE_MASK)) {	\

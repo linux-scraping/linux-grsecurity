@@ -772,7 +772,7 @@ int kgdb_arch_set_breakpoint(struct kgdb_bkpt *bpt)
 		return -EBUSY;
 	text_poke((void *)bpt->bpt_addr, arch_kgdb_ops.gdb_bpt_instr,
 		  BREAK_INSTR_SIZE);
-	err = probe_kernel_read(opc, ktla_ktva((char *)bpt->bpt_addr), BREAK_INSTR_SIZE);
+	err = probe_kernel_read(opc, (const void *)ktla_ktva(bpt->bpt_addr), BREAK_INSTR_SIZE);
 	if (err)
 		return err;
 	if (memcmp(opc, arch_kgdb_ops.gdb_bpt_instr, BREAK_INSTR_SIZE))
@@ -796,7 +796,7 @@ int kgdb_arch_remove_breakpoint(struct kgdb_bkpt *bpt)
 	if (mutex_is_locked(&text_mutex))
 		goto knl_write;
 	text_poke((void *)bpt->bpt_addr, bpt->saved_instr, BREAK_INSTR_SIZE);
-	err = probe_kernel_read(opc, ktla_ktva((char *)bpt->bpt_addr), BREAK_INSTR_SIZE);
+	err = probe_kernel_read(opc, (const void *)ktla_ktva(bpt->bpt_addr), BREAK_INSTR_SIZE);
 	if (err || memcmp(opc, bpt->saved_instr, BREAK_INSTR_SIZE))
 		goto knl_write;
 	return err;

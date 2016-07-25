@@ -37,6 +37,14 @@ gr_log_resource(const struct task_struct *task,
 	if (unlikely(!restab_log[res]))
 		return;
 
+	/*
+	 * not really security relevant, too much userland code shared
+	 * from pulseaudio that blindly attempts to violate limits in a loop,
+	 * resulting in log spam
+	 */
+	if (res == RLIMIT_NICE)
+		return;
+
 	if (res == RLIMIT_CPU || res == RLIMIT_RTTIME)
 		rlim = task_rlimit_max(task, res);
 	else
@@ -54,8 +62,6 @@ gr_log_resource(const struct task_struct *task,
 		goto out_rcu_unlock;
 	else if (res == RLIMIT_MEMLOCK &&
 		 cap_raised(cred->cap_effective, CAP_IPC_LOCK))
-		goto out_rcu_unlock;
-	else if (res == RLIMIT_NICE && cap_raised(cred->cap_effective, CAP_SYS_NICE))
 		goto out_rcu_unlock;
 	rcu_read_unlock();
 

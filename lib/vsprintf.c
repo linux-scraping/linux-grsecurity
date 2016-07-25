@@ -1479,7 +1479,7 @@ char *flags_string(char *buf, char *end, void *flags_ptr, const char *fmt)
 }
 
 #ifdef CONFIG_GRKERNSEC_HIDESYM
-int kptr_restrict __read_only = 2;
+int kptr_restrict __read_only = 1;
 #else
 int kptr_restrict __read_only;
 #endif
@@ -1710,6 +1710,9 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 			 */
 			cred = current_cred();
 			if (!has_capability_noaudit(current, CAP_SYSLOG) ||
+#ifdef CONFIG_GRKERNSEC_HIDESYM
+			    !has_capability_noaudit(current, CAP_SYS_ADMIN) ||
+#endif
 			    !uid_eq(cred->euid, cred->uid) ||
 			    !gid_eq(cred->egid, cred->gid))
 				ptr = NULL;
