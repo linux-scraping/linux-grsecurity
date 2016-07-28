@@ -821,16 +821,12 @@ EXPORT_SYMBOL(set_posix_acl);
 
 static int
 posix_acl_xattr_set(const struct xattr_handler *handler,
-		    struct dentry *dentry,
-		    const char *name, const void *value,
-		    size_t size, int flags)
+		    struct dentry *dentry, const char *name,
+		    const void *value, size_t size, int flags)
 {
 	struct inode *inode = d_backing_inode(dentry);
 	struct posix_acl *acl = NULL;
 	int ret;
-
-	if (strcmp(name, "") != 0)
-		return -EINVAL;
 
 	if (value) {
 		acl = posix_acl_from_xattr(&init_user_ns, value, size);

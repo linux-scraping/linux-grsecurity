@@ -18,7 +18,7 @@
 // unused C type flag in all versions 4.5-6
 #define TYPE_CONSTIFY_VISITED(TYPE) TYPE_LANG_FLAG_4(TYPE)
 
-int plugin_is_GPL_compatible;
+__visible int plugin_is_GPL_compatible;
 
 static bool enabled = true;
 
@@ -537,7 +537,7 @@ static void constify_start_unit(void *gcc_data, void *user_data)
 	targetm.section_type_flags = constify_section_type_flags;
 }
 
-int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
+__visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
 	const char * const plugin_name = plugin_info->base_name;
 	const int argc = plugin_info->argc;

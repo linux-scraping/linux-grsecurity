@@ -341,6 +341,18 @@ static inline void atomic64_inc(atomic64_t *v)
 }
 
 /**
+ * atomic64_inc_unchecked - increment atomic64 variable
+ * @v: pointer to type atomic64_unchecked_t
+ *
+ * Atomically increments @v by 1.
+ */
+static inline void atomic64_inc_unchecked(atomic64_unchecked_t *v)
+{
+	__alternative_atomic64(inc_unchecked, inc_return_unchecked, /* no output */,
+			       "S" (v) : "memory", "eax", "ecx", "edx");
+}
+
+/**
  * atomic64_dec - decrement atomic64 variable
  * @v: pointer to type atomic64_t
  *

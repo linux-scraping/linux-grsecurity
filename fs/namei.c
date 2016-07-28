@@ -3309,6 +3309,10 @@ retry_lookup:
 		got_write = false;
 	}
 
+	error = follow_managed(&path, nd);
+	if (unlikely(error < 0))
+		return error;
+
 	if (unlikely(d_is_negative(path.dentry))) {
 		path_to_nameidata(&path, nd);
 		return -ENOENT;
@@ -3330,10 +3334,6 @@ retry_lookup:
 		path_to_nameidata(&path, nd);
 		return -EEXIST;
 	}
-
-	error = follow_managed(&path, nd);
-	if (unlikely(error < 0))
-		return error;
 
 	seq = 0;	/* out of RCU mode, so the value doesn't matter */
 	inode = d_backing_inode(path.dentry);

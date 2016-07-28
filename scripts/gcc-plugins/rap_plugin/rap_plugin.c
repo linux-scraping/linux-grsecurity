@@ -14,7 +14,7 @@
 
 #include "rap.h"
 
-int plugin_is_GPL_compatible;
+__visible int plugin_is_GPL_compatible;
 
 static struct plugin_info rap_plugin_info = {
 	.version	= "201604272100",
@@ -276,6 +276,7 @@ static void rap_finish_unit(void *gcc_data __unused, void *user_data __unused)
 		fprintf(asm_out_file, "\t.previous\n");
 }
 
+#if BUILDING_GCC_VERSION >= 4007
 // emit the rap hash as an absolute symbol for all functions seen in the frontend
 // this is necessary as later unreferenced nodes will be removed yet we'd like to emit as many hashes as possible
 static void rap_finish_decl(void *event_data, void *data __unused)
@@ -324,6 +325,7 @@ static void rap_finish_decl(void *event_data, void *data __unused)
 
 	fprintf(asm_out_file, "\t.previous\n");
 }
+#endif
 
 static bool rap_unignore_gate(void)
 {
@@ -374,7 +376,7 @@ EXPORTED_CONST struct ggc_root_tab gt_ggc_r_gt_rap[] = {
 	LAST_GGC_ROOT_TAB
 };
 
-int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
+__visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
 	int i;
 	const char * const plugin_name = plugin_info->base_name;

@@ -235,8 +235,6 @@ ENTRY(pax_enter_kernel_user)
 	sub	phys_base(%rip),%rbx
 
 #ifdef CONFIG_PARAVIRT
-	cmpl	$0, pv_info+PARAVIRT_enabled
-	jz	1f
 	pushq %rdi
 	i = 0
 	.rept USER_PGD_PTRS
@@ -247,17 +245,15 @@ ENTRY(pax_enter_kernel_user)
 	i = i + 1
 	.endr
 	popq	%rdi
-	jmp	2f
-1:
-#endif
-
+#else
 	i = 0
 	.rept USER_PGD_PTRS
 	movb	$0,i*8(%rbx)
 	i = i + 1
 	.endr
+#endif
 
-2:	SET_RDI_INTO_CR3
+	SET_RDI_INTO_CR3
 
 #ifdef CONFIG_PAX_KERNEXEC
 	GET_CR0_INTO_RDI
@@ -309,8 +305,6 @@ ENTRY(pax_exit_kernel_user)
 	sub	phys_base(%rip),%rbx
 
 #ifdef CONFIG_PARAVIRT
-	cmpl	$0, pv_info+PARAVIRT_enabled
-	jz	1f
 	i = 0
 	.rept USER_PGD_PTRS
 	mov	i*8(%rbx),%rsi
@@ -319,15 +313,14 @@ ENTRY(pax_exit_kernel_user)
 	call	PARA_INDIRECT(pv_mmu_ops+PV_MMU_set_pgd_batched)
 	i = i + 1
 	.endr
-	jmp	2f
-1:
-#endif
-
+#else
 	i = 0
 	.rept USER_PGD_PTRS
 	movb	$0x67,i*8(%rbx)
 	i = i + 1
 	.endr
+#endif
+
 2:
 
 #ifdef CONFIG_PARAVIRT

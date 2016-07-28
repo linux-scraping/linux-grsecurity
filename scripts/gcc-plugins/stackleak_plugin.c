@@ -20,7 +20,7 @@
 
 #include "gcc-common.h"
 
-int plugin_is_GPL_compatible;
+__visible int plugin_is_GPL_compatible;
 
 static int track_frame_size = -1;
 static const char track_function[] = "pax_track_stack";
@@ -275,7 +275,7 @@ static bool stackleak_final_gate(void)
 #define TODO_FLAGS_FINISH TODO_dump_func
 #include "gcc-generate-rtl-pass.h"
 
-int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
+__visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
 	const char * const plugin_name = plugin_info->base_name;
 	const int argc = plugin_info->argc;

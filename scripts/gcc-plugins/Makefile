@@ -2,14 +2,17 @@ GCC_PLUGINS_DIR := $(shell $(CC) -print-file-name=plugin)
 
 ifeq ($(PLUGINCC),$(HOSTCC))
   HOSTLIBS := hostlibs
-  HOST_EXTRACFLAGS += -I$(GCC_PLUGINS_DIR)/include -I$(src) -std=gnu99 -ggdb -Wall -W
+  HOST_EXTRACFLAGS += -I$(GCC_PLUGINS_DIR)/include -I$(src)
+  HOST_EXTRACFLAGS += -std=gnu99 -ggdb -fvisibility=hidden
+  HOST_EXTRACFLAGS += -Wall -W
   export HOST_EXTRACFLAGS
 else
   HOSTLIBS := hostcxxlibs
-  HOST_EXTRACXXFLAGS += -I$(GCC_PLUGINS_DIR)/include -I$(src) -std=gnu++98 -fno-rtti
-  HOST_EXTRACXXFLAGS += -fno-exceptions -fasynchronous-unwind-tables -ggdb
-  HOST_EXTRACXXFLAGS += -Wno-narrowing -Wno-unused-variable
-  HOST_EXTRACXXFLAGS += -Wall -W -Wno-unused-parameter
+  HOST_EXTRACXXFLAGS += -I$(GCC_PLUGINS_DIR)/include -I$(src)
+  HOST_EXTRACXXFLAGS += -std=gnu++98 -ggdb -fvisibility=hidden
+  HOST_EXTRACXXFLAGS += -fno-rtti -fno-exceptions -fasynchronous-unwind-tables
+  HOST_EXTRACXXFLAGS += -Wall -W
+  HOST_EXTRACXXFLAGS += -Wno-unused-parameter -Wno-narrowing -Wno-unused-variable
   export HOST_EXTRACXXFLAGS
 endif
 

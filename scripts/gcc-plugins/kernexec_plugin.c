@@ -17,10 +17,10 @@
 
 #include "gcc-common.h"
 
-int plugin_is_GPL_compatible;
+__visible int plugin_is_GPL_compatible;
 
 static struct plugin_info kernexec_plugin_info = {
-	.version	= "201602181345",
+	.version	= "201607271510",
 	.help		= "method=[bts|or]\tinstrumentation method\n"
 };
 
@@ -341,7 +341,7 @@ static bool kernexec_retaddr_gate(void)
 #define TODO_FLAGS_FINISH TODO_dump_func | TODO_ggc_collect
 #include "gcc-generate-rtl-pass.h"
 
-int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
+__visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
 	const char * const plugin_name = plugin_info->base_name;
 	const int argc = plugin_info->argc;
@@ -352,14 +352,14 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	struct register_pass_info kernexec_retaddr_pass_info;
 
 	kernexec_reload_pass_info.pass				= make_kernexec_reload_pass();
-	kernexec_reload_pass_info.reference_pass_name		= "ssa";
+	kernexec_reload_pass_info.reference_pass_name		= "early_optimizations";
 	kernexec_reload_pass_info.ref_pass_instance_number	= 1;
-	kernexec_reload_pass_info.pos_op 			= PASS_POS_INSERT_AFTER;
+	kernexec_reload_pass_info.pos_op 			= PASS_POS_INSERT_BEFORE;
 
 	kernexec_fptr_pass_info.pass				= make_kernexec_fptr_pass();
-	kernexec_fptr_pass_info.reference_pass_name		= "ssa";
+	kernexec_fptr_pass_info.reference_pass_name		= "early_optimizations";
 	kernexec_fptr_pass_info.ref_pass_instance_number	= 1;
-	kernexec_fptr_pass_info.pos_op 				= PASS_POS_INSERT_AFTER;
+	kernexec_fptr_pass_info.pos_op 				= PASS_POS_INSERT_BEFORE;
 
 	kernexec_retaddr_pass_info.pass				= make_kernexec_retaddr_pass();
 	kernexec_retaddr_pass_info.reference_pass_name		= "pro_and_epilogue";

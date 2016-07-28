@@ -15,7 +15,7 @@
 
 #include "gcc-common.h"
 
-int plugin_is_GPL_compatible;
+__visible int plugin_is_GPL_compatible;
 
 static struct plugin_info initify_plugin_info = {
 	.version	= "20160306",
@@ -512,7 +512,7 @@ static void initify_start_unit(void __unused *gcc_data, void __unused *user_data
 	targetm.section_type_flags = initify_section_type_flags;
 }
 
-int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
+__visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
 	const char * const plugin_name = plugin_info->base_name;
 	struct register_pass_info initify_pass_info;

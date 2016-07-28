@@ -29,10 +29,10 @@
 // unused C type flag in all versions 4.5-6
 #define TYPE_USERSPACE(TYPE) TYPE_LANG_FLAG_5(TYPE)
 
-int plugin_is_GPL_compatible;
+__visible int plugin_is_GPL_compatible;
 
 static struct plugin_info structleak_plugin_info = {
-	.version	= "201602181345",
+	.version	= "201607271510",
 	.help		= "disable\tdo not activate plugin\n",
 };
 
@@ -196,7 +196,7 @@ static unsigned int structleak_execute(void)
 #define TODO_FLAGS_FINISH TODO_verify_il | TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_remove_unused_locals | TODO_update_ssa | TODO_ggc_collect | TODO_verify_flow
 #include "gcc-generate-gimple-pass.h"
 
-int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
+__visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
 	int i;
 	const char * const plugin_name = plugin_info->base_name;
@@ -206,9 +206,9 @@ int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version 
 	struct register_pass_info structleak_pass_info;
 
 	structleak_pass_info.pass			= make_structleak_pass();
-	structleak_pass_info.reference_pass_name	= "ssa";
+	structleak_pass_info.reference_pass_name	= "early_optimizations";
 	structleak_pass_info.ref_pass_instance_number	= 1;
-	structleak_pass_info.pos_op			= PASS_POS_INSERT_AFTER;
+	structleak_pass_info.pos_op			= PASS_POS_INSERT_BEFORE;
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));

@@ -80,6 +80,9 @@ int ovl_setattr(struct dentry *dentry, struct iattr *attr)
 				goto out_drop_write;
 		}
 
+		if (attr->ia_valid & (ATTR_KILL_SUID|ATTR_KILL_SGID))
+			attr->ia_valid &= ~ATTR_MODE;
+
 		inode_lock(upperdentry->d_inode);
 		err = notify_change(upperdentry, attr, NULL);
 		if (!err)
@@ -142,16 +145,18 @@ int ovl_permission(struct inode *inode, int mask)
 
 		err = vfs_getattr(&realpath, &stat);
 		if (err)
-			return err;
+			goto out_dput;
 
+		err = -ESTALE;
 		if ((stat.mode ^ inode->i_mode) & S_IFMT)
-			return -ESTALE;
+			goto out_dput;
 
 		inode->i_mode = stat.mode;
 		inode->i_uid = stat.uid;
 		inode->i_gid = stat.gid;
 
-		return generic_permission(inode, mask);
+		err = generic_permission(inode, mask);
+		goto out_dput;
 	}
 
 	/* Careful in RCU walk mode */
@@ -424,12 +429,11 @@ struct inode *ovl_new_inode(struct super_block *sb, umode_t mode,
 	if (!inode)
 		return NULL;
 
-	mode &= S_IFMT;
-
 	inode->i_ino = get_next_ino();
 	inode->i_mode = mode;
 	inode->i_flags |= S_NOATIME | S_NOCMTIME;
 
+	mode &= S_IFMT;
 	switch (mode) {
 	case S_IFDIR:
 		inode->i_private = oe;

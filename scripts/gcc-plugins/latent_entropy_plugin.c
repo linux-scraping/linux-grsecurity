@@ -76,7 +76,7 @@
 
 #include "gcc-common.h"
 
-int plugin_is_GPL_compatible;
+__visible int plugin_is_GPL_compatible;
 
 static GTY(()) tree latent_entropy_decl;
 
@@ -563,7 +563,7 @@ static void latent_entropy_start_unit(void *gcc_data __unused, void *user_data _
 #define TODO_FLAGS_FINISH TODO_verify_ssa | TODO_verify_stmts | TODO_dump_func | TODO_update_ssa
 #include "gcc-generate-gimple-pass.h"
 
-int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
+__visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
 	bool enabled = true;
 	const char * const plugin_name = plugin_info->base_name;

@@ -559,9 +559,9 @@ static bool scsi_debug_host_lock = DEF_HOST_LOCK;
 static bool scsi_debug_strict = DEF_STRICT;
 static bool sdebug_any_injecting_opt;
 
-static atomic_t sdebug_cmnd_count;
-static atomic_t sdebug_completions;
-static atomic_t sdebug_a_tsf;		/* counter of 'almost' TSFs */
+static atomic_unchecked_t sdebug_cmnd_count;
+static atomic_unchecked_t sdebug_completions;
+static atomic_unchecked_t sdebug_a_tsf;		/* counter of 'almost' TSFs */
 
 #define DEV_READONLY(TGT)      (0)
 
@@ -3447,7 +3447,7 @@ static void sdebug_q_cmd_complete(unsigned long indx)
 	struct scsi_cmnd *scp;
 	struct sdebug_dev_info *devip;
 
-	atomic_inc(&sdebug_completions);
+	atomic_inc_unchecked(&sdebug_completions);
 	qa_indx = indx;
 	if ((qa_indx < 0) || (qa_indx >= SCSI_DEBUG_CANQUEUE)) {
 		pr_err("wild qa_indx=%d\n", qa_indx);
@@ -3507,7 +3507,7 @@ sdebug_q_cmd_hrt_complete(struct hrtimer *timer)
 	struct scsi_cmnd *scp;
 	struct sdebug_dev_info *devip;
 
-	atomic_inc(&sdebug_completions);
+	atomic_inc_unchecked(&sdebug_completions);
 	qa_indx = sd_hrtp->qa_indx;
 	if ((qa_indx < 0) || (qa_indx >= SCSI_DEBUG_CANQUEUE)) {
 		pr_err("wild qa_indx=%d\n", qa_indx);
@@ -3976,9 +3976,9 @@ schedule_resp(struct scsi_cmnd *cmnd, struct sdebug_dev_info *devip,
 		   (SCSI_DEBUG_OPT_RARE_TSF & scsi_debug_opts) &&
 		   (scsi_result == 0)) {
 		if ((num_in_q == (qdepth - 1)) &&
-		    (atomic_inc_return(&sdebug_a_tsf) >=
+		    (atomic_inc_return_unchecked(&sdebug_a_tsf) >=
 		     abs(scsi_debug_every_nth))) {
-			atomic_set(&sdebug_a_tsf, 0);
+			atomic_set_unchecked(&sdebug_a_tsf, 0);
 			inject = 1;
 			scsi_result = device_qfull_result;
 		}
@@ -4182,7 +4182,7 @@ static int scsi_debug_write_info(struct Scsi_Host *host, char *buffer, int lengt
 		return -EINVAL;
 	scsi_debug_opts = opts;
 	if (scsi_debug_every_nth != 0)
-		atomic_set(&sdebug_cmnd_count, 0);
+		atomic_set_unchecked(&sdebug_cmnd_count, 0);
 	return length;
 }
 
@@ -4197,8 +4197,8 @@ static int scsi_debug_show_info(struct seq_file *m, struct Scsi_Host *host)
 	if (scsi_debug_every_nth > 0)
 		snprintf(b, sizeof(b), " (curr:%d)",
 			 ((SCSI_DEBUG_OPT_RARE_TSF & scsi_debug_opts) ?
-				atomic_read(&sdebug_a_tsf) :
-				atomic_read(&sdebug_cmnd_count)));
+				atomic_read_unchecked(&sdebug_a_tsf) :
+				atomic_read_unchecked(&sdebug_cmnd_count)));
 	else
 		b[0] = '\0';
 
@@ -4213,7 +4213,7 @@ static int scsi_debug_show_info(struct seq_file *m, struct Scsi_Host *host)
 		SCSI_DEBUG_VERSION, scsi_debug_version_date,
 		scsi_debug_num_tgts, scsi_debug_dev_size_mb, scsi_debug_opts,
 		scsi_debug_every_nth, b, scsi_debug_delay, scsi_debug_ndelay,
-		scsi_debug_max_luns, atomic_read(&sdebug_completions),
+		scsi_debug_max_luns, atomic_read_unchecked(&sdebug_completions),
 		scsi_debug_sector_size, sdebug_cylinders_per, sdebug_heads,
 		sdebug_sectors_per, num_aborts, num_dev_resets,
 		num_target_resets, num_bus_resets, num_host_resets,
@@ -4328,8 +4328,8 @@ opts_done:
 		sdebug_any_injecting_opt = true;
 	else if (SCSI_DEBUG_OPT_SHORT_TRANSFER & opts)
 		sdebug_any_injecting_opt = true;
-	atomic_set(&sdebug_cmnd_count, 0);
-	atomic_set(&sdebug_a_tsf, 0);
+	atomic_set_unchecked(&sdebug_cmnd_count, 0);
+	atomic_set_unchecked(&sdebug_a_tsf, 0);
 	return count;
 }
 static DRIVER_ATTR_RW(opts);
@@ -4459,7 +4459,7 @@ static ssize_t every_nth_store(struct device_driver *ddp, const char *buf,
 
 	if ((count > 0) && (1 == sscanf(buf, "%d", &nth))) {
 		scsi_debug_every_nth = nth;
-		atomic_set(&sdebug_cmnd_count, 0);
+		atomic_set_unchecked(&sdebug_cmnd_count, 0);
 		return count;
 	}
 	return -EINVAL;
@@ -4783,8 +4783,8 @@ static int __init scsi_debug_init(void)
 	int k;
 	int ret;
 
-	atomic_set(&sdebug_cmnd_count, 0);
-	atomic_set(&sdebug_completions, 0);
+	atomic_set_unchecked(&sdebug_cmnd_count, 0);
+	atomic_set_unchecked(&sdebug_completions, 0);
 	atomic_set(&retired_max_queue, 0);
 
 	if (scsi_debug_ndelay >= 1000000000) {
@@ -5106,9 +5106,9 @@ check_inject(struct scsi_cmnd *scp)
 
 	memset(ep, 0, sizeof(struct sdebug_scmd_extra_t));
 
-	if (atomic_inc_return(&sdebug_cmnd_count) >=
+	if (atomic_inc_return_unchecked(&sdebug_cmnd_count) >=
 	    abs(scsi_debug_every_nth)) {
-		atomic_set(&sdebug_cmnd_count, 0);
+		atomic_set_unchecked(&sdebug_cmnd_count, 0);
 		if (scsi_debug_every_nth < -1)
 			scsi_debug_every_nth = -1;
 		if (SCSI_DEBUG_OPT_TIMEOUT & scsi_debug_opts)

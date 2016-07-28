@@ -19,7 +19,7 @@
 
 #include "size_overflow.h"
 
-int plugin_is_GPL_compatible;
+__visible int plugin_is_GPL_compatible;
 
 tree report_size_overflow_decl;
 
@@ -215,7 +215,7 @@ static bool disable_ubsan_si_overflow_gate(void)
 
 #include "gcc-generate-gimple-pass.h"
 
-int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
+__visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
 	int i;
 	const char * const plugin_name = plugin_info->base_name;

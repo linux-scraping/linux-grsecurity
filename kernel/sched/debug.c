@@ -263,7 +263,7 @@ set_table_entry(ctl_table_no_const *entry,
 	}
 }
 
-static struct ctl_table *
+static ctl_table_no_const *
 sd_alloc_ctl_domain_table(struct sched_domain *sd)
 {
 	ctl_table_no_const *table = sd_alloc_ctl_entry(14);

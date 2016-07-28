@@ -27,12 +27,12 @@
 #define ORIG_TYPE_NAME(node) \
 	(TYPE_NAME(TYPE_MAIN_VARIANT(node)) != NULL_TREE ? ((const unsigned char *)IDENTIFIER_POINTER(TYPE_NAME(TYPE_MAIN_VARIANT(node)))) : (const unsigned char *)"anonymous")
 
-int plugin_is_GPL_compatible;
+__visible int plugin_is_GPL_compatible;
 
 static int performance_mode;
 
 static struct plugin_info randomize_layout_plugin_info = {
-	.version	= "201402201816",
+	.version	= "201607271952",
 	.help		= "disable\t\t\tdo not activate plugin\n"
 			  "performance-mode\tenable cacheline-aware layout randomization\n"
 };
@@ -879,7 +879,7 @@ static unsigned int find_bad_casts_execute(void)
 #define TODO_FLAGS_FINISH TODO_dump_func
 #include "gcc-generate-gimple-pass.h"
 
-int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
+__visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
 	int i;
 	const char * const plugin_name = plugin_info->base_name;

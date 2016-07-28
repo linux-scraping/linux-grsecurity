@@ -17,7 +17,7 @@
 
 #include "gcc-common.h"
 
-int plugin_is_GPL_compatible;
+__visible int plugin_is_GPL_compatible;
 
 static struct plugin_info kallocstat_plugin_info = {
 	.version	= "201602181345",
@@ -113,7 +113,7 @@ static unsigned int kallocstat_execute(void)
 #define NO_GATE
 #include "gcc-generate-gimple-pass.h"
 
-int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
+__visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
 	const char * const plugin_name = plugin_info->base_name;
 	struct register_pass_info kallocstat_pass_info;

@@ -933,7 +933,7 @@ void mark_rodata_ro(void)
 	struct desc_struct d;
 	int cpu;
 
-	limit = paravirt_enabled() ? ktva_ktla(0xffffffff) : (unsigned long)&_etext;
+	limit = get_kernel_rpl() ? ktva_ktla(0xffffffff) : (unsigned long)&_etext;
 	limit = (limit - 1UL) >> PAGE_SHIFT;
 
 	memset(__LOAD_PHYSICAL_ADDR + PAGE_OFFSET, POISON_FREE_INITMEM, PAGE_SIZE);
@@ -951,7 +951,7 @@ void mark_rodata_ro(void)
 	start = ktla_ktva(start);
 #ifdef CONFIG_PAX_KERNEXEC
 	/* PaX: make KERNEL_CS read-only */
-	if (!paravirt_enabled()) {
+	if (!get_kernel_rpl()) {
 #endif
 	kernel_set_to_readonly = 1;
 
