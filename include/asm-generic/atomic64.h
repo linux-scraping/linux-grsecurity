@@ -66,5 +66,6 @@ extern int	 atomic64_add_unless(atomic64_t *v, long long a, long long u);
 #define atomic64_inc_return_unchecked(v) atomic64_inc_return(v)
 #define atomic64_dec_unchecked(v) atomic64_dec(v)
 #define atomic64_cmpxchg_unchecked(v, o, n) atomic64_cmpxchg((v), (o), (n))
+#define atomic64_xchg_unchecked(v, n) atomic64_xchg((v), (n))
 
 #endif  /*  _ASM_GENERIC_ATOMIC64_H  */
