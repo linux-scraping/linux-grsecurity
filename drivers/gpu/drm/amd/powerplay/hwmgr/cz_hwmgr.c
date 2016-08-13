@@ -915,7 +915,7 @@ static int cz_tf_update_low_mem_pstate(struct pp_hwmgr *hwmgr,
 	return 0;
 }
 
-static struct phm_master_table_item cz_set_power_state_list[] = {
+static const struct phm_master_table_item cz_set_power_state_list[] = {
 	{ .tableFunction = cz_tf_update_sclk_limit },
 	{ .tableFunction = cz_tf_set_deep_sleep_sclk_threshold },
 	{ .tableFunction = cz_tf_set_watermark_threshold },
@@ -925,13 +925,13 @@ static struct phm_master_table_item cz_set_power_state_list[] = {
 	{ }
 };
 
-static struct phm_master_table_header cz_set_power_state_master = {
+static const struct phm_master_table_header cz_set_power_state_master = {
 	0,
 	PHM_MasterTableFlag_None,
 	cz_set_power_state_list
 };
 
-static struct phm_master_table_item cz_setup_asic_list[] = {
+static const struct phm_master_table_item cz_setup_asic_list[] = {
 	{ .tableFunction = cz_tf_reset_active_process_mask },
 	{ .tableFunction = cz_tf_upload_pptable_to_smu },
 	{ .tableFunction = cz_tf_init_sclk_limit },
@@ -943,7 +943,7 @@ static struct phm_master_table_item cz_setup_asic_list[] = {
 	{ }
 };
 
-static struct phm_master_table_header cz_setup_asic_master = {
+static const struct phm_master_table_header cz_setup_asic_master = {
 	0,
 	PHM_MasterTableFlag_None,
 	cz_setup_asic_list
@@ -984,14 +984,14 @@ static int cz_tf_reset_cc6_data(struct pp_hwmgr *hwmgr,
 	return 0;
 }
 
-static struct phm_master_table_item cz_power_down_asic_list[] = {
+static const struct phm_master_table_item cz_power_down_asic_list[] = {
 	{ .tableFunction = cz_tf_power_up_display_clock_sys_pll },
 	{ .tableFunction = cz_tf_clear_nb_dpm_flag },
 	{ .tableFunction = cz_tf_reset_cc6_data },
 	{ }
 };
 
-static struct phm_master_table_header cz_power_down_asic_master = {
+static const struct phm_master_table_header cz_power_down_asic_master = {
 	0,
 	PHM_MasterTableFlag_None,
 	cz_power_down_asic_list
@@ -1095,19 +1095,19 @@ static int cz_tf_check_for_dpm_enabled(struct pp_hwmgr *hwmgr,
 	return 0;
 }
 
-static struct phm_master_table_item cz_disable_dpm_list[] = {
+static const struct phm_master_table_item cz_disable_dpm_list[] = {
 	{ .tableFunction = cz_tf_check_for_dpm_enabled },
 	{ },
 };
 
 
-static struct phm_master_table_header cz_disable_dpm_master = {
+static const struct phm_master_table_header cz_disable_dpm_master = {
 	0,
 	PHM_MasterTableFlag_None,
 	cz_disable_dpm_list
 };
 
-static struct phm_master_table_item cz_enable_dpm_list[] = {
+static const struct phm_master_table_item cz_enable_dpm_list[] = {
 	{ .tableFunction = cz_tf_check_for_dpm_disabled },
 	{ .tableFunction = cz_tf_program_voting_clients },
 	{ .tableFunction = cz_tf_start_dpm },
@@ -1117,7 +1117,7 @@ static struct phm_master_table_item cz_enable_dpm_list[] = {
 	{ },
 };
 
-static struct phm_master_table_header cz_enable_dpm_master = {
+static const struct phm_master_table_header cz_enable_dpm_master = {
 	0,
 	PHM_MasterTableFlag_None,
 	cz_enable_dpm_list
@@ -1729,7 +1729,7 @@ static int cz_get_dal_power_level(struct pp_hwmgr *hwmgr,
 }
 
 static int cz_force_clock_level(struct pp_hwmgr *hwmgr,
-		enum pp_clock_type type, int level)
+		enum pp_clock_type type, uint32_t mask)
 {
 	if (hwmgr->dpm_level != AMD_DPM_FORCED_LEVEL_MANUAL)
 		return -EINVAL;
@@ -1738,10 +1738,10 @@ static int cz_force_clock_level(struct pp_hwmgr *hwmgr,
 	case PP_SCLK:
 		smum_send_msg_to_smc_with_parameter(hwmgr->smumgr,
 				PPSMC_MSG_SetSclkSoftMin,
-				(1 << level));
+				mask);
 		smum_send_msg_to_smc_with_parameter(hwmgr->smumgr,
 				PPSMC_MSG_SetSclkSoftMax,
-				(1 << level));
+				mask);
 		break;
 	default:
 		break;

@@ -100,7 +100,7 @@ static int dummycon_font_copy(struct vc_data *a, int b)
     return 0;
 }
 
-static int dummycon_set_palette(struct vc_data *a, unsigned char *b)
+static int dummycon_set_palette(struct vc_data *a, const unsigned char *b)
 {
     return 0;
 }

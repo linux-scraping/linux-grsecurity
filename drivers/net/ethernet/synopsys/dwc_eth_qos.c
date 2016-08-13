@@ -949,7 +949,7 @@ static void dwceqos_adjust_link(struct net_device *ndev)
 
 	if (status_change) {
 		if (phydev->link) {
-			lp->ndev->trans_start = jiffies;
+			netif_trans_update(lp->ndev);
 			dwceqos_link_up(lp);
 		} else {
 			dwceqos_link_down(lp);
@@ -2203,7 +2203,7 @@ static netdev_tx_t dwceqos_start_xmit(struct sk_buff *skb, struct net_device *nd
 	netdev_sent_queue(ndev, skb->len);
 	spin_unlock_bh(&lp->tx_lock);
 
-	ndev->trans_start = jiffies;
+	netif_trans_update(ndev);
 	return 0;
 
 tx_error:

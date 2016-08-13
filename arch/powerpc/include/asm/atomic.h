@@ -9,6 +9,7 @@
 #include <linux/types.h>
 #include <asm/cmpxchg.h>
 #include <asm/barrier.h>
+#include <asm/asm-compat.h>
 
 #define ATOMIC_INIT(i)		{ (i) }
 
@@ -71,8 +72,8 @@ static __inline__ void atomic_set_unchecked(atomic_unchecked_t *v, int i)
 	"	bf 4*cr0+so, 3f\n"	\
 	"2:	.long 0x00c00b00\n"	\
 	"3:\n"
-#define __OVERFLOW_EXTABLE \
-	"\n4:\n"
+#define __OVERFLOW_EXTABLE	\
+	"\n4:\n"		\
 	_ASM_EXTABLE(2b, 4b)
 #else
 #define __REFCOUNT_OP(op) op
@@ -139,6 +140,7 @@ ATOMIC_OP(or, or)
 ATOMIC_OP(xor, xor)
 
 #define atomic_add_return_relaxed atomic_add_return_relaxed
+#define atomic_add_return_unchecked_relaxed atomic_add_return_unchecked_relaxed
 #define atomic_sub_return_relaxed atomic_sub_return_relaxed
 
 #undef ATOMIC_OPS
@@ -177,11 +179,7 @@ static inline int atomic_inc_return_unchecked_relaxed(atomic_unchecked_t *v)
  * other cases.
  */
 #define atomic_inc_and_test(v) (atomic_inc_return(v) == 0)
-
-static __inline__ int atomic_inc_and_test_unchecked(atomic_unchecked_t *v)
-{
-	return atomic_add_return_unchecked(1, v) == 0;
-}
+#define atomic_inc_and_test_unchecked(v) (atomic_add_return_unchecked(1, v) == 0)
 
 /* 
  * atomic_dec - decrement atomic variable
@@ -197,9 +195,6 @@ static __inline__ void atomic_dec_unchecked(atomic_unchecked_t *v)
 	atomic_sub_unchecked(1, v);
 }
 
-#define atomic_inc_return_relaxed atomic_inc_return_relaxed
-#define atomic_dec_return_relaxed atomic_dec_return_relaxed
-
 #define atomic_cmpxchg(v, o, n) (cmpxchg(&((v)->counter), (o), (n)))
 #define atomic_cmpxchg_relaxed(v, o, n) \
 	cmpxchg_relaxed(&((v)->counter), (o), (n))
@@ -214,10 +209,7 @@ static inline int atomic_cmpxchg_unchecked(atomic_unchecked_t *v, int old, int n
 	return cmpxchg(&(v->counter), old, new);
 }
 
-static inline int atomic_xchg_unchecked(atomic_unchecked_t *v, int new) 
-{
-	return xchg(&(v->counter), new);
-}
+#define atomic_xchg_unchecked(v, new) (xchg(&((v)->counter), new))
 
 /**
  * __atomic_add_unless - add unless the number is a given value
@@ -473,9 +465,6 @@ static __inline__ void atomic64_dec_unchecked(atomic64_unchecked_t *v)
 	atomic64_sub_unchecked(1, v);
 }
 
-#define atomic64_inc_return_relaxed atomic64_inc_return_relaxed
-#define atomic64_dec_return_relaxed atomic64_dec_return_relaxed
-
 #define atomic64_sub_and_test(a, v)	(atomic64_sub_return((a), (v)) == 0)
 #define atomic64_dec_and_test(v)	(atomic64_dec_return((v)) == 0)
 
@@ -517,10 +506,7 @@ static inline long atomic64_cmpxchg_unchecked(atomic64_unchecked_t *v, long old,
 	return cmpxchg(&(v->counter), old, new);
 }
 
-static inline long atomic64_xchg_unchecked(atomic64_unchecked_t *v, long new)
-{
-	return xchg(&(v->counter), new);
-}
+#define atomic64_xchg_unchecked(v, new) (xchg(&((v)->counter), new))
 
 /**
  * atomic64_add_unless - add unless the number is a given value

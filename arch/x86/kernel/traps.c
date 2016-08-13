@@ -51,6 +51,7 @@
 #include <asm/processor.h>
 #include <asm/debugreg.h>
 #include <linux/atomic.h>
+#include <asm/text-patching.h>
 #include <asm/ftrace.h>
 #include <asm/traps.h>
 #include <asm/desc.h>
@@ -151,7 +152,7 @@ void ist_begin_non_atomic(struct pt_regs *regs)
 	 * will catch asm bugs and any attempt to use ist_preempt_enable
 	 * from double_fault.
 	 */
-	BUG_ON((unsigned long)(current_top_of_stack(smp_processor_id()) -
+	BUG_ON((unsigned long)(current_top_of_stack() -
 			       current_stack_pointer()) >= THREAD_SIZE);
 
 	preempt_enable_no_resched();

@@ -33,6 +33,7 @@ static inline void pud_clear(pud_t *pud)	{ }
 #define pmd_ERROR(pmd)				(pud_ERROR((pmd).pud))
 
 #define pud_populate(mm, pmd, pte)		do { } while (0)
+#define pud_populate_kernel(mm, pmd, pte)	do { } while (0)
 
 /*
  * (pmds are folded into puds so this doesn't get actually called,

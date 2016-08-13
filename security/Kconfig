@@ -951,6 +951,7 @@ config PAX_SIZE_OVERFLOW
 	bool "Prevent various integer overflows in function size parameters"
 	default y if GRKERNSEC_CONFIG_AUTO
 	depends on GCC_PLUGINS
+	depends on !SPARC64 && !ARM64
 	help
 	  By saying Y here the kernel recomputes expressions of function
 	  arguments marked by a size_overflow attribute with double integer
@@ -1136,6 +1137,7 @@ source security/selinux/Kconfig
 source security/smack/Kconfig
 source security/tomoyo/Kconfig
 source security/apparmor/Kconfig
+source security/loadpin/Kconfig
 source security/yama/Kconfig
 
 source security/integrity/Kconfig

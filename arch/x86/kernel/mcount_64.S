@@ -183,7 +183,8 @@ GLOBAL(ftrace_graph_call)
 	jmp ftrace_stub
 #endif
 
-RAP_ENTRY(ftrace_stub)
+/* This is weak to keep gas from relaxing the jumps */
+RAP_WEAK(ftrace_stub)
 	pax_force_retaddr
 	retq
 ENDPROC(ftrace_caller)

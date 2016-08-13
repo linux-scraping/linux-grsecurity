@@ -739,10 +739,10 @@ static int cmpxchg_futex_value_locked(u32 *curval, u32 __user *uaddr,
 
 static int get_futex_value_locked(u32 *dest, u32 __user *from)
 {
-	unsigned long ret;
+	int ret;
 
 	pagefault_disable();
-	ret = __copy_from_user_inatomic(dest, from, sizeof(u32));
+	ret = __get_user(*dest, from);
 	pagefault_enable();
 
 	return ret ? -EFAULT : 0;

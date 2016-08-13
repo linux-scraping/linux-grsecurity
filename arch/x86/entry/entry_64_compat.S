@@ -108,10 +108,10 @@ ENTRY(entry_SYSENTER_compat)
 	pushq	%rdx			/* pt_regs->dx */
 	pushq	%rcx			/* pt_regs->cx */
 	pushq	$-ENOSYS		/* pt_regs->ax */
-	pushq   %rax                    /* pt_regs->r8  = 0 */
-	pushq   %rax                    /* pt_regs->r9  = 0 */
-	pushq   %rax                    /* pt_regs->r10 = 0 */
-	pushq   %rax                    /* pt_regs->r11 = 0 */
+	pushq   %rax			/* pt_regs->r8  = 0 */
+	pushq   %rax			/* pt_regs->r9  = 0 */
+	pushq   %rax			/* pt_regs->r10 = 0 */
+	pushq   %rax			/* pt_regs->r11 = 0 */
 	pushq   %rbx                    /* pt_regs->rbx */
 	pushq   %rbp                    /* pt_regs->rbp (will be overwritten) */
 #ifdef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
@@ -244,10 +244,10 @@ ENTRY(entry_SYSCALL_compat)
 	pushq	%rbp			/* pt_regs->cx (stashed in bp) */
 	pushq	$-ENOSYS		/* pt_regs->ax */
 	xorl    %eax,%eax
-	pushq   %rax                    /* pt_regs->r8  = 0 */
-	pushq   %rax                    /* pt_regs->r9  = 0 */
-	pushq   %rax                    /* pt_regs->r10 = 0 */
-	pushq   %rax                    /* pt_regs->r11 = 0 */
+	pushq   %rax			/* pt_regs->r8  = 0 */
+	pushq   %rax			/* pt_regs->r9  = 0 */
+	pushq   %rax			/* pt_regs->r10 = 0 */
+	pushq   %rax			/* pt_regs->r11 = 0 */
 	pushq   %rbx                    /* pt_regs->rbx */
 	pushq   %rbp                    /* pt_regs->rbp (will be overwritten) */
 #ifdef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
@@ -372,10 +372,10 @@ ENTRY(entry_INT80_compat)
 	pushq	%rcx			/* pt_regs->cx */
 	pushq	$-ENOSYS		/* pt_regs->ax */
 	xorl    %eax,%eax
-	pushq   %rax                    /* pt_regs->r8  = 0 */
-	pushq   %rax                    /* pt_regs->r9  = 0 */
-	pushq   %rax                    /* pt_regs->r10 = 0 */
-	pushq   %rax                    /* pt_regs->r11 = 0 */
+	pushq   %rax			/* pt_regs->r8  = 0 */
+	pushq   %rax			/* pt_regs->r9  = 0 */
+	pushq   %rax			/* pt_regs->r10 = 0 */
+	pushq   %rax			/* pt_regs->r11 = 0 */
 	pushq   %rbx                    /* pt_regs->rbx */
 	pushq   %rbp                    /* pt_regs->rbp */
 	pushq   %r12                    /* pt_regs->r12 */

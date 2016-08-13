@@ -1887,8 +1887,8 @@ void snd_pcm_period_elapsed(void *_substream)
 		snd_timer_interrupt(substream->timer, 1);
 #endif
  _end:
-	snd_pcm_stream_unlock_irqrestore(substream, flags);
 	kill_fasync(&runtime->fasync, SIGIO, POLL_IN);
+	snd_pcm_stream_unlock_irqrestore(substream, flags);
 }
 
 EXPORT_SYMBOL(snd_pcm_period_elapsed);
@@ -2596,6 +2596,8 @@ int snd_pcm_add_chmap_ctls(struct snd_pcm *pcm, int stream,
 	};
 	int err;
 
+	if (WARN_ON(pcm->streams[stream].chmap_kctl))
+		return -EBUSY;
 	info = kzalloc(sizeof(*info), GFP_KERNEL);
 	if (!info)
 		return -ENOMEM;

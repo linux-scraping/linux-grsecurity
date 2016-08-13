@@ -399,9 +399,16 @@ struct thread_struct {
 	unsigned long		ip;
 #endif
 #ifdef CONFIG_X86_64
-	unsigned long		fs;
+	unsigned long		fsbase;
+	unsigned long		gsbase;
+#else
+	/*
+	 * XXX: this could presumably be unsigned short.  Alternatively,
+	 * 32-bit kernels could be taught to use fsindex instead.
+	 */
+	unsigned long fs;
+	unsigned long gs;
 #endif
-	unsigned long		gs;
 
 	/* Floating point and extended processor state */
 	struct fpu		fpu;
@@ -466,22 +473,16 @@ static inline void native_swapgs(void)
 #endif
 }
 
-static inline unsigned long current_top_of_stack(unsigned int cpu)
+static inline unsigned long current_top_of_stack(void)
 {
-#ifdef CONFIG_X86_64
-	return cpu_tss[cpu].x86_tss.sp0;
-#else
 	/* sp0 on x86_32 is special in and around vm86 mode. */
 	return this_cpu_read_stable(cpu_current_top_of_stack);
-#endif
 }
 
 #ifdef CONFIG_PARAVIRT
 #include <asm/paravirt.h>
 #else
 #define __cpuid			native_cpuid
-#define paravirt_enabled()	0
-#define paravirt_has(x) 	0
 
 static inline void load_sp0(struct tss_struct *tss,
 			    struct thread_struct *thread)

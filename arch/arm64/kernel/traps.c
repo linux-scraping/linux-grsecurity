@@ -420,7 +420,7 @@ asmlinkage long do_ni_syscall(struct pt_regs *regs)
 			__show_regs(regs);
 	}
 
-	return sys_ni_syscall();
+	return -ENOSYS;
 }
 
 static const char *esr_class_str[] = {
@@ -477,8 +477,9 @@ asmlinkage void bad_mode(struct pt_regs *regs, int reason, unsigned int esr)
 	void __user *pc = (void __user *)instruction_pointer(regs);
 	console_verbose();
 
-	pr_crit("Bad mode in %s handler detected, code 0x%08x -- %s\n",
-		handler[reason], esr, esr_get_class_string(esr));
+	pr_crit("Bad mode in %s handler detected on CPU%d, code 0x%08x -- %s\n",
+		handler[reason], smp_processor_id(), esr,
+		esr_get_class_string(esr));
 	__show_regs(regs);
 
 	info.si_signo = SIGILL;

@@ -69,7 +69,7 @@ static const char * gr_sockfamilies[AF_MAX] = {
 	"inet6", "rose", "decnet", "netbeui", "security", "key", "netlink", "packet", "ash",
 	"econet", "atmsvc", "rds", "sna", "irda", "ppox", "wanpipe", "llc", "fam_27", "fam_28",
 	"tipc", "bluetooth", "iucv", "rxrpc", "isdn", "phonet", "ieee802154", "ciaf", "alg",
-	"nfc", "vsock", "kcm"
+	"nfc", "vsock", "kcm", "qipcrtr"
 	};
 
 const char *

@@ -63,7 +63,7 @@ EXPORT_SYMBOL(__stack_chk_guard);
 /*
  * Function pointers to optional machine specific functions
  */
-void (*pm_power_off)(void);
+void (* pm_power_off)(void);
 EXPORT_SYMBOL_GPL(pm_power_off);
 
 void (*arm_pm_restart)(enum reboot_mode reboot_mode, const char *cmd);
@@ -109,7 +109,7 @@ void machine_shutdown(void)
  * activity (executing tasks, handling interrupts). smp_send_stop()
  * achieves this.
  */
-void machine_halt(void)
+void __noreturn machine_halt(void)
 {
 	local_irq_disable();
 	smp_send_stop();
@@ -122,12 +122,13 @@ void machine_halt(void)
  * achieves this. When the system power is turned off, it will take all CPUs
  * with it.
  */
-void machine_power_off(void)
+void __noreturn machine_power_off(void)
 {
 	local_irq_disable();
 	smp_send_stop();
 	if (pm_power_off)
 		pm_power_off();
+	while(1);
 }
 
 /*
@@ -139,7 +140,7 @@ void machine_power_off(void)
  * executing pre-reset code, and using RAM that the primary CPU's code wishes
  * to use. Implementing such co-ordination would be essentially impossible.
  */
-void machine_restart(char *cmd)
+void __noreturn machine_restart(char *cmd)
 {
 	/* Disable interrupts first */
 	local_irq_disable();
@@ -200,13 +201,6 @@ void show_regs(struct pt_regs * regs)
 	__show_regs(regs);
 }
 
-/*
- * Free current thread data structures etc..
- */
-void exit_thread(void)
-{
-}
-
 static void tls_thread_flush(void)
 {
 	asm ("msr tpidr_el0, xzr");
@@ -265,9 +259,6 @@ int copy_thread(unsigned long clone_flags, unsigned long stack_start,
 		if (stack_start) {
 			if (is_compat_thread(task_thread_info(p)))
 				childregs->compat_sp = stack_start;
-			/* 16-byte aligned stack mandatory on AArch64 */
-			else if (stack_start & 15)
-				return -EINVAL;
 			else
 				childregs->sp = stack_start;
 		}
@@ -382,13 +373,14 @@ unsigned long arch_align_stack(unsigned long sp)
 	return sp & ~0xf;
 }
 
-static unsigned long randomize_base(unsigned long base)
-{
-	unsigned long range_end = base + (STACK_RND_MASK << PAGE_SHIFT) + 1;
-	return randomize_range(base, range_end, 0) ? : base;
-}
-
 unsigned long arch_randomize_brk(struct mm_struct *mm)
 {
-	return randomize_base(mm->brk);
+	unsigned long range_end = mm->brk;
+
+	if (is_compat_task())
+		range_end += 0x02000000;
+	else
+		range_end += 0x40000000;
+
+	return randomize_range(mm->brk, range_end, 0) ? : mm->brk;
 }

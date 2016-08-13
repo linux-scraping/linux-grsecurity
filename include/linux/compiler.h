@@ -373,6 +373,10 @@ void __read_once_size_nocheck(const volatile void *p, void *res, int size)
 #define __deprecated_for_modules
 #endif
 
+#ifndef __malloc
+#define __malloc
+#endif
+
 /*
  * Allow us to avoid 'defined but not used' warnings on functions and data,
  * as well as force them to be emitted to the assembly file.

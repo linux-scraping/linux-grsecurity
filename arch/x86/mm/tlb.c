@@ -28,6 +28,8 @@
  *	Implement flush IPI by CALL_FUNCTION_VECTOR, Alex Shi
  */
 
+#ifdef CONFIG_SMP
+
 struct flush_tlb_info {
 	struct mm_struct *flush_mm;
 	unsigned long flush_start;
@@ -60,6 +62,212 @@ void leave_mm(int cpu)
 	}
 }
 EXPORT_SYMBOL_GPL(leave_mm);
+
+#endif /* CONFIG_SMP */
+
+static void pax_switch_mm(struct mm_struct *next, unsigned int cpu)
+{
+
+#ifdef CONFIG_PAX_PER_CPU_PGD
+	pax_open_kernel();
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	if (static_cpu_has(X86_FEATURE_PCIDUDEREF))
+		__clone_user_pgds(get_cpu_pgd(cpu, user), next->pgd);
+	else
+#endif
+
+		__clone_user_pgds(get_cpu_pgd(cpu, kernel), next->pgd);
+
+	__shadow_user_pgds(get_cpu_pgd(cpu, kernel) + USER_PGD_PTRS, next->pgd);
+
+	pax_close_kernel();
+
+	BUG_ON((__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL) != (read_cr3() & __PHYSICAL_MASK) && (__pa(get_cpu_pgd(cpu, user)) | PCID_USER) != (read_cr3() & __PHYSICAL_MASK));
+
+#if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
+	if (static_cpu_has(X86_FEATURE_PCIDUDEREF)) {
+		if (static_cpu_has(X86_FEATURE_INVPCID)) {
+			u64 descriptor[2];
+			descriptor[0] = PCID_USER;
+			asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_CONTEXT) : "memory");
+			if (!static_cpu_has(X86_FEATURE_STRONGUDEREF)) {
+				descriptor[0] = PCID_KERNEL;
+				asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_CONTEXT) : "memory");
+			}
+		} else {
+			write_cr3(__pa(get_cpu_pgd(cpu, user)) | PCID_USER);
+			if (static_cpu_has(X86_FEATURE_STRONGUDEREF))
+				write_cr3(__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL | PCID_NOFLUSH);
+			else
+				write_cr3(__pa(get_cpu_pgd(cpu, kernel)) | PCID_KERNEL);
+		}
+	} else
+#endif
+
+		load_cr3(get_cpu_pgd(cpu, kernel));
+#endif
+
+}
+
+void switch_mm(struct mm_struct *prev, struct mm_struct *next,
+	       struct task_struct *tsk)
+{
+	unsigned long flags;
+
+	local_irq_save(flags);
+	switch_mm_irqs_off(prev, next, tsk);
+	local_irq_restore(flags);
+}
+
+void switch_mm_irqs_off(struct mm_struct *prev, struct mm_struct *next,
+			struct task_struct *tsk)
+{
+	unsigned cpu = smp_processor_id();
+#if defined(CONFIG_X86_32) && defined(CONFIG_SMP) && (defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC))
+	int tlbstate = TLBSTATE_OK;
+#endif
+
+	if (likely(prev != next)) {
+#ifdef CONFIG_SMP
+#if defined(CONFIG_X86_32) && (defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC))
+		tlbstate = this_cpu_read(cpu_tlbstate.state);
+#endif
+		this_cpu_write(cpu_tlbstate.state, TLBSTATE_OK);
+		this_cpu_write(cpu_tlbstate.active_mm, next);
+#endif
+		cpumask_set_cpu(cpu, mm_cpumask(next));
+
+		/*
+		 * Re-load page tables.
+		 *
+		 * This logic has an ordering constraint:
+		 *
+		 *  CPU 0: Write to a PTE for 'next'
+		 *  CPU 0: load bit 1 in mm_cpumask.  if nonzero, send IPI.
+		 *  CPU 1: set bit 1 in next's mm_cpumask
+		 *  CPU 1: load from the PTE that CPU 0 writes (implicit)
+		 *
+		 * We need to prevent an outcome in which CPU 1 observes
+		 * the new PTE value and CPU 0 observes bit 1 clear in
+		 * mm_cpumask.  (If that occurs, then the IPI will never
+		 * be sent, and CPU 1's TLB will contain a stale entry.)
+		 *
+		 * The bad outcome can occur if either CPU's load is
+		 * reordered before that CPU's store, so both CPUs must
+		 * execute full barriers to prevent this from happening.
+		 *
+		 * Thus, switch_mm needs a full barrier between the
+		 * store to mm_cpumask and any operation that could load
+		 * from next->pgd.  TLB fills are special and can happen
+		 * due to instruction fetches or for no reason at all,
+		 * and neither LOCK nor MFENCE orders them.
+		 * Fortunately, load_cr3() is serializing and gives the
+		 * ordering guarantee we need.
+		 *
+		 */
+#ifdef CONFIG_PAX_PER_CPU_PGD
+		pax_switch_mm(next, cpu);
+#else
+		load_cr3(next->pgd);
+#endif
+
+		trace_tlb_flush(TLB_FLUSH_ON_TASK_SWITCH, TLB_FLUSH_ALL);
+
+		/* Stop flush ipis for the previous mm */
+		cpumask_clear_cpu(cpu, mm_cpumask(prev));
+
+		/* Load per-mm CR4 state */
+		load_mm_cr4(next);
+
+#ifdef CONFIG_MODIFY_LDT_SYSCALL
+		/*
+		 * Load the LDT, if the LDT is different.
+		 *
+		 * It's possible that prev->context.ldt doesn't match
+		 * the LDT register.  This can happen if leave_mm(prev)
+		 * was called and then modify_ldt changed
+		 * prev->context.ldt but suppressed an IPI to this CPU.
+		 * In this case, prev->context.ldt != NULL, because we
+		 * never set context.ldt to NULL while the mm still
+		 * exists.  That means that next->context.ldt !=
+		 * prev->context.ldt, because mms never share an LDT.
+		 */
+		if (unlikely(prev->context.ldt != next->context.ldt))
+			load_mm_ldt(next);
+#endif
+
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_PAGEEXEC) && defined(CONFIG_SMP)
+		if (!(__supported_pte_mask & _PAGE_NX)) {
+			smp_mb__before_atomic();
+			cpumask_clear_cpu(cpu, &prev->context.cpu_user_cs_mask);
+			smp_mb__after_atomic();
+			cpumask_set_cpu(cpu, &next->context.cpu_user_cs_mask);
+		}
+#endif
+
+#if defined(CONFIG_X86_32) && (defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC))
+		if (unlikely(prev->context.user_cs_base != next->context.user_cs_base ||
+			     prev->context.user_cs_limit != next->context.user_cs_limit))
+			set_user_cs(next->context.user_cs_base, next->context.user_cs_limit, cpu);
+#ifdef CONFIG_SMP
+		else if (unlikely(tlbstate != TLBSTATE_OK))
+			set_user_cs(next->context.user_cs_base, next->context.user_cs_limit, cpu);
+#endif
+#endif
+
+	}
+	else {
+		pax_switch_mm(next, cpu);
+
+#ifdef CONFIG_SMP
+		this_cpu_write(cpu_tlbstate.state, TLBSTATE_OK);
+		BUG_ON(this_cpu_read(cpu_tlbstate.active_mm) != next);
+
+		if (!cpumask_test_cpu(cpu, mm_cpumask(next))) {
+			/*
+			 * On established mms, the mm_cpumask is only changed
+			 * from irq context, from ptep_clear_flush() while in
+			 * lazy tlb mode, and here. Irqs are blocked during
+			 * schedule, protecting us from simultaneous changes.
+			 */
+			cpumask_set_cpu(cpu, mm_cpumask(next));
+
+			/*
+			 * We were in lazy tlb mode and leave_mm disabled
+			 * tlb flush IPI delivery. We must reload CR3
+			 * to make sure to use no freed page tables.
+			 *
+			 * As above, load_cr3() is serializing and orders TLB
+			 * fills with respect to the mm_cpumask write.
+			 */
+
+#ifndef CONFIG_PAX_PER_CPU_PGD
+			load_cr3(next->pgd);
+			trace_tlb_flush(TLB_FLUSH_ON_TASK_SWITCH, TLB_FLUSH_ALL);
+#endif
+
+			load_mm_cr4(next);
+			load_mm_ldt(next);
+
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_PAGEEXEC)
+			if (!(__supported_pte_mask & _PAGE_NX))
+				cpumask_set_cpu(cpu, &next->context.cpu_user_cs_mask);
+#endif
+
+#if defined(CONFIG_X86_32) && (defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC))
+#ifdef CONFIG_PAX_PAGEEXEC
+			if (!((next->pax_flags & MF_PAX_PAGEEXEC) && (__supported_pte_mask & _PAGE_NX)))
+#endif
+				set_user_cs(next->context.user_cs_base, next->context.user_cs_limit, cpu);
+#endif
+
+		}
+#endif
+	}
+}
+
+#ifdef CONFIG_SMP
 
 /*
  * The flush IPI assumes that a thread switch happens in this order:
@@ -357,3 +565,5 @@ static int __init create_tlb_single_page_flush_ceiling(void)
 	return 0;
 }
 late_initcall(create_tlb_single_page_flush_ceiling);
+
+#endif /* CONFIG_SMP */

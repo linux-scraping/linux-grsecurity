@@ -555,8 +555,6 @@ static int aac_get_container_name(struct scsi_cmnd * scsicmd)
 	dev = (struct aac_dev *)scsicmd->device->host->hostdata;
 
 	cmd_fibcontext = aac_fib_alloc_tag(dev, scsicmd);
-	if (!cmd_fibcontext)
-		return -ENOMEM;
 
 	aac_fib_init(cmd_fibcontext);
 	dinfo = (struct aac_get_name *) fib_data(cmd_fibcontext);
@@ -1042,8 +1040,6 @@ static int aac_get_container_serial(struct scsi_cmnd * scsicmd)
 	dev = (struct aac_dev *)scsicmd->device->host->hostdata;
 
 	cmd_fibcontext = aac_fib_alloc_tag(dev, scsicmd);
-	if (!cmd_fibcontext)
-		return -ENOMEM;
 
 	aac_fib_init(cmd_fibcontext);
 	dinfo = (struct aac_get_serial *) fib_data(cmd_fibcontext);
@@ -1955,10 +1951,6 @@ static int aac_read(struct scsi_cmnd * scsicmd)
 	 *	Alocate and initialize a Fib
 	 */
 	cmd_fibcontext = aac_fib_alloc_tag(dev, scsicmd);
-	if (!cmd_fibcontext) {
-		printk(KERN_WARNING "aac_read: fib allocation failed\n");
-		return -1;
-	}
 
 	status = aac_adapter_read(cmd_fibcontext, scsicmd, lba, count);
 
@@ -2053,16 +2045,6 @@ static int aac_write(struct scsi_cmnd * scsicmd)
 	 *	Allocate and initialize a Fib then setup a BlockWrite command
 	 */
 	cmd_fibcontext = aac_fib_alloc_tag(dev, scsicmd);
-	if (!cmd_fibcontext) {
-		/* FIB temporarily unavailable,not catastrophic failure */
-
-		/* scsicmd->result = DID_ERROR << 16;
-		 * scsicmd->scsi_done(scsicmd);
-		 * return 0;
-		 */
-		printk(KERN_WARNING "aac_write: fib allocation failed\n");
-		return -1;
-	}
 
 	status = aac_adapter_write(cmd_fibcontext, scsicmd, lba, count, fua);
 
@@ -2288,8 +2270,6 @@ static int aac_start_stop(struct scsi_cmnd *scsicmd)
 	 *	Allocate and initialize a Fib
 	 */
 	cmd_fibcontext = aac_fib_alloc_tag(aac, scsicmd);
-	if (!cmd_fibcontext)
-		return SCSI_MLQUEUE_HOST_BUSY;
 
 	aac_fib_init(cmd_fibcontext);
 
@@ -3189,8 +3169,6 @@ static int aac_send_srb_fib(struct scsi_cmnd* scsicmd)
 	 *	Allocate and initialize a Fib then setup a BlockWrite command
 	 */
 	cmd_fibcontext = aac_fib_alloc_tag(dev, scsicmd);
-	if (!cmd_fibcontext)
-		return -1;
 
 	status = aac_adapter_scsi(cmd_fibcontext, scsicmd);
 

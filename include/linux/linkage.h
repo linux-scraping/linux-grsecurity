@@ -89,6 +89,19 @@
 
 #define ENTRY(name) __ENTRY(name,)
 
+#endif
+
+#endif /* LINKER_SCRIPT */
+
+#ifndef WEAK
+#define __WEAK(name, rap_hash) \
+	.weak name ASM_NL \
+	rap_hash \
+	name:
+
+#define WEAK(name) __WEAK(name, )
+#endif
+
 #ifdef CONFIG_PAX_RAP
 #if BITS_PER_LONG == 64
 #define __ASM_RAP_HASH(hash) .quad 0, hash ASM_NL
@@ -98,18 +111,10 @@
 #error incompatible BITS_PER_LONG
 #endif
 #define RAP_ENTRY(name) __ENTRY(name, __ASM_RAP_HASH(__rap_hash_##name))
+#define RAP_WEAK(name) __WEAK(name, __ASM_RAP_HASH(__rap_hash_##name))
 #else
 #define RAP_ENTRY(name) ENTRY(name)
-#endif
-
-#endif
-
-#endif /* LINKER_SCRIPT */
-
-#ifndef WEAK
-#define WEAK(name)	   \
-	.weak name ASM_NL   \
-	name:
+#define RAP_WEAK(name) WEAK(name)
 #endif
 
 #ifndef END

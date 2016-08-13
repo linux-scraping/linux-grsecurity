@@ -35,6 +35,7 @@
 #include <linux/uaccess.h>
 #include <linux/io.h>
 #include <linux/sched.h>
+#include <linux/ctype.h>
 
 #include <linux/i8k.h>
 
@@ -403,6 +404,10 @@ i8k_ioctl_unlocked(struct file *fp, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 	case I8K_BIOS_VERSION:
+		if (!isdigit(bios_version[0]) || !isdigit(bios_version[1]) ||
+		    !isdigit(bios_version[2]))
+			return -EINVAL;
+
 		val = (bios_version[0] << 16) |
 				(bios_version[1] << 8) | bios_version[2];
 		break;
@@ -962,10 +967,6 @@ MODULE_DEVICE_TABLE(dmi, i8k_dmi_table);
  */
 static const struct dmi_system_id i8k_blacklist_fan_type_dmi_table[] __initconst = {
 	{
-		/*
-		 * CPU fan speed going up and down on Dell Studio XPS 8000
-		 * for unknown reasons.
-		 */
 		.ident = "Dell Studio XPS 8000",
 		.matches = {
 			DMI_EXACT_MATCH(DMI_SYS_VENDOR, "Dell Inc."),

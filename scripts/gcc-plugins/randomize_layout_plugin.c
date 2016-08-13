@@ -32,7 +32,7 @@ __visible int plugin_is_GPL_compatible;
 static int performance_mode;
 
 static struct plugin_info randomize_layout_plugin_info = {
-	.version	= "201607271952",
+	.version	= "201402201816",
 	.help		= "disable\t\t\tdo not activate plugin\n"
 			  "performance-mode\tenable cacheline-aware layout randomization\n"
 };

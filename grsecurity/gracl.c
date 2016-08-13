@@ -2448,15 +2448,31 @@ gr_handle_ptrace(struct task_struct *task, const long request)
 		case PTRACE_POKETEXT:
 		case PTRACE_POKEDATA:
 		case PTRACE_POKEUSR:
-#if !defined(CONFIG_PPC32) && !defined(CONFIG_PPC64) && !defined(CONFIG_PARISC) && !defined(CONFIG_ALPHA) && !defined(CONFIG_IA64)
+#if !defined(CONFIG_PPC32) && !defined(CONFIG_PPC64) && !defined(CONFIG_PARISC) && !defined(CONFIG_ALPHA) && !defined(CONFIG_IA64) && !defined(CONFIG_ARM64)
 		case PTRACE_SETREGS:
 		case PTRACE_SETFPREGS:
+#endif
+#ifdef CONFIG_COMPAT
+#ifdef CONFIG_ARM64
+		case COMPAT_PTRACE_SETREGS:
+		case COMPAT_PTRACE_SETVFPREGS:
+#ifdef CONFIG_HAVE_HW_BREAKPOINT
+		case COMPAT_PTRACE_SETHBPREGS:
+#endif
+#endif
 #endif
 #ifdef CONFIG_X86
 		case PTRACE_SETFPXREGS:
 #endif
 #ifdef CONFIG_ALTIVEC
 		case PTRACE_SETVRREGS:
+#endif
+#ifdef CONFIG_ARM
+		case PTRACE_SET_SYSCALL:
+		case PTRACE_SETVFPREGS:
+#ifdef CONFIG_HAVE_HW_BREAKPOINT
+		case PTRACE_SETHBPREGS:
+#endif
 #endif
 			return 1;
 		default:

@@ -29,6 +29,7 @@
 #include <linux/kallsyms.h>
 #include <linux/ftrace.h>
 
+#include <asm/text-patching.h>
 #include <asm/cacheflush.h>
 #include <asm/desc.h>
 #include <asm/pgtable.h>
@@ -362,17 +363,17 @@ int arch_prepare_optimized_kprobe(struct optimized_kprobe *op,
 
 	/* Copy arch-dep-instance from template */
 	pax_open_kernel();
-	memcpy(buf, ktla_ktva(&optprobe_template_entry), TMPL_END_IDX);
+	memcpy(buf, (u8 *)ktla_ktva((unsigned long)&optprobe_template_entry), TMPL_END_IDX);
 	pax_close_kernel();
 
 	/* Set probe information */
 	synthesize_set_arg1(buf + TMPL_MOVE_IDX, (unsigned long)op);
 
 	/* Set probe function call */
-	synthesize_relcall(ktva_ktla(buf) + TMPL_CALL_IDX, optimized_callback);
+	synthesize_relcall((u8 *)ktva_ktla((unsigned long)buf) + TMPL_CALL_IDX, optimized_callback);
 
 	/* Set returning jmp instruction at the tail of out-of-line buffer */
-	synthesize_reljump(ktva_ktla(buf) + TMPL_END_IDX + op->optinsn.size,
+	synthesize_reljump((u8 *)ktva_ktla((unsigned long)buf) + TMPL_END_IDX + op->optinsn.size,
 			   (u8 *)op->kp.addr + op->optinsn.size);
 
 	flush_icache_range((unsigned long) buf,
@@ -397,7 +398,7 @@ void arch_optimize_kprobes(struct list_head *oplist)
 		WARN_ON(kprobe_disabled(&op->kp));
 
 		/* Backup instructions which will be replaced by jump address */
-		memcpy(op->optinsn.copied_insn, ktla_ktva(op->kp.addr) + INT3_SIZE,
+		memcpy(op->optinsn.copied_insn, (u8 *)ktla_ktva((unsigned long)op->kp.addr) + INT3_SIZE,
 		       RELATIVE_ADDR_SIZE);
 
 		insn_buf[0] = RELATIVEJUMP_OPCODE;

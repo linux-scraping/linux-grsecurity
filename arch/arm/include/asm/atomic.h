@@ -305,10 +305,7 @@ ATOMIC_OP(xor, ^=, eor)
 #undef __ATOMIC_OP
 
 #define atomic_xchg(v, new) (xchg(&((v)->counter), new))
-static inline int atomic_xchg_unchecked(atomic_unchecked_t *v, int new)
-{
-	return xchg_relaxed(&v->counter, new);
-}
+#define atomic_xchg_unchecked(v, new) (xchg(&((v)->counter), new))
 
 #define atomic_inc(v)		atomic_add(1, v)
 static inline void atomic_inc_unchecked(atomic_unchecked_t *v)

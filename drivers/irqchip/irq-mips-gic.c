@@ -197,7 +197,7 @@ void gic_write_cpu_compare(cycle_t cnt, int cpu)
 
 	local_irq_save(flags);
 
-	gic_write(GIC_REG(VPE_LOCAL, GIC_VPE_OTHER_ADDR), cpu);
+	gic_write(GIC_REG(VPE_LOCAL, GIC_VPE_OTHER_ADDR), mips_cm_vp_id(cpu));
 
 	if (mips_cm_is64) {
 		gic_write(GIC_REG(VPE_OTHER, GIC_VPE_COMPARE), cnt);
@@ -245,6 +245,14 @@ void gic_stop_count(void)
 }
 
 #endif
+
+unsigned gic_read_local_vp_id(void)
+{
+	unsigned long ident;
+
+	ident = gic_read(GIC_REG(VPE_LOCAL, GIC_VP_IDENT));
+	return ident & GIC_VP_IDENT_VCNUM_MSK;
+}
 
 static bool gic_local_irq_is_routable(int intr)
 {
@@ -553,7 +561,8 @@ static void gic_mask_local_irq_all_vpes(struct irq_data *d)
 
 	spin_lock_irqsave(&gic_lock, flags);
 	for (i = 0; i < gic_vpes; i++) {
-		gic_write(GIC_REG(VPE_LOCAL, GIC_VPE_OTHER_ADDR), i);
+		gic_write(GIC_REG(VPE_LOCAL, GIC_VPE_OTHER_ADDR),
+			  mips_cm_vp_id(i));
 		gic_write32(GIC_REG(VPE_OTHER, GIC_VPE_RMASK), 1 << intr);
 	}
 	spin_unlock_irqrestore(&gic_lock, flags);
@@ -567,7 +576,8 @@ static void gic_unmask_local_irq_all_vpes(struct irq_data *d)
 
 	spin_lock_irqsave(&gic_lock, flags);
 	for (i = 0; i < gic_vpes; i++) {
-		gic_write(GIC_REG(VPE_LOCAL, GIC_VPE_OTHER_ADDR), i);
+		gic_write(GIC_REG(VPE_LOCAL, GIC_VPE_OTHER_ADDR),
+			  mips_cm_vp_id(i));
 		gic_write32(GIC_REG(VPE_OTHER, GIC_VPE_SMASK), 1 << intr);
 	}
 	spin_unlock_irqrestore(&gic_lock, flags);
@@ -607,7 +617,8 @@ static void __init gic_basic_init(void)
 	for (i = 0; i < gic_vpes; i++) {
 		unsigned int j;
 
-		gic_write(GIC_REG(VPE_LOCAL, GIC_VPE_OTHER_ADDR), i);
+		gic_write(GIC_REG(VPE_LOCAL, GIC_VPE_OTHER_ADDR),
+			  mips_cm_vp_id(i));
 		for (j = 0; j < GIC_NUM_LOCAL_INTRS; j++) {
 			if (!gic_local_irq_is_routable(j))
 				continue;
@@ -652,7 +663,8 @@ static int gic_local_irq_domain_map(struct irq_domain *d, unsigned int virq,
 	for (i = 0; i < gic_vpes; i++) {
 		u32 val = GIC_MAP_TO_PIN_MSK | gic_cpu_pin;
 
-		gic_write(GIC_REG(VPE_LOCAL, GIC_VPE_OTHER_ADDR), i);
+		gic_write(GIC_REG(VPE_LOCAL, GIC_VPE_OTHER_ADDR),
+			  mips_cm_vp_id(i));
 
 		switch (intr) {
 		case GIC_LOCAL_INT_WD:
@@ -706,7 +718,7 @@ static int gic_shared_irq_domain_map(struct irq_domain *d, unsigned int virq,
 
 	spin_lock_irqsave(&gic_lock, flags);
 	gic_map_to_pin(intr, gic_cpu_pin);
-	gic_map_to_vpe(intr, vpe);
+	gic_map_to_vpe(intr, mips_cm_vp_id(vpe));
 	for (i = 0; i < min(gic_vpes, NR_CPUS); i++)
 		clear_bit(intr, pcpu_masks[i].pcpu_mask);
 	set_bit(intr, pcpu_masks[vpe].pcpu_mask);
@@ -947,7 +959,7 @@ int gic_ipi_domain_match(struct irq_domain *d, struct device_node *node,
 	switch (bus_token) {
 	case DOMAIN_BUS_IPI:
 		is_ipi = d->bus_token == bus_token;
-		return to_of_node(d->fwnode) == node && is_ipi;
+		return (!node || to_of_node(d->fwnode) == node) && is_ipi;
 		break;
 	default:
 		return 0;
@@ -966,7 +978,7 @@ static void __init __gic_init(unsigned long gic_base_addr,
 			      unsigned int cpu_vec, unsigned int irqbase,
 			      struct device_node *node)
 {
-	unsigned int gicconfig;
+	unsigned int gicconfig, cpu;
 	unsigned int v[2];
 
 	__gic_base_addr = gic_base_addr;
@@ -983,6 +995,14 @@ static void __init __gic_init(unsigned long gic_base_addr,
 	gic_vpes = gic_vpes + 1;
 
 	if (cpu_has_veic) {
+		/* Set EIC mode for all VPEs */
+		for_each_present_cpu(cpu) {
+			gic_write(GIC_REG(VPE_LOCAL, GIC_VPE_OTHER_ADDR),
+				  mips_cm_vp_id(cpu));
+			gic_write(GIC_REG(VPE_OTHER, GIC_VPE_CTL),
+				  GIC_VPE_CTL_EIC_MODE_MSK);
+		}
+
 		/* Always use vector 1 in EIC mode */
 		gic_cpu_pin = 0;
 		timer_cpu_pin = gic_cpu_pin;
