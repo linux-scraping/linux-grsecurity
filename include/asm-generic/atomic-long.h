@@ -270,8 +270,9 @@ static inline void pax_refcount_needs_these_functions(void)
 #endif
 #define atomic_dec_unchecked(v) atomic_dec(v)
 #define atomic_cmpxchg_unchecked(v, o, n) atomic_cmpxchg((v), (o), (n))
+#ifndef atomic_xchg_unchecked
 #define atomic_xchg_unchecked(v, i) atomic_xchg((v), (i))
-
+#endif
 #define atomic_long_read_unchecked(v) atomic_long_read(v)
 #define atomic_long_set_unchecked(v, i) atomic_long_set((v), (i))
 #define atomic_long_add_unchecked(i, v) atomic_long_add((i), (v))

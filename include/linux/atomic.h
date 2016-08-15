@@ -464,6 +464,10 @@
 #ifndef xchg
 #define  xchg(...)			__atomic_op_fence(xchg, __VA_ARGS__)
 #endif
+
+#ifndef xchg_unchecked
+#define  xchg_unchecked(...)		__atomic_op_fence(xchg_unchecked, __VA_ARGS__)
+#endif
 #endif /* xchg_relaxed */
 
 /**

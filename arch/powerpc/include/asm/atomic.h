@@ -209,7 +209,7 @@ static inline int atomic_cmpxchg_unchecked(atomic_unchecked_t *v, int old, int n
 	return cmpxchg(&(v->counter), old, new);
 }
 
-#define atomic_xchg_unchecked(v, new) (xchg(&((v)->counter), new))
+#define atomic_xchg_unchecked(v, new) (xchg_unchecked(&((v)->counter), new))
 
 /**
  * __atomic_add_unless - add unless the number is a given value

@@ -178,7 +178,8 @@ static bool is_nocapture_param(const gcall *stmt, int fn_arg_count)
 	int fntype_arg_len;
 	const_tree fndecl = gimple_call_fndecl(stmt);
 
-	gcc_assert(DECL_ABSTRACT_ORIGIN(fndecl) == NULL_TREE);
+	if (DECL_ABSTRACT_ORIGIN(fndecl) != NULL_TREE)
+		return false;
 
 	if (is_syscall(fndecl))
 		return true;
