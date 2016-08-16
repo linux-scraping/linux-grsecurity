@@ -99,23 +99,13 @@ static unsigned long mmap_base(struct mm_struct *mm, unsigned long rnd)
 	return PAGE_ALIGN(pax_task_size - gap - rnd);
 }
 
-/*
- * Bottom-up (legacy) layout on X86_32 did not support randomization, X86_64
- * does, but not when emulating X86_32
- */
 static unsigned long mmap_legacy_base(struct mm_struct *mm, unsigned long rnd)
 {
-	if (mmap_is_ia32()) {
-
 #ifdef CONFIG_PAX_SEGMEXEC
-		if (mm->pax_flags & MF_PAX_SEGMEXEC)
-			return SEGMEXEC_TASK_UNMAPPED_BASE;
-		else
+	if (mmap_is_ia32() && (mm->pax_flags & MF_PAX_SEGMEXEC))
+		return SEGMEXEC_TASK_UNMAPPED_BASE + rnd;
 #endif
-
-		return TASK_UNMAPPED_BASE;
-	} else
-		return TASK_UNMAPPED_BASE + rnd;
+	return TASK_UNMAPPED_BASE + rnd;
 }
 
 /*
