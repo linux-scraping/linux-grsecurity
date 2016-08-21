@@ -13027,7 +13027,8 @@ enable_so_bLength_usb_cdc_country_functional_desc_38256 bLength usb_cdc_country_
 enable_so__osd_req_cdb_len_fndecl_38259 _osd_req_cdb_len fndecl 0 38259 NULL
 enable_so_security_set_fndecl_38262 security_set fndecl 5 38262 NULL
 enable_so_i2c2_debugfs_read_fndecl_38270 i2c2_debugfs_read fndecl 3 38270 NULL
-enable_so_prepare_header100_fndecl_38275 prepare_header100 fndecl 3-0 38275 NULL
+enable_so_prepare_header100_fndecl_38275 prepare_header100 fndecl 3-0 38275 NULL nohasharray
+enable_so_max_read_sge_ib_qp_38275 max_read_sge ib_qp 0 38275 &enable_so_prepare_header100_fndecl_38275
 enable_so_min_pnp_port_38276 min pnp_port 0 38276 NULL
 enable_so_numpmkid_host_if_pmkid_attr_38277 numpmkid host_if_pmkid_attr 0 38277 NULL nohasharray
 enable_so_irnet_connect_confirm_fndecl_38277 irnet_connect_confirm fndecl 5 38277 &enable_so_numpmkid_host_if_pmkid_attr_38277
@@ -17378,6 +17379,7 @@ enable_so_ls_num_slots_dlm_ls_51120 ls_num_slots dlm_ls 0 51120 NULL
 enable_so_new_read_fndecl_51123 new_read fndecl 2 51123 NULL
 enable_so_adau1373_set_pll_fndecl_51130 adau1373_set_pll fndecl 4-5 51130 NULL
 enable_so_igb_pci_enable_sriov_fndecl_51131 igb_pci_enable_sriov fndecl 2 51131 NULL
+enable_so_max_write_sge_ib_qp_51132 max_write_sge ib_qp 0 51132 NULL
 enable_so_wqe_cnt_mlx4_ib_wq_51135 wqe_cnt mlx4_ib_wq 0 51135 NULL
 enable_so_cachelsz_ath_common_51138 cachelsz ath_common 0 51138 NULL
 enable_so_length_sky2_status_le_51139 length sky2_status_le 0 51139 NULL
