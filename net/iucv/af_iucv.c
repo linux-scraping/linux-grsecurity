@@ -1326,7 +1326,7 @@ static int iucv_sock_recvmsg(struct socket *sock, struct msghdr *msg,
 	unsigned int copied, rlen;
 	struct sk_buff *skb, *rskb, *cskb;
 	int err = 0;
-	u32 offset;
+	u32 offset, class;
 
 	if ((sk->sk_state == IUCV_DISCONN) &&
 	    skb_queue_empty(&iucv->backlog_skb_q) &&
@@ -1370,9 +1370,8 @@ static int iucv_sock_recvmsg(struct socket *sock, struct msghdr *msg,
 	/* create control message to store iucv msg target class:
 	 * get the trgcls from the control buffer of the skb due to
 	 * fragmentation of original iucv message. */
-	err = put_cmsg(msg, SOL_IUCV, SCM_IUCV_TRGCLS,
-		       sizeof(IUCV_SKB_CB(skb)->class),
-		       (void *)&IUCV_SKB_CB(skb)->class);
+	class = IUCV_SKB_CB(skb)->class;
+	err = put_cmsg(msg, SOL_IUCV, SCM_IUCV_TRGCLS, sizeof(class), &class);
 	if (err) {
 		if (!(flags & MSG_PEEK))
 			skb_queue_head(&sk->sk_receive_queue, skb);

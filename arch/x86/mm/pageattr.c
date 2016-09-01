@@ -315,7 +315,7 @@ static inline pgprot_t static_protections(pgprot_t prot, unsigned long address,
 #endif
 
 #ifdef CONFIG_PAX_KERNEXEC
-	if (within(pfn, __pa(ktla_ktva((unsigned long)&_text)), __pa((unsigned long)&_sdata))) {
+	if (within(pfn, __pa(ktla_ktva((unsigned long)&_text)) >> PAGE_SHIFT, __pa((unsigned long)&_sdata) >> PAGE_SHIFT)) {
 		pgprot_val(forbidden) |= _PAGE_RW;
 		pgprot_val(forbidden) |= _PAGE_NX & __supported_pte_mask;
 	}
