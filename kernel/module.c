@@ -4328,6 +4328,13 @@ struct module *__module_address(unsigned long addr)
 {
 	struct module *mod;
 
+#ifdef CONFIG_X86_32
+	unsigned long vaddr = ktla_ktva(addr);
+
+	if (module_addr_min_rx <= vaddr && vaddr <= module_addr_max_rx)
+		addr = vaddr;
+#endif
+
 	if ((addr < module_addr_min_rx || addr > module_addr_max_rx) &&
 	    (addr < module_addr_min_rw || addr > module_addr_max_rw))
 		return NULL;
@@ -4416,7 +4423,7 @@ void print_modules(void)
 #ifdef CONFIG_MODVERSIONS
 /* Generate the signature for all relevant module structures here.
  * If these change, we don't want to try to parse the module. */
-void module_layout(struct module *mod,
+__visible void module_layout(struct module *mod,
 		   struct modversion_info *ver,
 		   struct kernel_param *kp,
 		   struct kernel_symbol *ks,

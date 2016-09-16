@@ -13,22 +13,13 @@
 #include <linux/init.h>
 #include <linux/sort.h>
 #include <asm/uaccess.h>
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
-#include <asm/boot.h>
-#endif
 
 #ifndef ARCH_HAS_RELATIVE_EXTABLE
 #define ex_to_insn(x)	((x)->insn)
 #else
 static inline unsigned long ex_to_insn(const struct exception_table_entry *x)
 {
-	unsigned long reloc = 0;
-
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
-	reloc = ____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR;
-#endif
-
-	return (unsigned long)&x->insn + x->insn + reloc;
+	return (unsigned long)&x->insn + x->insn;
 }
 #endif
 

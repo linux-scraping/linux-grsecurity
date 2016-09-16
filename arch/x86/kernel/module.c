@@ -117,7 +117,7 @@ void *module_alloc_exec(unsigned long size)
 		return NULL;
 
 	area = __get_vm_area(size, VM_ALLOC, (unsigned long)&MODULES_EXEC_VADDR, (unsigned long)&MODULES_EXEC_END);
-return area ? area->addr : NULL;
+	return area ? area->addr : NULL;
 }
 EXPORT_SYMBOL(module_alloc_exec);
 

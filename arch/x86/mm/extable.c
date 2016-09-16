@@ -1,7 +1,6 @@
 #include <linux/module.h>
 #include <asm/uaccess.h>
 #include <asm/traps.h>
-#include <asm/boot.h>
 
 typedef bool (*ex_handler_t)(const struct exception_table_entry *,
 			    struct pt_regs *, int);
@@ -9,25 +8,12 @@ typedef bool (*ex_handler_t)(const struct exception_table_entry *,
 static inline unsigned long
 ex_fixup_addr(const struct exception_table_entry *x)
 {
-	unsigned long reloc = 0;
-
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
-	reloc = ____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR;
-#endif
-
-	return (unsigned long)&x->fixup + x->fixup + reloc;
+	return (unsigned long)&x->fixup + x->fixup;
 }
-
 static inline ex_handler_t
 ex_fixup_handler(const struct exception_table_entry *x)
 {
-	unsigned long reloc = 0;
-
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
-	reloc = ____LOAD_PHYSICAL_ADDR - LOAD_PHYSICAL_ADDR;
-#endif
-
-	return (ex_handler_t)((unsigned long)&x->handler + x->handler + reloc);
+	return (ex_handler_t)((unsigned long)&x->handler + x->handler);
 }
 
 bool ex_handler_default(const struct exception_table_entry *fixup,

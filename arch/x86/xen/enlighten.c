@@ -1581,6 +1581,15 @@ asmlinkage __visible void __init xen_start_kernel(void)
 	 */
 	__userpte_alloc_gfp &= ~__GFP_HIGHMEM;
 
+	/* Get mfn list */
+	xen_build_dynamic_phys_to_machine();
+
+	/*
+	 * Set up kernel GDT and segment registers, mainly so that
+	 * -fstack-protector code can be executed.
+	 */
+	xen_setup_gdt(0);
+
 	/* Work out if we support NX */
 #if defined(CONFIG_X86_64) || defined(CONFIG_X86_PAE)
 	if ((cpuid_eax(0x80000000) & 0xffff0000) == 0x80000000 &&
@@ -1593,15 +1602,6 @@ asmlinkage __visible void __init xen_start_kernel(void)
 		wrmsr(MSR_EFER, l, h);
 	}
 #endif
-
-	/* Get mfn list */
-	xen_build_dynamic_phys_to_machine();
-
-	/*
-	 * Set up kernel GDT and segment registers, mainly so that
-	 * -fstack-protector code can be executed.
-	 */
-	xen_setup_gdt(0);
 
 	xen_init_irq_ops();
 	xen_init_cpuid_mask();

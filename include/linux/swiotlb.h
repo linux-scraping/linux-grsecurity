@@ -63,8 +63,7 @@ extern void
 
 extern void
 swiotlb_free_coherent(struct device *hwdev, size_t size,
-		      void *vaddr, dma_addr_t dma_handle,
-		      struct dma_attrs *attrs);
+		      void *vaddr, dma_addr_t dma_handle);
 
 extern dma_addr_t swiotlb_map_page(struct device *dev, struct page *page,
 				   unsigned long offset, size_t size,

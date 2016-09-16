@@ -1362,7 +1362,8 @@ static int cpa_process_alias(struct cpa_data *cpa)
 
 static int __change_page_attr_set_clr(struct cpa_data *cpa, int checkalias)
 {
-	int ret, numpages = cpa->numpages;
+	int ret;
+	unsigned long numpages = cpa->numpages;
 
 	while (numpages) {
 		/*

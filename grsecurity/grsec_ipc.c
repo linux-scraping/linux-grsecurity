@@ -39,7 +39,7 @@ gr_ipc_permitted(struct ipc_namespace *ns, struct kern_ipc_perm *ipcp, int reque
 			orig_granted_mode = 0;
 	}
 	if (!(requested_mode & ~granted_mode & 0007) && (requested_mode & ~orig_granted_mode & 0007) &&
-	    !ns_capable_nolog(ns->user_ns, CAP_IPC_OWNER)) {
+	    !ns_capable_noaudit(ns->user_ns, CAP_IPC_OWNER)) {
 		gr_log_str_int(GR_DONT_AUDIT, GR_IPC_DENIED_MSG, write ? "write" : "read", GR_GLOBAL_UID(ipcp->cuid));
 		return 0;
 	}

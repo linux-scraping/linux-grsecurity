@@ -9813,6 +9813,7 @@ enable_so_alt_port_num_ib_qp_attr_28655 alt_port_num ib_qp_attr 0 28655 NULL noh
 enable_so_cur_offset_drm_dp_sideband_msg_tx_28655 cur_offset drm_dp_sideband_msg_tx 0 28655 &enable_so_alt_port_num_ib_qp_attr_28655
 enable_so_alloc_size_chunk_28657 alloc_size chunk 0 28657 NULL
 enable_so_bfad_iocmd_lunmask_fndecl_28667 bfad_iocmd_lunmask fndecl 0 28667 NULL
+enable_so___frwr_init_fndecl_28674 __frwr_init fndecl 3 28674 NULL
 enable_so_x25_create_facilities_fndecl_28684 x25_create_facilities fndecl 0 28684 NULL
 enable_so_fill_isoc_urb_fndecl_28690 fill_isoc_urb fndecl 6-5-3 28690 NULL
 enable_so_stolen_size_psb_gtt_28693 stolen_size psb_gtt 0 28693 NULL

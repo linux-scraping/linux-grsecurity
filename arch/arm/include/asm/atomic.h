@@ -558,8 +558,7 @@ atomic64_cmpxchg_relaxed(atomic64_t *ptr, long long old, long long new)
 #define atomic64_cmpxchg_unchecked_relaxed	atomic64_cmpxchg_unchecked_relaxed
 
 static inline long long
-atomic64_cmpxchg_unchecked_relaxed(atomic64_unchecked_t *ptr, long long old,
-					long long new)
+atomic64_cmpxchg_unchecked_relaxed(atomic64_unchecked_t *ptr, long long old, long long new)
 {
 	long long oldval;
 	unsigned long res;

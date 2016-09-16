@@ -466,7 +466,11 @@ do {									\
 #define __get_user_asm_ex(x, addr, itype, rtype, ltype)			\
 	asm volatile("1:	"__copyuser_seg"mov"itype" %1,%"rtype"0\n"\
 		     "2:\n"						\
-		     _ASM_EXTABLE_EX(1b, 2b)				\
+		     ".section .fixup,\"ax\"\n"				\
+                     "3:xorl %k0,%k0\n"					\
+		     "  jmp 2b\n"					\
+		     ".previous\n"					\
+		     _ASM_EXTABLE_EX(1b, 3b)				\
 		     : ltype(x) : "m" (__m(addr)))
 
 #define __put_user_nocheck(x, ptr, size)			\

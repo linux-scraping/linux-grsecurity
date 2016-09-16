@@ -191,7 +191,7 @@ static void *octeon_dma_alloc_coherent(struct device *dev, size_t size,
 static void octeon_dma_free_coherent(struct device *dev, size_t size,
 	void *vaddr, dma_addr_t dma_handle, struct dma_attrs *attrs)
 {
-	swiotlb_free_coherent(dev, size, vaddr, dma_handle, attrs);
+	swiotlb_free_coherent(dev, size, vaddr, dma_handle);
 }
 
 static dma_addr_t octeon_unity_phys_to_dma(struct device *dev, phys_addr_t paddr)
