@@ -397,6 +397,15 @@
 
 #endif /* atomic64_cmpxchg_relaxed */
 
+#ifndef atomic64_cmpxchg_unchecked_relaxed
+#define  atomic64_cmpxchg_unchecked_relaxed	atomic64_cmpxchg_unchecked
+#else
+#ifndef atomic64_cmpxchg_unchecked
+#define  atomic64_cmpxchg_unchecked(...)				\
+	__atomic_op_fence(atomic64_cmpxchg_unchecked, __VA_ARGS__)
+#endif
+#endif
+
 /* cmpxchg_relaxed */
 #ifndef cmpxchg_relaxed
 #define  cmpxchg_relaxed		cmpxchg

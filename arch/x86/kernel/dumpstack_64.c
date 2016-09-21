@@ -352,7 +352,7 @@ int is_valid_bugaddr(unsigned long ip)
 	return ud2 == 0x0b0f;
 }
 
-#if defined(CONFIG_PAX_MEMORY_STACKLEAK) || defined(CONFIG_PAX_USERCOPY)
+#ifdef CONFIG_PAX_MEMORY_STACKLEAK
 void __used pax_check_alloca(unsigned long size)
 {
 	unsigned long sp = (unsigned long)&sp, stack_start, stack_end;

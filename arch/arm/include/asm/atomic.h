@@ -554,31 +554,14 @@ atomic64_cmpxchg_relaxed(atomic64_t *ptr, long long old, long long new)
 
 	return oldval;
 }
-#define atomic64_cmpxchg_relaxed	atomic64_cmpxchg_relaxed
-#define atomic64_cmpxchg_unchecked_relaxed	atomic64_cmpxchg_unchecked_relaxed
 
 static inline long long
 atomic64_cmpxchg_unchecked_relaxed(atomic64_unchecked_t *ptr, long long old, long long new)
 {
-	long long oldval;
-	unsigned long res;
-
-	prefetchw(&ptr->counter);
-
-	do {
-		__asm__ __volatile__("@ atomic64_cmpxchg_unchecked\n"
-		"ldrexd		%1, %H1, [%3]\n"
-		"mov		%0, #0\n"
-		"teq		%1, %4\n"
-		"teqeq		%H1, %H4\n"
-		"strexdeq	%0, %5, %H5, [%3]"
-		: "=&r" (res), "=&r" (oldval), "+Qo" (ptr->counter)
-		: "r" (&ptr->counter), "r" (old), "r" (new)
-		: "cc");
-	} while (res);
-
-	return oldval;
+	return atomic64_cmpxchg_relaxed((atomic64_t *)ptr, old, new);
 }
+#define atomic64_cmpxchg_relaxed	atomic64_cmpxchg_relaxed
+#define atomic64_cmpxchg_unchecked_relaxed	atomic64_cmpxchg_unchecked_relaxed
 
 static inline long long atomic64_xchg_relaxed(atomic64_t *ptr, long long new)
 {
@@ -601,21 +584,7 @@ static inline long long atomic64_xchg_relaxed(atomic64_t *ptr, long long new)
 
 static inline long long atomic64_xchg_unchecked_relaxed(atomic64_unchecked_t *ptr, long long new)
 {
-	long long result;
-	unsigned long tmp;
-
-	prefetchw(&ptr->counter);
-
-	__asm__ __volatile__("@ atomic64_xchg_unchecked\n"
-"1:	ldrexd	%0, %H0, [%3]\n"
-"	strexd	%1, %4, %H4, [%3]\n"
-"	teq	%1, #0\n"
-"	bne	1b"
-	: "=&r" (result), "=&r" (tmp), "+Qo" (ptr->counter)
-	: "r" (&ptr->counter), "r" (new)
-	: "cc");
-
-	return result;
+	return atomic64_xchg_relaxed((atomic64_t *)ptr, new);
 }
 #define atomic64_xchg_relaxed		atomic64_xchg_relaxed
 #define atomic64_xchg_unchecked_relaxed		atomic64_xchg_unchecked_relaxed

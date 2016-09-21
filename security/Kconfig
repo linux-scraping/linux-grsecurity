@@ -896,6 +896,7 @@ config PAX_REFCOUNT
 config PAX_CONSTIFY_PLUGIN
 	bool "Automatically constify eligible structures"
 	default y
+	depends on GCC_PLUGINS
 	depends on !UML && PAX_KERNEXEC
 	help
 	  By saying Y here the compiler will automatically constify a class

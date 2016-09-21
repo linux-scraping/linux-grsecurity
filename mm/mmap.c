@@ -1853,7 +1853,7 @@ unsigned long unmapped_area(const struct vm_unmapped_area_info *info)
 			}
 		}
 
-		gap_start = vma->vm_prev ? vma->vm_prev->vm_end: 0;
+		gap_start = vma->vm_prev ? vma->vm_prev->vm_end : 0;
 check_current:
 		/* Check if current node has a suitable gap */
 		if (gap_start > high_limit)
