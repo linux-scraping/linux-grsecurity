@@ -554,13 +554,13 @@ atomic64_cmpxchg_relaxed(atomic64_t *ptr, long long old, long long new)
 
 	return oldval;
 }
+#define atomic64_cmpxchg_relaxed	atomic64_cmpxchg_relaxed
 
 static inline long long
 atomic64_cmpxchg_unchecked_relaxed(atomic64_unchecked_t *ptr, long long old, long long new)
 {
 	return atomic64_cmpxchg_relaxed((atomic64_t *)ptr, old, new);
 }
-#define atomic64_cmpxchg_relaxed	atomic64_cmpxchg_relaxed
 #define atomic64_cmpxchg_unchecked_relaxed	atomic64_cmpxchg_unchecked_relaxed
 
 static inline long long atomic64_xchg_relaxed(atomic64_t *ptr, long long new)
@@ -587,6 +587,12 @@ static inline long long atomic64_xchg_unchecked_relaxed(atomic64_unchecked_t *pt
 	return atomic64_xchg_relaxed((atomic64_t *)ptr, new);
 }
 #define atomic64_xchg_relaxed		atomic64_xchg_relaxed
+#define atomic64_xchg_unchecked_relaxed		atomic64_xchg_unchecked_relaxed
+
+static inline long long atomic64_xchg_unchecked_relaxed(atomic64_unchecked_t *ptr, long long new)
+{
+	return atomic64_xchg_relaxed((atomic64_t *)ptr, new);
+}
 #define atomic64_xchg_unchecked_relaxed		atomic64_xchg_unchecked_relaxed
 
 static inline long long atomic64_dec_if_positive(atomic64_t *v)

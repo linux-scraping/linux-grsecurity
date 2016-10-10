@@ -17,8 +17,8 @@
 
 extern char * strcpy(char *,const char *) __nocapture(2);
 extern char * strncpy(char *,const char *, __kernel_size_t) __nocapture(2);
-extern __kernel_size_t strlen(const char *);
-extern int strcmp(const char *,const char *) __nocapture(1, 2);
+extern __kernel_size_t strlen(const char *) __nocapture(1);
+extern int strcmp(const char *,const char *) __nocapture();
 extern int strncmp(const char *, const char *, __kernel_size_t) __nocapture(1, 2);
 extern char * strcat(char *, const char *) __nocapture(2);
 extern void * memset(void *,int,__kernel_size_t);

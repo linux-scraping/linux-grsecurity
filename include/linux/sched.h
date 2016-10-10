@@ -2035,6 +2035,10 @@ extern void pax_set_initial_flags(struct linux_binprm *bprm);
 extern void (*pax_set_initial_flags_func)(struct linux_binprm *bprm);
 #endif
 
+#ifdef CONFIG_PAX_SIZE_OVERFLOW
+extern bool pax_size_overflow_report_only;
+#endif
+
 struct path;
 extern char *pax_get_path(const struct path *path, char *buf, int buflen);
 extern void pax_report_fault(struct pt_regs *regs, void *pc, void *sp);

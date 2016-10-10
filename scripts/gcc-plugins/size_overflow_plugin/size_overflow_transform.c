@@ -382,10 +382,30 @@ static next_interesting_function_t get_interesting_function_next_node(tree decl,
 	raw_data.marked = YES_SO_MARK;
 
 	next_node = get_global_next_interesting_function_entry_with_hash(&raw_data);
-	if (next_node && next_node->marked != NO_SO_MARK)
-		return next_node;
+	if (next_node && next_node->marked != NO_SO_MARK) {
+		switch (next_node->decl_type) {
+		case SO_FUNCTION:
+			if (check_fns)
+				return next_node;
+			return NULL;
+		case SO_FIELD:
+			if (check_fields)
+				return next_node;
+			return NULL;
+		case SO_VAR:
+			if (check_vars)
+				return next_node;
+			return NULL;
+		case SO_FUNCTION_POINTER:
+			if (check_fnptrs)
+				return next_node;
+			return NULL;
+		case SO_NONE:
+			gcc_unreachable();
+		}
+	}
 
-	so_hash = get_size_overflow_hash_entry_tree(raw_data.decl, raw_data.num, SIZE_OVERFLOW);
+	so_hash = get_size_overflow_hash_entry_tree(raw_data.decl, raw_data.num, SIZE_OVERFLOW, SO_NONE);
 	if (so_hash)
 		return get_and_create_next_node_from_global_next_nodes(&raw_data, NULL);
 	return NULL;
@@ -576,6 +596,7 @@ static next_interesting_function_t create_so_asm_next_interesting_function_node(
 	raw_data.hash = 0;
 	raw_data.num = 0;
 	raw_data.marked = ASM_STMT_SO_MARK;
+	raw_data.decl_type = SO_FUNCTION;
 
 	next_node = get_global_next_interesting_function_entry(&raw_data);
 	if (next_node)
@@ -607,6 +628,9 @@ static void search_interesting_stmts(struct visited *visited)
 				tree first_node;
 				next_interesting_function_t next_node;
 				const gasm *asm_stmt = as_a_gasm(stmt);
+
+				if (!check_fns)
+					continue;
 
 				if (!is_size_overflow_insert_check_asm(asm_stmt))
 					continue;

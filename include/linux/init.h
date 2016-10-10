@@ -37,11 +37,9 @@
  * section.
  */
 
-#define add_init_latent_entropy __latent_entropy
-
 /* These are for everybody (although not all archs will actually
    discard it in modules) */
-#define __init		__section(.init.text) __cold notrace add_init_latent_entropy
+#define __init		__section(.init.text) __cold notrace __latent_entropy
 #define __initdata	__section(.init.data)
 #define __initconst	__constsection(.init.rodata)
 #define __exitdata	__section(.exit.data)

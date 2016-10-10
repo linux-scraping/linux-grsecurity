@@ -3785,7 +3785,8 @@ disable_so_urg_seq_tcp_sock_20171 urg_seq tcp_sock 0 20171 NULL
 disable_so_uid_crash_uid_20189 uid crash_uid 0 20189 NULL
 disable_so_force_addr_vardecl_i2c_sis5595_c_20194 force_addr vardecl_i2c-sis5595.c 0 20194 NULL
 disable_so_get_random_bytes_fndecl_20208 get_random_bytes fndecl 2 20208 NULL
-disable_so_end_pci_bus_region_20220 end pci_bus_region 0 20220 NULL
+e_epoch_start_bictcp_20220 epoch_start bictcp 0 20220 NULL nohasharray
+disable_so_end_pci_bus_region_20220 end pci_bus_region 0 20220 &e_epoch_start_bictcp_20220
 disable_so_ptp_devt_vardecl_ptp_clock_c_20222 ptp_devt vardecl_ptp_clock.c 0 20222 NULL
 disable_so_rp5c01_read_time_fndecl_20225 rp5c01_read_time fndecl 0 20225 NULL
 disable_so_scsi_inq_timeout_vardecl_scsi_scan_c_20228 scsi_inq_timeout vardecl_scsi_scan.c 0 20228 NULL
@@ -8698,7 +8699,8 @@ disable_so_ebx_tss_segment_32_46181 ebx tss_segment_32 0 46181 NULL
 disable_so_freq_in_rule_band_fndecl_46182 freq_in_rule_band fndecl 2 46182 NULL
 disable_so_get_signal_to_noise_fndecl_46189 get_signal_to_noise fndecl 0 46189 NULL
 disable_so_bitmap_parse_user_fndecl_46193 bitmap_parse_user fndecl 0-2-4 46193 NULL
-disable_so_queue_delayed_work_fndecl_46205 queue_delayed_work fndecl 3 46205 NULL
+disable_so_queue_delayed_work_fndecl_46205 queue_delayed_work fndecl 3 46205 NULL nohasharray
+e_rtt_us_ack_sample_46205 rtt_us ack_sample 0 46205 &disable_so_queue_delayed_work_fndecl_46205
 disable_so_phy_addr_adf_admin_comms_46206 phy_addr adf_admin_comms 0 46206 NULL nohasharray
 disable_so_hblank_lo_detailed_pixel_timing_46206 hblank_lo detailed_pixel_timing 0 46206 &disable_so_phy_addr_adf_admin_comms_46206
 disable_so_delay_time_NvRamType_46210 delay_time NvRamType 0 46210 NULL
@@ -12443,3 +12445,9 @@ enable_so_inofree_iagctl_5194 inofree iagctl 0 5194 NULL
 enable_so_inofreefwd_iag_4921 inofreefwd iag 0 4921 NULL
 enable_so_iagnum_iag_23227 iagnum iag 0 23227 NULL
 enable_so_offset_lv_35617 offset lv 0 35617 NULL
+e_cnt_bictcp_9780 cnt bictcp 0 9780 NULL
+e_last_max_cwnd_bictcp_22377 last_max_cwnd bictcp 0 22377 NULL
+e_bic_K_bictcp_33591 bic_K bictcp 0 33591 NULL
+e_tcp_cwnd_bictcp_64346 tcp_cwnd bictcp 0 64346 NULL
+e_bic_origin_point_bictcp_64414 bic_origin_point bictcp 0 64414 NULL
+e_srtt_us_tcp_sock_62907 srtt_us tcp_sock 0 62907 NULL

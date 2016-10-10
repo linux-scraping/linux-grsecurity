@@ -18,16 +18,16 @@ extern char *strcat(char *dest, const char *src) __nocapture(2);
 extern char *strncat(char *dest, const char *src, size_t count) __nocapture(2);
 
 #define __HAVE_ARCH_STRCMP
-extern int strcmp(const char *cs, const char *ct) __nocapture(1, 2);
+extern int strcmp(const char *cs, const char *ct) __nocapture();
 
 #define __HAVE_ARCH_STRNCMP
 extern int strncmp(const char *cs, const char *ct, size_t count) __nocapture(1, 2);
 
 #define __HAVE_ARCH_STRCHR
-extern char *strchr(const char *s, int c) __nocapture(1);
+extern char *strchr(const char *s, int c) __nocapture(-1);
 
 #define __HAVE_ARCH_STRLEN
-extern size_t strlen(const char *s);
+extern size_t strlen(const char *s) __nocapture(1);
 
 static __always_inline void *__memcpy(void *to, const void *from, size_t n)
 {
@@ -202,7 +202,7 @@ void *memmove(void *dest, const void *src, size_t n) __nocapture(2);
 #define memcmp __builtin_memcmp
 
 #define __HAVE_ARCH_MEMCHR
-extern void *memchr(const void *cs, int c, size_t count) __nocapture(1);
+extern void *memchr(const void *cs, int c, size_t count) __nocapture(-1);
 
 static inline void *__memset_generic(void *s, char c, size_t count)
 {
@@ -243,11 +243,11 @@ void *__constant_c_memset(void *s, unsigned long c, size_t count)
 
 /* Added by Gertjan van Wingerde to make minix and sysv module work */
 #define __HAVE_ARCH_STRNLEN
-extern size_t strnlen(const char *s, size_t count);
+extern size_t strnlen(const char *s, size_t count) __nocapture(1);
 /* end of additional stuff */
 
 #define __HAVE_ARCH_STRSTR
-extern char *strstr(const char *cs, const char *ct) __nocapture(1, 2);
+extern char *strstr(const char *cs, const char *ct) __nocapture(-1, 2);
 
 /*
  * This looks horribly ugly, but the compiler can optimize it totally,

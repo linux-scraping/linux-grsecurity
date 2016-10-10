@@ -958,14 +958,62 @@ config PAX_SIZE_OVERFLOW
 	  arguments marked by a size_overflow attribute with double integer
 	  precision (DImode/TImode for 32/64 bit integer types).
 
-	  The recomputed argument is checked against TYPE_MAX and an event
-	  is logged on overflow and the triggering process is killed.
+	  If the recomputed argument does not fit the original type then the
+	  event is logged. If the pax_size_overflow_report_only parameter is
+	  NOT passed on the kernel command line at boot then the triggering
+	  process will also be killed.
 
-	  Homepage: https://github.com/ephox-gcc-plugins
+	  Homepage: https://github.com/ephox-gcc-plugins/size_overflow
+	  Blog: http://forums.grsecurity.net/viewtopic.php?f=7&t=3043
 
 	  Note that the implementation requires a gcc with plugin support,
 	  i.e., gcc 4.5 or newer.  You may need to install the supporting
 	  headers explicitly in addition to the normal gcc package.
+
+config PAX_SIZE_OVERFLOW_EXTRA
+	bool "Increase coverage of size overflow checking"
+	default y if GRKERNSEC_CONFIG_AUTO
+	depends on PAX_SIZE_OVERFLOW
+	help
+	  By saying Y here the kernel will instrument more size argument
+	  calculations that off-line static analysis tracked back through
+	  indirect function calls, structure fields and global variables.
+
+	  This greatly increases coverage and thus security however there
+	  are also more false positives and the performance impact is higher
+	  as well.
+
+config PAX_INITIFY
+	bool "Free more kernel memory after init"
+	depends on GCC_PLUGINS
+	depends on BROKEN
+	help
+	  The kernel has a mechanism to free up code and data memory that is
+	  only used during kernel or module initialization.  Enabling this
+	  feature will teach the compiler to find more such code and data
+	  that can be freed after initialization.
+
+config HAVE_PAX_INITIFY_INIT_EXIT
+	bool
+	depends on GCC_PLUGINS
+	help
+	  Move functions to the exit section if they are called by __init and
+	  __exit functions too.
+
+config PAX_INITIFY_INIT_EXIT
+	bool
+	depends on PAX_INITIFY && HAVE_PAX_INITIFY_INIT_EXIT
+
+config PAX_INITIFY_VERBOSE
+	bool "Free more kernel memory after init (verbose mode)"
+	depends on GCC_PLUGINS && PAX_INITIFY
+	help
+	  Print all initified strings and all functions which should be
+	  __init/__exit.
+
+	  Note that the candidates identified for __init/__exit markings
+	  depend on the current kernel configuration and thus should be
+	  verified manually before the source code is patched.
 
 config PAX_LATENT_ENTROPY
 	bool "Generate some entropy during boot and runtime"

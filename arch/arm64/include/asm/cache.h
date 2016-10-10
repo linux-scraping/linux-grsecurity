@@ -16,6 +16,8 @@
 #ifndef __ASM_CACHE_H
 #define __ASM_CACHE_H
 
+#include <linux/const.h>
+
 #include <asm/cachetype.h>
 
 #include <linux/const.h>

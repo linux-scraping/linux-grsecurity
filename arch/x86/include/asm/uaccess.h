@@ -467,7 +467,7 @@ do {									\
 	asm volatile("1:	"__copyuser_seg"mov"itype" %1,%"rtype"0\n"\
 		     "2:\n"						\
 		     ".section .fixup,\"ax\"\n"				\
-                     "3:xorl %k0,%k0\n"					\
+		     "3:xorl %k0,%k0\n"					\
 		     "  jmp 2b\n"					\
 		     ".previous\n"					\
 		     _ASM_EXTABLE_EX(1b, 3b)				\

@@ -282,7 +282,9 @@ static inline void pax_refcount_needs_these_functions(void)
 #define atomic_long_add_return_unchecked(i, v) atomic_long_add_return((i), (v))
 #define atomic_long_inc_return_unchecked(v) atomic_long_inc_return(v)
 #define atomic_long_dec_unchecked(v) atomic_long_dec(v)
+#ifndef atomic_long_xchg_unchecked
 #define atomic_long_xchg_unchecked(v, i) atomic_long_xchg((v), (i))
+#endif
 #endif
 
 #endif  /*  _ASM_GENERIC_ATOMIC_LONG_H  */

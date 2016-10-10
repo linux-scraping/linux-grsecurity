@@ -28,8 +28,10 @@ tree size_overflow_type_SI;
 tree size_overflow_type_DI;
 tree size_overflow_type_TI;
 
+bool check_fields, check_fns, check_fnptrs, check_vars;
+
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20160521",
+	.version	= "20160927",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
@@ -259,6 +261,27 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 			enable = false;
 			continue;
 		}
+
+		if (!strcmp(argv[i].key, "check-fields")) {
+			check_fields = true;
+			continue;
+		}
+
+		if (!strcmp(argv[i].key, "check-fns")) {
+			check_fns = true;
+			continue;
+		}
+
+		if (!strcmp(argv[i].key, "check-fptrs")) {
+			check_fnptrs = true;
+			continue;
+		}
+
+		if (!strcmp(argv[i].key, "check-vars")) {
+			check_vars = true;
+			continue;
+		}
+
 		error(G_("unkown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
 	}
 

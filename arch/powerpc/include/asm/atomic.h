@@ -72,8 +72,8 @@ static __inline__ void atomic_set_unchecked(atomic_unchecked_t *v, int i)
 	"	bf 4*cr0+so, 3f\n"	\
 	"2:	.long 0x00c00b00\n"	\
 	"3:\n"
-#define __OVERFLOW_EXTABLE	\
-	"\n4:\n"		\
+#define __OVERFLOW_EXTABLE		\
+	"\n4:\n"			\
 	_ASM_EXTABLE(2b, 4b)
 #else
 #define __REFCOUNT_OP(op) op
@@ -158,17 +158,9 @@ ATOMIC_OP(xor, xor)
  * Automatically increments @v by 1
  */
 #define atomic_inc(v) atomic_add(1, (v))
+#define atomic_inc_unchecked(v) atomic_add_unchecked(1, (v))
 #define atomic_inc_return_relaxed(v) atomic_add_return_relaxed(1, (v))
-
-static inline void atomic_inc_unchecked(atomic_unchecked_t *v)
-{
-	atomic_add_unchecked(1, v);
-}
-
-static inline int atomic_inc_return_unchecked_relaxed(atomic_unchecked_t *v)
-{
-	return atomic_add_return_unchecked_relaxed(1, v);
-}
+#define atomic_inc_return_unchecked_relaxed(v) atomic_add_return_unchecked_relaxed(1, (v))
 
 /*
  * atomic_inc_and_test - increment and test
@@ -179,7 +171,7 @@ static inline int atomic_inc_return_unchecked_relaxed(atomic_unchecked_t *v)
  * other cases.
  */
 #define atomic_inc_and_test(v) (atomic_inc_return(v) == 0)
-#define atomic_inc_and_test_unchecked(v) (atomic_add_return_unchecked(1, v) == 0)
+#define atomic_inc_and_test_unchecked(v) (atomic_inc_return_unchecked(v) == 0)
 
 /* 
  * atomic_dec - decrement atomic variable

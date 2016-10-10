@@ -292,7 +292,7 @@ static enum intentional_mark handle_intentional_attr(gimple stmt, unsigned int a
 		fndecl = current_function_decl;
 	else
 		fndecl = gimple_call_fndecl(stmt);
-	if (fndecl == NULL_TREE && !get_size_overflow_hash_entry_tree(fndecl, argnum, DISABLE_SIZE_OVERFLOW))
+	if (fndecl == NULL_TREE && !get_size_overflow_hash_entry_tree(fndecl, argnum, DISABLE_SIZE_OVERFLOW, SO_NONE))
 		return MARK_NO;
 	__insert_size_overflow_asm(stmt, argnum, mark);
 	return mark;

@@ -165,7 +165,7 @@ static void print_missing_intentional(enum intentional_mark callee_attr, enum in
 	if (callee_attr == MARK_END_INTENTIONAL || callee_attr == MARK_YES)
 		return;
 
-	hash = get_size_overflow_hash_entry_tree(decl, argnum, SIZE_OVERFLOW);
+	hash = get_size_overflow_hash_entry_tree(decl, argnum, SIZE_OVERFLOW, SO_NONE);
 	if (!hash)
 		return;
 

@@ -1769,15 +1769,13 @@ static void prep_new_page(struct page *page, unsigned int order, gfp_t gfp_flags
 	int i;
 	bool poisoned = true;
 
+#ifndef CONFIG_PAX_MEMORY_SANITIZE
 	for (i = 0; i < (1 << order); i++) {
 		struct page *p = page + i;
-
-#ifndef CONFIG_PAX_MEMORY_SANITIZE
 		if (poisoned)
 			poisoned &= page_is_poisoned(p);
-#endif
-
 	}
+#endif
 
 	set_page_private(page, 0);
 	set_page_refcounted(page);

@@ -39,7 +39,7 @@ config X86
 	select ARCH_MIGHT_HAVE_PC_SERIO
 	select ARCH_SUPPORTS_ATOMIC_RMW
 	select ARCH_SUPPORTS_DEFERRED_STRUCT_PAGE_INIT
-	select ARCH_SUPPORTS_INT128		if X86_64 && !PAX_SIZE_OVERFLOW
+	select ARCH_SUPPORTS_INT128		if X86_64 && !PAX_SIZE_OVERFLOW_EXTRA && !PAX_SIZE_OVERFLOW
 	select ARCH_SUPPORTS_NUMA_BALANCING	if X86_64
 	select ARCH_USE_BUILTIN_BSWAP
 	select ARCH_USE_CMPXCHG_LOCKREF		if X86_64
@@ -134,6 +134,7 @@ config X86
 	select HAVE_NMI
 	select HAVE_OPROFILE
 	select HAVE_OPTPROBES
+	select HAVE_PAX_INITIFY_INIT_EXIT if GCC_PLUGINS
 	select HAVE_PCSPKR_PLATFORM
 	select HAVE_PERF_EVENTS
 	select HAVE_PERF_EVENTS_NMI
@@ -1930,7 +1931,7 @@ config RELOCATABLE
 
 config RANDOMIZE_BASE
 	bool "Randomize the address of the kernel image (KASLR)"
-	depends on RELOCATABLE
+	depends on RELOCATABLE && BROKEN_SECURITY
 	default n
 	---help---
 	  In support of Kernel Address Space Layout Randomization (KASLR),

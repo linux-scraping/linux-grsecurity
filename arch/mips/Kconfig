@@ -2570,7 +2570,7 @@ config RELOCATION_TABLE_SIZE
 
 config RANDOMIZE_BASE
 	bool "Randomize the address of the kernel image"
-	depends on RELOCATABLE
+	depends on RELOCATABLE && BROKEN_SECURITY
 	---help---
 	   Randomizes the physical and virtual address at which the
 	   kernel image is loaded, as a security feature that

@@ -1150,7 +1150,7 @@ void __kprobes program_check_exception(struct pt_regs *regs)
 
 	if (reason & REASON_ILLEGAL) {
 		/* Check if PaX bad instruction */
-		if (!probe_kernel_address((void *)regs->nip, bkpt) && bkpt == 0xc00b00) {
+		if (!probe_kernel_address((const void *)regs->nip, bkpt) && bkpt == 0xc00b00) {
 			current->thread.trap_nr = 0;
 			pax_report_refcount_overflow(regs);
 			/* fixup_exception() for PowerPC does not exist, simulate its job */

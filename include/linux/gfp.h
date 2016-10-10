@@ -87,13 +87,15 @@ struct vm_area_struct;
  *
  * __GFP_ACCOUNT causes the allocation to be accounted to kmemcg (only relevant
  *   to kmem allocations).
+ *
+ * __GFP_USERCOPY indicates that the page will be copied to/from userland
  */
 #define __GFP_RECLAIMABLE ((__force gfp_t)___GFP_RECLAIMABLE)
 #define __GFP_WRITE	((__force gfp_t)___GFP_WRITE)
 #define __GFP_HARDWALL   ((__force gfp_t)___GFP_HARDWALL)
 #define __GFP_THISNODE	((__force gfp_t)___GFP_THISNODE)
 #define __GFP_ACCOUNT	((__force gfp_t)___GFP_ACCOUNT)
-#define __GFP_USERCOPY	((__force gfp_t)___GFP_USERCOPY)/* Allocator intends to copy page to/from userland */
+#define __GFP_USERCOPY	((__force gfp_t)___GFP_USERCOPY)
 
 /*
  * Watermark modifiers -- controls access to emergency reserves

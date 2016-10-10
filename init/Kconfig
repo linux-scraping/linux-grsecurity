@@ -31,6 +31,9 @@ menu "General setup"
 config BROKEN
 	bool
 
+config BROKEN_SECURITY
+	bool
+
 config BROKEN_ON_SMP
 	bool
 	depends on BROKEN || !SMP

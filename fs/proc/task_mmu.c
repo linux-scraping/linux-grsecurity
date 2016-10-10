@@ -291,15 +291,14 @@ static int do_maps_open(struct inode *inode, struct file *file,
  * Indicate if the VMA is a stack for the given task; for
  * /proc/PID/maps that is the stack of the main task.
  */
-static bool is_stack(struct proc_maps_private *priv,
+static int is_stack(struct proc_maps_private *priv,
 		    struct vm_area_struct *vma, int is_pid)
 {
-	bool stack = false;
+	int stack = 0;
 
 	if (is_pid) {
 		stack = vma->vm_start <= vma->vm_mm->start_stack &&
 			vma->vm_end >= vma->vm_mm->start_stack;
-		stack |= vma->vm_flags & (VM_GROWSDOWN | VM_GROWSUP);
 	} else {
 		struct inode *inode = priv->inode;
 		struct task_struct *task;

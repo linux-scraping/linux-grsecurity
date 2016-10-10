@@ -30,6 +30,10 @@ ifdef CONFIG_GCC_PLUGINS
   gcc-plugin-subdir-$(CONFIG_PAX_SIZE_OVERFLOW)		+= size_overflow_plugin
   gcc-plugin-$(CONFIG_PAX_SIZE_OVERFLOW)		+= size_overflow_plugin/size_overflow_plugin.so
   gcc-plugin-cflags-$(CONFIG_PAX_SIZE_OVERFLOW)		+= -DSIZE_OVERFLOW_PLUGIN
+  gcc-plugin-cflags-$(CONFIG_PAX_SIZE_OVERFLOW)		+= -fplugin-arg-size_overflow_plugin-check-fns
+  gcc-plugin-cflags-$(CONFIG_PAX_SIZE_OVERFLOW_EXTRA)	+= -fplugin-arg-size_overflow_plugin-check-fields
+  gcc-plugin-cflags-$(CONFIG_PAX_SIZE_OVERFLOW_EXTRA)	+= -fplugin-arg-size_overflow_plugin-check-fptrs
+  gcc-plugin-cflags-$(CONFIG_PAX_SIZE_OVERFLOW_EXTRA)	+= -fplugin-arg-size_overflow_plugin-check-vars
 
   gcc-plugin-$(CONFIG_GRKERNSEC_RANDSTRUCT)		+= randomize_layout_plugin.so
   gcc-plugin-cflags-$(CONFIG_GRKERNSEC_RANDSTRUCT)	+= -DRANDSTRUCT_PLUGIN
@@ -45,10 +49,13 @@ ifdef CONFIG_GCC_PLUGINS
   gcc-plugin-$(CONFIG_PAX_MEMORY_STRUCTLEAK)		+= structleak_plugin.so
   gcc-plugin-cflags-$(CONFIG_PAX_MEMORY_STRUCTLEAK)	+= -DSTRUCTLEAK_PLUGIN
 
-  gcc-plugin-y						+= initify_plugin.so
-  gcc-plugin-cflags-y					+= -DINITIFY_PLUGIN
-# -fplugin-arg-initify_plugin-search_init_exit_functions
-#  gcc-plugin-cflags-y					+= -fplugin-arg-initify_plugin-verbose
+  gcc-plugin-$(CONFIG_PAX_INITIFY)			+= initify_plugin.so
+  gcc-plugin-cflags-$(CONFIG_PAX_INITIFY)		+= -DINITIFY_PLUGIN -fplugin-arg-initify_plugin-search_init_exit_functions
+  gcc-plugin-cflags-$(CONFIG_PAX_INITIFY_VERBOSE)	+= -fplugin-arg-initify_plugin-verbose -fplugin-arg-initify_plugin-print_missing_attr
+  gcc-plugin-cflags-$(CONFIG_PAX_INITIFY_INIT_EXIT)	+= -fplugin-arg-initify_plugin-enable_init_to_exit_moves
+  ifdef CONFIG_PAX_INITIFY
+    INITIFY_DISABLE_VERIFY_NOCAPTURE_FUNCTIONS		+= -fplugin-arg-initify_plugin-disable_verify_nocapture_functions
+  endif
 
   gcc-plugin-subdir-$(CONFIG_PAX_RAP)			+= rap_plugin
   gcc-plugin-$(CONFIG_PAX_RAP)				+= rap_plugin/rap_plugin.so
@@ -64,7 +71,7 @@ ifdef CONFIG_GCC_PLUGINS
   GCC_PLUGINS_AFLAGS := $(gcc-plugin-aflags-y)
 
   export PLUGINCC GCC_PLUGIN GCC_PLUGIN_SUBDIR GCC_PLUGINS_CFLAGS GCC_PLUGINS_AFLAGS
-  export DISABLE_LATENT_ENTROPY_PLUGIN RAP_PLUGIN_ABS_CFLAGS
+  export DISABLE_LATENT_ENTROPY_PLUGIN RAP_PLUGIN_ABS_CFLAGS INITIFY_DISABLE_VERIFY_NOCAPTURE_FUNCTIONS
 
   KBUILD_CFLAGS += $(GCC_PLUGINS_CFLAGS)
   KBUILD_AFLAGS += $(GCC_PLUGINS_AFLAGS)

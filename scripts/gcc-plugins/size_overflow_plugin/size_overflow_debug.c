@@ -61,7 +61,7 @@ unsigned int __unused size_overflow_dump_function(FILE *file, struct cgraph_node
 	return 0;
 }
 
-static void __unused print_next_interesting_function(next_interesting_function_t node)
+void __unused print_next_interesting_function(next_interesting_function_t node)
 {
 	unsigned int i, children_len;
 	next_interesting_function_t cur;
@@ -79,7 +79,7 @@ static void __unused print_next_interesting_function(next_interesting_function_t
 #endif
 
 	fprintf(stderr, "print_next_interesting_function: ptr: %p, ", node);
-	fprintf(stderr, "decl_name: %s, ", node->decl_name);
+	fprintf(stderr, "decl_name: %s, decl_type: %s, ", node->decl_name, get_decl_type_str(node));
 
 	fprintf(stderr, "num: %u marked: %s context: %s children len: %u\n", node->num, print_so_mark_name(node->marked), node->context, children_len);
 #if BUILDING_GCC_VERSION <= 4007

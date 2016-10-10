@@ -246,7 +246,12 @@ setup
 setup.bin
 setup.elf
 signing_key*
-size_overflow_hash.h
+aux.h
+disable.h
+e_fields.h
+e_fns.h
+e_fptrs.h
+e_vars.h
 sImage
 slabinfo
 sm_tbl*

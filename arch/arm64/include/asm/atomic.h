@@ -57,11 +57,13 @@
 #define atomic_set(v, i)		WRITE_ONCE(((v)->counter), (i))
 
 #define atomic_add_return_relaxed	atomic_add_return_relaxed
+#define atomic_add_return_unchecked_relaxed	atomic_add_return_relaxed
 #define atomic_add_return_acquire	atomic_add_return_acquire
 #define atomic_add_return_release	atomic_add_return_release
 #define atomic_add_return		atomic_add_return
 
 #define atomic_inc_return_relaxed(v)	atomic_add_return_relaxed(1, (v))
+#define atomic_inc_return_unchecked_relaxed(v)	atomic_add_return_relaxed(1, (v))
 #define atomic_inc_return_acquire(v)	atomic_add_return_acquire(1, (v))
 #define atomic_inc_return_release(v)	atomic_add_return_release(1, (v))
 #define atomic_inc_return(v)		atomic_add_return(1, (v))

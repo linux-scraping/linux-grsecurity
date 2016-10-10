@@ -133,6 +133,8 @@ next_interesting_function_t create_new_next_interesting_entry(struct fn_raw_data
 	new_node->children = NULL;
 	new_node->marked = raw_data->marked;
 	new_node->orig_next_node = orig_next_node;
+	new_node->decl_type = raw_data->decl_type;
+
 	return new_node;
 }
 
@@ -175,7 +177,7 @@ next_interesting_function_t create_new_next_interesting_decl(struct fn_raw_data 
 	raw_data->hash = get_decl_hash(raw_data->decl, raw_data->decl_str);
 	if (raw_data->hash == NO_HASH)
 		return NULL;
-	if (get_size_overflow_hash_entry_tree(raw_data->decl, raw_data->num, DISABLE_SIZE_OVERFLOW))
+	if (get_size_overflow_hash_entry_tree(raw_data->decl, raw_data->num, DISABLE_SIZE_OVERFLOW, raw_data->decl_type))
 		return NULL;
 	if (temporary_skip_these_functions(raw_data))
 		return NULL;
@@ -250,6 +252,7 @@ static next_interesting_function_t create_orig_next_node_for_a_clone(struct fn_r
 		return orig_next_node;
 
 	orig_raw_data.marked = clone_raw_data->marked;
+	orig_raw_data.decl_type = clone_raw_data->decl_type;
 	orig_next_node = create_new_next_interesting_decl(&orig_raw_data, NULL);
 	if (!orig_next_node)
 		return NULL;
@@ -324,6 +327,7 @@ static void handle_function(struct walk_use_def_data *use_def_data, tree fndecl,
 		return;
 
 	raw_data.decl = fndecl;
+	raw_data.decl_type = SO_FUNCTION;
 	raw_data.decl_str = DECL_NAME_POINTER(fndecl);
 	raw_data.marked = NO_SO_MARK;
 
@@ -421,6 +425,7 @@ static void handle_struct_fields(struct walk_use_def_data *use_def_data, const_t
 	case INDIRECT_REF:
 	case COMPONENT_REF:
 		raw_data.decl = get_ref_field(node);
+		raw_data.decl_type = SO_FIELD;
 		break;
 	// TODO
 	case BIT_FIELD_REF:
@@ -444,6 +449,7 @@ static void handle_vardecl(struct walk_use_def_data *use_def_data, tree node)
 	struct fn_raw_data raw_data;
 
 	raw_data.decl = node;
+	raw_data.decl_type = SO_VAR;
 	create_and_append_new_next_interesting_field_var_decl(use_def_data, &raw_data);
 }
 
@@ -621,6 +627,7 @@ static next_interesting_function_t create_parent_next_cnode(const_gimple stmt, u
 
 	raw_data.num = num;
 	raw_data.marked = NO_SO_MARK;
+	raw_data.decl_type = SO_FUNCTION;
 
 	switch (gimple_code(stmt)) {
 	case GIMPLE_ASM:
@@ -815,6 +822,7 @@ static void size_overflow_node_duplication_hook(struct cgraph_node *src, struct 
 		dst_raw_data.decl = NODE_DECL(dst);
 		dst_raw_data.decl_str = cgraph_node_name(dst);
 		dst_raw_data.marked = cur->marked;
+		dst_raw_data.decl_type = cur->decl_type;
 
 		if (!made_by_compiler(dst_raw_data.decl))
 			break;
@@ -878,7 +886,7 @@ static bool already_in_the_hashtable(next_interesting_function_t next_node)
 {
 	if (next_node->orig_next_node)
 		next_node = next_node->orig_next_node;
-	return get_size_overflow_hash_entry(next_node->hash, next_node->decl_name, next_node->context, next_node->num) != NULL;
+	return get_size_overflow_hash_entry(next_node->hash, next_node->decl_name, next_node->context, next_node->num, next_node->decl_type) != NULL;
 }
 
 // Propagate the size_overflow marks up the use-def chains
@@ -1087,6 +1095,57 @@ static void search_so_marked_fns(bool debug)
 	pointer_set_destroy(visited);
 }
 
+static void walk_marked_functions(next_interesting_function_set *visited, next_interesting_function_t parent)
+{
+	unsigned int i;
+	next_interesting_function_t child;
+
+	if (pointer_set_insert(visited, parent))
+		return;
+
+#if BUILDING_GCC_VERSION <= 4007
+	if (VEC_empty(next_interesting_function_t, parent->children))
+		return;
+	FOR_EACH_VEC_ELT(next_interesting_function_t, parent->children, i, child) {
+#else
+	FOR_EACH_VEC_SAFE_ELT(parent->children, i, child) {
+#endif
+		switch (parent->decl_type) {
+		case SO_FIELD:
+			child->decl_type = SO_FIELD;
+			gcc_assert(child->decl_type != SO_FUNCTION_POINTER);
+			break;
+		case SO_FUNCTION_POINTER:
+			child->decl_type = SO_FUNCTION_POINTER;
+			gcc_assert(child->decl_type != SO_FIELD);
+			break;
+		case SO_FUNCTION:
+		case SO_VAR:
+			break;
+		case SO_NONE:
+			gcc_unreachable();
+		}
+
+		walk_marked_functions(visited, child);
+	}
+}
+
+static void set_base_decl_type(void)
+{
+	unsigned int i;
+	next_interesting_function_set *visited;
+	next_interesting_function_t cur;
+
+	visited = next_interesting_function_pointer_set_create();
+	for (i = 0; i < GLOBAL_NIFN_LEN; i++) {
+		for (cur = global_next_interesting_function[i]; cur; cur = cur->next) {
+			if (cur->marked == ASM_STMT_SO_MARK && !pointer_set_contains(visited, cur))
+				walk_marked_functions(visited, cur);
+		}
+	}
+	pointer_set_destroy(visited);
+}
+
 // Print functions missing from the hash table
 static void print_so_marked_fns(void)
 {
@@ -1128,6 +1187,8 @@ static unsigned int size_overflow_execute(void)
 		global_changed = false;
 		search_so_marked_fns(NO_PRINT_DATA_FLOW);
 	}
+
+	set_base_decl_type();
 
 	print_so_marked_fns();
 

@@ -1718,7 +1718,8 @@ config ARCH_HAS_DEBUG_STRICT_USER_COPY_CHECKS
 config DEBUG_STRICT_USER_COPY_CHECKS
 	bool "Strict user copy size checks"
 	depends on ARCH_HAS_DEBUG_STRICT_USER_COPY_CHECKS
-	depends on DEBUG_KERNEL && !TRACE_BRANCH_PROFILING && !PAX_SIZE_OVERFLOW
+	depends on DEBUG_KERNEL && !TRACE_BRANCH_PROFILING && !PAX_SIZE_OVERFLOW && !PAX_SIZE_OVERFLOW_EXTRA
+	depends on BROKEN
 	help
 	  Enabling this option turns a certain set of sanity checks for user
 	  copy operations into compile time failures.

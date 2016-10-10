@@ -60,7 +60,7 @@ void *memmove(void *dest, const void *src, size_t count) __nocapture(2);
 void *__memmove(void *dest, const void *src, size_t count) __nocapture(2);
 
 int memcmp(const void *cs, const void *ct, size_t count) __nocapture(1, 2);
-size_t strlen(const char *s);
+size_t strlen(const char *s) __nocapture(1);
 char *strcpy(char *dest, const char *src) __nocapture(2);
 char *strcat(char *dest, const char *src) __nocapture(2);
 int strcmp(const char *cs, const char *ct) __nocapture(1, 2);
@@ -89,7 +89,7 @@ int strcmp(const char *cs, const char *ct) __nocapture(1, 2);
  *
  * Return 0 for success, -EFAULT for fail
  */
-int memcpy_mcsafe(void *dst, const void *src, size_t cnt);
+int memcpy_mcsafe(void *dst, const void *src, size_t cnt) __nocapture(2);
 
 #endif /* __KERNEL__ */
 

@@ -58,6 +58,10 @@ typedef struct next_interesting_function *  next_interesting_function_t;
 struct interesting_stmts;
 typedef struct interesting_stmts * interesting_stmts_t;
 
+enum decl_type {
+	SO_FUNCTION, SO_VAR, SO_FIELD, SO_FUNCTION_POINTER, SO_NONE
+};
+
 // Store data associated with the next_interesting_function_t entry
 struct fn_raw_data
 {
@@ -67,6 +71,7 @@ struct fn_raw_data
 	unsigned int hash;
 	unsigned int num;
 	enum size_overflow_mark marked;
+	enum decl_type decl_type;
 };
 
 #if BUILDING_GCC_VERSION <= 4007
@@ -154,6 +159,7 @@ struct next_interesting_function {
 #endif
 	const char *decl_name;
 	const char *context;
+	enum decl_type decl_type;
 	unsigned int hash;
 	unsigned int num;
 	enum size_overflow_mark marked;
@@ -166,6 +172,8 @@ extern tree size_overflow_type_HI;
 extern tree size_overflow_type_SI;
 extern tree size_overflow_type_DI;
 extern tree size_overflow_type_TI;
+// command line options
+extern bool check_fields, check_fns, check_fnptrs, check_vars;
 
 
 // size_overflow_plugin_hash.c
@@ -179,10 +187,11 @@ struct size_overflow_hash {
 extern const char *get_orig_decl_name(const_tree decl);
 extern bool is_size_overflow_asm(const_gimple stmt);
 extern void print_missing_function(next_interesting_function_t node);
-extern const struct size_overflow_hash *get_size_overflow_hash_entry_tree(const_tree fndecl, unsigned int argnum, bool hash_table);
+extern const struct size_overflow_hash *get_size_overflow_hash_entry(unsigned int hash, const char *decl_name, const char *context, unsigned int argnum, enum decl_type decl_type);
+extern const struct size_overflow_hash *get_size_overflow_hash_entry_tree(const_tree fndecl, unsigned int argnum, bool hash_table, enum decl_type decl_type);
 extern unsigned int find_arg_number_tree(const_tree arg, const_tree func);
 extern unsigned int get_decl_hash(const_tree decl, const char *decl_name);
-extern const struct size_overflow_hash *get_size_overflow_hash_entry(unsigned int hash, const char *decl_name, const char *context, unsigned int argnum);
+extern const char *get_decl_type_str(next_interesting_function_t node);
 
 
 // intentional_overflow.c
@@ -327,5 +336,6 @@ extern void __unused print_children_chain_list(next_interesting_function_t next_
 extern void __unused print_all_next_node_children_chain_list(next_interesting_function_t next_node);
 extern const char * __unused print_so_mark_name(enum size_overflow_mark mark);
 extern const char * __unused print_intentional_mark_name(enum intentional_mark mark);
+extern void __unused print_next_interesting_function(next_interesting_function_t node);
 
 #endif
