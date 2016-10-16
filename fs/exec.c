@@ -2238,8 +2238,13 @@ static noinline int check_stack_object(unsigned long obj, unsigned long len)
 #endif
 }
 
+static DEFINE_RATELIMIT_STATE(usercopy_ratelimit, 15 * HZ, 3);
+
 static __noreturn void pax_report_usercopy(const void *ptr, unsigned long len, bool to_user, const char *type)
 {
+	if (!__ratelimit(&usercopy_ratelimit))
+		goto kill;
+
 	if (current->signal->curr_ip)
 		printk(KERN_EMERG "PAX: From %pI4: kernel memory %s attempt detected %s %p (%s) (%lu bytes)\n",
 			&current->signal->curr_ip, to_user ? "leak" : "overwrite", to_user ? "from" : "to", ptr, type ? : "unknown", len);
@@ -2247,6 +2252,8 @@ static __noreturn void pax_report_usercopy(const void *ptr, unsigned long len, b
 		printk(KERN_EMERG "PAX: kernel memory %s attempt detected %s %p (%s) (%lu bytes)\n",
 			to_user ? "leak" : "overwrite", to_user ? "from" : "to", ptr, type ? : "unknown", len);
 	dump_stack();
+
+kill:
 	gr_handle_kernel_exploit();
 	do_group_exit(SIGKILL);
 }

@@ -681,13 +681,12 @@ return_from_SYSCALL_64:
 	.error "virtual address width changed -- SYSRET checks need update"
 	.endif
 
-	/* Change top 16 bits to be the sign-extension of 47th bit */
-	shl	$(64 - (__VIRTUAL_MASK_SHIFT+1)), %rcx
-	sar	$(64 - (__VIRTUAL_MASK_SHIFT+1)), %rcx
-
-	/* If this changed %rcx, it was not canonical */
-	cmpq	%rcx, %r11
-	jne	opportunistic_sysret_failed
+	/*
+	 * If the top 17 bits are not 0 then RIP isn't a userland address,
+	 * it may not even be canonical, fall back to iret
+	 */
+	shr	$(__VIRTUAL_MASK_SHIFT), %r11
+	jnz	opportunistic_sysret_failed
 
 	cmpq	$__USER_CS, CS(%rsp)		/* CS must match SYSRET */
 	jne	opportunistic_sysret_failed

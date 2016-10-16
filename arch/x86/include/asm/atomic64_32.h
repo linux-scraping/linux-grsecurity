@@ -8,12 +8,12 @@
 /* An 64bit atomic type */
 
 typedef struct {
-	u64 __aligned(8) counter;
+	s64 __aligned(8) counter;
 } atomic64_t;
 
 #ifdef CONFIG_PAX_REFCOUNT
 typedef struct {
-	u64 __aligned(8) counter;
+	s64 __aligned(8) counter;
 } atomic64_unchecked_t;
 #else
 typedef atomic64_t atomic64_unchecked_t;

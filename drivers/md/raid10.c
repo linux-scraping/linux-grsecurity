@@ -1446,7 +1446,7 @@ static void raid10_make_request(struct mddev *mddev, struct bio *bio)
 {
 	struct r10conf *conf = mddev->private;
 	sector_t chunk_mask = (conf->geo.chunk_mask & conf->prev.chunk_mask);
-	int chunk_sects = chunk_mask + 1;
+	sector_t chunk_sects = chunk_mask + 1;
 
 	struct bio *split;
 
@@ -3153,6 +3153,7 @@ static sector_t raid10_sync_request(struct mddev *mddev, sector_t sector_nr,
 	} else {
 		/* resync. Schedule a read for every block at this virt offset */
 		int count = 0;
+		sector_t sectors;
 
 		bitmap_cond_end_sync(mddev->bitmap, sector_nr, 0);
 
@@ -3178,7 +3179,8 @@ static sector_t raid10_sync_request(struct mddev *mddev, sector_t sector_nr,
 		r10_bio->sector = sector_nr;
 		set_bit(R10BIO_IsSync, &r10_bio->state);
 		raid10_find_phys(conf, r10_bio);
-		r10_bio->sectors = (sector_nr | chunk_mask) - sector_nr + 1;
+		sectors = (sector_nr | chunk_mask) - sector_nr + 1;
+		r10_bio->sectors = sectors;
 
 		for (i = 0; i < conf->copies; i++) {
 			int d = r10_bio->devs[i].devnum;

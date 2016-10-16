@@ -1777,7 +1777,7 @@ EXPORT_SYMBOL(bio_endio);
  * to @bio's bi_io_vec; it is the caller's responsibility to ensure that
  * @bio is not freed before the split.
  */
-struct bio *bio_split(struct bio *bio, int sectors,
+struct bio *bio_split(struct bio *bio, unsigned int sectors,
 		      gfp_t gfp, struct bio_set *bs)
 {
 	struct bio *split = NULL;

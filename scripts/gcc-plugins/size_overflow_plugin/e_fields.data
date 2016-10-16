@@ -743,7 +743,6 @@ e_snd_soc_params_to_frame_size_fndecl_2630 snd_soc_params_to_frame_size fndecl 0
 e_total_vm_mm_struct_2630 total_vm mm_struct 0 2630 &e_snd_soc_params_to_frame_size_fndecl_2630
 e_radeon_vram_location_fndecl_2634 radeon_vram_location fndecl 3 2634 NULL
 e_bop_lookup_contig_nilfs_bmap_operations_2637 bop_lookup_contig nilfs_bmap_operations 0 2637 NULL
-e_cube_rtt_scale_vardecl_tcp_cubic_c_2638 cube_rtt_scale vardecl_tcp_cubic.c 0 2638 NULL
 e_regmap_spi_gather_write_fndecl_2639 regmap_spi_gather_write fndecl 3-5 2639 NULL
 e_rx_bufshift_rtl_stats_2641 rx_bufshift rtl_stats 0 2641 NULL
 e_sys_read_fndecl_2644 sys_read fndecl 3 2644 NULL
@@ -2248,7 +2247,6 @@ e_rtpref_nfs_fsinfo_7835 rtpref nfs_fsinfo 0 7835 NULL
 e_nonstatic_find_mem_region_fndecl_7838 nonstatic_find_mem_region fndecl 1-2 7838 NULL
 e_sys_truncate_fndecl_7846 sys_truncate fndecl 2 7846 NULL
 e_SYSC_pread64_fndecl_7850 SYSC_pread64 fndecl 3 7850 NULL
-e_tcp_rtt_estimator_fndecl_7853 tcp_rtt_estimator fndecl 2 7853 NULL
 e_pcf2123_write_fndecl_7856 pcf2123_write fndecl 3 7856 NULL
 e_sl_datalen_nfsd4_slot_7859 sl_datalen nfsd4_slot 0 7859 NULL
 e_wqe_shift_mlx4_ib_wq_7860 wqe_shift mlx4_ib_wq 0 7860 NULL
@@ -5244,7 +5242,6 @@ e_nfs_dreq_bytes_left_fndecl_18154 nfs_dreq_bytes_left fndecl 0 18154 NULL
 e_cxgbi_ppm_ppods_reserve_fndecl_18157 cxgbi_ppm_ppods_reserve fndecl 0-2 18157 NULL
 e_qlcnic_enable_msix_fndecl_18171 qlcnic_enable_msix fndecl 2 18171 NULL
 e_iscsi_sw_tcp_pdu_init_fndecl_18173 iscsi_sw_tcp_pdu_init fndecl 3-2 18173 NULL
-e_baseRTT_vegas_18174 baseRTT vegas 0 18174 NULL
 e_num_gpu_pages_radeon_gart_18177 num_gpu_pages radeon_gart 0 18177 NULL
 e_ide_read_error_fndecl_18180 ide_read_error fndecl 0 18180 NULL nohasharray
 e_ocfs2_test_suballoc_bit_fndecl_18180 ocfs2_test_suballoc_bit fndecl 6-5-4 18180 &e_ide_read_error_fndecl_18180 nohasharray
@@ -7709,7 +7706,6 @@ e_wMaxSegmentSize_usb_cdc_mbim_desc_26572 wMaxSegmentSize usb_cdc_mbim_desc 0 26
 e_ra_tid_iwl_mvm_tx_resp_26576 ra_tid iwl_mvm_tx_resp 0 26576 NULL
 e_sd_log_flush_head_gfs2_sbd_26577 sd_log_flush_head gfs2_sbd 0 26577 NULL
 e_smbios_entry_point_size_vardecl_dmi_scan_c_26579 smbios_entry_point_size vardecl_dmi_scan.c 0 26579 NULL
-e_tcp_ack_update_rtt_fndecl_26581 tcp_ack_update_rtt fndecl 4-3 26581 NULL
 e_layout_mdp_superblock_1_26582 layout mdp_superblock_1 0 26582 NULL
 e_read_tree_block_fndecl_26587 read_tree_block fndecl 2 26587 NULL nohasharray
 e_initial_ssthresh_vardecl_tcp_cubic_c_26587 initial_ssthresh vardecl_tcp_cubic.c 0 26587 &e_read_tree_block_fndecl_26587
@@ -12063,7 +12059,6 @@ e_ax25_recvmsg_fndecl_41714 ax25_recvmsg fndecl 3 41714 NULL
 e_l_curr_block_xlog_41718 l_curr_block xlog 0 41718 NULL
 e_strstart_deflate_state_41719 strstart deflate_state 0 41719 NULL
 e_hlen_ip_tunnel_41720 hlen ip_tunnel 0 41720 NULL
-e_rtt_win_sx_westwood_41723 rtt_win_sx westwood 0 41723 NULL
 e_dax_zero_page_range_fndecl_41725 dax_zero_page_range fndecl 0-2-3 41725 NULL
 e_width_tw68_dev_41726 width tw68_dev 0 41726 NULL
 e_pci_enable_msi_range_fndecl_41728 pci_enable_msi_range fndecl 3 41728 NULL
@@ -14792,7 +14787,6 @@ e_ls_num_slots_dlm_ls_51120 ls_num_slots dlm_ls 0 51120 NULL
 e_new_read_fndecl_51123 new_read fndecl 2 51123 NULL
 e_igb_pci_enable_sriov_fndecl_51131 igb_pci_enable_sriov fndecl 2 51131 NULL
 e_max_write_sge_ib_qp_51132 max_write_sge ib_qp 0 51132 NULL
-e_rtt0_vardecl_tcp_hybla_c_51134 rtt0 vardecl_tcp_hybla.c 0 51134 NULL
 e_wqe_cnt_mlx4_ib_wq_51135 wqe_cnt mlx4_ib_wq 0 51135 NULL
 e_cachelsz_ath_common_51138 cachelsz ath_common 0 51138 NULL
 e_length_sky2_status_le_51139 length sky2_status_le 0 51139 NULL
@@ -15209,7 +15203,6 @@ e_data_size_binder_transaction_data_52567 data_size binder_transaction_data 0 52
 e_end_logsuper_52574 end logsuper 0 52574 NULL
 e_amdgpu_ttm_tt_set_userptr_fndecl_52575 amdgpu_ttm_tt_set_userptr fndecl 2 52575 NULL
 e_btrfs_extent_data_ref_root_fndecl_52585 btrfs_extent_data_ref_root fndecl 0 52585 NULL
-e_rtt_westwood_52592 rtt westwood 0 52592 NULL
 e___mincore_unmapped_range_fndecl_52595 __mincore_unmapped_range fndecl 1 52595 NULL
 e_xfs_shift_file_space_fndecl_52596 xfs_shift_file_space fndecl 2-3 52596 NULL
 e___allocate_data_block_fndecl_52597 __allocate_data_block fndecl 0 52597 NULL
@@ -17963,8 +17956,7 @@ e_sb_rbmblocks_xfs_sb_62307 sb_rbmblocks xfs_sb 0 62307 NULL
 e_rtl2832_sdr_convert_stream_fndecl_62308 rtl2832_sdr_convert_stream fndecl 0-4 62308 NULL
 e_ircomm_tty_connect_confirm_fndecl_62310 ircomm_tty_connect_confirm fndecl 4 62310 NULL nohasharray
 e_iov_data_count_iscsi_cmd_62310 iov_data_count iscsi_cmd 0 62310 &e_ircomm_tty_connect_confirm_fndecl_62310
-e_map_extent_mft_record_fndecl_62312 map_extent_mft_record fndecl 2 62312 NULL nohasharray
-e_rtt_min_westwood_62312 rtt_min westwood 0 62312 &e_map_extent_mft_record_fndecl_62312
+e_map_extent_mft_record_fndecl_62312 map_extent_mft_record fndecl 2 62312 NULL
 e_ss_channels_snd_rme9652_62315 ss_channels snd_rme9652 0 62315 NULL
 e_ext2_new_block_fndecl_62326 ext2_new_block fndecl 2-0 62326 NULL
 e_tcp_vegas_cong_avoid_fndecl_62332 tcp_vegas_cong_avoid fndecl 3 62332 NULL
@@ -18071,7 +18063,6 @@ e_bpp_sh_vou_fmt_62683 bpp sh_vou_fmt 0 62683 NULL
 e_num_vsis_i40e_hw_capabilities_62685 num_vsis i40e_hw_capabilities 0 62685 NULL
 e_start_ttm_mem_reg_62688 start ttm_mem_reg 0 62688 NULL
 e_vmemdup_fndecl_62706 vmemdup fndecl 2 62706 NULL
-e_minRTT_vegas_62707 minRTT vegas 0 62707 NULL
 e_line6_midibuf_bytes_free_fndecl_62709 line6_midibuf_bytes_free fndecl 0 62709 NULL
 e_curwidth_usb_usbvision_62710 curwidth usb_usbvision 0 62710 NULL
 e_mtu_ring_info_62721 mtu ring_info 0 62721 NULL
@@ -18379,8 +18370,7 @@ e_spi_split_transfers_maxsize_fndecl_63709 spi_split_transfers_maxsize fndecl 3 
 e_owner_snd_ctl_elem_info_63711 owner snd_ctl_elem_info 0 63711 NULL
 e_index_dtsplit_63712 index dtsplit 0 63712 NULL nohasharray
 e_xfs_alloc_compute_aligned_fndecl_63712 xfs_alloc_compute_aligned fndecl 3-2 63712 &e_index_dtsplit_63712
-e_kernel_recvmsg_fndecl_63713 kernel_recvmsg fndecl 0-5-4 63713 NULL nohasharray
-e_tcp_westwood_bw_rttmin_fndecl_63713 tcp_westwood_bw_rttmin fndecl 0 63713 &e_kernel_recvmsg_fndecl_63713
+e_kernel_recvmsg_fndecl_63713 kernel_recvmsg fndecl 0-5-4 63713 NULL
 e_omfs_readpages_fndecl_63721 omfs_readpages fndecl 4 63721 NULL
 e_dccp_v6_init_sequence_fndecl_63732 dccp_v6_init_sequence fndecl 0 63732 NULL
 e_osd_vis_h_yuv_playback_info_63734 osd_vis_h yuv_playback_info 0 63734 NULL

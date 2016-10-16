@@ -11823,7 +11823,8 @@ disable_so_get_ramp_delay_fndecl_62302 get_ramp_delay fndecl 0 62302 NULL
 disable_so_decrypt_crypto_aead_62305 decrypt crypto_aead 0 62305 NULL
 disable_so_paddr_mmd_fw_ldst_mdio_62306 paddr_mmd fw_ldst_mdio 0 62306 NULL
 disable_so_start_address___osdv1_cdb_addr_len_62309 start_address __osdv1_cdb_addr_len 0 62309 NULL
-disable_so_freq_as10x_tune_args_62312 freq as10x_tune_args 0 62312 NULL
+disable_so_freq_as10x_tune_args_62312 freq as10x_tune_args 0 62312 NULL nohasharray
+e_rtt_min_westwood_62312 rtt_min westwood 0 62312 &disable_so_freq_as10x_tune_args_62312
 disable_so_timestamp_low_rtl_stats_62314 timestamp_low rtl_stats 0 62314 NULL
 disable_so_uid_fuse_in_header_62319 uid fuse_in_header 0 62319 NULL
 disable_so_bfa_fcs_rport_del_timeout_vardecl_bfa_fcs_rport_c_62320 bfa_fcs_rport_del_timeout vardecl_bfa_fcs_rport.c 0 62320 NULL nohasharray
@@ -12451,3 +12452,12 @@ e_bic_K_bictcp_33591 bic_K bictcp 0 33591 NULL
 e_tcp_cwnd_bictcp_64346 tcp_cwnd bictcp 0 64346 NULL
 e_bic_origin_point_bictcp_64414 bic_origin_point bictcp 0 64414 NULL
 e_srtt_us_tcp_sock_62907 srtt_us tcp_sock 0 62907 NULL
+e_tcp_rtt_estimator_fndecl_7853 tcp_rtt_estimator fndecl 2 7853 NULL
+e_tcp_ack_update_rtt_fndecl_26581 tcp_ack_update_rtt fndecl 4-3 26581 NULL
+e_rtt_westwood_52592 rtt westwood 0 52592 NULL
+e_minRTT_vegas_62707 minRTT vegas 0 62707 NULL
+e_tcp_westwood_bw_rttmin_fndecl_63713 tcp_westwood_bw_rttmin fndecl 0 63713 NULL
+e_cube_rtt_scale_vardecl_tcp_cubic_c_2638 cube_rtt_scale vardecl_tcp_cubic.c 0 2638 NULL
+e_rtt0_vardecl_tcp_hybla_c_51134 rtt0 vardecl_tcp_hybla.c 0 51134 NULL
+e_rtt_win_sx_westwood_41723 rtt_win_sx westwood 0 41723 NULL
+e_baseRTT_vegas_18174 baseRTT vegas 0 18174 NULL
