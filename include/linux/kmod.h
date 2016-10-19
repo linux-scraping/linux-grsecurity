@@ -69,7 +69,7 @@ struct subprocess_info {
 	int (*init)(struct subprocess_info *info, struct cred *new);
 	void (*cleanup)(struct subprocess_info *info);
 	void *data;
-};
+} __randomize_layout;
 
 extern int
 call_usermodehelper(char *path, char **argv, char **envp, int wait);

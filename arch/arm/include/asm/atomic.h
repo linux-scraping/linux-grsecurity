@@ -581,13 +581,7 @@ static inline long long atomic64_xchg_relaxed(atomic64_t *ptr, long long new)
 
 	return result;
 }
-
-static inline long long atomic64_xchg_unchecked_relaxed(atomic64_unchecked_t *ptr, long long new)
-{
-	return atomic64_xchg_relaxed((atomic64_t *)ptr, new);
-}
 #define atomic64_xchg_relaxed		atomic64_xchg_relaxed
-#define atomic64_xchg_unchecked_relaxed		atomic64_xchg_unchecked_relaxed
 
 static inline long long atomic64_xchg_unchecked_relaxed(atomic64_unchecked_t *ptr, long long new)
 {
