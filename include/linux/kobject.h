@@ -145,6 +145,13 @@ struct kobj_attribute {
 };
 typedef struct kobj_attribute __no_const kobj_attribute_no_const;
 
+#define KOBJECT_ATTR(_name, _mode, _show, _store) \
+	struct kobj_attribute dev_attr_##_name = __ATTR(_name, _mode, _show, _store)
+#define KOBJECT_ATTR_RW(_name) \
+	struct kobj_attribute dev_attr_##_name = __ATTR_RW(_name)
+#define KOBJECT_ATTR_RO(_name) \
+	struct kobj_attribute dev_attr_##_name = __ATTR_RO(_name)
+
 extern const struct sysfs_ops kobj_sysfs_ops;
 
 struct sock;

@@ -2014,7 +2014,6 @@ e_mq_msg_default_ipc_namespace_7041 mq_msg_default ipc_namespace 0 7041 NULL
 e_fp_msix_cnt_qed_int_params_7045 fp_msix_cnt qed_int_params 0 7045 NULL
 e_kvm_read_guest_page_fndecl_7049 kvm_read_guest_page fndecl 2 7049 NULL
 e_iforce_send_packet_fndecl_7050 iforce_send_packet fndecl 2 7050 NULL
-e_init_special_inode_fndecl_7054 init_special_inode fndecl 3 7054 NULL
 e_SYSC_pselect6_fndecl_7055 SYSC_pselect6 fndecl 1 7055 NULL
 e_packet_size_usbatm_channel_7056 packet_size usbatm_channel 0 7056 NULL
 e___btrfs_drop_extents_fndecl_7058 __btrfs_drop_extents fndecl 6-5 7058 NULL nohasharray
@@ -5501,7 +5500,6 @@ e_prevUnitNo_inftl_unithead1_19020 prevUnitNo inftl_unithead1 0 19020 NULL
 e_rsxx_queue_discard_fndecl_19027 rsxx_queue_discard fndecl 0 19027 NULL
 e_tcp_recvmsg_fndecl_19029 tcp_recvmsg fndecl 3 19029 NULL
 e_sge_size_MPT3SAS_ADAPTER_19030 sge_size MPT3SAS_ADAPTER 0 19030 NULL
-e_old_decode_dev_fndecl_19035 old_decode_dev fndecl 0-1 19035 NULL
 e_next_scan_nid_f2fs_nm_info_19036 next_scan_nid f2fs_nm_info 0 19036 NULL
 e_scrollback_max_vardecl_fbcon_c_19040 scrollback_max vardecl_fbcon.c 0 19040 NULL
 e_tsize_nfs2_fsstat_19041 tsize nfs2_fsstat 0 19041 NULL
@@ -11169,8 +11167,7 @@ e___ieee80211_tx_skb_tid_band_fndecl_38444 __ieee80211_tx_skb_tid_band fndecl 3 
 e_test_ofsh_cyttsp4_sysinfo_data_38444 test_ofsh cyttsp4_sysinfo_data 0 38444 &e___ieee80211_tx_skb_tid_band_fndecl_38444
 e_lcd_hdisp_atyfb_par_38462 lcd_hdisp atyfb_par 0 38462 NULL
 e_dvb_ringbuffer_avail_fndecl_38474 dvb_ringbuffer_avail fndecl 0 38474 NULL
-e_new_decode_dev_fndecl_38477 new_decode_dev fndecl 0-1 38477 NULL nohasharray
-e_blocksize_gss_krb5_enctype_38477 blocksize gss_krb5_enctype 0 38477 &e_new_decode_dev_fndecl_38477
+e_blocksize_gss_krb5_enctype_38477 blocksize gss_krb5_enctype 0 38477 NULL
 e___fuse_request_alloc_fndecl_38479 __fuse_request_alloc fndecl 1 38479 NULL
 e_min_pfn_mapped_vardecl_init_c_38481 min_pfn_mapped vardecl_init.c 0 38481 NULL
 e_pnfs_update_layout_fndecl_38495 pnfs_update_layout fndecl 3-4 38495 NULL
@@ -11384,7 +11381,6 @@ e_system_sample_rate_hdsp_39140 system_sample_rate hdsp 0 39140 NULL
 e_drvr_sglimit_blogic_adapter_39142 drvr_sglimit blogic_adapter 0 39142 NULL
 e_mmc_test_buffer_transfer_fndecl_39150 mmc_test_buffer_transfer fndecl 4 39150 NULL
 e_size_intel_initial_plane_config_39155 size intel_initial_plane_config 0 39155 NULL
-e_jffs2_encode_dev_fndecl_39156 jffs2_encode_dev fndecl 2-0 39156 NULL
 e_log_root_btrfs_super_block_39157 log_root btrfs_super_block 0 39157 NULL
 e_fcoe_start_cid_cnic_local_39162 fcoe_start_cid cnic_local 0 39162 NULL
 e_sys_readv_fndecl_39163 sys_readv fndecl 3 39163 NULL nohasharray
@@ -14171,7 +14167,6 @@ e_ext4_grp_offs_to_block_fndecl_48955 ext4_grp_offs_to_block fndecl 0 48955 NULL
 e_xt_alloc_table_info_fndecl_48956 xt_alloc_table_info fndecl 1 48956 NULL
 e_user_dlm_lock_fndecl_48959 user_dlm_lock fndecl 6 48959 NULL nohasharray
 e_wptr_radeon_ring_48959 wptr radeon_ring 0 48959 &e_user_dlm_lock_fndecl_48959
-e_new_encode_dev_fndecl_48964 new_encode_dev fndecl 0-1 48964 NULL
 e_block_size_sm_ftl_48967 block_size sm_ftl 0 48967 NULL
 e_rx_fndecl_48971 rx fndecl 4 48971 NULL
 e_twl_i2c_write_fndecl_48976 twl_i2c_write fndecl 0 48976 NULL
@@ -16746,8 +16741,7 @@ e_sel_write_enforce_fndecl_57973 sel_write_enforce fndecl 3 57973 NULL
 e_hpfs_map_anode_fndecl_57993 hpfs_map_anode fndecl 2 57993 NULL
 e_faultin_page_fndecl_57994 faultin_page fndecl 3 57994 NULL
 e_perf_sample_ustack_size_fndecl_57995 perf_sample_ustack_size fndecl 0-2-1 57995 NULL
-e_codes_size_input_mask_57996 codes_size input_mask 0 57996 NULL nohasharray
-e_seq_rxrpc_host_header_57996 seq rxrpc_host_header 0 57996 &e_codes_size_input_mask_57996
+e_codes_size_input_mask_57996 codes_size input_mask 0 57996 NULL
 e_max_idx_node_sz_ubifs_info_57997 max_idx_node_sz ubifs_info 0 57997 NULL
 e_status_orangefs_downcall_s_57998 status orangefs_downcall_s 0 57998 NULL
 e_SSIDlen_StatusRid_58002 SSIDlen StatusRid 0 58002 NULL nohasharray
