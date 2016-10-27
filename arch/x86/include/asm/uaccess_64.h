@@ -13,8 +13,6 @@
 #include <asm/page.h>
 #include <asm/pgtable.h>
 
-#define set_fs(x)	(current_thread_info()->addr_limit = (x))
-
 /*
  * Copy To/From Userspace
  */

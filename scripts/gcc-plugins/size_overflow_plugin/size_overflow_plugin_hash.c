@@ -19,12 +19,24 @@
 
 #include "size_overflow.h"
 
-#include "disable.h"
 #include "e_aux.h"
+#include "disable.h"
 #include "e_fields.h"
 #include "e_fns.h"
 #include "e_fptrs.h"
 #include "e_vars.h"
+
+void initialize_raw_data(struct fn_raw_data *raw_data)
+{
+	raw_data->decl_str = NULL;
+	raw_data->decl = NULL_TREE;
+	raw_data->context = NULL;
+	raw_data->hash = NO_HASH;
+	raw_data->num = NONE_ARGNUM;
+	raw_data->decl_type = SO_NONE;
+	raw_data->orig_decl_str = NULL;
+	raw_data->orig_num = NONE_ARGNUM;
+}
 
 static const_tree get_function_type(const_tree decl)
 {
@@ -169,12 +181,15 @@ static void set_decl_codes(struct decl_hash *decl_hash_data)
 		set_decl_type_codes(TREE_VALUE(arg), decl_hash_data);
 }
 
-static const struct size_overflow_hash *get_proper_hash_chain(const struct size_overflow_hash *entry, const char *func_name, const char *context)
+static const struct size_overflow_hash *get_proper_hash_chain(const struct size_overflow_hash *entry, struct fn_raw_data *raw_data)
 {
+	gcc_assert(raw_data->orig_decl_str);
+	gcc_assert(raw_data->context);
+
 	for (; entry; entry = entry->next) {
-		if (strcmp(entry->name, func_name))
+		if (strcmp(entry->name, raw_data->orig_decl_str))
 			continue;
-		if (!strcmp(entry->context, context))
+		if (!strcmp(entry->context, raw_data->context))
 			return entry;
 	}
 	return NULL;
@@ -235,109 +250,114 @@ const char *get_orig_decl_name(const_tree decl)
 	return xstrndup(name, len);
 }
 
-const struct size_overflow_hash *get_disable_size_overflow_hash_entry(unsigned int hash, const char *decl_name, const char *context, unsigned int argnum)
+static const struct size_overflow_hash *get_disable_size_overflow_hash_entry(struct fn_raw_data *raw_data)
 {
 	const struct size_overflow_hash *entry, *entry_node;
 
-	entry = disable_hash[hash];
-	entry_node = get_proper_hash_chain(entry, decl_name, context);
-	if (entry_node && entry_node->param & (1U << argnum))
+	gcc_assert(raw_data->hash != NO_HASH);
+	gcc_assert(raw_data->orig_num != NONE_ARGNUM);
+
+	entry = disable_hash[raw_data->hash];
+	entry_node = get_proper_hash_chain(entry, raw_data);
+	if (entry_node && entry_node->param & (1U << raw_data->orig_num)) {
+		raw_data->decl_type = SO_DISABLE;
 		return entry_node;
-	return NULL;
-}
-
-static const struct size_overflow_hash *get_size_overflow_hash_entry_all_tables(unsigned int hash)
-{
-	const struct size_overflow_hash *entry = NULL;
-
-	if (check_fns)
-		entry = fns_hash[hash];
-	if (entry)
-		return entry;
-
-	if (check_fields)
-		entry = fields_hash[hash];
-	if (entry)
-		return entry;
-
-	if (check_vars)
-		entry = vars_hash[hash];
-	if (entry)
-		return entry;
-
-	if (check_fnptrs)
-		return fptrs_hash[hash];
-	return NULL;
-}
-
-const struct size_overflow_hash *get_size_overflow_hash_entry(unsigned int hash, const char *decl_name, const char *context, unsigned int argnum, enum decl_type decl_type)
-{
-	const struct size_overflow_hash *entry, *entry_node;
-
-	switch (decl_type) {
-	case SO_FUNCTION:
-		if (!check_fns)
-			return NULL;
-		entry = fns_hash[hash];
-		break;
-	case SO_FIELD:
-		if (!check_fields)
-			return NULL;
-		entry = fields_hash[hash];
-		break;
-	case SO_VAR:
-		if (!check_vars)
-			return NULL;
-		entry = vars_hash[hash];
-		break;
-	case SO_FUNCTION_POINTER:
-		if (!check_fnptrs)
-			return NULL;
-		entry = fptrs_hash[hash];
-		break;
-	case SO_NONE:
-		entry = get_size_overflow_hash_entry_all_tables(hash);
-		break;
-	default:
-		entry = aux_hash[hash];
-		break;
 	}
 
-	entry_node = get_proper_hash_chain(entry, decl_name, context);
-	if (entry_node && entry_node->param & (1U << argnum))
+	return NULL;
+}
+
+static const struct size_overflow_hash *get_proper_node(const struct size_overflow_hash *entry_chain, struct fn_raw_data *raw_data)
+{
+	const struct size_overflow_hash *entry_node;
+
+	if (!entry_chain)
+		return NULL;
+
+	gcc_assert(raw_data->orig_num != NONE_ARGNUM);
+
+	entry_node = get_proper_hash_chain(entry_chain, raw_data);
+	if (entry_node && entry_node->param & (1U << raw_data->orig_num))
 		return entry_node;
 	return NULL;
 }
 
-const struct size_overflow_hash *get_size_overflow_hash_entry_tree(const_tree fndecl, unsigned int argnum, bool hash_table, enum decl_type decl_type)
+const struct size_overflow_hash *get_size_overflow_hash_entry(struct fn_raw_data *raw_data)
+{
+	const struct size_overflow_hash *entry;
+
+	gcc_assert(raw_data->decl_type == SO_NONE);
+
+	gcc_assert(raw_data->hash != NO_HASH);
+
+	entry = get_proper_node(fns_hash[raw_data->hash], raw_data);
+	if (entry) {
+		raw_data->decl_type = SO_FUNCTION;
+		return check_fns ? entry : NULL;
+	}
+
+	entry = get_proper_node(fields_hash[raw_data->hash], raw_data);
+	if (entry) {
+		raw_data->decl_type = SO_FIELD;
+		return check_fields ? entry : NULL;
+	}
+
+	entry = get_proper_node(vars_hash[raw_data->hash], raw_data);
+	if (entry) {
+		raw_data->decl_type = SO_VAR;
+		return check_vars ? entry : NULL;
+	}
+
+	entry = get_proper_node(fptrs_hash[raw_data->hash], raw_data);
+	if (entry) {
+		raw_data->decl_type = SO_FUNCTION_POINTER;
+		return check_fnptrs ? entry : NULL;
+	}
+
+	entry = get_proper_node(aux_hash[raw_data->hash], raw_data);
+	if (entry) {
+		raw_data->decl_type = SO_AUX;
+		return entry;
+	}
+
+	raw_data->decl_type = SO_NONE;
+	return NULL;
+}
+
+const struct size_overflow_hash *get_size_overflow_hash_entry_tree(struct fn_raw_data *raw_data, bool hash_table)
 {
 	const_tree orig_decl;
-	unsigned int orig_argnum, hash;
-	const char *decl_name, *context;
 
-	if (made_by_compiler(fndecl)) {
-		orig_decl = get_orig_fndecl(fndecl);
-		orig_argnum = get_correct_argnum(fndecl, orig_decl, argnum);
+	gcc_assert(raw_data->decl != NULL_TREE);
+
+	if (made_by_compiler(raw_data->decl)) {
+		orig_decl = get_orig_fndecl(raw_data->decl);
+		if (raw_data->orig_num == NONE_ARGNUM)
+			raw_data->orig_num = get_correct_argnum(raw_data->decl, orig_decl, raw_data->num);
 	} else {
-		orig_decl = fndecl;
-		orig_argnum = argnum;
+		orig_decl = raw_data->decl;
+		raw_data->orig_num = raw_data->num;
 	}
 
-	if (orig_argnum == CANNOT_FIND_ARG)
+	if (raw_data->orig_num == CANNOT_FIND_ARG)
 		return NULL;
 
-	decl_name = get_orig_decl_name(orig_decl);
-	hash = get_decl_hash(orig_decl, decl_name);
-	if (hash == NO_HASH)
+	if (!raw_data->orig_decl_str)
+		raw_data->orig_decl_str = get_orig_decl_name(orig_decl);
+
+	raw_data->hash = get_decl_hash(orig_decl, raw_data->orig_decl_str);
+	if (raw_data->hash == NO_HASH)
 		return NULL;
 
-	context = get_decl_context(orig_decl);
-	if (!context)
+	if (!raw_data->context)
+		raw_data->context = get_decl_context(orig_decl);
+
+	if (!raw_data->context)
 		return NULL;
 
 	if (hash_table == SIZE_OVERFLOW)
-		return get_size_overflow_hash_entry(hash, decl_name, context, orig_argnum, decl_type);
-	return get_disable_size_overflow_hash_entry(hash, decl_name, context, orig_argnum);
+		return get_size_overflow_hash_entry(raw_data);
+	return get_disable_size_overflow_hash_entry(raw_data);
 }
 
 unsigned int find_arg_number_tree(const_tree arg, const_tree func)
@@ -369,9 +389,9 @@ const_tree get_attribute(const char* attr_name, const_tree decl)
 	return NULL_TREE;
 }
 
-const char *get_decl_type_str(next_interesting_function_t node)
+const char *get_decl_type_str(enum decl_type decl_type)
 {
-	switch (node->decl_type) {
+	switch (decl_type) {
 	case SO_FUNCTION:
 		return "fns";
 	case SO_FIELD:
@@ -382,6 +402,10 @@ const char *get_decl_type_str(next_interesting_function_t node)
 		return "fptrs";
 	case SO_NONE:
 		return "none";
+	case SO_DISABLE:
+		return "disable";
+	case SO_AUX:
+		return "aux";
 	default:
 		gcc_unreachable();
 	}
@@ -392,23 +416,12 @@ const char *get_decl_type_str(next_interesting_function_t node)
  */
 void print_missing_function(next_interesting_function_t node)
 {
-	unsigned int argnum, hash;
 	const struct size_overflow_hash *entry;
-	const char *decl_name, *decl_type;
+	const char *decl_type;
+	struct fn_raw_data raw_data;
 
 	if (node->marked == ASM_STMT_SO_MARK)
 		return;
-
-	if (node->orig_next_node) {
-		hash = node->orig_next_node->hash;
-		decl_name = node->orig_next_node->decl_name;
-		argnum = node->orig_next_node->num;
-		gcc_assert(!strcmp(node->context, node->orig_next_node->context));
-	} else {
-		hash = node->hash;
-		decl_name = node->decl_name;
-		argnum = node->num;
-	}
 
 	switch (node->decl_type) {
 	case SO_FUNCTION:
@@ -431,12 +444,26 @@ void print_missing_function(next_interesting_function_t node)
 		gcc_unreachable();
 	}
 
-	entry = get_size_overflow_hash_entry(hash, decl_name, node->context, argnum, node->decl_type);
+	initialize_raw_data(&raw_data);
+	raw_data.context = node->context;
+
+	if (node->orig_next_node) {
+		raw_data.hash = node->orig_next_node->hash;
+		raw_data.orig_decl_str = node->orig_next_node->decl_name;
+		raw_data.orig_num = node->orig_next_node->num;
+		gcc_assert(!strcmp(node->context, node->orig_next_node->context));
+	} else {
+		raw_data.hash = node->hash;
+		raw_data.orig_decl_str = node->decl_name;
+		raw_data.orig_num = node->num;
+	}
+
+	entry = get_size_overflow_hash_entry(&raw_data);
 	if (entry)
 		return;
 
-	decl_type = get_decl_type_str(node);
+	decl_type = get_decl_type_str(node->decl_type);
 	// inform() would be too slow
-	fprintf(stderr, "Function %s is missing from the e_%s hash table +%s+%s+%u+%u+\n", decl_name, decl_type, decl_name, node->context, argnum, hash);
+	fprintf(stderr, "Function %s is missing from the e_%s hash table +%s+%s+%u+%u+\n", raw_data.orig_decl_str, decl_type, raw_data.orig_decl_str, raw_data.context, raw_data.orig_num, raw_data.hash);
 }
 

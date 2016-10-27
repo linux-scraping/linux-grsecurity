@@ -59,7 +59,7 @@ struct interesting_stmts;
 typedef struct interesting_stmts * interesting_stmts_t;
 
 enum decl_type {
-	SO_FUNCTION, SO_VAR, SO_FIELD, SO_FUNCTION_POINTER, SO_NONE
+	SO_FUNCTION, SO_VAR, SO_FIELD, SO_FUNCTION_POINTER, SO_AUX, SO_DISABLE, SO_NONE
 };
 
 // Store data associated with the next_interesting_function_t entry
@@ -72,6 +72,8 @@ struct fn_raw_data
 	unsigned int num;
 	enum size_overflow_mark marked;
 	enum decl_type decl_type;
+	const char *orig_decl_str;
+	unsigned int orig_num;
 };
 
 #if BUILDING_GCC_VERSION <= 4007
@@ -187,11 +189,12 @@ struct size_overflow_hash {
 extern const char *get_orig_decl_name(const_tree decl);
 extern bool is_size_overflow_asm(const_gimple stmt);
 extern void print_missing_function(next_interesting_function_t node);
-extern const struct size_overflow_hash *get_size_overflow_hash_entry(unsigned int hash, const char *decl_name, const char *context, unsigned int argnum, enum decl_type decl_type);
-extern const struct size_overflow_hash *get_size_overflow_hash_entry_tree(const_tree fndecl, unsigned int argnum, bool hash_table, enum decl_type decl_type);
+extern const struct size_overflow_hash *get_size_overflow_hash_entry(struct fn_raw_data *raw_data);
+extern const struct size_overflow_hash *get_size_overflow_hash_entry_tree(struct fn_raw_data *raw_data, bool hash_table);
 extern unsigned int find_arg_number_tree(const_tree arg, const_tree func);
 extern unsigned int get_decl_hash(const_tree decl, const char *decl_name);
-extern const char *get_decl_type_str(next_interesting_function_t node);
+extern const char *get_decl_type_str(enum decl_type decl_type);
+extern void initialize_raw_data(struct fn_raw_data *raw_data);
 
 
 // intentional_overflow.c
@@ -337,5 +340,6 @@ extern void __unused print_all_next_node_children_chain_list(next_interesting_fu
 extern const char * __unused print_so_mark_name(enum size_overflow_mark mark);
 extern const char * __unused print_intentional_mark_name(enum intentional_mark mark);
 extern void __unused print_next_interesting_function(next_interesting_function_t node);
+extern void __unused print_raw_data(struct fn_raw_data *data);
 
 #endif

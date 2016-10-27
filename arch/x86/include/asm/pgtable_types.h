@@ -106,13 +106,14 @@
 
 #if defined(CONFIG_X86_64) || defined(CONFIG_X86_PAE)
 #define _PAGE_NX	(_AT(pteval_t, 1) << _PAGE_BIT_NX)
-#define _PAGE_DEVMAP	(_AT(u64, 1) << _PAGE_BIT_DEVMAP)
-#define __HAVE_ARCH_PTE_DEVMAP
-#elif defined(CONFIG_KMEMCHECK) || defined(CONFIG_MEM_SOFT_DIRTY)
-#define _PAGE_NX	(_AT(pteval_t, 0))
+#ifdef CONFIG_PAX_SEGMEXEC
 #define _PAGE_DEVMAP	(_AT(pteval_t, 0))
 #else
-#define _PAGE_NX	(_AT(pteval_t, 1) << _PAGE_BIT_HIDDEN)
+#define _PAGE_DEVMAP	(_AT(u64, 1) << _PAGE_BIT_DEVMAP)
+#define __HAVE_ARCH_PTE_DEVMAP
+#endif
+#else
+#define _PAGE_NX	(_AT(pteval_t, 1) << _PAGE_BIT_SOFTW2)
 #define _PAGE_DEVMAP	(_AT(pteval_t, 0))
 #endif
 

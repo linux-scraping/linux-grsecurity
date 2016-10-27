@@ -219,8 +219,8 @@ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
 		goto err;
 
 	offset = ntohs(fhdr->frag_off) & ~0x7;
-	end = offset + (ntohs(ipv6_hdr(skb)->payload_len) -
-			((u8 *)(fhdr + 1) - (u8 *)(ipv6_hdr(skb) + 1)));
+	end = offset + ntohs(ipv6_hdr(skb)->payload_len);
+	end -= (u8 *)(fhdr + 1) - (u8 *)(ipv6_hdr(skb) + 1);
 
 	if ((unsigned int)end > IPV6_MAXPLEN) {
 		__IP6_INC_STATS(net, ip6_dst_idev(skb_dst(skb)),

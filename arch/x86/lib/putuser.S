@@ -17,6 +17,7 @@
 #include <asm/smap.h>
 #include <asm/segment.h>
 #include <asm/pgtable.h>
+#include <asm/frame.h>
 #include <asm/alternative-asm.h>
 
 /*
@@ -31,8 +32,9 @@
  * as they get called from within inline assembly.
  */
 
-#define ENTER
-#define EXIT	ASM_CLAC ;		\
+#define ENTER	FRAME_BEGIN
+#define EXIT	ASM_USER_ACCESS_END ;	\
+		FRAME_END ;		\
 		pax_force_retaddr ;	\
 		ret
 
@@ -67,7 +69,7 @@ ENTRY(__put_user_1)
 
 #endif
 
-	ASM_STAC
+	ASM_USER_ACCESS_BEGIN
 1:	__copyuser_seg movb %al,(_DEST)
 	xor %eax,%eax
 	EXIT
@@ -93,7 +95,7 @@ ENTRY(__put_user_2)
 
 #endif
 
-	ASM_STAC
+	ASM_USER_ACCESS_BEGIN
 2:	__copyuser_seg movw %ax,(_DEST)
 	xor %eax,%eax
 	EXIT
@@ -119,7 +121,7 @@ ENTRY(__put_user_4)
 
 #endif
 
-	ASM_STAC
+	ASM_USER_ACCESS_BEGIN
 3:	__copyuser_seg movl %eax,(_DEST)
 	xor %eax,%eax
 	EXIT
@@ -145,7 +147,7 @@ ENTRY(__put_user_8)
 
 #endif
 
-	ASM_STAC
+	ASM_USER_ACCESS_BEGIN
 4:	__copyuser_seg mov %_ASM_AX,(_DEST)
 #ifdef CONFIG_X86_32
 5:	__copyuser_seg movl %edx,4(_DEST)

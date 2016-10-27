@@ -20,16 +20,6 @@
 # Will compile qconf as a C++ program, and menu as a C program.
 # They are linked as C++ code to the executable qconf
 
-# hostprogs-y := conf
-# conf-objs  := conf.o libkconfig.so
-# libkconfig-objs := expr.o type.o
-# Will create a shared library named libkconfig.so that consists of
-# expr.o and type.o (they are both compiled as C code and the object files
-# are made as position independent code).
-# conf.c is compiled as a C program, and conf.o is linked together with
-# libkconfig.so as the executable conf.
-# Note: Shared libraries consisting of C++ files are not supported
-
 # hostcc-option
 # Usage: cflags-y += $(call hostcc-option,-march=winchip-c6,-march=i586)
 
@@ -37,8 +27,8 @@ hostcc-option = $(call try-run,\
 	$(HOSTCC) $(HOSTCFLAGS) $(HOST_EXTRACFLAGS) $(1) -c -x c /dev/null -o "$$TMP",$(1),$(2))
 
 __hostprogs := $(sort $(hostprogs-y) $(hostprogs-m))
-__hostlibs := $(sort $(hostlibs-y) $(hostlibs-m))
-__hostcxxlibs := $(sort $(hostcxxlibs-y) $(hostcxxlibs-m))
+host-cshlib := $(sort $(hostlibs-y) $(hostlibs-m))
+host-cxxshlib := $(sort $(hostcxxlibs-y) $(hostcxxlibs-m))
 
 # C code
 # Executables compiled from a single .c file
@@ -59,14 +49,6 @@ host-cxxmulti	:= $(foreach m,$(__hostprogs),$(if $($(m)-cxxobjs),$(m)))
 
 # C++ Object (.o) files compiled from .cc files
 host-cxxobjs	:= $(sort $(foreach m,$(host-cxxmulti),$($(m)-cxxobjs)))
-
-# Shared libaries (only .c supported)
-# Shared libraries (.so) - all .so files referenced in "xxx-objs"
-host-cshlib	:= $(sort $(filter %.so, $(__hostlibs)))
-host-cxxshlib	:= $(sort $(filter %.so, $(__hostcxxlibs)))
-# Remove .so files from "xxx-objs"
-host-cobjs	:= $(filter-out %.so,$(host-cobjs))
-host-cxxobjs	:= $(filter-out %.so,$(host-cxxobjs))
 
 # Object (.o) files used by the shared libaries
 host-cshobjs	:= $(sort $(foreach m,$(host-cshlib),$($(m:.so=-objs))))

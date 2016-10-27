@@ -101,12 +101,11 @@ extern void fpstate_sanitize_xstate(struct fpu *fpu);
 #define user_insn(insn, output, input...)				\
 ({									\
 	int err;							\
-	pax_open_userland();						\
-	asm volatile(ASM_STAC "\n"					\
-		     "1:"						\
+	user_access_begin();						\
+	asm volatile("1:"						\
 		     __copyuser_seg					\
 		     #insn "\n\t"					\
-		     "2: " ASM_CLAC "\n"				\
+		     "2:\n"						\
 		     ".section .fixup,\"ax\"\n"				\
 		     "3:  movl $-1,%[err]\n"				\
 		     "    jmp  2b\n"					\
@@ -114,7 +113,7 @@ extern void fpstate_sanitize_xstate(struct fpu *fpu);
 		     _ASM_EXTABLE(1b, 3b)				\
 		     : [err] "=r" (err), output				\
 		     : "0"(0), input);					\
-	pax_close_userland();						\
+	user_access_end();						\
 	err;								\
 })
 
@@ -393,11 +392,9 @@ static inline int copy_xregs_to_user(struct xregs_state __user *buf)
 	if (unlikely(err))
 		return -EFAULT;
 
-	pax_open_userland();
-	stac();
+	user_access_begin();
 	XSTATE_OP(__copyuser_seg XSAVE, buf, -1, -1, err);
-	clac();
-	pax_close_userland();
+	user_access_end();
 
 	return err;
 }
@@ -412,11 +409,9 @@ static inline int copy_user_to_xregs(struct xregs_state __user *buf, u64 mask)
 	u32 hmask = mask >> 32;
 	int err;
 
-	pax_open_userland();
-	stac();
+	user_access_begin();
 	XSTATE_OP(__copyuser_seg XRSTOR, xstate, lmask, hmask, err);
-	clac();
-	pax_close_userland();
+	user_access_end();
 
 	return err;
 }

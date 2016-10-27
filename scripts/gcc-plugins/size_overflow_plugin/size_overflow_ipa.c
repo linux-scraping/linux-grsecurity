@@ -96,6 +96,10 @@ next_interesting_function_t get_global_next_interesting_function_entry(struct fn
 {
 	next_interesting_function_t cur_node, head;
 
+	gcc_assert(raw_data->hash != NO_HASH);
+	gcc_assert(raw_data->decl_str);
+	gcc_assert(raw_data->context);
+
 	head = global_next_interesting_function[raw_data->hash];
 	for (cur_node = head; cur_node; cur_node = cur_node->next) {
 		if (raw_data->marked != ASM_STMT_SO_MARK && cur_node->marked == ASM_STMT_SO_MARK)
@@ -108,11 +112,15 @@ next_interesting_function_t get_global_next_interesting_function_entry(struct fn
 
 next_interesting_function_t get_global_next_interesting_function_entry_with_hash(struct fn_raw_data *raw_data)
 {
+	gcc_assert(raw_data->decl != NULL_TREE);
+	gcc_assert(raw_data->decl_str);
+
 	raw_data->hash = get_decl_hash(raw_data->decl, raw_data->decl_str);
 	if (raw_data->hash == NO_HASH)
 		return NULL;
 
-	raw_data->context = get_decl_context(raw_data->decl);
+	if (!raw_data->context)
+		raw_data->context = get_decl_context(raw_data->decl);
 	if (!raw_data->context)
 		return NULL;
 	return get_global_next_interesting_function_entry(raw_data);
@@ -121,6 +129,12 @@ next_interesting_function_t get_global_next_interesting_function_entry_with_hash
 next_interesting_function_t create_new_next_interesting_entry(struct fn_raw_data *raw_data, next_interesting_function_t orig_next_node)
 {
 	next_interesting_function_t new_node;
+
+	gcc_assert(raw_data->decl_str);
+	gcc_assert(raw_data->context);
+	gcc_assert(raw_data->hash != NO_HASH);
+	gcc_assert(raw_data->num != NONE_ARGNUM);
+	gcc_assert(raw_data->decl_type != SO_NONE);
 
 	new_node = (next_interesting_function_t)xmalloc(sizeof(*new_node));
 	new_node->decl_name = xstrdup(raw_data->decl_str);
@@ -141,6 +155,9 @@ next_interesting_function_t create_new_next_interesting_entry(struct fn_raw_data
 // Ignore these functions to not explode coverage (+strncmp+fndecl+3+35130+)
 static bool temporary_skip_these_functions(struct fn_raw_data *raw_data)
 {
+	gcc_assert(raw_data->hash != NO_HASH);
+	gcc_assert(raw_data->decl_str);
+
 	if (raw_data->hash == 35130 && !strcmp(raw_data->decl_str, "strncmp"))
 		return true;
 	if (raw_data->hash == 46193 && !strcmp(raw_data->decl_str, "strnlen"))
@@ -167,7 +184,16 @@ static bool temporary_skip_these_functions(struct fn_raw_data *raw_data)
 // Create the main data structure
 next_interesting_function_t create_new_next_interesting_decl(struct fn_raw_data *raw_data, next_interesting_function_t orig_next_node)
 {
-	enum tree_code decl_code = TREE_CODE(raw_data->decl);
+	enum tree_code decl_code;
+
+	if (raw_data->num == NONE_ARGNUM)
+		return NULL;
+
+	gcc_assert(raw_data->decl != NULL_TREE);
+	gcc_assert(raw_data->num != NONE_ARGNUM);
+	gcc_assert(raw_data->decl_str);
+
+	decl_code = TREE_CODE(raw_data->decl);
 
 	gcc_assert(decl_code == FIELD_DECL || decl_code == FUNCTION_DECL || decl_code == VAR_DECL);
 
@@ -177,7 +203,8 @@ next_interesting_function_t create_new_next_interesting_decl(struct fn_raw_data 
 	raw_data->hash = get_decl_hash(raw_data->decl, raw_data->decl_str);
 	if (raw_data->hash == NO_HASH)
 		return NULL;
-	if (get_size_overflow_hash_entry_tree(raw_data->decl, raw_data->num, DISABLE_SIZE_OVERFLOW, raw_data->decl_type))
+
+	if (get_size_overflow_hash_entry_tree(raw_data, DISABLE_SIZE_OVERFLOW))
 		return NULL;
 	if (temporary_skip_these_functions(raw_data))
 		return NULL;
@@ -189,6 +216,7 @@ next_interesting_function_t create_new_next_interesting_decl(struct fn_raw_data 
 	raw_data->context = get_decl_context(raw_data->decl);
 	if (!raw_data->context)
 		return NULL;
+
 	return create_new_next_interesting_entry(raw_data, orig_next_node);
 }
 
@@ -227,6 +255,11 @@ static next_interesting_function_t create_orig_next_node_for_a_clone(struct fn_r
 	next_interesting_function_t orig_next_node;
 	enum tree_code decl_code;
 
+	gcc_assert(clone_raw_data->decl != NULL_TREE);
+	gcc_assert(clone_raw_data->num != NONE_ARGNUM);
+	gcc_assert(clone_raw_data->decl_type != SO_NONE);
+
+	initialize_raw_data(&orig_raw_data);
 	orig_raw_data.decl = get_orig_fndecl(clone_raw_data->decl);
 
 	if (DECL_BUILT_IN(orig_raw_data.decl) || DECL_BUILT_IN_CLASS(orig_raw_data.decl) == BUILT_IN_NORMAL)
@@ -266,8 +299,11 @@ next_interesting_function_t get_and_create_next_node_from_global_next_nodes(stru
 {
 	next_interesting_function_t cur_next_cnode;
 
+	gcc_assert(raw_data->decl != NULL_TREE);
+
 	if (DECL_NAME(raw_data->decl) == NULL_TREE)
 		return NULL;
+
 	raw_data->decl_str = DECL_NAME_POINTER(raw_data->decl);
 
 	cur_next_cnode = get_global_next_interesting_function_entry_with_hash(raw_data);
@@ -299,7 +335,12 @@ static bool has_next_interesting_function_chain_node(next_interesting_function_t
 {
 	next_interesting_function_t cur_node;
 
-	raw_data->decl_str = DECL_NAME_POINTER(raw_data->decl);
+	gcc_assert(!raw_data->context);
+
+	gcc_assert(raw_data->decl_str);
+	gcc_assert(raw_data->decl != NULL_TREE);
+	gcc_assert(raw_data->num != NONE_ARGNUM);
+
 	raw_data->context = get_decl_context(raw_data->decl);
 	// Ignore function if there is no context
 	if (!raw_data->context)
@@ -326,6 +367,7 @@ static void handle_function(struct walk_use_def_data *use_def_data, tree fndecl,
 	if (get_intentional_attr_type(fndecl) == MARK_TURN_OFF)
 		return;
 
+	initialize_raw_data(&raw_data);
 	raw_data.decl = fndecl;
 	raw_data.decl_type = SO_FUNCTION;
 	raw_data.decl_str = DECL_NAME_POINTER(fndecl);
@@ -402,6 +444,9 @@ static void create_and_append_new_next_interesting_field_var_decl(struct walk_us
 	if (DECL_NAME(raw_data->decl) == NULL_TREE)
 		return;
 
+	gcc_assert(!raw_data->decl_str);
+	gcc_assert(raw_data->num == NONE_ARGNUM);
+
 	raw_data->decl_str = DECL_NAME_POINTER(raw_data->decl);
 	raw_data->num = 0;
 	raw_data->marked = NO_SO_MARK;
@@ -416,6 +461,8 @@ static void create_and_append_new_next_interesting_field_var_decl(struct walk_us
 static void handle_struct_fields(struct walk_use_def_data *use_def_data, const_tree node)
 {
 	struct fn_raw_data raw_data;
+
+	initialize_raw_data(&raw_data);
 
 	switch (TREE_CODE(node)) {
 	case ARRAY_REF:
@@ -447,6 +494,8 @@ static void handle_struct_fields(struct walk_use_def_data *use_def_data, const_t
 static void handle_vardecl(struct walk_use_def_data *use_def_data, tree node)
 {
 	struct fn_raw_data raw_data;
+
+	initialize_raw_data(&raw_data);
 
 	raw_data.decl = node;
 	raw_data.decl_type = SO_VAR;
@@ -595,6 +644,7 @@ static void collect_data_for_execute(next_interesting_function_t parent, next_in
 
 		next = cur->next;
 
+		initialize_raw_data(&child_raw_data);
 		child_raw_data.decl_str = cur->decl_name;
 		child_raw_data.context = cur->context;
 		child_raw_data.hash = cur->hash;
@@ -625,6 +675,7 @@ static next_interesting_function_t create_parent_next_cnode(const_gimple stmt, u
 {
 	struct fn_raw_data raw_data;
 
+	initialize_raw_data(&raw_data);
 	raw_data.num = num;
 	raw_data.marked = NO_SO_MARK;
 	raw_data.decl_type = SO_FUNCTION;
@@ -799,6 +850,7 @@ static void size_overflow_node_duplication_hook(struct cgraph_node *src, struct 
 	next_interesting_function_t head, cur;
 	struct fn_raw_data src_raw_data;
 
+	initialize_raw_data(&src_raw_data);
 	src_raw_data.decl = NODE_DECL(src);
 	src_raw_data.decl_str = DECL_NAME_POINTER(src_raw_data.decl);
 	src_raw_data.context = get_decl_context(src_raw_data.decl);
@@ -819,6 +871,7 @@ static void size_overflow_node_duplication_hook(struct cgraph_node *src, struct 
 		if (!compare_next_interesting_functions(cur, src_raw_data.decl_str, src_raw_data.context, src_raw_data.num))
 			continue;
 
+		initialize_raw_data(&dst_raw_data);
 		dst_raw_data.decl = NODE_DECL(dst);
 		dst_raw_data.decl_str = cgraph_node_name(dst);
 		dst_raw_data.marked = cur->marked;
@@ -884,9 +937,18 @@ static bool marked_fn(next_interesting_function_t next_node)
 // Determine whether node or orig node is in the hash table already
 static bool already_in_the_hashtable(next_interesting_function_t next_node)
 {
+	struct fn_raw_data raw_data;
+
 	if (next_node->orig_next_node)
 		next_node = next_node->orig_next_node;
-	return get_size_overflow_hash_entry(next_node->hash, next_node->decl_name, next_node->context, next_node->num, next_node->decl_type) != NULL;
+
+	initialize_raw_data(&raw_data);
+	raw_data.context = next_node->context;
+	raw_data.orig_decl_str = next_node->decl_name;
+	raw_data.orig_num = next_node->num;
+	raw_data.hash = next_node->hash;
+
+	return get_size_overflow_hash_entry(&raw_data) != NULL;
 }
 
 // Propagate the size_overflow marks up the use-def chains
@@ -1122,7 +1184,7 @@ static void walk_marked_functions(next_interesting_function_set *visited, next_i
 		case SO_FUNCTION:
 		case SO_VAR:
 			break;
-		case SO_NONE:
+		default:
 			gcc_unreachable();
 		}
 

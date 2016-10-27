@@ -400,7 +400,7 @@ static const struct file_operations regmap_reg_ranges_fops = {
 static int regmap_access_show(struct seq_file *s, void *ignored)
 {
 	struct regmap *map = s->private;
-	size_t i, reg_len;
+	unsigned int i, reg_len;
 
 	reg_len = regmap_calc_reg_len(map->max_register);
 
@@ -410,7 +410,7 @@ static int regmap_access_show(struct seq_file *s, void *ignored)
 			continue;
 
 		/* Format the register */
-		seq_printf(s, "%.*x: %c %c %c %c\n", (int)reg_len, i,
+		seq_printf(s, "%.*x: %c %c %c %c\n", reg_len, i,
 			   regmap_readable(map, i) ? 'y' : 'n',
 			   regmap_writeable(map, i) ? 'y' : 'n',
 			   regmap_volatile(map, i) ? 'y' : 'n',

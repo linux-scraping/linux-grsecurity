@@ -154,9 +154,10 @@ static bool is_yes_intentional_attr(const_tree decl, unsigned int argnum)
 	return false;
 }
 
-static void print_missing_intentional(enum intentional_mark callee_attr, enum intentional_mark caller_attr, const_tree decl, unsigned int argnum)
+static void print_missing_intentional(enum intentional_mark callee_attr, enum intentional_mark caller_attr, tree decl, unsigned int argnum)
 {
 	const struct size_overflow_hash *hash;
+	struct fn_raw_data raw_data;
 //	location_t loc;
 
 	if (caller_attr == MARK_NO || caller_attr == MARK_END_INTENTIONAL || caller_attr == MARK_TURN_OFF)
@@ -165,7 +166,10 @@ static void print_missing_intentional(enum intentional_mark callee_attr, enum in
 	if (callee_attr == MARK_END_INTENTIONAL || callee_attr == MARK_YES)
 		return;
 
-	hash = get_size_overflow_hash_entry_tree(decl, argnum, SIZE_OVERFLOW, SO_NONE);
+	initialize_raw_data(&raw_data);
+	raw_data.decl = decl;
+	raw_data.num = argnum;
+	hash = get_size_overflow_hash_entry_tree(&raw_data, SIZE_OVERFLOW);
 	if (!hash)
 		return;
 
@@ -360,7 +364,8 @@ enum intentional_mark check_intentional_size_overflow_asm_and_attribute(const_tr
 enum intentional_mark check_intentional_attribute(const_gimple stmt, unsigned int argnum)
 {
 	enum intentional_mark caller_mark, callee_mark;
-	const_tree fndecl, orig_cur_fndecl, arg;
+	tree fndecl;
+	const_tree orig_cur_fndecl, arg;
 
 	orig_cur_fndecl = get_orig_fndecl(current_function_decl);
 

@@ -147,6 +147,8 @@ static void rap_hash_align(tree decl)
 		// this byte sequence helps disassemblers not trip up on the following rap hash
 		memset(padding, 0xcc, sizeof padding - 1);
 		padding[sizeof padding - 1] = 0xb8;
+		if (TARGET_64BIT && sizeof padding > 1)
+			padding[sizeof padding - 2] = 0x48;
 		ASM_OUTPUT_ASCII(asm_out_file, padding, sizeof padding);
 	}
 #else

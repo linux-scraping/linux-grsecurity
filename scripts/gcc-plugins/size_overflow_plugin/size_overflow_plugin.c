@@ -31,7 +31,7 @@ tree size_overflow_type_TI;
 bool check_fields, check_fns, check_fnptrs, check_vars;
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20160927",
+	.version	= "20161025",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 

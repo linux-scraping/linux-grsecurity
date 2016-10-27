@@ -52,6 +52,9 @@
 
 #endif /* CONFIG_X86_SMAP */
 
+#define ASM_USER_ACCESS_BEGIN	ASM_PAX_OPEN_USERLAND; ASM_STAC
+#define ASM_USER_ACCESS_END	ASM_CLAC; ASM_PAX_CLOSE_USERLAND
+
 #else /* __ASSEMBLY__ */
 
 #include <asm/alternative.h>

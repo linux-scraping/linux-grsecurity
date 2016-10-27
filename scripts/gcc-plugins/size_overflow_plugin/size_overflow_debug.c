@@ -79,7 +79,7 @@ void __unused print_next_interesting_function(next_interesting_function_t node)
 #endif
 
 	fprintf(stderr, "print_next_interesting_function: ptr: %p, ", node);
-	fprintf(stderr, "decl_name: %s, decl_type: %s, ", node->decl_name, get_decl_type_str(node));
+	fprintf(stderr, "decl_name: %s, decl_type: %s, ", node->decl_name, get_decl_type_str(node->decl_type));
 
 	fprintf(stderr, "num: %u marked: %s context: %s children len: %u\n", node->num, print_so_mark_name(node->marked), node->context, children_len);
 #if BUILDING_GCC_VERSION <= 4007
@@ -191,4 +191,11 @@ const char * __unused print_so_mark_name(enum size_overflow_mark mark)
 	}
 
 	gcc_unreachable();
+}
+
+void __unused print_raw_data(struct fn_raw_data *data)
+{
+	fprintf(stderr, "decl_str: %s, context: %s, num: %u, hash: %u\ndecl:\n", data->decl_str ? data->decl_str : "NULL", data->context ? data->context : "NULL", data->num, data->hash);
+	debug_tree(data->decl);
+	fprintf(stderr, "marked: %s, decl_type: %s\norig_decl_str: %s, orig_num: %u\n", print_so_mark_name(data->marked), get_decl_type_str(data->decl_type), data->orig_decl_str? data->orig_decl_str : "NULL", data->orig_num);
 }

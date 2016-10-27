@@ -12466,4 +12466,3 @@ e_init_special_inode_fndecl_7054 init_special_inode fndecl 3 7054 NULL
 e_new_decode_dev_fndecl_38477 new_decode_dev fndecl 0-1 38477 NULL
 e_new_encode_dev_fndecl_48964 new_encode_dev fndecl 0-1 48964 NULL
 e_jffs2_encode_dev_fndecl_39156 jffs2_encode_dev fndecl 2-0 39156 NULL
-e_seq_rxrpc_host_header_57996 seq rxrpc_host_header 0 57996 NULL

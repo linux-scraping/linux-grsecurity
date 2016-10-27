@@ -741,10 +741,13 @@ void *__kprobes text_poke_early(void *addr, const void *opcode,
  */
 void *text_poke(void *addr, const void *opcode, size_t len)
 {
-	unsigned long flags;
 	unsigned char *vaddr = (void *)ktla_ktva((unsigned long)addr);
 	struct page *pages[2];
 	size_t i;
+
+#ifndef CONFIG_PAX_KERNEXEC
+	unsigned long flags;
+#endif
 
 	if (!core_kernel_text((unsigned long)addr)) {
 		pages[0] = vmalloc_to_page(vaddr);

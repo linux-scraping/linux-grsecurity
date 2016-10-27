@@ -176,8 +176,18 @@ extern int __get_user_4(void);
 extern int __get_user_8(void);
 extern int __get_user_bad(void);
 
-#define __uaccess_begin() stac()
-#define __uaccess_end()   clac()
+#define __uaccess_begin() pax_open_userland(); stac()
+#define __uaccess_end()   clac(); pax_close_userland()
+
+#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
+#define __copyuser_seg "gs;"
+#define __COPYUSER_SET_ES "pushl %%gs; popl %%es\n"
+#define __COPYUSER_RESTORE_ES "pushl %%ss; popl %%es\n"
+#else
+#define __copyuser_seg
+#define __COPYUSER_SET_ES
+#define __COPYUSER_RESTORE_ES
+#endif
 
 /*
  * This is a type: either (un)signed int, if the argument fits into
@@ -226,28 +236,16 @@ __typeof__(__builtin_choose_expr(sizeof(x) > sizeof(0U),		\
 	register void *__sp asm(_ASM_SP);				\
 	__chk_user_ptr(ptr);						\
 	might_fault();							\
-	pax_open_userland();						\
 	asm volatile("call __get_user_%P4"				\
 		     : "=a" (__ret_gu), "=r" (__val_gu), "+r" (__sp)	\
 		     : "0" (ptr), "i" (sizeof(*(ptr))));		\
 	(x) = (__force __typeof__(*(ptr))) __val_gu;			\
-	pax_close_userland();						\
 	__builtin_expect(__ret_gu, 0);					\
 })
 
 #define __put_user_x(size, x, ptr, __ret_pu)			\
 	asm volatile("call __put_user_" #size : "=a" (__ret_pu)	\
 		     : "0" ((typeof(*(ptr)))(x)), "c" (ptr) : "ebx")
-
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
-#define __copyuser_seg "gs;"
-#define __COPYUSER_SET_ES "pushl %%gs; popl %%es\n"
-#define __COPYUSER_RESTORE_ES "pushl %%ss; popl %%es\n"
-#else
-#define __copyuser_seg
-#define __COPYUSER_SET_ES
-#define __COPYUSER_RESTORE_ES
-#endif
 
 #ifdef CONFIG_X86_32
 #define __put_user_asm_u64(x, addr, err, errret)			\
@@ -319,7 +317,6 @@ extern void __put_user_8(void);
 	__chk_user_ptr(ptr);					\
 	might_fault();						\
 	__pu_val = (__inttype(*(ptr)))(x);			\
-	pax_open_userland();					\
 	switch (sizeof(*(ptr))) {				\
 	case 1:							\
 		__put_user_x(1, __pu_val, ptr, __ret_pu);	\
@@ -337,7 +334,6 @@ extern void __put_user_8(void);
 		__put_user_x(X, __pu_val, ptr, __ret_pu);	\
 		break;						\
 	}							\
-	pax_close_userland();					\
 	__builtin_expect(__ret_pu, 0);				\
 })
 
@@ -423,7 +419,6 @@ do {									\
 
 #define __get_user_asm(x, addr, err, itype, rtype, ltype, errret)	\
 do {									\
-	pax_open_userland();						\
 	asm volatile("\n"						\
 		     "1:	"__copyuser_seg"mov"itype" %2,%"rtype"1\n"\
 		     "2:\n"						\
@@ -435,7 +430,6 @@ do {									\
 		     _ASM_EXTABLE(1b, 3b)				\
 		     : "=r" (err), ltype (x)				\
 		     : "m" (__m(addr)), "i" (errret), "0" (err));	\
-	pax_close_userland();						\
 } while (0)
 
 /*
@@ -515,7 +509,6 @@ struct __large_struct { unsigned long buf[100]; };
  */
 #define __put_user_asm(x, addr, err, itype, rtype, ltype, errret)	\
 do {									\
-	pax_open_userland();						\
 	asm volatile("\n"						\
 		     "1:	"__copyuser_seg"mov"itype" %"rtype"1,%2\n"\
 		     "2:\n"						\
@@ -526,7 +519,6 @@ do {									\
 		     _ASM_EXTABLE(1b, 3b)				\
 		     : "=r"(err)					\
 		     : ltype (x), "m" (__m(addr)), "i" (errret), "0" (err));\
-	pax_close_userland();						\
 } while (0)
 
 #define __put_user_asm_ex(x, addr, itype, rtype, ltype)			\
@@ -540,13 +532,11 @@ do {									\
  */
 #define uaccess_try	do {						\
 	current_thread_info()->uaccess_err = 0;				\
-	pax_open_userland();						\
 	__uaccess_begin();						\
 	barrier();
 
 #define uaccess_catch(err)						\
 	__uaccess_end();						\
-	pax_close_userland();						\
 	(err) |= (current_thread_info()->uaccess_err ? -EFAULT : 0);	\
 } while (0)
 
@@ -652,7 +642,6 @@ extern void __cmpxchg_wrong_size(void)
 	__typeof__(uval) __uval = (uval);				\
 	__typeof__(*(uval)) __old = (old);				\
 	__typeof__(*(uval)) __new = (new);				\
-	pax_open_userland();						\
 	__uaccess_begin();						\
 	switch (size) {							\
 	case 1:								\
@@ -726,7 +715,6 @@ extern void __cmpxchg_wrong_size(void)
 		__cmpxchg_wrong_size();					\
 	}								\
 	__uaccess_end();						\
-	pax_close_userland();						\
 	*__uval = __old;						\
 	__ret;								\
 })
