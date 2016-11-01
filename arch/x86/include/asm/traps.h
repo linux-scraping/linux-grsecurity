@@ -54,6 +54,7 @@ asmlinkage void trace_page_fault(void);
 #define trace_alignment_check alignment_check
 #define trace_simd_coprocessor_error simd_coprocessor_error
 #define trace_async_page_fault async_page_fault
+#define trace_refcount_error refcount_error
 #endif
 
 dotraplinkage void do_divide_error(struct pt_regs *, long);

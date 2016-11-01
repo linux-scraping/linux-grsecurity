@@ -252,7 +252,7 @@ __typeof__(__builtin_choose_expr(sizeof(x) > sizeof(0U),		\
 	asm volatile("\n"						\
 		     "1:	"__copyuser_seg"movl %%eax,0(%2)\n"	\
 		     "2:	"__copyuser_seg"movl %%edx,4(%2)\n"	\
-		     "3:"						\
+		     "3:\n"						\
 		     ".section .fixup,\"ax\"\n"				\
 		     "4:	movl %3,%0\n"				\
 		     "	jmp 3b\n"					\
@@ -266,7 +266,7 @@ __typeof__(__builtin_choose_expr(sizeof(x) > sizeof(0U),		\
 	asm volatile("\n"						\
 		     "1:	"__copyuser_seg"movl %%eax,0(%1)\n"	\
 		     "2:	"__copyuser_seg"movl %%edx,4(%1)\n"	\
-		     "3:"						\
+		     "3:\n"						\
 		     _ASM_EXTABLE_EX(1b, 2b)				\
 		     _ASM_EXTABLE_EX(2b, 3b)				\
 		     : : "A" (x), "r" (addr))

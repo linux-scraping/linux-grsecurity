@@ -3921,62 +3921,62 @@ const struct ethtool_ops prism2_ethtool_ops = {
 
 static const iw_handler prism2_handler[] =
 {
-	(iw_handler) NULL,				/* SIOCSIWCOMMIT */
-	(iw_handler) prism2_get_name,			/* SIOCGIWNAME */
-	(iw_handler) NULL,				/* SIOCSIWNWID */
-	(iw_handler) NULL,				/* SIOCGIWNWID */
-	(iw_handler) prism2_ioctl_siwfreq,		/* SIOCSIWFREQ */
-	(iw_handler) prism2_ioctl_giwfreq,		/* SIOCGIWFREQ */
-	(iw_handler) prism2_ioctl_siwmode,		/* SIOCSIWMODE */
-	(iw_handler) prism2_ioctl_giwmode,		/* SIOCGIWMODE */
-	(iw_handler) prism2_ioctl_siwsens,		/* SIOCSIWSENS */
-	(iw_handler) prism2_ioctl_giwsens,		/* SIOCGIWSENS */
-	(iw_handler) NULL /* not used */,		/* SIOCSIWRANGE */
-	(iw_handler) prism2_ioctl_giwrange,		/* SIOCGIWRANGE */
-	(iw_handler) NULL /* not used */,		/* SIOCSIWPRIV */
-	(iw_handler) NULL /* kernel code */,		/* SIOCGIWPRIV */
-	(iw_handler) NULL /* not used */,		/* SIOCSIWSTATS */
-	(iw_handler) NULL /* kernel code */,		/* SIOCGIWSTATS */
-	iw_handler_set_spy,				/* SIOCSIWSPY */
-	iw_handler_get_spy,				/* SIOCGIWSPY */
-	iw_handler_set_thrspy,				/* SIOCSIWTHRSPY */
-	iw_handler_get_thrspy,				/* SIOCGIWTHRSPY */
-	(iw_handler) prism2_ioctl_siwap,		/* SIOCSIWAP */
-	(iw_handler) prism2_ioctl_giwap,		/* SIOCGIWAP */
-	(iw_handler) prism2_ioctl_siwmlme,		/* SIOCSIWMLME */
-	(iw_handler) prism2_ioctl_giwaplist,		/* SIOCGIWAPLIST */
-	(iw_handler) prism2_ioctl_siwscan,		/* SIOCSIWSCAN */
-	(iw_handler) prism2_ioctl_giwscan,		/* SIOCGIWSCAN */
-	(iw_handler) prism2_ioctl_siwessid,		/* SIOCSIWESSID */
-	(iw_handler) prism2_ioctl_giwessid,		/* SIOCGIWESSID */
-	(iw_handler) prism2_ioctl_siwnickn,		/* SIOCSIWNICKN */
-	(iw_handler) prism2_ioctl_giwnickn,		/* SIOCGIWNICKN */
-	(iw_handler) NULL,				/* -- hole -- */
-	(iw_handler) NULL,				/* -- hole -- */
-	(iw_handler) prism2_ioctl_siwrate,		/* SIOCSIWRATE */
-	(iw_handler) prism2_ioctl_giwrate,		/* SIOCGIWRATE */
-	(iw_handler) prism2_ioctl_siwrts,		/* SIOCSIWRTS */
-	(iw_handler) prism2_ioctl_giwrts,		/* SIOCGIWRTS */
-	(iw_handler) prism2_ioctl_siwfrag,		/* SIOCSIWFRAG */
-	(iw_handler) prism2_ioctl_giwfrag,		/* SIOCGIWFRAG */
-	(iw_handler) prism2_ioctl_siwtxpow,		/* SIOCSIWTXPOW */
-	(iw_handler) prism2_ioctl_giwtxpow,		/* SIOCGIWTXPOW */
-	(iw_handler) prism2_ioctl_siwretry,		/* SIOCSIWRETRY */
-	(iw_handler) prism2_ioctl_giwretry,		/* SIOCGIWRETRY */
-	(iw_handler) prism2_ioctl_siwencode,		/* SIOCSIWENCODE */
-	(iw_handler) prism2_ioctl_giwencode,		/* SIOCGIWENCODE */
-	(iw_handler) prism2_ioctl_siwpower,		/* SIOCSIWPOWER */
-	(iw_handler) prism2_ioctl_giwpower,		/* SIOCGIWPOWER */
-	(iw_handler) NULL,				/* -- hole -- */
-	(iw_handler) NULL,				/* -- hole -- */
-	(iw_handler) prism2_ioctl_siwgenie,		/* SIOCSIWGENIE */
-	(iw_handler) prism2_ioctl_giwgenie,		/* SIOCGIWGENIE */
-	(iw_handler) prism2_ioctl_siwauth,		/* SIOCSIWAUTH */
-	(iw_handler) prism2_ioctl_giwauth,		/* SIOCGIWAUTH */
-	(iw_handler) prism2_ioctl_siwencodeext,		/* SIOCSIWENCODEEXT */
-	(iw_handler) prism2_ioctl_giwencodeext,		/* SIOCGIWENCODEEXT */
-	(iw_handler) NULL,				/* SIOCSIWPMKSA */
-	(iw_handler) NULL,				/* -- hole -- */
+	NULL,				/* SIOCSIWCOMMIT */
+	prism2_get_name,		/* SIOCGIWNAME */
+	NULL,				/* SIOCSIWNWID */
+	NULL,				/* SIOCGIWNWID */
+	prism2_ioctl_siwfreq,		/* SIOCSIWFREQ */
+	prism2_ioctl_giwfreq,		/* SIOCGIWFREQ */
+	prism2_ioctl_siwmode,		/* SIOCSIWMODE */
+	prism2_ioctl_giwmode,		/* SIOCGIWMODE */
+	prism2_ioctl_siwsens,		/* SIOCSIWSENS */
+	prism2_ioctl_giwsens,		/* SIOCGIWSENS */
+	NULL /* not used */,		/* SIOCSIWRANGE */
+	prism2_ioctl_giwrange,		/* SIOCGIWRANGE */
+	NULL /* not used */,		/* SIOCSIWPRIV */
+	NULL /* kernel code */,		/* SIOCGIWPRIV */
+	NULL /* not used */,		/* SIOCSIWSTATS */
+	NULL /* kernel code */,		/* SIOCGIWSTATS */
+	iw_handler_set_spy,		/* SIOCSIWSPY */
+	iw_handler_get_spy,		/* SIOCGIWSPY */
+	iw_handler_set_thrspy,		/* SIOCSIWTHRSPY */
+	iw_handler_get_thrspy,		/* SIOCGIWTHRSPY */
+	prism2_ioctl_siwap,		/* SIOCSIWAP */
+	prism2_ioctl_giwap,		/* SIOCGIWAP */
+	prism2_ioctl_siwmlme,		/* SIOCSIWMLME */
+	prism2_ioctl_giwaplist,		/* SIOCGIWAPLIST */
+	prism2_ioctl_siwscan,		/* SIOCSIWSCAN */
+	prism2_ioctl_giwscan,		/* SIOCGIWSCAN */
+	prism2_ioctl_siwessid,		/* SIOCSIWESSID */
+	prism2_ioctl_giwessid,		/* SIOCGIWESSID */
+	prism2_ioctl_siwnickn,		/* SIOCSIWNICKN */
+	prism2_ioctl_giwnickn,		/* SIOCGIWNICKN */
+	NULL,				/* -- hole -- */
+	NULL,				/* -- hole -- */
+	prism2_ioctl_siwrate,		/* SIOCSIWRATE */
+	prism2_ioctl_giwrate,		/* SIOCGIWRATE */
+	prism2_ioctl_siwrts,		/* SIOCSIWRTS */
+	prism2_ioctl_giwrts,		/* SIOCGIWRTS */
+	prism2_ioctl_siwfrag,		/* SIOCSIWFRAG */
+	prism2_ioctl_giwfrag,		/* SIOCGIWFRAG */
+	prism2_ioctl_siwtxpow,		/* SIOCSIWTXPOW */
+	prism2_ioctl_giwtxpow,		/* SIOCGIWTXPOW */
+	prism2_ioctl_siwretry,		/* SIOCSIWRETRY */
+	prism2_ioctl_giwretry,		/* SIOCGIWRETRY */
+	prism2_ioctl_siwencode,		/* SIOCSIWENCODE */
+	prism2_ioctl_giwencode,		/* SIOCGIWENCODE */
+	prism2_ioctl_siwpower,		/* SIOCSIWPOWER */
+	prism2_ioctl_giwpower,		/* SIOCGIWPOWER */
+	NULL,				/* -- hole -- */
+	NULL,				/* -- hole -- */
+	prism2_ioctl_siwgenie,		/* SIOCSIWGENIE */
+	prism2_ioctl_giwgenie,		/* SIOCGIWGENIE */
+	prism2_ioctl_siwauth,		/* SIOCSIWAUTH */
+	prism2_ioctl_giwauth,		/* SIOCGIWAUTH */
+	prism2_ioctl_siwencodeext,	/* SIOCSIWENCODEEXT */
+	prism2_ioctl_giwencodeext,	/* SIOCGIWENCODEEXT */
+	NULL,				/* SIOCSIWPMKSA */
+	NULL,				/* -- hole -- */
 };
 
 static const iw_handler prism2_private_handler[] =
@@ -3992,8 +3992,8 @@ const struct iw_handler_def hostap_iw_handler_def =
 	.num_standard	= ARRAY_SIZE(prism2_handler),
 	.num_private	= ARRAY_SIZE(prism2_private_handler),
 	.num_private_args = ARRAY_SIZE(prism2_priv),
-	.standard	= (iw_handler *) prism2_handler,
-	.private	= (iw_handler *) prism2_private_handler,
+	.standard	= prism2_handler,
+	.private	= prism2_private_handler,
 	.private_args	= (struct iw_priv_args *) prism2_priv,
 	.get_wireless_stats = hostap_get_wireless_stats,
 };

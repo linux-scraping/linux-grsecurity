@@ -69,7 +69,7 @@ static inline void atomic_set_unchecked(atomic_unchecked_t *v, int i)
 	"3:\n"
 #define __OVERFLOW_POST_RETURN		\
 	"	bvc	3f\n"		\
-"	mov	%0, %1\n"		\
+	"	mov	%0, %1\n"	\
 	"2:	" REFCOUNT_TRAP_INSN "\n"\
 	"3:\n"
 #define __OVERFLOW_EXTABLE		\
