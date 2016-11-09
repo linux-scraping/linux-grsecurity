@@ -22,6 +22,13 @@
  * The ones marked DEBUG are only valid if CONFIG_DEBUG_SLAB is set.
  */
 #define SLAB_CONSISTENCY_CHECKS	0x00000100UL	/* DEBUG: Perform (expensive) checks on alloc/free */
+
+#ifdef CONFIG_PAX_USERCOPY
+#define SLAB_USERCOPY		0x00000200UL	/* PaX: Allow copying objs to/from userland */
+#else
+#define SLAB_USERCOPY		0x00000000UL
+#endif
+
 #define SLAB_RED_ZONE		0x00000400UL	/* DEBUG: Red zone objs in a cache */
 #define SLAB_POISON		0x00000800UL	/* DEBUG: Poison objects */
 

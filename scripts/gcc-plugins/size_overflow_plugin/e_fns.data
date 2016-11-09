@@ -613,7 +613,6 @@ acpi_rs_set_resource_length_fndecl_7131_fns acpi_rs_set_resource_length fndecl 1
 nstids_tid_info_7139_fns nstids tid_info 0 7139 NULL
 selinux_inode_setsecurity_fndecl_7159_fns selinux_inode_setsecurity fndecl 4 7159 NULL
 mfd_add_devices_fndecl_7183_fns mfd_add_devices fndecl 4 7183 NULL
-btrfs_get_token_32_fndecl_7192_fns btrfs_get_token_32 fndecl 0 7192 NULL
 ide_init_port_fndecl_7207_fns ide_init_port fndecl 2 7207 NULL
 _iwl_dbgfs_bt_force_ant_write_fndecl_7214_fns _iwl_dbgfs_bt_force_ant_write fndecl 3 7214 NULL
 __copy_to_user_swizzled_fndecl_7295_fns __copy_to_user_swizzled fndecl 3-4 7295 NULL
@@ -3910,7 +3909,6 @@ init_state_fndecl_46614_fns init_state fndecl 2 46614 NULL
 jmb38x_ms_count_slots_fndecl_46615_fns jmb38x_ms_count_slots fndecl 0 46615 NULL
 emulator_set_smbase_fndecl_46616_fns emulator_set_smbase fndecl 2 46616 NULL
 alloc_size_nf_ct_ext_type_46634_fns alloc_size nf_ct_ext_type 0 46634 NULL
-btrfs_get_token_16_fndecl_46639_fns btrfs_get_token_16 fndecl 0 46639 NULL
 rx_rx_tkip_replays_read_fndecl_46642_fns rx_rx_tkip_replays_read fndecl 3 46642 NULL
 roaming_rssi_level_read_fndecl_46643_fns roaming_rssi_level_read fndecl 3 46643 NULL
 got_bytes_cifs_readdata_46678_fns got_bytes cifs_readdata 0 46678 NULL
@@ -4564,8 +4562,7 @@ _iwl_dbgfs_fw_nmi_write_fndecl_54192_fns _iwl_dbgfs_fw_nmi_write fndecl 3 54192 
 ieee80211_if_read_fwded_frames_fndecl_54203_fns ieee80211_if_read_fwded_frames fndecl 3 54203 NULL
 p_filesz_elf32_phdr_54204_fns p_filesz elf32_phdr 0 54204 NULL
 nframes_bcm_msg_head_54207_fns nframes bcm_msg_head 0 54207 NULL
-btrfs_get_token_64_fndecl_54223_fns btrfs_get_token_64 fndecl 0 54223 NULL nohasharray
-numeraseregions_mtd_info_54223_fns numeraseregions mtd_info 0 54223 &btrfs_get_token_64_fndecl_54223_fns
+numeraseregions_mtd_info_54223_fns numeraseregions mtd_info 0 54223 NULL
 __kfifo_to_user_fndecl_54232_fns __kfifo_to_user fndecl 3 54232 NULL
 pcnet32_realloc_rx_ring_fndecl_54245_fns pcnet32_realloc_rx_ring fndecl 3 54245 NULL
 fl_size_qset_params_54254_fns fl_size qset_params 0 54254 NULL

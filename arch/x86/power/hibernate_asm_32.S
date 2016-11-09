@@ -11,6 +11,7 @@
 #include <asm/page_types.h>
 #include <asm/asm-offsets.h>
 #include <asm/processor-flags.h>
+#include <asm/smap.h>
 
 .text
 
@@ -74,6 +75,7 @@ done:
 
 	pushl saved_context_eflags
 	popfl
+	ASM_CLAC
 
 	/* Saved in save_processor_state. */
 	movl $saved_context, %eax

@@ -1304,7 +1304,7 @@ void __init kmem_cache_init(void)
 	 * structures first.  Without this, further allocations will bug.
 	 */
 	kmalloc_caches[INDEX_NODE] = create_kmalloc_cache_usercopy("kmalloc-node",
-				kmalloc_size(INDEX_NODE), ARCH_KMALLOC_FLAGS, 0, alloc_size(INDEX_NODE));
+				kmalloc_size(INDEX_NODE), ARCH_KMALLOC_FLAGS, 0, kmalloc_size(INDEX_NODE));
 	slab_state = PARTIAL_NODE;
 	setup_kmalloc_cache_index_table();
 
@@ -4526,14 +4526,14 @@ const char *__check_heap_object(const void *ptr, unsigned long n,
 	/* Find offset within object. */
 	offset = ptr - index_to_obj(cachep, page, objnr) - obj_offset(cachep);
 
-	if (offset < s->useroffset)
-		return s->name;
+	if (offset < cachep->useroffset)
+		return cachep->name;
 
-	if (offset - s->useroffset >= s->usersize)
-		return s->name;
+	if (offset - cachep->useroffset >= cachep->usersize)
+		return cachep->name;
 
-	if (n > s->useroffset - offset + s->usersize)
-		return s->name;
+	if (n > cachep->useroffset - offset + cachep->usersize)
+		return cachep->name;
 
 	return NULL;
 }

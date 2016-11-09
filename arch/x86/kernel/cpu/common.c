@@ -1025,9 +1025,11 @@ static void x86_init_cache_qos(struct cpuinfo_x86 *c)
 	 * in case CQM bits really aren't there in this CPU.
 	 */
 	if (c != &boot_cpu_data) {
+		pax_open_kernel();
 		boot_cpu_data.x86_cache_max_rmid =
 			min(boot_cpu_data.x86_cache_max_rmid,
 			    c->x86_cache_max_rmid);
+		pax_close_kernel();
 	}
 }
 
@@ -1153,9 +1155,13 @@ static void identify_cpu(struct cpuinfo_x86 *c)
 	 * executed, c == &boot_cpu_data.
 	 */
 	if (c != &boot_cpu_data) {
+		pax_open_kernel();
+
 		/* AND the already accumulated flags with these */
 		for (i = 0; i < NCAPINTS; i++)
 			boot_cpu_data.x86_capability[i] &= c->x86_capability[i];
+
+		pax_close_kernel();
 
 		/* OR, i.e. replicate the bug flags */
 		for (i = NCAPINTS; i < NCAPINTS + NBUGINTS; i++)

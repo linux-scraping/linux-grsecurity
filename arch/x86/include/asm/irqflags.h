@@ -23,11 +23,13 @@ static inline unsigned long native_save_fl(void)
 		     : /* no input */
 		     : "memory");
 
+	BUG_ON(flags & X86_EFLAGS_AC);
 	return flags;
 }
 
 static inline void native_restore_fl(unsigned long flags)
 {
+	BUG_ON(flags & X86_EFLAGS_AC);
 	asm volatile("push %0 ; popf"
 		     : /* no output */
 		     :"g" (flags)

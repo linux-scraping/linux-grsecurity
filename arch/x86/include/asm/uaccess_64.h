@@ -318,6 +318,8 @@ __copy_from_user_nocache(void *dst, const void __user *src, unsigned long size)
 	if (size > INT_MAX)
 		return size;
 
+	check_object_size(dst, size, false);
+
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	if (!access_ok_noprefault(VERIFY_READ, src, size))
 		return size;
@@ -334,6 +336,8 @@ __copy_from_user_inatomic_nocache(void *dst, const void __user *src,
 
 	if (size > INT_MAX)
 		return size;
+
+	check_object_size(dst, size, false);
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 	if (!access_ok_noprefault(VERIFY_READ, src, size))

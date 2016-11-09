@@ -2,6 +2,7 @@
 #include <linux/linkage.h>
 #include <asm/segment.h>
 #include <asm/page_types.h>
+#include <asm/smap.h>
 
 # Copyright 2003, 2008 Pavel Machek <pavel@suse.cz>, distribute under GPLv2
 
@@ -67,6 +68,7 @@ restore_registers:
 	movl	saved_context_edi, %edi
 	pushl	saved_context_eflags
 	popfl
+	ASM_CLAC
 	ret
 
 ENTRY(do_suspend_lowlevel)

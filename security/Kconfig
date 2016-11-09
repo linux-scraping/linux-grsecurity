@@ -1014,7 +1014,6 @@ config PAX_INITIFY_VERBOSE
 config PAX_LATENT_ENTROPY
 	bool "Generate some entropy during boot and runtime"
 	default y if GRKERNSEC_CONFIG_AUTO
-	depends on BROKEN || !ARM
 	depends on GCC_PLUGINS
 	help
 	  By saying Y here the kernel will instrument some kernel code to

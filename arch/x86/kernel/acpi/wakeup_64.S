@@ -6,6 +6,7 @@
 #include <asm/msr.h>
 #include <asm/asm-offsets.h>
 #include <asm/frame.h>
+#include <asm/smap.h>
 
 # Copyright 2003 Pavel Machek <pavel@suse.cz>, distribute under GPLv2
 
@@ -93,6 +94,7 @@ ENTRY(do_suspend_lowlevel)
 	movq	%rbx, %cr0
 	pushq	pt_regs_flags(%rax)
 	popfq
+	ASM_CLAC
 	movq	pt_regs_sp(%rax), %rsp
 	movq	pt_regs_bp(%rax), %rbp
 	movq	pt_regs_si(%rax), %rsi

@@ -73,6 +73,7 @@ __copy_from_user_inatomic(void *to, const void __user *from, unsigned long n)
 	if ((long)n < 0)
 		return n;
 
+	check_object_size(to, n, false);
 	return __copy_from_user_ll_nozero(to, from, n);
 }
 
@@ -140,6 +141,7 @@ static __always_inline unsigned long __copy_from_user_nocache(void *to,
 	if ((long)n < 0)
 		return n;
 
+	check_object_size(to, n, false);
 	if (__builtin_constant_p(n)) {
 		unsigned long ret;
 
@@ -171,6 +173,7 @@ __copy_from_user_inatomic_nocache(void *to, const void __user *from,
 	if ((long)n < 0)
 		return n;
 
+	check_object_size(to, n, false);
 	return __copy_from_user_ll_nocache_nozero(to, from, n);
 }
 
