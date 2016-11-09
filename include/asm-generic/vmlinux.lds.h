@@ -164,7 +164,7 @@
 
 #define ___OF_TABLE(cfg, name)	_OF_TABLE_##cfg(name)
 #define __OF_TABLE(cfg, name)	___OF_TABLE(cfg, name)
-#define OF_TABLE(cfg, name)	__OF_TABLE(config_enabled(cfg), name)
+#define OF_TABLE(cfg, name)	__OF_TABLE(IS_ENABLED(cfg), name)
 #define _OF_TABLE_0(name)
 #define _OF_TABLE_1(name)						\
 	. = ALIGN(8);							\
@@ -250,6 +250,14 @@
 	VMLINUX_SYMBOL(__end_init_task) = .;
 
 /*
+ * Allow architectures to handle ro_after_init data on their
+ * own by defining an empty RO_AFTER_INIT_DATA.
+ */
+#ifndef RO_AFTER_INIT_DATA
+#define RO_AFTER_INIT_DATA *(.data..ro_after_init)
+#endif
+
+/*
  * Read only Data
  */
 #define RO_DATA_SECTION(align)						\
@@ -257,7 +265,7 @@
 	.rodata           : AT(ADDR(.rodata) - LOAD_OFFSET) {		\
 		VMLINUX_SYMBOL(__start_rodata) = .;			\
 		*(.rodata) *(.rodata.*)					\
-		*(.data..ro_after_init)	/* Read only after init */	\
+		RO_AFTER_INIT_DATA	/* Read only after init */	\
 		*(.data..read_only)					\
 		*(__vermagic)		/* Kernel version magic */	\
 		. = ALIGN(8);						\
@@ -427,9 +435,20 @@
 		ALIGN_FUNCTION();					\
 		*(.text.hot .text .text.fixup .text.unlikely)		\
 		*(.ref.text)						\
+		REFCOUNT_TEXT						\
 	MEM_KEEP(init.text)						\
 	MEM_KEEP(exit.text)						\
 
+#define __REFCOUNT_TEXT(section)					\
+		VMLINUX_SYMBOL(__##section##_start) = .;		\
+		*(.text.##section)					\
+		VMLINUX_SYMBOL(__##section##_end) = .;
+
+#define REFCOUNT_TEXT							\
+	__REFCOUNT_TEXT(refcount_overflow)				\
+	__REFCOUNT_TEXT(refcount64_overflow)				\
+	__REFCOUNT_TEXT(refcount_underflow)				\
+	__REFCOUNT_TEXT(refcount64_underflow)				\
 
 /* sched.text is aling to function alignment to secure we have same
  * address even at second ld pass when generating System.map */

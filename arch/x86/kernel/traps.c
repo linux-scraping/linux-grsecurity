@@ -21,7 +21,7 @@
 #include <linux/kdebug.h>
 #include <linux/kgdb.h>
 #include <linux/kernel.h>
-#include <linux/module.h>
+#include <linux/export.h>
 #include <linux/ptrace.h>
 #include <linux/uprobes.h>
 #include <linux/string.h>
@@ -204,8 +204,8 @@ do_trap_no_signal(struct task_struct *tsk, int trapnr, const char *str,
 		}
 
 #ifdef CONFIG_PAX_REFCOUNT
-		if (trapnr == X86_TRAP_OF)
-			pax_report_refcount_overflow(regs);
+		if (trapnr == X86_REFCOUNT_VECTOR)
+			pax_report_refcount_error(regs, str);
 #endif
 
 		return 0;
@@ -279,7 +279,7 @@ do_trap(int trapnr, int signr, const char *str, struct pt_regs *regs,
 }
 NOKPROBE_SYMBOL(do_trap);
 
-static void do_error_trap(struct pt_regs *regs, long error_code, char *str,
+static void do_error_trap(struct pt_regs *regs, long error_code, const char *str,
 			  unsigned long trapnr, int signr)
 {
 	siginfo_t info;
@@ -308,6 +308,37 @@ DO_ERROR(X86_TRAP_TS,     SIGSEGV, "invalid TSS",		invalid_TSS)
 DO_ERROR(X86_TRAP_NP,     SIGBUS,  "segment not present",	segment_not_present)
 DO_ERROR(X86_TRAP_SS,     SIGBUS,  "stack segment",		stack_segment)
 DO_ERROR(X86_TRAP_AC,     SIGBUS,  "alignment check",		alignment_check)
+
+#ifdef CONFIG_PAX_REFCOUNT
+extern char __refcount_overflow_start[], __refcount_overflow_end[];
+extern char __refcount64_overflow_start[], __refcount64_overflow_end[];
+extern char __refcount_underflow_start[], __refcount_underflow_end[];
+extern char __refcount64_underflow_start[], __refcount64_underflow_end[];
+
+dotraplinkage void do_refcount_error(struct pt_regs *regs, long error_code)
+{
+	const char *str = NULL;
+
+	BUG_ON(!(regs->flags & X86_EFLAGS_OF));
+
+#define range_check(size, direction, type, value) \
+	if ((unsigned long)__##size##_##direction##_start <= regs->ip && \
+	    regs->ip < (unsigned long)__##size##_##direction##_end) { \
+		*(type *)regs->cx = value; \
+		str = #size " " #direction; \
+	}
+
+	range_check(refcount,   overflow,  int,       INT_MAX)
+	range_check(refcount64, overflow,  long long, LLONG_MAX)
+	range_check(refcount,   underflow, int,       INT_MIN)
+	range_check(refcount64, underflow, long long, LLONG_MIN)
+
+#undef range_check
+
+	BUG_ON(!str);
+	do_error_trap(regs, error_code, str, X86_REFCOUNT_VECTOR, SIGILL);
+}
+#endif
 
 #ifdef CONFIG_X86_64
 /* Runs on IST stack */
@@ -961,6 +992,11 @@ void __init trap_init(void)
 #ifdef CONFIG_X86_32
 	set_system_intr_gate(IA32_SYSCALL_VECTOR, entry_INT80_32);
 	set_bit(IA32_SYSCALL_VECTOR, used_vectors);
+#endif
+
+#ifdef CONFIG_PAX_REFCOUNT
+	set_intr_gate(X86_REFCOUNT_VECTOR, refcount_error);
+	set_bit(X86_REFCOUNT_VECTOR, used_vectors);
 #endif
 
 	/*

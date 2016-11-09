@@ -176,7 +176,7 @@
 
 	pax_enter_kernel
 
-	sub	sp, sp, #S_FRAME_SIZE
+	sub	sp, sp, #PT_REGS_SIZE
  ARM(	stmib	sp, {r1 - lr}		)
  THUMB(	stmia	sp, {r0 - r12}		)
  THUMB(	str	sp, [sp, #S_SP]		)
@@ -240,7 +240,7 @@ ENDPROC(__und_invalid)
 
 	pax_enter_kernel
 
-	sub	sp, sp, #(S_FRAME_SIZE + 8 + \stack_hole - 4)
+	sub	sp, sp, #(SVC_REGS_SIZE + \stack_hole - 4)
 #ifdef CONFIG_THUMB2_KERNEL
  SPFIX(	str	r0, [sp]	)	@ temporarily saved
  SPFIX(	mov	r0, sp		)
@@ -257,9 +257,9 @@ ENDPROC(__und_invalid)
 	mov	r6, #-1			@  ""  ""      ""       ""
 #if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
 	@ offset sp by 8 as done in pax_enter_kernel
-	add	r2, sp, #(S_FRAME_SIZE + 8 + \stack_hole + 4)
+	add	r2, sp, #(SVC_REGS_SIZE + \stack_hole + 4)
 #else
-	add	r2, sp, #(S_FRAME_SIZE + 8 + \stack_hole - 4)
+	add	r2, sp, #(SVC_REGS_SIZE + \stack_hole - 4)
 #endif
  SPFIX(	addeq	r2, r2, #4	)
 	str	r3, [sp, #-4]!		@ save the "real" r0 copied
@@ -277,6 +277,12 @@ ENDPROC(__und_invalid)
 	@  r6 - orig_r0 (see pt_regs definition in ptrace.h)
 	@
 	stmia	r7, {r2 - r6}
+
+	get_thread_info tsk
+	ldr	r0, [tsk, #TI_ADDR_LIMIT]
+	mov	r1, #TASK_SIZE
+	str	r1, [tsk, #TI_ADDR_LIMIT]
+	str	r0, [sp, #SVC_ADDR_LIMIT]
 
 	uaccess_save r0
 	.if \uaccess
@@ -306,7 +312,6 @@ __irq_svc:
 	irq_handler
 
 #ifdef CONFIG_PREEMPT
-	get_thread_info tsk
 	ldr	r8, [tsk, #TI_PREEMPT]		@ get preempt count
 	ldr	r0, [tsk, #TI_FLAGS]		@ get flags
 	teq	r8, #0				@ if preempt count != 0
@@ -383,6 +388,7 @@ __und_svc_fault:
 	bl	__und_fault
 
 __und_svc_finish:
+	get_thread_info tsk
 	ldr	r5, [sp, #S_PSR]		@ Get SVC cpsr
 	svc_exit r5				@ return from exception
  UNWIND(.fnend		)
@@ -459,10 +465,10 @@ ENDPROC(__fiq_abt)
 /*
  * User mode handlers
  *
- * EABI note: sp_svc is always 64-bit aligned here, so should S_FRAME_SIZE
+ * EABI note: sp_svc is always 64-bit aligned here, so should PT_REGS_SIZE
  */
 
-#if defined(CONFIG_AEABI) && (__LINUX_ARM_ARCH__ >= 5) && (S_FRAME_SIZE & 7)
+#if defined(CONFIG_AEABI) && (__LINUX_ARM_ARCH__ >= 5) && (PT_REGS_SIZE & 7)
 #error "sizeof(struct pt_regs) must be a multiple of 8"
 #endif
 
@@ -472,7 +478,7 @@ ENDPROC(__fiq_abt)
 
 	pax_enter_kernel_user
 
-	sub	sp, sp, #S_FRAME_SIZE
+	sub	sp, sp, #PT_REGS_SIZE
  ARM(	stmib	sp, {r1 - r12}	)
  THUMB(	stmia	sp, {r0 - r12}	)
 

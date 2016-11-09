@@ -89,7 +89,9 @@ static inline void cr4_set_bits(unsigned long mask)
 {
 	unsigned long cr4;
 
+//	BUG_ON(!arch_irqs_disabled());
 	cr4 = this_cpu_read(cpu_tlbstate.cr4);
+	BUG_ON(cr4 != __read_cr4());
 	if ((cr4 | mask) != cr4) {
 		cr4 |= mask;
 		this_cpu_write(cpu_tlbstate.cr4, cr4);
@@ -102,7 +104,9 @@ static inline void cr4_clear_bits(unsigned long mask)
 {
 	unsigned long cr4;
 
+//	BUG_ON(!arch_irqs_disabled());
 	cr4 = this_cpu_read(cpu_tlbstate.cr4);
+	BUG_ON(cr4 != __read_cr4());
 	if ((cr4 & ~mask) != cr4) {
 		cr4 &= ~mask;
 		this_cpu_write(cpu_tlbstate.cr4, cr4);
@@ -113,6 +117,7 @@ static inline void cr4_clear_bits(unsigned long mask)
 /* Read the CR4 shadow. */
 static inline unsigned long cr4_read_shadow(void)
 {
+//	BUG_ON(!arch_irqs_disabled());
 	return this_cpu_read(cpu_tlbstate.cr4);
 }
 
@@ -175,6 +180,7 @@ static inline void __native_flush_tlb_global_irq_disabled(void)
 		unsigned long cr4;
 
 		cr4 = this_cpu_read(cpu_tlbstate.cr4);
+		BUG_ON(cr4 != __read_cr4());
 		/* clear PGE */
 		native_write_cr4(cr4 & ~X86_CR4_PGE);
 		/* write old PGE again and flush TLBs */

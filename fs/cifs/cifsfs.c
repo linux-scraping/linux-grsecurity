@@ -271,7 +271,7 @@ cifs_alloc_inode(struct super_block *sb)
 	cifs_inode->createtime = 0;
 	cifs_inode->epoch = 0;
 #ifdef CONFIG_CIFS_SMB2
-	get_random_bytes(cifs_inode->lease_key, SMB2_LEASE_KEY_SIZE);
+	generate_random_uuid(cifs_inode->lease_key);
 #endif
 	/*
 	 * Can not set i_flags here - they get immediately overwritten to zero
@@ -609,6 +609,9 @@ cifs_get_root(struct smb_vol *vol, struct super_block *sb)
 	char *s, *p;
 	char sep;
 
+	if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_USE_PREFIX_PATH)
+		return dget(sb->s_root);
+
 	full_path = cifs_build_path_to_root(vol, cifs_sb,
 					    cifs_sb_master_tcon(cifs_sb));
 	if (full_path == NULL)
@@ -686,18 +689,14 @@ cifs_do_mount(struct file_system_type *fs_type,
 	cifs_sb->mountdata = kstrndup(data, PAGE_SIZE, GFP_KERNEL);
 	if (cifs_sb->mountdata == NULL) {
 		root = ERR_PTR(-ENOMEM);
-		goto out_cifs_sb;
+		goto out_free;
 	}
 
-	if (volume_info->prepath) {
-		cifs_sb->prepath = kstrdup(volume_info->prepath, GFP_KERNEL);
-		if (cifs_sb->prepath == NULL) {
-			root = ERR_PTR(-ENOMEM);
-			goto out_cifs_sb;
-		}
+	rc = cifs_setup_cifs_sb(volume_info, cifs_sb);
+	if (rc) {
+		root = ERR_PTR(rc);
+		goto out_free;
 	}
-
-	cifs_setup_cifs_sb(volume_info, cifs_sb);
 
 	rc = cifs_mount(cifs_sb, volume_info);
 	if (rc) {
@@ -705,7 +704,7 @@ cifs_do_mount(struct file_system_type *fs_type,
 			cifs_dbg(VFS, "cifs_mount failed w/return code = %d\n",
 				 rc);
 		root = ERR_PTR(rc);
-		goto out_mountdata;
+		goto out_free;
 	}
 
 	mnt_data.vol = volume_info;
@@ -735,11 +734,7 @@ cifs_do_mount(struct file_system_type *fs_type,
 		sb->s_flags |= MS_ACTIVE;
 	}
 
-	if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_USE_PREFIX_PATH)
-		root = dget(sb->s_root);
-	else
-		root = cifs_get_root(volume_info, sb);
-
+	root = cifs_get_root(volume_info, sb);
 	if (IS_ERR(root))
 		goto out_super;
 
@@ -752,9 +747,9 @@ out:
 	cifs_cleanup_volume_info(volume_info);
 	return root;
 
-out_mountdata:
+out_free:
+	kfree(cifs_sb->prepath);
 	kfree(cifs_sb->mountdata);
-out_cifs_sb:
 	kfree(cifs_sb);
 out_nls:
 	unload_nls(volume_info->local_nls);
@@ -1153,9 +1148,10 @@ cifs_init_request_bufs(void)
 	cifs_dbg(VFS, "CIFSMaxBufSize %d 0x%x\n",
 		 CIFSMaxBufSize, CIFSMaxBufSize);
 */
-	cifs_req_cachep = kmem_cache_create("cifs_request",
+	cifs_req_cachep = kmem_cache_create_usercopy("cifs_request",
 					    CIFSMaxBufSize + max_hdr_size, 0,
-					    SLAB_HWCACHE_ALIGN | SLAB_USERCOPY, NULL);
+					    SLAB_HWCACHE_ALIGN, 0,
+					    CIFSMaxBufSize + max_hdr_size, NULL);
 	if (cifs_req_cachep == NULL)
 		return -ENOMEM;
 
@@ -1181,9 +1177,9 @@ cifs_init_request_bufs(void)
 	more SMBs to use small buffer alloc and is still much more
 	efficient to alloc 1 per page off the slab compared to 17K (5page)
 	alloc of large cifs buffers even when page debugging is on */
-	cifs_sm_req_cachep = kmem_cache_create("cifs_small_rq",
-			MAX_CIFS_SMALL_BUFFER_SIZE, 0, SLAB_HWCACHE_ALIGN | SLAB_USERCOPY,
-			NULL);
+	cifs_sm_req_cachep = kmem_cache_create_usercopy("cifs_small_rq",
+			MAX_CIFS_SMALL_BUFFER_SIZE, 0, SLAB_HWCACHE_ALIGN,
+			0, MAX_CIFS_SMALL_BUFFER_SIZE, NULL);
 	if (cifs_sm_req_cachep == NULL) {
 		mempool_destroy(cifs_req_poolp);
 		kmem_cache_destroy(cifs_req_cachep);
@@ -1276,7 +1272,6 @@ init_cifs(void)
 	GlobalTotalActiveXid = 0;
 	GlobalMaxActiveXid = 0;
 	spin_lock_init(&cifs_tcp_ses_lock);
-	spin_lock_init(&cifs_file_list_lock);
 	spin_lock_init(&GlobalMid_Lock);
 
 	get_random_bytes(&cifs_lock_secret, sizeof(cifs_lock_secret));

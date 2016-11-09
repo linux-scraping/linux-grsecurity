@@ -22,13 +22,6 @@
  * The ones marked DEBUG are only valid if CONFIG_DEBUG_SLAB is set.
  */
 #define SLAB_CONSISTENCY_CHECKS	0x00000100UL	/* DEBUG: Perform (expensive) checks on alloc/free */
-
-#ifdef CONFIG_PAX_USERCOPY_SLABS
-#define SLAB_USERCOPY		0x00000200UL	/* PaX: Allow copying objs to/from userland */
-#else
-#define SLAB_USERCOPY		0x00000000UL
-#endif
-
 #define SLAB_RED_ZONE		0x00000400UL	/* DEBUG: Red zone objs in a cache */
 #define SLAB_POISON		0x00000800UL	/* DEBUG: Poison objects */
 
@@ -145,6 +138,9 @@ bool slab_is_available(void);
 struct kmem_cache *kmem_cache_create(const char *, size_t, size_t,
 			unsigned long,
 			void (*)(void *));
+struct kmem_cache *kmem_cache_create_usercopy(const char *, size_t, size_t,
+			unsigned long, size_t, size_t,
+			void (*)(void *));
 void kmem_cache_destroy(struct kmem_cache *);
 int kmem_cache_shrink(struct kmem_cache *);
 
@@ -164,6 +160,11 @@ void memcg_destroy_kmem_caches(struct mem_cgroup *);
 		sizeof(struct __struct), __alignof__(struct __struct),\
 		(__flags), NULL)
 
+#define KMEM_CACHE_USERCOPY(__struct, __flags, __field) kmem_cache_create_usercopy(#__struct,\
+		sizeof(struct __struct), __alignof__(struct __struct),\
+		(__flags), offsetof(struct __struct, __field),\
+		sizeof(((struct __struct *)0)->__field), NULL)
+
 /*
  * Common kmalloc functions provided by all allocators
  */
@@ -172,8 +173,10 @@ void * __must_check krealloc(const void *, size_t, gfp_t);
 void kfree(const void *);
 void kzfree(const void *);
 size_t ksize(const void *);
-const char *check_heap_object(const void *ptr, unsigned long n);
 bool is_usercopy_object(const void *ptr);
+
+const char *__check_heap_object(const void *ptr, unsigned long n,
+				struct page *page);
 
 /*
  * Some archs want to perform DMA into kmalloc caches and need a guaranteed
@@ -284,7 +287,7 @@ extern struct kmem_cache *kmalloc_caches[KMALLOC_SHIFT_HIGH + 1];
 extern struct kmem_cache *kmalloc_dma_caches[KMALLOC_SHIFT_HIGH + 1];
 #endif
 
-#ifdef CONFIG_PAX_USERCOPY_SLABS
+#ifdef CONFIG_PAX_USERCOPY
 extern struct kmem_cache *kmalloc_usercopy_caches[KMALLOC_SHIFT_HIGH + 1];
 #endif
 
@@ -589,6 +592,8 @@ static inline void *kmalloc_array(size_t n, size_t size, gfp_t flags)
 {
 	if (size != 0 && n > SIZE_MAX / size)
 		return NULL;
+	if (__builtin_constant_p(n) && __builtin_constant_p(size))
+		return kmalloc(n * size, flags);
 	return __kmalloc(n * size, flags);
 }
 

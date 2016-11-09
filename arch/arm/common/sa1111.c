@@ -472,8 +472,8 @@ static int sa1111_setup_irq(struct sa1111 *sachip, unsigned irq_base)
 	 * specifies that S0ReadyInt and S1ReadyInt should be '1'.
 	 */
 	sa1111_writel(0, irqbase + SA1111_INTPOL0);
-	sa1111_writel(SA1111_IRQMASK_HI(IRQ_S0_READY_NINT) |
-		      SA1111_IRQMASK_HI(IRQ_S1_READY_NINT),
+	sa1111_writel(BIT(IRQ_S0_READY_NINT & 31) |
+		      BIT(IRQ_S1_READY_NINT & 31),
 		      irqbase + SA1111_INTPOL1);
 
 	/* clear all IRQs */
@@ -754,7 +754,7 @@ static int __sa1111_probe(struct device *me, struct resource *mem, int irq)
 	if (sachip->irq != NO_IRQ) {
 		ret = sa1111_setup_irq(sachip, pd->irq_base);
 		if (ret)
-			goto err_unmap;
+			goto err_clk;
 	}
 
 #ifdef CONFIG_ARCH_SA1100
@@ -799,6 +799,8 @@ static int __sa1111_probe(struct device *me, struct resource *mem, int irq)
 
 	return 0;
 
+ err_clk:
+	clk_disable(sachip->clk);
  err_unmap:
 	iounmap(sachip->base);
  err_clk_unprep:
@@ -1017,7 +1019,7 @@ static int sa1111_probe(struct platform_device *pdev)
 		return -EINVAL;
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
-		return -ENXIO;
+		return irq;
 
 	return __sa1111_probe(&pdev->dev, mem, irq);
 }

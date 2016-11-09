@@ -16,6 +16,10 @@ else
   export HOST_EXTRACXXFLAGS
 endif
 
+ifneq ($(CFLAGS_KCOV), $(SANCOV_PLUGIN))
+  GCC_PLUGIN := $(filter-out $(SANCOV_PLUGIN), $(GCC_PLUGIN))
+endif
+
 export HOSTLIBS
 
 $(HOSTLIBS)-y := $(foreach p,$(GCC_PLUGIN),$(if $(findstring /,$(p)),,$(p)))

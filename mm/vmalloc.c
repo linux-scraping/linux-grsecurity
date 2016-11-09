@@ -97,7 +97,7 @@ static void unmap_work(struct work_struct *w)
 		void *lowmem_stack = ACCESS_ONCE(x->lowmem_stack);
 		llnode = llist_next(llnode);
 		__vunmap(stack, 0);
-		free_kmem_pages((unsigned long)lowmem_stack, THREAD_SIZE_ORDER);
+		free_pages((unsigned long)lowmem_stack, THREAD_SIZE_ORDER);
 	}
 }
 #endif
@@ -1612,7 +1612,7 @@ static void __vunmap(const void *addr, int deallocate_pages)
 			struct page *page = area->pages[i];
 
 			BUG_ON(!page);
-			__free_kmem_pages(page, 0);
+			__free_pages(page, 0);
 		}
 
 		kvfree(area->pages);
@@ -1689,7 +1689,7 @@ void unmap_process_stacks(struct task_struct *task)
 			schedule_work(&p->wq);
 	} else {
 		__vunmap(task->stack, 0);
-		free_kmem_pages((unsigned long)task->lowmem_stack, THREAD_SIZE_ORDER);
+		free_pages((unsigned long)task->lowmem_stack, THREAD_SIZE_ORDER);
 	}
 }
 #endif
@@ -1768,9 +1768,9 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 		struct page *page;
 
 		if (node == NUMA_NO_NODE)
-			page = alloc_kmem_pages(alloc_mask, order);
+			page = alloc_pages(alloc_mask, order);
 		else
-			page = alloc_kmem_pages_node(node, alloc_mask, order);
+			page = alloc_pages_node(node, alloc_mask, order);
 
 		if (unlikely(!page)) {
 			/* Successfully allocated i pages, free them in __vunmap() */
@@ -1905,6 +1905,16 @@ static inline void *__vmalloc_node_flags(unsigned long size,
 	return __vmalloc_node(size, 1, flags, PAGE_KERNEL,
 					node, __builtin_return_address(0));
 }
+
+#if defined(CONFIG_GRKERNSEC_KSTACKOVERFLOW) && defined(CONFIG_X86_64)
+void *vzalloc_irq_stack(void)
+{
+	return __vmalloc_node(IRQ_STACK_SIZE, IRQ_STACK_SIZE,
+			      GFP_KERNEL | __GFP_NOTRACK | __GFP_ZERO,
+			      PAGE_KERNEL, NUMA_NO_NODE,
+			      __builtin_return_address(0));
+}
+#endif
 
 /**
  *	vmalloc  -  allocate virtually contiguous memory

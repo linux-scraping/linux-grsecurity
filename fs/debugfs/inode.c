@@ -634,9 +634,6 @@ void debugfs_remove(struct dentry *dentry)
 		return;
 
 	parent = dentry->d_parent;
-	if (!parent || d_really_is_negative(parent))
-		return;
-
 	inode_lock(d_inode(parent));
 	ret = __debugfs_remove(dentry, parent);
 	inode_unlock(d_inode(parent));
@@ -665,10 +662,6 @@ void debugfs_remove_recursive(struct dentry *dentry)
 	struct dentry *child, *parent;
 
 	if (IS_ERR_OR_NULL(dentry))
-		return;
-
-	parent = dentry->d_parent;
-	if (!parent || d_really_is_negative(parent))
 		return;
 
 	parent = dentry;

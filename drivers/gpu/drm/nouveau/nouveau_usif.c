@@ -186,11 +186,6 @@ usif_notify_del(struct drm_file *f, void *data, u32 size, void *argv, u32 argc)
 	return ret;
 }
 
-static void usif_notify_release(struct drm_pending_event *event)
-{
-	kfree(event);
-}
-
 static int
 usif_notify_get(struct drm_file *f, void *data, u32 size, void *argv, u32 argc)
 {
@@ -217,7 +212,6 @@ usif_notify_get(struct drm_file *f, void *data, u32 size, void *argv, u32 argc)
 	ntfy->p->base.event = &ntfy->p->e.base;
 	ntfy->p->base.file_priv = f;
 	ntfy->p->base.pid = current->pid;
-	ntfy->p->base.destroy = usif_notify_release;
 	ntfy->p->e.base.type = DRM_NOUVEAU_EVENT_NVIF;
 	ntfy->p->e.base.length = sizeof(ntfy->p->e.base) + ntfy->reply;
 

@@ -68,7 +68,7 @@ early_param("pax_sanitize_slab", pax_sanitize_slab_setup);
  * Merge control. If this is set then no merging of slab caches will occur.
  * (Could be removed. This was introduced to pacify the merge skeptics.)
  */
-static int slab_nomerge = 1;
+static int slab_nomerge __read_only = 1;
 
 static int __init setup_slab_nomerge(char *str)
 {
@@ -347,11 +347,14 @@ unsigned long calculate_alignment(unsigned long flags,
 
 static struct kmem_cache *create_cache(const char *name,
 		size_t object_size, size_t size, size_t align,
-		unsigned long flags, void (*ctor)(void *),
+		unsigned long flags, size_t useroffset,
+		size_t usersize, void (*ctor)(void *),
 		struct mem_cgroup *memcg, struct kmem_cache *root_cache)
 {
 	struct kmem_cache *s;
 	int err;
+
+	BUG_ON(useroffset + usersize > object_size);
 
 	err = -ENOMEM;
 	s = kmem_cache_zalloc(kmem_cache, GFP_KERNEL);
@@ -363,6 +366,8 @@ static struct kmem_cache *create_cache(const char *name,
 	s->size = size;
 	s->align = align;
 	s->ctor = ctor;
+	s->useroffset = useroffset;
+	s->usersize = usersize;
 
 	err = init_memcg_params(s, memcg, root_cache);
 	if (err)
@@ -386,11 +391,13 @@ out_free_cache:
 }
 
 /*
- * kmem_cache_create - Create a cache.
+ * __kmem_cache_create_usercopy - Create a cache.
  * @name: A string which is used in /proc/slabinfo to identify this cache.
  * @size: The size of objects to be created in this cache.
  * @align: The required alignment for the objects.
  * @flags: SLAB flags
+ * @useroffset: USERCOPY region offset
+ * @usersize: USERCOPY region size
  * @ctor: A constructor for the objects.
  *
  * Returns a ptr to the cache on success, NULL on failure.
@@ -409,9 +416,10 @@ out_free_cache:
  * cacheline.  This can be beneficial if you're counting cycles as closely
  * as davem.
  */
-struct kmem_cache *
-kmem_cache_create(const char *name, size_t size, size_t align,
-		  unsigned long flags, void (*ctor)(void *))
+static struct kmem_cache *
+__kmem_cache_create_usercopy(const char *name, size_t size, size_t align,
+		  unsigned long flags, size_t useroffset, size_t usersize,
+		  void (*ctor)(void *))
 {
 	struct kmem_cache *s = NULL;
 	const char *cache_name;
@@ -436,7 +444,10 @@ kmem_cache_create(const char *name, size_t size, size_t align,
 	 */
 	flags &= CACHE_CREATE_MASK;
 
-	s = __kmem_cache_alias(name, size, align, flags, ctor);
+	BUG_ON(!usersize && useroffset);
+	BUG_ON(size < usersize || size - usersize < useroffset);
+	if (!usersize)
+		s = __kmem_cache_alias(name, size, align, flags, ctor);
 	if (s)
 		goto out_unlock;
 
@@ -448,7 +459,7 @@ kmem_cache_create(const char *name, size_t size, size_t align,
 
 	s = create_cache(cache_name, size, size,
 			 calculate_alignment(flags, align, size),
-			 flags, ctor, NULL, NULL);
+			 flags, useroffset, usersize, ctor, NULL, NULL);
 	if (IS_ERR(s)) {
 		err = PTR_ERR(s);
 		kfree_const(cache_name);
@@ -474,7 +485,23 @@ out_unlock:
 	}
 	return s;
 }
+
+struct kmem_cache *
+kmem_cache_create(const char *name, size_t size, size_t align,
+		  unsigned long flags, void (*ctor)(void *))
+{
+	return __kmem_cache_create_usercopy(name, size, align, flags, 0, 0, ctor);
+}
 EXPORT_SYMBOL(kmem_cache_create);
+
+struct kmem_cache *
+kmem_cache_create_usercopy(const char *name, size_t size, size_t align,
+		  unsigned long flags, size_t useroffset, size_t usersize,
+		  void (*ctor)(void *))
+{
+	return __kmem_cache_create_usercopy(name, size, align, flags, useroffset, usersize, ctor);
+}
+EXPORT_SYMBOL(kmem_cache_create_usercopy);
 
 static int shutdown_cache(struct kmem_cache *s,
 		struct list_head *release, bool *need_rcu_barrier)
@@ -557,7 +584,8 @@ void memcg_create_kmem_cache(struct mem_cgroup *memcg,
 
 	s = create_cache(cache_name, root_cache->object_size,
 			 root_cache->size, root_cache->align,
-			 root_cache->flags, root_cache->ctor,
+			 root_cache->flags, root_cache->useroffset,
+			 root_cache->usersize, root_cache->ctor,
 			 memcg, root_cache);
 	/*
 	 * If we could not create a memcg cache, do not complain, because
@@ -793,13 +821,15 @@ bool slab_is_available(void)
 #ifndef CONFIG_SLOB
 /* Create a cache during boot when no slab services are available yet */
 void __init create_boot_cache(struct kmem_cache *s, const char *name, size_t size,
-		unsigned long flags)
+		unsigned long flags, size_t useroffset, size_t usersize)
 {
 	int err;
 
 	s->name = name;
 	s->size = s->object_size = size;
 	s->align = calculate_alignment(flags, ARCH_KMALLOC_MINALIGN, size);
+	s->useroffset = useroffset;
+	s->usersize = usersize;
 
 	slab_init_memcg_params(s);
 
@@ -812,18 +842,24 @@ void __init create_boot_cache(struct kmem_cache *s, const char *name, size_t siz
 	atomic_set(&s->refcount, -1);	/* Exempt from merging for now */
 }
 
-struct kmem_cache *__init create_kmalloc_cache(const char *name, size_t size,
-				unsigned long flags)
+struct kmem_cache *__init create_kmalloc_cache_usercopy(const char *name, size_t size,
+				unsigned long flags, size_t useroffset, size_t usersize)
 {
 	struct kmem_cache *s = kmem_cache_zalloc(kmem_cache, GFP_NOWAIT);
 
 	if (!s)
 		panic("Out of memory when creating slab %s\n", name);
 
-	create_boot_cache(s, name, size, flags);
+	create_boot_cache(s, name, size, flags, useroffset, usersize);
 	list_add(&s->list, &slab_caches);
 	atomic_set(&s->refcount, 1);
 	return s;
+}
+
+struct kmem_cache *__init create_kmalloc_cache(const char *name, size_t size,
+				unsigned long flags)
+{
+	return create_kmalloc_cache_usercopy(name, size, flags, 0, 0);
 }
 
 struct kmem_cache *kmalloc_caches[KMALLOC_SHIFT_HIGH + 1];
@@ -834,7 +870,7 @@ struct kmem_cache *kmalloc_dma_caches[KMALLOC_SHIFT_HIGH + 1];
 EXPORT_SYMBOL(kmalloc_dma_caches);
 #endif
 
-#ifdef CONFIG_PAX_USERCOPY_SLABS
+#ifdef CONFIG_PAX_USERCOPY
 struct kmem_cache *kmalloc_usercopy_caches[KMALLOC_SHIFT_HIGH + 1];
 EXPORT_SYMBOL(kmalloc_usercopy_caches);
 #endif
@@ -904,7 +940,7 @@ struct kmem_cache *kmalloc_slab(size_t size, gfp_t flags)
 
 #endif
 
-#ifdef CONFIG_PAX_USERCOPY_SLABS
+#ifdef CONFIG_PAX_USERCOPY
 	if (unlikely((flags & GFP_USERCOPY)))
 		return kmalloc_usercopy_caches[index];
 
@@ -987,8 +1023,8 @@ void __init setup_kmalloc_cache_index_table(void)
 
 static void __init new_kmalloc_cache(int idx, unsigned long flags)
 {
-	kmalloc_caches[idx] = create_kmalloc_cache(kmalloc_info[idx].name,
-					kmalloc_info[idx].size, flags);
+	kmalloc_caches[idx] = create_kmalloc_cache_usercopy(kmalloc_info[idx].name,
+					kmalloc_info[idx].size, flags, 0, kmalloc_info[idx].size);
 }
 
 /*
@@ -1002,7 +1038,7 @@ void __init create_kmalloc_caches(unsigned long flags)
 
 	for (i = KMALLOC_SHIFT_LOW; i <= KMALLOC_SHIFT_HIGH; i++) {
 		if (!kmalloc_caches[i])
-			new_kmalloc_cache(i, SLAB_USERCOPY | flags);
+			new_kmalloc_cache(i, flags);
 
 		/*
 		 * Caches that are not of the two-to-the-power-of size.
@@ -1010,9 +1046,9 @@ void __init create_kmalloc_caches(unsigned long flags)
 		 * earlier power of two caches
 		 */
 		if (KMALLOC_MIN_SIZE <= 32 && !kmalloc_caches[1] && i == 6)
-			new_kmalloc_cache(1, SLAB_USERCOPY | flags);
+			new_kmalloc_cache(1, flags);
 		if (KMALLOC_MIN_SIZE <= 64 && !kmalloc_caches[2] && i == 7)
-			new_kmalloc_cache(2, SLAB_USERCOPY | flags);
+			new_kmalloc_cache(2, flags);
 	}
 
 	/* Kmalloc array is now usable */
@@ -1034,7 +1070,7 @@ void __init create_kmalloc_caches(unsigned long flags)
 	}
 #endif
 
-#ifdef CONFIG_PAX_USERCOPY_SLABS
+#ifdef CONFIG_PAX_USERCOPY
 	for (i = 0; i <= KMALLOC_SHIFT_HIGH; i++) {
 		struct kmem_cache *s = kmalloc_caches[i];
 
@@ -1044,8 +1080,8 @@ void __init create_kmalloc_caches(unsigned long flags)
 				 "usercopy-kmalloc-%d", size);
 
 			BUG_ON(!n);
-			kmalloc_usercopy_caches[i] = create_kmalloc_cache(n,
-				size, SLAB_USERCOPY | flags);
+			kmalloc_usercopy_caches[i] = create_kmalloc_cache_usercopy(n,
+				size, flags, 0, size);
 		}
 	}
 #endif
@@ -1064,7 +1100,7 @@ void *kmalloc_order(size_t size, gfp_t flags, unsigned int order)
 	struct page *page;
 
 	flags |= __GFP_COMP;
-	page = alloc_kmem_pages(flags, order);
+	page = alloc_pages(flags, order);
 #ifdef CONFIG_SLOB
 	if (page) {
 		page->private = 1UL << order;
@@ -1087,6 +1123,53 @@ void *kmalloc_order_trace(size_t size, gfp_t flags, unsigned int order)
 }
 EXPORT_SYMBOL(kmalloc_order_trace);
 #endif
+
+#ifdef CONFIG_SLAB_FREELIST_RANDOM
+/* Randomize a generic freelist */
+static void freelist_randomize(struct rnd_state *state, unsigned int *list,
+			size_t count)
+{
+	size_t i;
+	unsigned int rand;
+
+	for (i = 0; i < count; i++)
+		list[i] = i;
+
+	/* Fisher-Yates shuffle */
+	for (i = count - 1; i > 0; i--) {
+		rand = prandom_u32_state(state);
+		rand %= (i + 1);
+		swap(list[i], list[rand]);
+	}
+}
+
+/* Create a random sequence per cache */
+int cache_random_seq_create(struct kmem_cache *cachep, unsigned int count,
+				    gfp_t gfp)
+{
+	struct rnd_state state;
+
+	if (count < 2 || cachep->random_seq)
+		return 0;
+
+	cachep->random_seq = kcalloc(count, sizeof(unsigned int), gfp);
+	if (!cachep->random_seq)
+		return -ENOMEM;
+
+	/* Get best entropy at this stage of boot */
+	prandom_seed_state(&state, get_random_long());
+
+	freelist_randomize(&state, cachep->random_seq, count);
+	return 0;
+}
+
+/* Destroy the per-cache random freelist sequence */
+void cache_random_seq_destroy(struct kmem_cache *cachep)
+{
+	kfree(cachep->random_seq);
+	cachep->random_seq = NULL;
+}
+#endif /* CONFIG_SLAB_FREELIST_RANDOM */
 
 #ifdef CONFIG_SLABINFO
 

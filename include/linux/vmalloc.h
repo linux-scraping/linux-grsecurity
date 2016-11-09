@@ -75,6 +75,9 @@ static inline void vmalloc_init(void)
 }
 #endif
 
+#if defined(CONFIG_GRKERNSEC_KSTACKOVERFLOW) && defined(CONFIG_X86_64)
+extern void *vzalloc_irq_stack(void);
+#endif
 extern void *vmalloc(unsigned long size);
 extern void *vmalloc_usercopy(unsigned long size);
 extern void *vzalloc(unsigned long size);

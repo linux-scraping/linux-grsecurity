@@ -892,17 +892,16 @@ extern void gr_delayed_cred_worker(void);
  */
 asmlinkage long syscall_trace_enter(struct pt_regs *regs, long syscall)
 {
-	long ret = 0;
 	user_exit();
 
 	current_thread_info()->syscall = syscall;
 
-	if (secure_computing() == -1)
-		return -1;
-
 	if (test_thread_flag(TIF_SYSCALL_TRACE) &&
 	    tracehook_report_syscall_entry(regs))
-		ret = -1;
+		return -1;
+
+	if (secure_computing(NULL) == -1)
+		return -1;
 
 #ifdef CONFIG_GRKERNSEC_SETXID
 	if (unlikely(test_and_clear_thread_flag(TIF_GRSEC_SETXID)))

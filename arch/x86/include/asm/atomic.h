@@ -70,17 +70,11 @@ static __always_inline void atomic_set_unchecked(atomic_unchecked_t *v, int i)
  */
 static __always_inline void atomic_add(int i, atomic_t *v)
 {
-	asm volatile(LOCK_PREFIX "addl %1,%0\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-		     "jno 0f\n"
-		     LOCK_PREFIX "subl %1,%0\n"
-		     "int $4\n0:\n"
-		     _ASM_EXTABLE(0b, 0b)
-#endif
-
-		     : "+m" (v->counter)
-		     : "ir" (i));
+	asm volatile(LOCK_PREFIX "addl %1,%0\n\t"
+		     PAX_REFCOUNT_OVERFLOW(4)
+		     : [counter] "+m" (v->counter)
+		     : "ir" (i)
+		     : "cc", "cx");
 }
 
 /**
@@ -93,7 +87,7 @@ static __always_inline void atomic_add(int i, atomic_t *v)
 static __always_inline void atomic_add_unchecked(int i, atomic_unchecked_t *v)
 {
 	asm volatile(LOCK_PREFIX "addl %1,%0\n"
-		     : "+m" (v->counter)
+		     : [counter] "+m" (v->counter)
 		     : "ir" (i));
 }
 
@@ -106,17 +100,11 @@ static __always_inline void atomic_add_unchecked(int i, atomic_unchecked_t *v)
  */
 static __always_inline void atomic_sub(int i, atomic_t *v)
 {
-	asm volatile(LOCK_PREFIX "subl %1,%0\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-		     "jno 0f\n"
-		     LOCK_PREFIX "addl %1,%0\n"
-		     "int $4\n0:\n"
-		     _ASM_EXTABLE(0b, 0b)
-#endif
-
-		     : "+m" (v->counter)
-		     : "ir" (i));
+	asm volatile(LOCK_PREFIX "subl %1,%0\n\t"
+		     PAX_REFCOUNT_UNDERFLOW(4)
+		     : [counter] "+m" (v->counter)
+		     : "ir" (i)
+		     : "cc", "cx");
 }
 
 /**
@@ -142,9 +130,9 @@ static __always_inline void atomic_sub_unchecked(int i, atomic_unchecked_t *v)
  * true if the result is zero, or false for all
  * other cases.
  */
-static __always_inline int atomic_sub_and_test(int i, atomic_t *v)
+static __always_inline bool atomic_sub_and_test(int i, atomic_t *v)
 {
-	GEN_BINARY_RMWcc(LOCK_PREFIX "subl", LOCK_PREFIX "addl",  v->counter, "er", i, "%0", "e");
+	GEN_BINARY_RMWcc(LOCK_PREFIX "subl", v->counter, -4, "er", i, "%0", e);
 }
 
 /**
@@ -155,16 +143,10 @@ static __always_inline int atomic_sub_and_test(int i, atomic_t *v)
  */
 static __always_inline void atomic_inc(atomic_t *v)
 {
-	asm volatile(LOCK_PREFIX "incl %0\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-		     "jno 0f\n"
-		     LOCK_PREFIX "decl %0\n"
-		     "int $4\n0:\n"
-		     _ASM_EXTABLE(0b, 0b)
-#endif
-
-		     : "+m" (v->counter));
+	asm volatile(LOCK_PREFIX "incl %0\n\t"
+		     PAX_REFCOUNT_OVERFLOW(4)
+		     : [counter] "+m" (v->counter)
+		     : : "cc", "cx");
 }
 
 /**
@@ -187,16 +169,10 @@ static __always_inline void atomic_inc_unchecked(atomic_unchecked_t *v)
  */
 static __always_inline void atomic_dec(atomic_t *v)
 {
-	asm volatile(LOCK_PREFIX "decl %0\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-		     "jno 0f\n"
-		     LOCK_PREFIX "incl %0\n"
-		     "int $4\n0:\n"
-		     _ASM_EXTABLE(0b, 0b)
-#endif
-
-		     : "+m" (v->counter));
+	asm volatile(LOCK_PREFIX "decl %0\n\t"
+		     PAX_REFCOUNT_UNDERFLOW(4)
+		     : [counter] "+m" (v->counter)
+		     : : "cc", "cx");
 }
 
 /**
@@ -219,9 +195,9 @@ static __always_inline void atomic_dec_unchecked(atomic_unchecked_t *v)
  * returns true if the result is 0, or false for all other
  * cases.
  */
-static __always_inline int atomic_dec_and_test(atomic_t *v)
+static __always_inline bool atomic_dec_and_test(atomic_t *v)
 {
-	GEN_UNARY_RMWcc(LOCK_PREFIX "decl", LOCK_PREFIX "incl", v->counter, "%0", "e");
+	GEN_UNARY_RMWcc(LOCK_PREFIX "decl", v->counter, -4, "%0", e);
 }
 
 /**
@@ -232,9 +208,9 @@ static __always_inline int atomic_dec_and_test(atomic_t *v)
  * and returns true if the result is zero, or false for all
  * other cases.
  */
-static __always_inline int atomic_inc_and_test(atomic_t *v)
+static __always_inline bool atomic_inc_and_test(atomic_t *v)
 {
-	GEN_UNARY_RMWcc(LOCK_PREFIX "incl", LOCK_PREFIX "decl", v->counter, "%0", "e");
+	GEN_UNARY_RMWcc(LOCK_PREFIX "incl", v->counter, 4, "%0", e);
 }
 
 /**
@@ -247,7 +223,7 @@ static __always_inline int atomic_inc_and_test(atomic_t *v)
  */
 static __always_inline int atomic_inc_and_test_unchecked(atomic_unchecked_t *v)
 {
-	GEN_UNARY_RMWcc_unchecked(LOCK_PREFIX "incl", v->counter, "%0", "e");
+	GEN_UNARY_RMWcc_unchecked(LOCK_PREFIX "incl", v->counter, "%0", e);
 }
 
 /**
@@ -259,9 +235,9 @@ static __always_inline int atomic_inc_and_test_unchecked(atomic_unchecked_t *v)
  * if the result is negative, or false when
  * result is greater than or equal to zero.
  */
-static __always_inline int atomic_add_negative(int i, atomic_t *v)
+static __always_inline bool atomic_add_negative(int i, atomic_t *v)
 {
-	GEN_BINARY_RMWcc(LOCK_PREFIX "addl", LOCK_PREFIX "subl", v->counter, "er", i, "%0", "s");
+	GEN_BINARY_RMWcc(LOCK_PREFIX "addl", v->counter, 4, "er", i, "%0", s);
 }
 
 /**
@@ -307,6 +283,16 @@ static __always_inline int atomic_inc_return_unchecked(atomic_unchecked_t *v)
 }
 #define atomic_dec_return(v)  (atomic_sub_return(1, v))
 
+static __always_inline int atomic_fetch_add(int i, atomic_t *v)
+{
+	return xadd_check_overflow(&v->counter, i);
+}
+
+static __always_inline int atomic_fetch_sub(int i, atomic_t *v)
+{
+	return xadd_check_overflow(&v->counter, -i);
+}
+
 static __always_inline int __intentional_overflow(-1) atomic_cmpxchg(atomic_t *v, int old, int new)
 {
 	return cmpxchg(&v->counter, old, new);
@@ -336,10 +322,29 @@ static inline void atomic_##op(int i, atomic_t *v)			\
 			: "memory");					\
 }
 
-ATOMIC_OP(and)
-ATOMIC_OP(or)
-ATOMIC_OP(xor)
+#define ATOMIC_FETCH_OP(op, c_op)					\
+static inline int atomic_fetch_##op(int i, atomic_t *v)		\
+{									\
+	int old, val = atomic_read(v);					\
+	for (;;) {							\
+		old = atomic_cmpxchg(v, val, val c_op i);		\
+		if (old == val)						\
+			break;						\
+		val = old;						\
+	}								\
+	return old;							\
+}
 
+#define ATOMIC_OPS(op, c_op)						\
+	ATOMIC_OP(op)							\
+	ATOMIC_FETCH_OP(op, c_op)
+
+ATOMIC_OPS(and, &)
+ATOMIC_OPS(or , |)
+ATOMIC_OPS(xor, ^)
+
+#undef ATOMIC_OPS
+#undef ATOMIC_FETCH_OP
 #undef ATOMIC_OP
 
 /**
@@ -359,17 +364,12 @@ static __always_inline int __atomic_add_unless(atomic_t *v, int a, int u)
 		if (unlikely(c == u))
 			break;
 
-		asm volatile("addl %2,%0\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-			     "jno 0f\n"
-			     "subl %2,%0\n"
-			     "int $4\n0:\n"
-			     _ASM_EXTABLE(0b, 0b)
-#endif
-
+		asm volatile("addl %2,%0\n\t"
+			     PAX_REFCOUNT_OVERFLOW(4)
 			     : "=r" (new)
-			     : "0" (c), "ir" (a));
+			     : "0" (c), "ir" (a),
+			       [counter] "m" (v->counter)
+			     : "cc", "cx");
 
 		old = atomic_cmpxchg(v, c, new);
 		if (likely(old == c))
@@ -401,17 +401,12 @@ static inline int atomic_inc_not_zero_hint(atomic_t *v, int hint)
 		return __atomic_add_unless(v, 1, 0);
 
 	do {
-		asm volatile("incl %0\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-			     "jno 0f\n"
-			     "decl %0\n"
-			     "int $4\n0:\n"
-			     _ASM_EXTABLE(0b, 0b)
-#endif
-
+		asm volatile("incl %0\n\t"
+			     PAX_REFCOUNT_OVERFLOW(4)
 			     : "=r" (new)
-			     : "0" (c));
+			     : "0" (c),
+			       [counter] "m" (v->counter)
+			     : "cc", "cx");
 
 		val = atomic_cmpxchg(v, c, new);
 		if (val == c)
@@ -420,6 +415,76 @@ static inline int atomic_inc_not_zero_hint(atomic_t *v, int hint)
 	} while (c);
 
 	return 0;
+}
+
+#define atomic_inc_unless_negative atomic_inc_unless_negative
+static inline int atomic_inc_unless_negative(atomic_t *p)
+{
+	int v, v1, new;
+
+	for (v = 0; v >= 0; v = v1) {
+		asm volatile("incl %0\n\t"
+			     PAX_REFCOUNT_OVERFLOW(4)
+			     : "=r" (new)
+			     : "0" (v),
+			       [counter] "m" (p->counter)
+			     : "cc", "cx");
+
+		v1 = atomic_cmpxchg(p, v, new);
+		if (likely(v1 == v))
+			return 1;
+	}
+	return 0;
+}
+
+#define atomic_dec_unless_positive atomic_dec_unless_positive
+static inline int atomic_dec_unless_positive(atomic_t *p)
+{
+	int v, v1, new;
+
+	for (v = 0; v <= 0; v = v1) {
+		asm volatile("decl %0\n\t"
+			     PAX_REFCOUNT_UNDERFLOW(4)
+			     : "=r" (new)
+			     : "0" (v),
+			       [counter] "m" (p->counter)
+			     : "cc", "cx");
+
+		v1 = atomic_cmpxchg(p, v, new);
+		if (likely(v1 == v))
+			return 1;
+	}
+	return 0;
+}
+
+/*
+ * atomic_dec_if_positive - decrement by 1 if old value positive
+ * @v: pointer of type atomic_t
+ *
+ * The function returns the old value of *v minus 1, even if
+ * the atomic variable, v, was not decremented.
+ */
+#define atomic_dec_if_positive atomic_dec_if_positive
+static inline int atomic_dec_if_positive(atomic_t *v)
+{
+	int c, old, dec;
+	c = atomic_read(v);
+	for (;;) {
+		asm volatile("decl %0\n\t"
+			     PAX_REFCOUNT_UNDERFLOW(4)
+			     : "=r" (dec)
+			     : "0" (c),
+			       [counter] "m" (v->counter)
+			     : "cc", "cx");
+
+		if (unlikely(dec < 0))
+			break;
+		old = atomic_cmpxchg(v, c, dec);
+		if (likely(old == c))
+			break;
+		c = old;
+	}
+	return dec;
 }
 
 /**

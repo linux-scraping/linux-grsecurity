@@ -1582,6 +1582,8 @@ static void qib_fill_device_attr(struct qib_devdata *dd)
 	rdi->dparms.props.max_total_mcast_qp_attach =
 					rdi->dparms.props.max_mcast_qp_attach *
 					rdi->dparms.props.max_mcast_grp;
+	/* post send table */
+	dd->verbs_dev.rdi.post_parms = qib_post_parms;
 }
 
 /**
@@ -1603,8 +1605,6 @@ int qib_register_ib_device(struct qib_devdata *dd)
 
 	/* Only need to initialize non-zero fields. */
 	setup_timer(&dev->mem_timer, mem_timer, (unsigned long)dev);
-
-	qpt_mask = dd->qpn_mask;
 
 	INIT_LIST_HEAD(&dev->piowait);
 	INIT_LIST_HEAD(&dev->dmawait);

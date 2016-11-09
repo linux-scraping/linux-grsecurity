@@ -90,7 +90,7 @@
 	@ Linux expects to have irqs off. Do it here before taking stack space
 	cpsid	i
 
-	sub	sp, #S_FRAME_SIZE-S_IP
+	sub	sp, #PT_REGS_SIZE-S_IP
 	stmdb	sp!, {r0-r11}
 
 	@ load saved r12, lr, return address and xPSR.
@@ -160,7 +160,7 @@
 	ldmia	sp!, {r0-r11}
 
 	@ restore main sp
-	add	sp, sp, #S_FRAME_SIZE-S_IP
+	add	sp, sp, #PT_REGS_SIZE-S_IP
 
 	cpsie	i
 	bx	lr
@@ -268,7 +268,9 @@
 	blne	trace_hardirqs_off
 #endif
 	.endif
+	ldr	r1, [sp, #SVC_ADDR_LIMIT]
 	uaccess_restore
+	str	r1, [tsk, #TI_ADDR_LIMIT]
 
 	pax_exit_kernel
 
@@ -314,7 +316,9 @@
 	@ on the stack remains correct).
 	@
 	.macro  svc_exit_via_fiq
+	ldr	r1, [sp, #SVC_ADDR_LIMIT]
 	uaccess_restore
+	str	r1, [tsk, #TI_ADDR_LIMIT]
 #ifndef CONFIG_THUMB2_KERNEL
 	@ ARM mode restore
 	mov	r0, sp
@@ -362,7 +366,7 @@
 	.endif
 	mov	r0, r0				@ ARMv5T and earlier require a nop
 						@ after ldm {}^
-	add	sp, sp, #\offset + S_FRAME_SIZE
+	add	sp, sp, #\offset + PT_REGS_SIZE
 	movs	pc, lr				@ return & move spsr_svc into cpsr
 #elif defined(CONFIG_CPU_V7M)
 	@ V7M restore.
@@ -389,7 +393,7 @@
 	.else
 	ldmdb	sp, {r0 - r12}			@ get calling r0 - r12
 	.endif
-	add	sp, sp, #S_FRAME_SIZE - S_SP
+	add	sp, sp, #PT_REGS_SIZE - S_SP
 	movs	pc, lr				@ return & move spsr_svc into cpsr
 #endif	/* !CONFIG_THUMB2_KERNEL */
 	.endm

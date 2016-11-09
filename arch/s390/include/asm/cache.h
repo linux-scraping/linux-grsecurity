@@ -15,9 +15,6 @@
 #define L1_CACHE_BYTES     (_AC(1,UL) << L1_CACHE_SHIFT)
 #define NET_SKB_PAD	   32
 
-#define __read_mostly __attribute__((__section__(".data..read_mostly")))
-
-/* Read-only memory is marked before mark_rodata_ro() is called. */
-#define __ro_after_init __read_mostly
+#define __read_mostly __section(.data..read_mostly)
 
 #endif

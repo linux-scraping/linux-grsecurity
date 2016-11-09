@@ -162,23 +162,15 @@ void __weak arch_release_thread_stack(unsigned long *stack)
 static unsigned long *alloc_thread_stack_node(struct task_struct *tsk,
 						  int node)
 {
-	struct page *page = alloc_kmem_pages_node(node, THREADINFO_GFP,
-						  THREAD_SIZE_ORDER);
-
-	if (page)
-		memcg_kmem_update_page_stat(page, MEMCG_KERNEL_STACK,
-					    1 << THREAD_SIZE_ORDER);
+	struct page *page = alloc_pages_node(node, THREADINFO_GFP,
+					     THREAD_SIZE_ORDER);
 
 	return page ? page_address(page) : NULL;
 }
 
 static inline void free_thread_stack(unsigned long *stack)
 {
-	struct page *page = virt_to_page(stack);
-
-	memcg_kmem_update_page_stat(page, MEMCG_KERNEL_STACK,
-				    -(1 << THREAD_SIZE_ORDER));
-	__free_kmem_pages(page, THREAD_SIZE_ORDER);
+	__free_pages(virt_to_page(stack), THREAD_SIZE_ORDER);
 }
 # else
 static struct kmem_cache *thread_stack_cache;
@@ -196,8 +188,8 @@ static void free_thread_stack(unsigned long *stack)
 
 void thread_stack_cache_init(void)
 {
-	thread_stack_cache = kmem_cache_create("thread_stack", THREAD_SIZE,
-					      THREAD_SIZE, SLAB_USERCOPY, NULL);
+	thread_stack_cache = kmem_cache_create_usercopy("thread_stack", THREAD_SIZE,
+					      THREAD_SIZE, 0, 0, THREAD_SIZE, NULL);
 	BUG_ON(thread_stack_cache == NULL);
 }
 # endif
@@ -224,7 +216,7 @@ static inline unsigned long *gr_alloc_thread_stack_node(struct task_struct *tsk,
 		free_thread_stack(*lowmem_stack);
 		*lowmem_stack = NULL;
 	} else
-		populate_stack(ret);
+		populate_stack(ret, THREAD_SIZE);
 
 out:
 	return ret;
@@ -266,13 +258,19 @@ static struct kmem_cache *mm_cachep;
 
 static void account_kernel_stack(struct task_struct *tsk, unsigned long *stack, int account)
 {
+	/* All stack pages are in the same zone and belong to the same memcg. */
 #ifdef CONFIG_GRKERNSEC_KSTACKOVERFLOW
-	struct zone *zone = page_zone(virt_to_page(tsk->lowmem_stack));
+	struct page *first_page = virt_to_page(tsk->lowmem_stack);
 #else
-	struct zone *zone = page_zone(virt_to_page(stack));
+	struct page *first_page = virt_to_page(stack);
 #endif
 
-	mod_zone_page_state(zone, NR_KERNEL_STACK, account);
+	mod_zone_page_state(page_zone(first_page), NR_KERNEL_STACK_KB,
+			    THREAD_SIZE / 1024 * account);
+
+	memcg_kmem_update_page_stat(
+		first_page, MEMCG_KERNEL_STACK_KB,
+		account * (THREAD_SIZE / 1024));
 }
 
 void free_task(struct task_struct *tsk)
@@ -356,9 +354,12 @@ void __init fork_init(void)
 #define ARCH_MIN_TASKALIGN	L1_CACHE_BYTES
 #endif
 	/* create a slab on which task_structs can be allocated */
-	task_struct_cachep = kmem_cache_create("task_struct",
+	task_struct_cachep = kmem_cache_create_usercopy("task_struct",
 			arch_task_struct_size, ARCH_MIN_TASKALIGN,
-			SLAB_PANIC|SLAB_NOTRACK|SLAB_ACCOUNT, NULL);
+			SLAB_PANIC|SLAB_NOTRACK|SLAB_ACCOUNT,
+			offsetof(struct task_struct, blocked),
+			sizeof(init_task.blocked) + sizeof(init_task.saved_sigmask),
+			NULL);
 #endif
 
 	/* do the arch specific task caches init */
@@ -2059,9 +2060,10 @@ void __init proc_caches_init(void)
 	 * maximum number of CPU's we can ever have.  The cpumask_allocation
 	 * is at the end of the structure, exactly for that reason.
 	 */
-	mm_cachep = kmem_cache_create("mm_struct",
+	mm_cachep = kmem_cache_create_usercopy("mm_struct",
 			sizeof(struct mm_struct), ARCH_MIN_MMSTRUCT_ALIGN,
 			SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_NOTRACK|SLAB_ACCOUNT,
+			offsetof(struct mm_struct, saved_auxv), sizeof(init_mm.saved_auxv),
 			NULL);
 	vm_area_cachep = KMEM_CACHE(vm_area_struct, SLAB_PANIC|SLAB_ACCOUNT|SLAB_NO_SANITIZE);
 	mmap_init();

@@ -55,8 +55,8 @@ ENTRY(__put_user_1)
 	ENTER
 
 #if !defined(CONFIG_X86_32) || !defined(CONFIG_PAX_MEMORY_UDEREF)
-	GET_THREAD_INFO(%_ASM_BX)
-	cmp TI_addr_limit(%_ASM_BX),%_ASM_CX
+	mov PER_CPU_VAR(current_task), %_ASM_BX
+	cmp TASK_addr_limit(%_ASM_BX),%_ASM_CX
 	jae bad_put_user
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
@@ -79,8 +79,8 @@ ENTRY(__put_user_2)
 	ENTER
 
 #if !defined(CONFIG_X86_32) || !defined(CONFIG_PAX_MEMORY_UDEREF)
-	GET_THREAD_INFO(%_ASM_BX)
-	mov TI_addr_limit(%_ASM_BX),%_ASM_BX
+	mov PER_CPU_VAR(current_task), %_ASM_BX
+	mov TASK_addr_limit(%_ASM_BX),%_ASM_BX
 	sub $1,%_ASM_BX
 	cmp %_ASM_BX,%_ASM_CX
 	jae bad_put_user
@@ -105,8 +105,8 @@ ENTRY(__put_user_4)
 	ENTER
 
 #if !defined(CONFIG_X86_32) || !defined(CONFIG_PAX_MEMORY_UDEREF)
-	GET_THREAD_INFO(%_ASM_BX)
-	mov TI_addr_limit(%_ASM_BX),%_ASM_BX
+	mov PER_CPU_VAR(current_task), %_ASM_BX
+	mov TASK_addr_limit(%_ASM_BX),%_ASM_BX
 	sub $3,%_ASM_BX
 	cmp %_ASM_BX,%_ASM_CX
 	jae bad_put_user
@@ -131,8 +131,8 @@ ENTRY(__put_user_8)
 	ENTER
 
 #if !defined(CONFIG_X86_32) || !defined(CONFIG_PAX_MEMORY_UDEREF)
-	GET_THREAD_INFO(%_ASM_BX)
-	mov TI_addr_limit(%_ASM_BX),%_ASM_BX
+	mov PER_CPU_VAR(current_task), %_ASM_BX
+	mov TASK_addr_limit(%_ASM_BX),%_ASM_BX
 	sub $7,%_ASM_BX
 	cmp %_ASM_BX,%_ASM_CX
 	jae bad_put_user

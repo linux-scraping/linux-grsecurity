@@ -16,10 +16,11 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
+#include <linux/regulator/machine.h>
 #include <linux/scatterlist.h>
 #include <linux/sfi.h>
 #include <linux/irq.h>
-#include <linux/module.h>
+#include <linux/export.h>
 #include <linux/notifier.h>
 
 #include <asm/setup.h>
@@ -61,7 +62,7 @@
 enum intel_mid_timer_options intel_mid_timer_options;
 
 /* intel_mid_ops to store sub arch ops */
-static struct intel_mid_ops *intel_mid_ops;
+static const struct intel_mid_ops *intel_mid_ops;
 /* getter function for sub arch ops*/
 static const void *(*get_intel_mid_ops[])(void) = INTEL_MID_OPS_INIT;
 enum intel_mid_cpu_type __intel_mid_cpu_chip;
@@ -145,6 +146,15 @@ static void intel_mid_arch_setup(void)
 out:
 	if (intel_mid_ops->arch_setup)
 		intel_mid_ops->arch_setup();
+
+	/*
+	 * Intel MID platforms are using explicitly defined regulators.
+	 *
+	 * Let the regulator core know that we do not have any additional
+	 * regulators left. This lets it substitute unprovided regulators with
+	 * dummy ones:
+	 */
+	regulator_has_full_constraints();
 }
 
 /* MID systems don't have i8042 controller */

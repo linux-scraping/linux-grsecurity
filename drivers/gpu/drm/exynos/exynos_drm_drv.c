@@ -159,12 +159,7 @@ static int exynos_drm_load(struct drm_device *dev, unsigned long flags)
 	DRM_INFO("Exynos DRM: using %s device for DMA mapping operations\n",
 		 dev_name(private->dma_dev));
 
-	/*
-	 * create mapping to manage iommu table and set a pointer to iommu
-	 * mapping structure to iommu_mapping of private data.
-	 * also this iommu_mapping can be used to check if iommu is supported
-	 * or not.
-	 */
+	/* create common IOMMU mapping for all devices attached to Exynos DRM */
 	ret = drm_create_iommu_mapping(dev);
 	if (ret < 0) {
 		DRM_ERROR("failed to create iommu mapping.\n");
@@ -267,6 +262,8 @@ int exynos_atomic_commit(struct drm_device *dev, struct drm_atomic_state *state,
 {
 	struct exynos_drm_private *priv = dev->dev_private;
 	struct exynos_atomic_commit *commit;
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *crtc_state;
 	int i, ret;
 
 	commit = kzalloc(sizeof(*commit), GFP_KERNEL);
@@ -288,10 +285,8 @@ int exynos_atomic_commit(struct drm_device *dev, struct drm_atomic_state *state,
 	/* Wait until all affected CRTCs have completed previous commits and
 	 * mark them as pending.
 	 */
-	for (i = 0; i < dev->mode_config.num_crtc; ++i) {
-		if (state->crtcs[i])
-			commit->crtcs |= 1 << drm_crtc_index(state->crtcs[i]);
-	}
+	for_each_crtc_in_state(state, crtc, crtc_state, i)
+		commit->crtcs |= drm_crtc_mask(crtc);
 
 	wait_event(priv->wait, !commit_is_pending(priv, commit->crtcs));
 
@@ -299,7 +294,7 @@ int exynos_atomic_commit(struct drm_device *dev, struct drm_atomic_state *state,
 	priv->pending |= commit->crtcs;
 	spin_unlock(&priv->lock);
 
-	drm_atomic_helper_swap_state(dev, state);
+	drm_atomic_helper_swap_state(state, true);
 
 	if (nonblock)
 		schedule_work(&commit->work);
@@ -407,7 +402,6 @@ static struct drm_driver exynos_drm_driver = {
 	.preclose		= exynos_drm_preclose,
 	.lastclose		= exynos_drm_lastclose,
 	.postclose		= exynos_drm_postclose,
-	.set_busid		= drm_platform_set_busid,
 	.get_vblank_counter	= drm_vblank_no_hw_counter,
 	.enable_vblank		= exynos_drm_crtc_enable_vblank,
 	.disable_vblank		= exynos_drm_crtc_disable_vblank,
@@ -554,6 +548,11 @@ static int compare_dev(struct device *dev, void *data)
 	return dev == (struct device *)data;
 }
 
+static int platform_bus_type_match(struct device *dev, void *data)
+{
+	return platform_bus_type.match(dev, data);
+}
+
 static struct component_match *exynos_drm_match_add(struct device *dev)
 {
 	struct component_match *match = NULL;
@@ -568,7 +567,7 @@ static struct component_match *exynos_drm_match_add(struct device *dev)
 
 		while ((d = bus_find_device(&platform_bus_type, p,
 					    &info->driver->driver,
-					    (void *)platform_bus_type.match))) {
+					    platform_bus_type_match))) {
 			put_device(p);
 			component_match_add(dev, &match, compare_dev, d);
 			p = d;
@@ -636,7 +635,7 @@ static struct device *exynos_drm_get_dma_device(void)
 
 		while ((dev = bus_find_device(&platform_bus_type, NULL,
 					    &info->driver->driver,
-					    (void *)platform_bus_type.match))) {
+					    platform_bus_type_match))) {
 			put_device(dev);
 			return dev;
 		}
@@ -657,7 +656,7 @@ static void exynos_drm_unregister_devices(void)
 
 		while ((dev = bus_find_device(&platform_bus_type, NULL,
 					    &info->driver->driver,
-					    (void *)platform_bus_type.match))) {
+					    platform_bus_type_match))) {
 			put_device(dev);
 			platform_device_unregister(to_platform_device(dev));
 		}

@@ -40,7 +40,7 @@
 
 #define pud_index(x)	(((x) >> PUD_SHIFT) & (PTRS_PER_PUD-1))
 
-L4_PAGE_OFFSET = pgd_index(__PAGE_OFFSET)
+L4_PAGE_OFFSET = pgd_index(__PAGE_OFFSET_BASE)
 L4_START_KERNEL = pgd_index(__START_KERNEL_map)
 L3_START_KERNEL = pud_index(__START_KERNEL_map)
 L4_VMALLOC_START = pgd_index(VMALLOC_START)
@@ -348,6 +348,7 @@ ENTRY(secondary_startup_64)
 	pushq	$__KERNEL_CS	# set correct cs
 	pushq	%rax		# target address in negative space
 	lretq
+ENDPROC(secondary_startup_64)
 
 #include "verify_cpu.S"
 

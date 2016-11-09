@@ -25,6 +25,7 @@
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/mbus.h>
+#include <linux/mvebu-pmsu.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
@@ -38,7 +39,7 @@
 #include <asm/suspend.h>
 #include <asm/tlbflush.h>
 #include "common.h"
-
+#include "pmsu.h"
 
 #define PMSU_BASE_OFFSET    0x100
 #define PMSU_REG_SIZE	    0x1000
@@ -92,7 +93,7 @@
 #define ARMADA_370_CRYPT0_ENG_ATTR     0x1
 
 extern void ll_disable_coherency(void);
-extern void ll_enable_coherency(void);
+extern int ll_enable_coherency(void);
 
 extern void armada_370_xp_cpu_resume(void);
 extern void armada_38x_cpu_resume(void);

@@ -99,6 +99,18 @@ struct kmem_cache {
 	 */
 	int remote_node_defrag_ratio;
 #endif
+
+#ifdef CONFIG_SLAB_FREELIST_RANDOM
+	unsigned int *random_seq;
+#endif
+
+#ifdef CONFIG_KASAN
+	struct kasan_cache kasan_info;
+#endif
+
+	size_t useroffset;	/* USERCOPY region offset */
+	size_t usersize;	/* USERCOPY region size */
+
 	struct kmem_cache_node *node[MAX_NUMNODES];
 };
 

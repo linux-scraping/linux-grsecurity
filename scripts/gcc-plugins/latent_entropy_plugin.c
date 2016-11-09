@@ -52,7 +52,7 @@
  * local_entropy ^= 1234567890;
  * local_entropy ^= (unsigned long)__builtin_frame_address(0);
  * local_entropy += 9876543210;
- * latent_entropy = rol(local_entropy, 6);
+ * latent_entropy = rol(local_entropy, 1234509876);
  *
  * TODO:
  * - add ipa pass to identify not explicitly marked candidate functions
@@ -81,11 +81,12 @@ __visible int plugin_is_GPL_compatible;
 static GTY(()) tree latent_entropy_decl;
 
 static struct plugin_info latent_entropy_plugin_info = {
-	.version	= "201606141920",
+	.version	= "201610182310",
 	.help		= "disable\tturn off latent entropy instrumentation\n",
 };
 
 static unsigned HOST_WIDE_INT seed;
+
 /*
  * get_random_seed() (this is a GCC function) generates the seed.
  * This is a simple random generator without any cryptographic security because
@@ -324,7 +325,7 @@ static enum tree_code get_op(tree *rhs)
 		break;
 	}
 	if (rhs)
-		*rhs = build_int_cstu(unsigned_intDI_type_node, random_const);
+		*rhs = build_int_cstu(long_unsigned_type_node, random_const);
 	return op;
 }
 
@@ -350,7 +351,7 @@ static void __perturb_latent_entropy(gimple_stmt_iterator *gsi, tree local_entro
 	enum tree_code op;
 
 	/* 1. create temporary copy of latent_entropy */
-	temp = create_a_tmp_var(unsigned_intDI_type_node, "temp_latent_entropy");
+	temp = create_a_tmp_var(long_unsigned_type_node, "temp_latent_entropy");
 
 	/* 2. read... */
 	add_referenced_var(latent_entropy_decl);
@@ -437,13 +438,13 @@ static void init_local_entropy(basic_block bb, tree local_entropy)
 	gsi_insert_before(&gsi, call, GSI_NEW_STMT);
 	update_stmt(call);
 
-	udi_frame_addr = fold_convert(unsigned_intDI_type_node, frame_addr);
+	udi_frame_addr = fold_convert(long_unsigned_type_node, frame_addr);
 	assign = gimple_build_assign(local_entropy, udi_frame_addr);
 	gsi_insert_after(&gsi, assign, GSI_NEW_STMT);
 	update_stmt(assign);
 
 	/* 3. create temporary copy of latent_entropy */
-	temp = create_a_tmp_var(unsigned_intDI_type_node, "temp_latent_entropy");
+	temp = create_a_tmp_var(long_unsigned_type_node, "temp_latent_entropy");
 
 	/* 4. read the global entropy variable into local entropy */
 	add_referenced_var(latent_entropy_decl);
@@ -457,7 +458,7 @@ static void init_local_entropy(basic_block bb, tree local_entropy)
 	gsi_insert_after(&gsi, assign, GSI_NEW_STMT);
 	update_stmt(assign);
 
-	rand_const = build_int_cstu(unsigned_intDI_type_node, get_random_const());
+	rand_const = build_int_cstu(long_unsigned_type_node, get_random_const());
 	op = get_op(NULL);
 	assign = gimple_build_assign_with_ops(op, local_entropy, local_entropy, rand_const);
 	gsi_insert_after(&gsi, assign, GSI_NEW_STMT);
@@ -511,7 +512,7 @@ static unsigned int latent_entropy_execute(void)
 	}
 
 	/* 1. create the local entropy variable */
-	local_entropy = create_a_tmp_var(unsigned_intDI_type_node, "local_entropy");
+	local_entropy = create_a_tmp_var(long_unsigned_type_node, "local_entropy");
 
 	/* 2. initialize the local entropy variable */
 	init_local_entropy(bb, local_entropy);
@@ -539,9 +540,8 @@ static void latent_entropy_start_unit(void *gcc_data __unused, void *user_data _
 	if (in_lto_p)
 		return;
 
-	/* extern volatile u64 latent_entropy */
-	gcc_assert(TYPE_PRECISION(long_long_unsigned_type_node) == 64);
-	latent_entropy_type = build_qualified_type(long_long_unsigned_type_node, TYPE_QUALS(long_long_unsigned_type_node) | TYPE_QUAL_VOLATILE);
+	/* extern volatile unsigned long latent_entropy */
+	latent_entropy_type = build_qualified_type(long_unsigned_type_node, TYPE_QUALS(long_unsigned_type_node) | TYPE_QUAL_VOLATILE);
 	latent_entropy_decl = build_decl(UNKNOWN_LOCATION, VAR_DECL, get_identifier("latent_entropy"), latent_entropy_type);
 
 	TREE_STATIC(latent_entropy_decl) = 1;

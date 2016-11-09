@@ -139,6 +139,8 @@ struct dentry *debugfs_create_size_t(const char *name, umode_t mode,
 				     struct dentry *parent, size_t *value);
 struct dentry *debugfs_create_atomic_t(const char *name, umode_t mode,
 				     struct dentry *parent, atomic_t *value);
+struct dentry *debugfs_create_atomic_unchecked_t(const char *name, umode_t mode,
+				     struct dentry *parent, atomic_unchecked_t *value);
 struct dentry *debugfs_create_bool(const char *name, umode_t mode,
 				  struct dentry *parent, bool *value);
 
@@ -234,7 +236,7 @@ static inline void debugfs_use_file_finish(int srcu_idx)
 { }
 
 #define DEFINE_DEBUGFS_ATTRIBUTE(__fops, __get, __set, __fmt)	\
-	static const struct file_operations __fops = { 0 }
+	static const struct file_operations __fops = { }
 
 static inline struct dentry *debugfs_rename(struct dentry *old_dir, struct dentry *old_dentry,
                 struct dentry *new_dir, char *new_name)
@@ -307,6 +309,12 @@ static inline struct dentry *debugfs_create_size_t(const char *name, umode_t mod
 
 static inline struct dentry *debugfs_create_atomic_t(const char *name, umode_t mode,
 				     struct dentry *parent, atomic_t *value)
+{
+	return ERR_PTR(-ENODEV);
+}
+
+static inline struct dentry *debugfs_create_atomic_unchecked_t(const char *name, umode_t mode,
+				     struct dentry *parent, atomic_unchecked_t *value)
 {
 	return ERR_PTR(-ENODEV);
 }

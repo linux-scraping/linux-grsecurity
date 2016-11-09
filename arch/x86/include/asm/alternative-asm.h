@@ -4,6 +4,7 @@
 #ifdef __ASSEMBLY__
 
 #include <asm/asm.h>
+#include <asm/irq_vectors.h>
 
 #ifdef CONFIG_SMP
 	.macro LOCK_PREFIX
@@ -134,6 +135,26 @@
 	.popsection
 .endm
 
+.macro __PAX_REFCOUNT section, counter
+#ifdef CONFIG_PAX_REFCOUNT
+	jo 111f
+	.pushsection .text.\section
+111:	lea \counter,%_ASM_CX
+	int $X86_REFCOUNT_VECTOR
+222:
+	.popsection
+333:
+	_ASM_EXTABLE(222b, 333b)
+#endif
+.endm
+
+.macro PAX_REFCOUNT64_OVERFLOW counter
+	__PAX_REFCOUNT refcount64_overflow, \counter
+.endm
+
+.macro PAX_REFCOUNT64_UNDERFLOW counter
+	__PAX_REFCOUNT refcount64_underflow, \counter
+.endm
 #endif  /*  __ASSEMBLY__  */
 
 #endif /* _ASM_X86_ALTERNATIVE_ASM_H */

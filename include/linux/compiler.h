@@ -21,8 +21,6 @@
 # define __cond_lock(x,c)	((c) ? ({ __acquire(x); 1; }) : 0)
 # define __percpu	__attribute__((noderef, address_space(3)))
 # define __force_percpu	__force __percpu
-# define __pmem		__attribute__((noderef, address_space(5)))
-# define __force_pmem	__force __pmem
 #ifdef CONFIG_SPARSE_RCU_POINTER
 # define __rcu		__attribute__((noderef, address_space(4)))
 # define __force_rcu	__force __rcu
@@ -92,8 +90,6 @@ extern void __chk_io_ptr(const volatile void __iomem *);
 # define __force_percpu
 # define __rcu
 # define __force_rcu
-# define __pmem
-# define __force_pmem
 # define __private
 # define ACCESS_PRIVATE(p, member) ((p)->member)
 #endif /* __CHECKER__ */
@@ -319,23 +315,6 @@ void __read_once_size_nocheck(const volatile void *p, void *res, int size)
 	(x) = *(volatile typeof(x) *)&__val;		\
 	__val;						\
 })
-
-/**
- * smp_cond_acquire() - Spin wait for cond with ACQUIRE ordering
- * @cond: boolean expression to wait for
- *
- * Equivalent to using smp_load_acquire() on the condition variable but employs
- * the control dependency of the wait to reduce the barrier on many platforms.
- *
- * The control dependency provides a LOAD->STORE order, the additional RMB
- * provides LOAD->LOAD order, together they provide LOAD->{LOAD,STORE} order,
- * aka. ACQUIRE.
- */
-#define smp_cond_acquire(cond)	do {		\
-	while (!(cond))				\
-		cpu_relax();			\
-	smp_rmb(); /* ctrl + rmb := acquire */	\
-} while (0)
 
 #endif /* __KERNEL__ */
 
@@ -624,10 +603,15 @@ void __read_once_size_nocheck(const volatile void *p, void *res, int size)
  * Similar to rcu_dereference(), but for situations where the pointed-to
  * object's lifetime is managed by something other than RCU.  That
  * "something other" might be reference counting or simple immortality.
+ *
+ * The seemingly unused variable ___typecheck_p validates that @p is
+ * indeed a pointer type by using a pointer to typeof(*p) as the type.
+ * Taking a pointer to typeof(*p) again is needed in case p is void *.
  */
 #define lockless_dereference(p) \
 ({ \
 	typeof(p) _________p1 = READ_ONCE(p); \
+	typeof(*(p)) *___typecheck_p __maybe_unused; \
 	smp_read_barrier_depends(); /* Dependency order vs. p above. */ \
 	(_________p1); \
 })

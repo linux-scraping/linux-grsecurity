@@ -572,24 +572,15 @@ bool is_usercopy_object(const void *ptr)
 	return false;
 }
 
-#ifdef CONFIG_PAX_USERCOPY
-const char *check_heap_object(const void *ptr, unsigned long n)
+#ifdef CONFIG_HARDENED_USERCOPY
+const char *__check_heap_object(const void *ptr, unsigned long n,
+				struct page *page)
 {
-	struct page *page;
 	const slob_t *free;
 	const void *base;
 	unsigned long flags;
 
-	if (ZERO_OR_NULL_PTR(ptr))
-		return "<null>";
-
-	if (!virt_addr_valid(ptr))
-		return NULL;
-
-	page = virt_to_head_page(ptr);
 	BUG_ON(virt_to_page(ptr) != page);
-	if (!PageSlab(page))
-		return NULL;
 
 	if (page->private) {
 		base = page_address(page);
@@ -677,7 +668,7 @@ static void *slob_alloc_node(struct kmem_cache *c, gfp_t flags, int node)
 
 	lockdep_trace_alloc(flags);
 
-#ifdef CONFIG_PAX_USERCOPY_SLABS
+#ifdef CONFIG_PAX_USERCOPY
 	b = __do_kmalloc_node_align(c->size, flags, node, _RET_IP_, c->align);
 #else
 	if (c->size < PAGE_SIZE) {
@@ -751,7 +742,7 @@ void kmem_cache_free(struct kmem_cache *c, void *b)
 {
 	int size = c->size;
 
-#ifdef CONFIG_PAX_USERCOPY_SLABS
+#ifdef CONFIG_PAX_USERCOPY
 	if (size + c->align < PAGE_SIZE) {
 		size += c->align;
 		b -= c->align;
@@ -768,7 +759,7 @@ void kmem_cache_free(struct kmem_cache *c, void *b)
 		__kmem_cache_free(c, b, size);
 	}
 
-#ifdef CONFIG_PAX_USERCOPY_SLABS
+#ifdef CONFIG_PAX_USERCOPY
 	trace_kfree(_RET_IP_, b);
 #else
 	trace_kmem_cache_free(_RET_IP_, b);

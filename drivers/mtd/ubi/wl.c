@@ -644,7 +644,7 @@ static int wear_leveling_worker(struct ubi_device *ubi, struct ubi_work *wrk,
 				int shutdown)
 {
 	int err, scrubbing = 0, torture = 0, protect = 0, erroneous = 0;
-	int vol_id = -1, lnum = -1;
+	int erase = 0, keep = 0, vol_id = -1, lnum = -1;
 #ifdef CONFIG_MTD_UBI_FASTMAP
 	int anchor = wrk->anchor;
 #endif
@@ -780,6 +780,16 @@ static int wear_leveling_worker(struct ubi_device *ubi, struct ubi_work *wrk,
 			       e1->pnum);
 			scrubbing = 1;
 			goto out_not_moved;
+		} else if (ubi->fast_attach && err == UBI_IO_BAD_HDR_EBADMSG) {
+			/*
+			 * While a full scan would detect interrupted erasures
+			 * at attach time we can face them here when attached from
+			 * Fastmap.
+			 */
+			dbg_wl("PEB %d has ECC errors, maybe from an interrupted erasure",
+			       e1->pnum);
+			erase = 1;
+			goto out_not_moved;
 		}
 
 		ubi_err(ubi, "error %d while reading VID header from PEB %d",
@@ -815,6 +825,7 @@ static int wear_leveling_worker(struct ubi_device *ubi, struct ubi_work *wrk,
 			 * Target PEB had bit-flips or write error - torture it.
 			 */
 			torture = 1;
+			keep = 1;
 			goto out_not_moved;
 		}
 
@@ -901,7 +912,7 @@ out_not_moved:
 		ubi->erroneous_peb_count += 1;
 	} else if (scrubbing)
 		wl_tree_add(e1, &ubi->scrub);
-	else
+	else if (keep)
 		wl_tree_add(e1, &ubi->used);
 	if (dst_leb_clean) {
 		wl_tree_add(e2, &ubi->free);
@@ -918,6 +929,12 @@ out_not_moved:
 		ensure_wear_leveling(ubi, 1);
 	} else {
 		err = do_sync_erase(ubi, e2, vol_id, lnum, torture);
+		if (err)
+			goto out_ro;
+	}
+
+	if (erase) {
+		err = do_sync_erase(ubi, e1, vol_id, lnum, 1);
 		if (err)
 			goto out_ro;
 	}
@@ -1598,19 +1615,44 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 		}
 	}
 
+	list_for_each_entry(aeb, &ai->fastmap, u.list) {
+		cond_resched();
+
+		e = ubi_find_fm_block(ubi, aeb->pnum);
+
+		if (e) {
+			ubi_assert(!ubi->lookuptbl[e->pnum]);
+			ubi->lookuptbl[e->pnum] = e;
+		} else {
+			/*
+			 * Usually old Fastmap PEBs are scheduled for erasure
+			 * and we don't have to care about them but if we face
+			 * an power cut before scheduling them we need to
+			 * take care of them here.
+			 */
+			if (ubi->lookuptbl[aeb->pnum])
+				continue;
+
+			e = kmem_cache_alloc(ubi_wl_entry_slab, GFP_KERNEL);
+			if (!e)
+				goto out_free;
+
+			e->pnum = aeb->pnum;
+			e->ec = aeb->ec;
+			ubi_assert(!ubi->lookuptbl[e->pnum]);
+			ubi->lookuptbl[e->pnum] = e;
+			if (schedule_erase(ubi, e, aeb->vol_id, aeb->lnum, 0)) {
+				wl_entry_destroy(ubi, e);
+				goto out_free;
+			}
+		}
+
+		found_pebs++;
+	}
+
 	dbg_wl("found %i PEBs", found_pebs);
 
-	if (ubi->fm) {
-		ubi_assert(ubi->good_peb_count ==
-			   found_pebs + ubi->fm->used_blocks);
-
-		for (i = 0; i < ubi->fm->used_blocks; i++) {
-			e = ubi->fm->e[i];
-			ubi->lookuptbl[e->pnum] = e;
-		}
-	}
-	else
-		ubi_assert(ubi->good_peb_count == found_pebs);
+	ubi_assert(ubi->good_peb_count == found_pebs);
 
 	reserved_pebs = WL_RESERVED_PEBS;
 	ubi_fastmap_init(ubi, &reserved_pebs);

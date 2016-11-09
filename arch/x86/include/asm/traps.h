@@ -38,6 +38,15 @@ asmlinkage void machine_check(void);
 #endif /* CONFIG_X86_MCE */
 asmlinkage void simd_coprocessor_error(void);
 
+#ifdef CONFIG_PAX_REFCOUNT
+asmlinkage void refcount_error(void);
+#endif
+
+#ifdef CONFIG_PAX_RAP
+asmlinkage void rap_call_error(void);
+asmlinkage void rap_ret_error(void);
+#endif
+
 #ifdef CONFIG_TRACING
 asmlinkage void trace_page_fault(void);
 #define trace_stack_segment stack_segment
@@ -140,6 +149,9 @@ enum {
 	X86_TRAP_AC,		/* 17, Alignment Check */
 	X86_TRAP_MC,		/* 18, Machine Check */
 	X86_TRAP_XF,		/* 19, SIMD Floating-Point Exception */
+	X86_TRAP_VE,		/* 20, Virtualization Exception */
+	X86_TRAP_CP,		/* 21, Control Protection Exception */
+	X86_TRAP_SX = 30,	/* 30, Security Exception */
 	X86_TRAP_IRET = 32,	/* 32, IRET Exception */
 };
 

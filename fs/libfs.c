@@ -194,15 +194,7 @@ int dcache_readdir(struct file *file, struct dir_context *ctx)
 	if (ctx->pos == 2)
 		p = &dentry->d_subdirs;
 	while ((next = next_positive(dentry, p, 1)) != NULL) {
-		char d_name[sizeof(next->d_iname)];
-		const unsigned char *name;
-
-		name = next->d_name.name;
-		if (name == next->d_iname) {
-			memcpy(d_name, name, next->d_name.len);
-			name = d_name;
-		}
-		if (!dir_emit(ctx, name, next->d_name.len,
+		if (!dir_emit(ctx, next->d_name.name, next->d_name.len,
 			      d_inode(next)->i_ino, dt_type(d_inode(next))))
 			break;
 		moved = true;

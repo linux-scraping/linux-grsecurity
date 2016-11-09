@@ -145,13 +145,13 @@ static void __init fpu__init_system_generic(void)
  * This is inherent to the XSAVE architecture which puts all state
  * components into a single, continuous memory block:
  */
-unsigned int xstate_size;
-EXPORT_SYMBOL_GPL(xstate_size);
+unsigned int fpu_kernel_xstate_size;
+EXPORT_SYMBOL_GPL(fpu_kernel_xstate_size);
 
 union fpregs_state init_fpregs_state;
 
 /*
- * Set up the xstate_size based on the legacy FPU context size.
+ * Set up the user and kernel xstate sizes based on the legacy FPU context size.
  *
  * We set this up first, and later it will be overwritten by
  * fpu__init_system_xstate() if the CPU knows about xstates.
@@ -164,7 +164,7 @@ static void __init fpu__init_system_xstate_size_legacy(void)
 	on_boot_cpu = 0;
 
 	/*
-	 * Note that xstate_size might be overwriten later during
+	 * Note that xstate sizes might be overwritten later during
 	 * fpu__init_system_xstate().
 	 */
 
@@ -175,27 +175,17 @@ static void __init fpu__init_system_xstate_size_legacy(void)
 		 */
 		setup_clear_cpu_cap(X86_FEATURE_XSAVE);
 		setup_clear_cpu_cap(X86_FEATURE_XSAVEOPT);
-		xstate_size = sizeof(struct swregs_state);
+		fpu_kernel_xstate_size = sizeof(struct swregs_state);
 	} else {
 		if (boot_cpu_has(X86_FEATURE_FXSR))
-			xstate_size = sizeof(struct fxregs_state);
+			fpu_kernel_xstate_size =
+				sizeof(struct fxregs_state);
 		else
-			xstate_size = sizeof(struct fregs_state);
+			fpu_kernel_xstate_size =
+				sizeof(struct fregs_state);
 	}
-	/*
-	 * Quirk: we don't yet handle the XSAVES* instructions
-	 * correctly, as we don't correctly convert between
-	 * standard and compacted format when interfacing
-	 * with user-space - so disable it for now.
-	 *
-	 * The difference is small: with recent CPUs the
-	 * compacted format is only marginally smaller than
-	 * the standard FPU state format.
-	 *
-	 * ( This is easy to backport while we are fixing
-	 *   XSAVES* support. )
-	 */
-	setup_clear_cpu_cap(X86_FEATURE_XSAVES);
+
+	fpu_user_xstate_size = fpu_kernel_xstate_size;
 }
 
 /*

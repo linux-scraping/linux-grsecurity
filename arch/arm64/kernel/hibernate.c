@@ -166,7 +166,7 @@ EXPORT_SYMBOL(arch_hibernation_header_restore);
 static int create_safe_exec_page(void *src_start, size_t length,
 				 unsigned long dst_addr,
 				 phys_addr_t *phys_dst_addr,
-				 void *(*allocator)(gfp_t mask),
+				 unsigned long (*allocator)(gfp_t mask),
 				 gfp_t mask)
 {
 	int rc = 0;
@@ -174,7 +174,7 @@ static int create_safe_exec_page(void *src_start, size_t length,
 	pud_t *pud;
 	pmd_t *pmd;
 	pte_t *pte;
-	unsigned long dst = (unsigned long)allocator(mask);
+	unsigned long dst = allocator(mask);
 
 	if (!dst) {
 		rc = -ENOMEM;
@@ -184,9 +184,9 @@ static int create_safe_exec_page(void *src_start, size_t length,
 	memcpy((void *)dst, src_start, length);
 	flush_icache_range(dst, dst + length);
 
-	pgd = pgd_offset_raw(allocator(mask), dst_addr);
+	pgd = pgd_offset_raw((pgd_t *)allocator(mask), dst_addr);
 	if (pgd_none(*pgd)) {
-		pud = allocator(mask);
+		pud = (pud_t *)allocator(mask);
 		if (!pud) {
 			rc = -ENOMEM;
 			goto out;
@@ -196,7 +196,7 @@ static int create_safe_exec_page(void *src_start, size_t length,
 
 	pud = pud_offset(pgd, dst_addr);
 	if (pud_none(*pud)) {
-		pmd = allocator(mask);
+		pmd = (pmd_t *)allocator(mask);
 		if (!pmd) {
 			rc = -ENOMEM;
 			goto out;
@@ -206,7 +206,7 @@ static int create_safe_exec_page(void *src_start, size_t length,
 
 	pmd = pmd_offset(pud, dst_addr);
 	if (pmd_none(*pmd)) {
-		pte = allocator(mask);
+		pte = (pte_t *)allocator(mask);
 		if (!pte) {
 			rc = -ENOMEM;
 			goto out;
@@ -449,7 +449,7 @@ int swsusp_arch_resume(void)
 	rc = create_safe_exec_page(__hibernate_exit_text_start, exit_size,
 				   (unsigned long)hibernate_exit,
 				   &phys_hibernate_exit,
-				   (void *)get_safe_page, GFP_ATOMIC);
+				   get_safe_page, GFP_ATOMIC);
 	if (rc) {
 		pr_err("Failed to create safe executable page for hibernate_exit code.");
 		goto out;

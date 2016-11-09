@@ -96,12 +96,7 @@ static int rcu_perf_writer_state;
 #define MAX_MEAS 10000
 #define MIN_MEAS 100
 
-#if defined(MODULE) || defined(CONFIG_RCU_PERF_TEST_RUNNABLE)
-#define RCUPERF_RUNNABLE_INIT 1
-#else
-#define RCUPERF_RUNNABLE_INIT 0
-#endif
-static int perf_runnable = RCUPERF_RUNNABLE_INIT;
+static int perf_runnable = IS_ENABLED(MODULE);
 module_param(perf_runnable, int, 0444);
 MODULE_PARM_DESC(perf_runnable, "Start rcuperf at boot");
 
@@ -643,8 +638,10 @@ rcu_perf_init(void)
 		writer_durations[i] =
 			kcalloc(MAX_MEAS, sizeof(*writer_durations[i]),
 				GFP_KERNEL);
-		if (!writer_durations[i])
+		if (!writer_durations[i]) {
+			firsterr = -ENOMEM;
 			goto unwind;
+		}
 		firsterr = torture_create_kthread(rcu_perf_writer, (void *)i,
 						  writer_tasks[i]);
 		if (firsterr)

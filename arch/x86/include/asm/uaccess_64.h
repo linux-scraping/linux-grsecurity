@@ -68,9 +68,9 @@ unsigned long __copy_from_user_nocheck(void *dst, const void __user *src, unsign
 
 	if (unlikely(sz != (size_t)-1 && sz < size)) {
 		 if(__builtin_constant_p(size))
-			copy_from_user_overflow();
+			__bad_copy_user();
 		else
-			__copy_from_user_overflow(sz, size);
+			copy_user_overflow(sz, size);
 		return size;
 	}
 
@@ -152,9 +152,9 @@ unsigned long __copy_to_user_nocheck(void __user *dst, const void *src, unsigned
 
 	if (unlikely(sz != (size_t)-1 && sz < size)) {
 		 if(__builtin_constant_p(size))
-			copy_to_user_overflow();
+			__bad_copy_user();
 		else
-			__copy_to_user_overflow(sz, size);
+			copy_user_overflow(sz, size);
 		return size;
 	}
 
@@ -307,7 +307,7 @@ __copy_to_user_inatomic(void __user *dst, const void *src, unsigned long size)
 }
 
 extern unsigned long __copy_user_nocache(void *dst, const void __user *src,
-				unsigned long size, int zerorest);
+				unsigned long size, int zerorest) __size_overflow(3);
 
 static inline unsigned long
 __copy_from_user_nocache(void *dst, const void __user *src, unsigned long size)

@@ -58,8 +58,6 @@ struct thread_info {
 	__u32			cpu;		/* current CPU */
 	mm_segment_t		addr_limit;
 	unsigned long		lowest_stack;
-	unsigned int		sig_on_uaccess_error:1;
-	unsigned int		uaccess_err:1;	/* uaccess failed */
 };
 
 #define INIT_THREAD_INFO			\
@@ -183,6 +181,50 @@ static inline unsigned long current_stack_pointer(void)
 	return sp;
 }
 
+/*
+ * Walks up the stack frames to make sure that the specified object is
+ * entirely contained by a single stack frame.
+ *
+ * Returns:
+ *		 GOOD_FRAME if within a frame
+ *		 BAD_STACK if placed across a frame boundary (or outside stack)
+ *		 GOOD_STACK unable to determine (no frame pointers, etc)
+ */
+static __always_inline int arch_within_stack_frames(unsigned long stack,
+					   unsigned long stackend,
+					   unsigned long obj, unsigned long len)
+{
+#if defined(CONFIG_FRAME_POINTER)
+	unsigned long frame = 0;
+	unsigned long oldframe;
+
+	oldframe = (unsigned long)__builtin_frame_address(1);
+	if (oldframe)
+		frame = (unsigned long)__builtin_frame_address(2);
+	/*
+	 * low ----------------------------------------------> high
+	 * [saved bp][saved ip][args][local vars][saved bp][saved ip]
+	 *                     ^----------------^
+	 *               allow copies only within here
+	 */
+	while (stack <= frame && frame < stackend) {
+		/*
+		 * If obj + len extends past the last frame, this
+		 * check won't pass and the next frame will be 0,
+		 * causing us to bail out and correctly report
+		 * the copy as invalid.
+		 */
+		if (obj + len <= frame)
+			return obj >= oldframe + 2 * sizeof(unsigned long) ? GOOD_FRAME : BAD_STACK;
+		oldframe = frame;
+		frame = *(unsigned long *)frame;
+	}
+	return BAD_STACK;
+#else
+	return GOOD_STACK;
+#endif
+}
+
 #else /* !__ASSEMBLY__ */
 
 /* Load thread_info address into "reg" */
@@ -199,32 +241,11 @@ static inline unsigned long current_stack_pointer(void)
  * have to worry about atomic accesses.
  */
 #define TS_COMPAT		0x0002	/* 32bit syscall active (64BIT)*/
-#define TS_RESTORE_SIGMASK	0x0008	/* restore signal mask in do_signal() */
+#ifdef CONFIG_COMPAT
+#define TS_I386_REGS_POKED	0x0004	/* regs poked by 32-bit ptracer */
+#endif
 
 #ifndef __ASSEMBLY__
-#define HAVE_SET_RESTORE_SIGMASK	1
-static inline void set_restore_sigmask(void)
-{
-	struct thread_info *ti = current_thread_info();
-	ti->status |= TS_RESTORE_SIGMASK;
-	WARN_ON(!test_bit(TIF_SIGPENDING, (unsigned long *)&ti->flags));
-}
-static inline void clear_restore_sigmask(void)
-{
-	current_thread_info()->status &= ~TS_RESTORE_SIGMASK;
-}
-static inline bool test_restore_sigmask(void)
-{
-	return current_thread_info()->status & TS_RESTORE_SIGMASK;
-}
-static inline bool test_and_clear_restore_sigmask(void)
-{
-	struct thread_info *ti = current_thread_info();
-	if (!(ti->status & TS_RESTORE_SIGMASK))
-		return false;
-	ti->status &= ~TS_RESTORE_SIGMASK;
-	return true;
-}
 
 static inline bool in_ia32_syscall(void)
 {

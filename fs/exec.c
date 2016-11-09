@@ -838,6 +838,39 @@ out_unlock:
 }
 EXPORT_SYMBOL(setup_arg_pages);
 
+#else
+
+/*
+ * Transfer the program arguments and environment from the holding pages
+ * onto the stack. The provided stack pointer is adjusted accordingly.
+ */
+int transfer_args_to_stack(struct linux_binprm *bprm,
+			   unsigned long *sp_location)
+{
+	unsigned long index, stop, sp;
+	int ret = 0;
+
+	stop = bprm->p >> PAGE_SHIFT;
+	sp = *sp_location;
+
+	for (index = MAX_ARG_PAGES - 1; index >= stop; index--) {
+		unsigned int offset = index == stop ? bprm->p & ~PAGE_MASK : 0;
+		char *src = kmap(bprm->page[index]) + offset;
+		sp -= PAGE_SIZE - offset;
+		if (copy_to_user((void *) sp, src, PAGE_SIZE - offset) != 0)
+			ret = -EFAULT;
+		kunmap(bprm->page[index]);
+		if (ret)
+			goto out;
+	}
+
+	*sp_location = sp;
+
+out:
+	return ret;
+}
+EXPORT_SYMBOL(transfer_args_to_stack);
+
 #endif /* CONFIG_MMU */
 
 static struct file *do_open_execat(int fd, struct filename *name, int flags)
@@ -956,7 +989,8 @@ int kernel_read_file(struct file *file, void **buf, loff_t *size,
 		goto out;
 	}
 
-	*buf = vmalloc(i_size);
+	if (id != READING_FIRMWARE_PREALLOC_BUFFER)
+		*buf = vmalloc(i_size);
 	if (!*buf) {
 		ret = -ENOMEM;
 		goto out;
@@ -987,8 +1021,10 @@ int kernel_read_file(struct file *file, void **buf, loff_t *size,
 
 out_free:
 	if (ret < 0) {
-		vfree(*buf);
-		*buf = NULL;
+		if (id != READING_FIRMWARE_PREALLOC_BUFFER) {
+			vfree(*buf);
+			*buf = NULL;
+		}
 	}
 
 out:
@@ -1501,7 +1537,7 @@ static void bprm_fill_uid(struct linux_binprm *bprm)
 	bprm->cred->euid = current_euid();
 	bprm->cred->egid = current_egid();
 
-	if (bprm->file->f_path.mnt->mnt_flags & MNT_NOSUID)
+	if (!mnt_may_suid(bprm->file->f_path.mnt))
 		return;
 
 	if (task_no_new_privs(current))
@@ -2176,163 +2212,34 @@ void pax_report_fault(struct pt_regs *regs, void *pc, void *sp)
 #endif
 
 #ifdef CONFIG_PAX_REFCOUNT
-void pax_report_refcount_overflow(struct pt_regs *regs)
+static DEFINE_RATELIMIT_STATE(refcount_ratelimit, 15 * HZ, 3);
+
+void pax_report_refcount_error(struct pt_regs *regs, const char *kind)
 {
-	if (current->signal->curr_ip)
-		printk(KERN_EMERG "PAX: From %pI4: refcount overflow detected in: %s:%d, uid/euid: %u/%u\n",
-				&current->signal->curr_ip, current->comm, task_pid_nr(current),
-				from_kuid_munged(&init_user_ns, current_uid()), from_kuid_munged(&init_user_ns, current_euid()));
-	else
-		printk(KERN_EMERG "PAX: refcount overflow detected in: %s:%d, uid/euid: %u/%u\n", current->comm, task_pid_nr(current),
-				from_kuid_munged(&init_user_ns, current_uid()), from_kuid_munged(&init_user_ns, current_euid()));
-	print_symbol(KERN_EMERG "PAX: refcount overflow occured at: %s\n", instruction_pointer(regs));
-	BUG();
-}
-#endif
+	do_send_sig_info(SIGKILL, SEND_SIG_FORCED, current, true);
 
-#ifdef CONFIG_PAX_USERCOPY
-/* 0: not at all, 1: fully, 2: fully inside frame, -1: partially (implies an error) */
-static noinline int check_stack_object(unsigned long obj, unsigned long len)
-{
-	unsigned long stack = (unsigned long)task_stack_page(current);
-	unsigned long stackend = (unsigned long)stack + THREAD_SIZE;
-
-#if defined(CONFIG_FRAME_POINTER) && defined(CONFIG_X86)
-	unsigned long frame = 0;
-	unsigned long oldframe;
-#endif
-
-	if (obj + len < obj)
-		return -1;
-
-	if (obj + len <= (unsigned long)stack || (unsigned long)stackend <= obj)
-		return 0;
-
-	if (obj < (unsigned long)stack || (unsigned long)stackend < obj + len)
-		return -1;
-
-#if defined(CONFIG_FRAME_POINTER) && defined(CONFIG_X86)
-	oldframe = (unsigned long)__builtin_frame_address(1);
-	if (oldframe)
-		frame = (unsigned long)__builtin_frame_address(2);
-	/*
-	  low ----------------------------------------------> high
-	  [saved bp][saved ip][args][local vars][saved bp][saved ip]
-			      ^----------------^
-			  allow copies only within here
-	*/
-	while (stack <= frame && frame < stackend) {
-		/* if obj + len extends past the last frame, this
-		   check won't pass and the next frame will be 0,
-		   causing us to bail out and correctly report
-		   the copy as invalid
-		*/
-		if (obj + len <= frame)
-			return obj >= oldframe + 2 * sizeof(unsigned long) ? 2 : -1;
-		oldframe = frame;
-		frame = *(unsigned long *)frame;
-	}
-	return -1;
-#else
-	return 1;
-#endif
-}
-
-static DEFINE_RATELIMIT_STATE(usercopy_ratelimit, 15 * HZ, 3);
-
-static __noreturn void pax_report_usercopy(const void *ptr, unsigned long len, bool to_user, const char *type)
-{
-	if (!__ratelimit(&usercopy_ratelimit))
-		goto kill;
-
-	if (current->signal->curr_ip)
-		printk(KERN_EMERG "PAX: From %pI4: kernel memory %s attempt detected %s %p (%s) (%lu bytes)\n",
-			&current->signal->curr_ip, to_user ? "leak" : "overwrite", to_user ? "from" : "to", ptr, type ? : "unknown", len);
-	else
-		printk(KERN_EMERG "PAX: kernel memory %s attempt detected %s %p (%s) (%lu bytes)\n",
-			to_user ? "leak" : "overwrite", to_user ? "from" : "to", ptr, type ? : "unknown", len);
-	dump_stack();
-
-kill:
-	gr_handle_kernel_exploit();
-	do_group_exit(SIGKILL);
-}
-#endif
-
-#ifdef CONFIG_PAX_USERCOPY
-
-static inline bool check_kernel_text_object(unsigned long low, unsigned long high)
-{
-#if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
-	unsigned long textlow = ktla_ktva((unsigned long)_stext);
-#ifdef CONFIG_MODULES
-	unsigned long texthigh = (unsigned long)MODULES_EXEC_VADDR;
-#else
-	unsigned long texthigh = ktla_ktva((unsigned long)_etext);
-#endif
-
-#else
-	unsigned long textlow = (unsigned long)_stext;
-	unsigned long texthigh = (unsigned long)_etext;
-
-#ifdef CONFIG_X86_64
-	/* check against linear mapping as well */
-	if (high > (unsigned long)__va(__pa(textlow)) &&
-	    low < (unsigned long)__va(__pa(texthigh)))
-		return true;
-#endif
-
-#endif
-
-	if (high <= textlow || low >= texthigh)
-		return false;
-	else
-		return true;
-}
-#endif
-
-void __check_object_size(const void *ptr, unsigned long n, bool to_user, bool const_size)
-{
-#ifdef CONFIG_PAX_USERCOPY
-	const char *type;
-#endif
-
-#if !defined(CONFIG_STACK_GROWSUP) && !defined(CONFIG_X86_64)
-	unsigned long stackstart = (unsigned long)task_stack_page(current);
-	unsigned long currentsp = (unsigned long)&stackstart;
-	if (unlikely((currentsp < stackstart + 512 ||
-		     currentsp >= stackstart + THREAD_SIZE) && !in_interrupt()))
-		BUG();
-#endif
-
-#ifndef CONFIG_PAX_USERCOPY_DEBUG
-	if (const_size)
-		return;
-#endif
-
-#ifdef CONFIG_PAX_USERCOPY
-	if (!n)
+	if (!__ratelimit(&refcount_ratelimit))
 		return;
 
-	type = check_heap_object(ptr, n);
-	if (!type) {
-		int ret = check_stack_object((unsigned long)ptr, n);
-		if (ret == 1 || ret == 2)
-			return;
-		if (ret == 0) {
-			if (check_kernel_text_object((unsigned long)ptr, (unsigned long)ptr + n))
-				type = "<kernel text>";
-			else
-				return;
-		} else
-			type = "<process stack>";
-	}
-
-	pax_report_usercopy(ptr, n, to_user, type);
-#endif
-
+	if (current->signal->curr_ip)
+		pr_emerg("PAX: From %pI4: %s detected in: %s:%d, uid/euid: %u/%u\n",
+			 &current->signal->curr_ip,
+			 kind ? kind : "refcount error",
+			 current->comm, task_pid_nr(current),
+			 from_kuid_munged(&init_user_ns, current_uid()),
+			 from_kuid_munged(&init_user_ns, current_euid()));
+	else
+		pr_emerg("PAX: %s detected in: %s:%d, uid/euid: %u/%u\n",
+			 kind ? kind : "refcount error",
+			 current->comm, task_pid_nr(current),
+			 from_kuid_munged(&init_user_ns, current_uid()),
+			 from_kuid_munged(&init_user_ns, current_euid()));
+	print_symbol(KERN_EMERG "PAX: refcount error occured at: %s\n", instruction_pointer(regs));
+	preempt_disable();
+	show_regs(regs);
+	preempt_enable();
 }
-EXPORT_SYMBOL(__check_object_size);
+#endif
 
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
 void __used pax_track_stack(void)
@@ -2349,6 +2256,7 @@ EXPORT_SYMBOL(pax_track_stack);
 
 #ifdef CONFIG_PAX_SIZE_OVERFLOW
 static DEFINE_RATELIMIT_STATE(size_overflow_ratelimit, 15 * HZ, 3);
+extern bool pax_size_overflow_report_only;
 
 void __nocapture(1, 3, 4) __used report_size_overflow(const char *file, unsigned int line, const char *func, const char *ssa_name)
 {

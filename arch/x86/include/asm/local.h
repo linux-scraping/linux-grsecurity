@@ -23,16 +23,10 @@ typedef struct {
 
 static inline void local_inc(local_t *l)
 {
-	asm volatile(_ASM_INC "%0\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-		     "jno 0f\n"
-		     _ASM_DEC "%0\n"
-		     "int $4\n0:\n"
-		     _ASM_EXTABLE(0b, 0b)
-#endif
-
-		     : "+m" (l->a.counter));
+	asm volatile(_ASM_INC "%0\n\t"
+		     PAX_REFCOUNT_OVERFLOW(BITS_PER_LONG/8)
+		     : [counter] "+m" (l->a.counter)
+		     : : "cc", "cx");
 }
 
 static inline void local_inc_unchecked(local_unchecked_t *l)
@@ -43,16 +37,10 @@ static inline void local_inc_unchecked(local_unchecked_t *l)
 
 static inline void local_dec(local_t *l)
 {
-	asm volatile(_ASM_DEC "%0\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-		     "jno 0f\n"
-		     _ASM_INC "%0\n"
-		     "int $4\n0:\n"
-		     _ASM_EXTABLE(0b, 0b)
-#endif
-
-		     : "+m" (l->a.counter));
+	asm volatile(_ASM_DEC "%0\n\t"
+		     PAX_REFCOUNT_UNDERFLOW(BITS_PER_LONG/8)
+		     : [counter] "+m" (l->a.counter)
+		     : : "cc", "cx");
 }
 
 static inline void local_dec_unchecked(local_unchecked_t *l)
@@ -63,17 +51,11 @@ static inline void local_dec_unchecked(local_unchecked_t *l)
 
 static inline void local_add(long i, local_t *l)
 {
-	asm volatile(_ASM_ADD "%1,%0\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-		     "jno 0f\n"
-		     _ASM_SUB "%1,%0\n"
-		     "int $4\n0:\n"
-		     _ASM_EXTABLE(0b, 0b)
-#endif
-
-		     : "+m" (l->a.counter)
-		     : "ir" (i));
+	asm volatile(_ASM_ADD "%1,%0\n\t"
+		     PAX_REFCOUNT_OVERFLOW(BITS_PER_LONG/8)
+		     : [counter] "+m" (l->a.counter)
+		     : "ir" (i)
+		     : "cc", "cx");
 }
 
 static inline void local_add_unchecked(long i, local_unchecked_t *l)
@@ -85,17 +67,11 @@ static inline void local_add_unchecked(long i, local_unchecked_t *l)
 
 static inline void local_sub(long i, local_t *l)
 {
-	asm volatile(_ASM_SUB "%1,%0\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-		     "jno 0f\n"
-		     _ASM_ADD "%1,%0\n"
-		     "int $4\n0:\n"
-		     _ASM_EXTABLE(0b, 0b)
-#endif
-
-		     : "+m" (l->a.counter)
-		     : "ir" (i));
+	asm volatile(_ASM_SUB "%1,%0\n\t"
+		     PAX_REFCOUNT_UNDERFLOW(BITS_PER_LONG/8)
+		     : [counter] "+m" (l->a.counter)
+		     : "ir" (i)
+		     : "cc", "cx");
 }
 
 static inline void local_sub_unchecked(long i, local_unchecked_t *l)
@@ -114,9 +90,9 @@ static inline void local_sub_unchecked(long i, local_unchecked_t *l)
  * true if the result is zero, or false for all
  * other cases.
  */
-static inline int local_sub_and_test(long i, local_t *l)
+static inline bool local_sub_and_test(long i, local_t *l)
 {
-	GEN_BINARY_RMWcc(_ASM_SUB, _ASM_ADD, l->a.counter, "er", i, "%0", "e");
+	GEN_BINARY_RMWcc(_ASM_SUB, l->a.counter, -BITS_PER_LONG/8, "er", i, "%0", e);
 }
 
 /**
@@ -127,9 +103,9 @@ static inline int local_sub_and_test(long i, local_t *l)
  * returns true if the result is 0, or false for all other
  * cases.
  */
-static inline int local_dec_and_test(local_t *l)
+static inline bool local_dec_and_test(local_t *l)
 {
-	GEN_UNARY_RMWcc(_ASM_DEC, _ASM_INC, l->a.counter, "%0", "e");
+	GEN_UNARY_RMWcc(_ASM_DEC, l->a.counter, -BITS_PER_LONG/8, "%0", e);
 }
 
 /**
@@ -140,9 +116,9 @@ static inline int local_dec_and_test(local_t *l)
  * and returns true if the result is zero, or false for all
  * other cases.
  */
-static inline int local_inc_and_test(local_t *l)
+static inline bool local_inc_and_test(local_t *l)
 {
-	GEN_UNARY_RMWcc(_ASM_INC, _ASM_DEC, l->a.counter, "%0", "e");
+	GEN_UNARY_RMWcc(_ASM_INC, l->a.counter, BITS_PER_LONG/8, "%0", e);
 }
 
 /**
@@ -154,9 +130,9 @@ static inline int local_inc_and_test(local_t *l)
  * if the result is negative, or false when
  * result is greater than or equal to zero.
  */
-static inline int local_add_negative(long i, local_t *l)
+static inline bool local_add_negative(long i, local_t *l)
 {
-	GEN_BINARY_RMWcc(_ASM_ADD, _ASM_SUB, l->a.counter, "er", i, "%0", "s");
+	GEN_BINARY_RMWcc(_ASM_ADD, l->a.counter, BITS_PER_LONG/8, "er", i, "%0", s);
 }
 
 /**
@@ -169,17 +145,10 @@ static inline int local_add_negative(long i, local_t *l)
 static inline long local_add_return(long i, local_t *l)
 {
 	long __i = i;
-	asm volatile(_ASM_XADD "%0, %1\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-		     "jno 0f\n"
-		     _ASM_MOV "%0,%1\n"
-		     "int $4\n0:\n"
-		     _ASM_EXTABLE(0b, 0b)
-#endif
-
-		     : "+r" (i), "+m" (l->a.counter)
-		     : : "memory");
+	asm volatile(_ASM_XADD "%0, %1\n\t"
+		     PAX_REFCOUNT_OVERFLOW(BITS_PER_LONG/8)
+		     : "+r" (i), [counter] "+m" (l->a.counter)
+		     : : "memory", "cc", "cx");
 	return i + __i;
 }
 

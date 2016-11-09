@@ -79,21 +79,15 @@ extern void __add_check_overflow_wrong_size(void)
 		switch (sizeof(*(ptr))) {				\
 		case __X86_CASE_L:					\
 			asm volatile (lock #op "l %0, %1\n"		\
-				      "jno 0f\n"			\
-				      "mov %0,%1\n"			\
-				      "int $4\n0:\n"			\
-				      _ASM_EXTABLE(0b, 0b)		\
-				      : "+r" (__ret), "+m" (*(ptr))	\
-				      : : "memory", "cc");		\
+				      PAX_REFCOUNT_OVERFLOW(4)		\
+				      : "+r" (__ret), [counter] "+m" (*(ptr))\
+				      : : "memory", "cc", "cx");	\
 			break;						\
 		case __X86_CASE_Q:					\
 			asm volatile (lock #op "q %q0, %1\n"		\
-				      "jno 0f\n"			\
-				      "mov %0,%1\n"			\
-				      "int $4\n0:\n"			\
-				      _ASM_EXTABLE(0b, 0b)		\
-				      : "+r" (__ret), "+m" (*(ptr))	\
-				      : : "memory", "cc");		\
+				      PAX_REFCOUNT_OVERFLOW(8)		\
+				      : "+r" (__ret), [counter] "+m" (*(ptr))\
+				      : : "memory", "cc", "cx");	\
 			break;						\
 		default:						\
 			__ ## op ## _check_overflow_wrong_size();	\

@@ -170,7 +170,8 @@ void __puthex(unsigned long value)
 }
 
 #if CONFIG_X86_NEED_RELOCS
-static void handle_relocations(void *output, unsigned long output_len)
+static void handle_relocations(void *output, unsigned long output_len,
+			       unsigned long virt_addr)
 {
 	int *reloc;
 	unsigned long delta, map, ptr;
@@ -186,11 +187,6 @@ static void handle_relocations(void *output, unsigned long output_len)
 	 * and where it was actually loaded.
 	 */
 	delta = min_addr - ____LOAD_PHYSICAL_ADDR;
-	if (!delta) {
-		debug_putstr("No relocation needed... ");
-		return;
-	}
-	debug_putstr("Performing relocations... ");
 
 	/*
 	 * The kernel contains a table of relocation addresses. Those
@@ -200,6 +196,20 @@ static void handle_relocations(void *output, unsigned long output_len)
 	 * This will involve subtracting out the base address of the kernel.
 	 */
 	map = delta - __START_KERNEL_map;
+
+	/*
+	 * 32-bit always performs relocations. 64-bit relocations are only
+	 * needed if KASLR has chosen a different starting address offset
+	 * from __START_KERNEL_map.
+	 */
+	if (IS_ENABLED(CONFIG_X86_64))
+		delta = virt_addr - ____LOAD_PHYSICAL_ADDR;
+
+	if (!delta) {
+		debug_putstr("No relocation needed... ");
+		return;
+	}
+	debug_putstr("Performing relocations... ");
 
 	/*
 	 * Process relocations: 32 bit relocations first then 64 bit after.
@@ -254,7 +264,8 @@ static void handle_relocations(void *output, unsigned long output_len)
 #endif
 }
 #else
-static inline void handle_relocations(void *output, unsigned long output_len)
+static inline void handle_relocations(void *output, unsigned long output_len,
+				      unsigned long virt_addr)
 { }
 #endif
 
@@ -338,7 +349,7 @@ asmlinkage __visible void *extract_kernel(void *rmode, memptr heap,
 #else
 	const unsigned long kernel_total_size = VO__end - VO__text;
 #endif
-	unsigned char *output_orig = output;
+	unsigned long virt_addr = (unsigned long)output;
 
 	/* Retain x86 boot parameters pointer passed from startup_32/64. */
 	boot_params = rmode;
@@ -377,13 +388,16 @@ asmlinkage __visible void *extract_kernel(void *rmode, memptr heap,
 	 * the entire decompressed kernel plus relocation table, or the
 	 * entire decompressed kernel plus .bss and .brk sections.
 	 */
-	output = choose_random_location((unsigned long)input_data, input_len,
-					(unsigned long)output,
-					max(output_len, kernel_total_size));
+	choose_random_location((unsigned long)input_data, input_len,
+				(unsigned long *)&output,
+				max(output_len, kernel_total_size),
+				&virt_addr);
 
 	/* Validate memory location choices. */
 	if ((unsigned long)output & (MIN_KERNEL_ALIGN - 1))
-		error("Destination address inappropriately aligned");
+		error("Destination physical address inappropriately aligned");
+	if (virt_addr & (MIN_KERNEL_ALIGN - 1))
+		error("Destination virtual address inappropriately aligned");
 #ifdef CONFIG_X86_64
 	if (heap > 0x3fffffffffffUL)
 		error("Destination address too large");
@@ -393,19 +407,16 @@ asmlinkage __visible void *extract_kernel(void *rmode, memptr heap,
 #endif
 #ifndef CONFIG_RELOCATABLE
 	if ((unsigned long)output != ____LOAD_PHYSICAL_ADDR)
-		error("Wrong destination address");
+		error("Destination address does not match LOAD_PHYSICAL_ADDR");
+	if ((unsigned long)output != virt_addr)
+		error("Destination virtual address changed when not relocatable");
 #endif
 
 	debug_putstr("\nDecompressing Linux... ");
 	__decompress(input_data, input_len, NULL, NULL, output, output_len,
 			NULL, error);
 	parse_elf(output);
-	/*
-	 * 32-bit always performs relocations. 64-bit relocations are only
-	 * needed if kASLR has chosen a different load address.
-	 */
-	if (!IS_ENABLED(CONFIG_X86_64) || output != output_orig)
-		handle_relocations(output, output_len);
+	handle_relocations(output, output_len, virt_addr);
 	debug_putstr("done.\nBooting the kernel.\n");
 	return output;
 }

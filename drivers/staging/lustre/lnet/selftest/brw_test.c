@@ -15,11 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * version 2 along with this program; If not, see
- * http://www.sun.com/software/products/lustre/docs/GPLv2.pdf
- *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * http://www.gnu.org/licenses/gpl-2.0.html
  *
  * GPL HEADER END
  */
@@ -328,7 +324,7 @@ brw_client_done_rpc(struct sfw_test_unit *tsu, struct srpc_client_rpc *rpc)
 		CERROR("BRW RPC to %s failed with %d\n",
 		       libcfs_id2str(rpc->crpc_dest), rpc->crpc_status);
 		if (!tsi->tsi_stopping)	/* rpc could have been aborted */
-			atomic_inc(&sn->sn_brw_errors);
+			atomic_inc_unchecked(&sn->sn_brw_errors);
 		return;
 	}
 
@@ -342,7 +338,7 @@ brw_client_done_rpc(struct sfw_test_unit *tsu, struct srpc_client_rpc *rpc)
 	       libcfs_id2str(rpc->crpc_dest), reply->brw_status);
 
 	if (reply->brw_status) {
-		atomic_inc(&sn->sn_brw_errors);
+		atomic_inc_unchecked(&sn->sn_brw_errors);
 		rpc->crpc_status = -(int)reply->brw_status;
 		return;
 	}
@@ -353,7 +349,7 @@ brw_client_done_rpc(struct sfw_test_unit *tsu, struct srpc_client_rpc *rpc)
 	if (brw_check_bulk(&rpc->crpc_bulk, reqst->brw_flags, magic)) {
 		CERROR("Bulk data from %s is corrupted!\n",
 		       libcfs_id2str(rpc->crpc_dest));
-		atomic_inc(&sn->sn_brw_errors);
+		atomic_inc_unchecked(&sn->sn_brw_errors);
 		rpc->crpc_status = -EBADMSG;
 	}
 }

@@ -43,7 +43,7 @@
 
 #include <linux/init.h>
 #include <linux/smp.h>
-#include <linux/module.h>
+#include <linux/export.h>
 #include <linux/sched.h>
 #include <linux/percpu.h>
 #include <linux/bootmem.h>
@@ -100,10 +100,14 @@ EXPORT_PER_CPU_SYMBOL(cpu_info);
 /* Logical package management. We might want to allocate that dynamically */
 static int *physical_to_logical_pkg __read_mostly;
 static unsigned long *physical_package_map __read_mostly;;
-static unsigned long *logical_package_map  __read_mostly;
 static unsigned int max_physical_pkg_id __read_mostly;
 unsigned int __max_logical_packages __read_mostly;
 EXPORT_SYMBOL(__max_logical_packages);
+static unsigned int logical_packages __read_mostly;
+static bool logical_packages_frozen __read_mostly;
+
+/* Maximum number of SMT threads on any online core */
+int __max_smt_threads __read_mostly;
 
 static inline void smpboot_setup_warm_reset_vector(unsigned long start_eip)
 {
@@ -277,14 +281,14 @@ int topology_update_package_map(unsigned int apicid, unsigned int cpu)
 	if (test_and_set_bit(pkg, physical_package_map))
 		goto found;
 
-	new = find_first_zero_bit(logical_package_map, __max_logical_packages);
-	if (new >= __max_logical_packages) {
+	if (logical_packages_frozen) {
 		physical_to_logical_pkg[pkg] = -1;
-		pr_warn("APIC(%x) Package %u exceeds logical package map\n",
+		pr_warn("APIC(%x) Package %u exceeds logical package max\n",
 			apicid, pkg);
 		return -ENOSPC;
 	}
-	set_bit(new, logical_package_map);
+
+	new = logical_packages++;
 	pr_info("APIC(%x) Converting physical %u to logical package %u\n",
 		apicid, pkg, new);
 	physical_to_logical_pkg[pkg] = new;
@@ -341,6 +345,7 @@ static void __init smp_init_package_map(void)
 	}
 
 	__max_logical_packages = DIV_ROUND_UP(total_cpus, ncpus);
+	logical_packages = 0;
 
 	/*
 	 * Possibly larger than what we need as the number of apic ids per
@@ -352,10 +357,6 @@ static void __init smp_init_package_map(void)
 	memset(physical_to_logical_pkg, 0xff, size);
 	size = BITS_TO_LONGS(max_physical_pkg_id) * sizeof(unsigned long);
 	physical_package_map = kzalloc(size, GFP_KERNEL);
-	size = BITS_TO_LONGS(__max_logical_packages) * sizeof(unsigned long);
-	logical_package_map = kzalloc(size, GFP_KERNEL);
-
-	pr_info("Max logical packages: %u\n", __max_logical_packages);
 
 	for_each_present_cpu(cpu) {
 		unsigned int apicid = apic->cpu_present_to_apicid(cpu);
@@ -369,6 +370,15 @@ static void __init smp_init_package_map(void)
 		set_cpu_possible(cpu, false);
 		set_cpu_present(cpu, false);
 	}
+
+	if (logical_packages > __max_logical_packages) {
+		pr_warn("Detected more packages (%u), then computed by BIOS data (%u).\n",
+			logical_packages, __max_logical_packages);
+		logical_packages_frozen = true;
+		__max_logical_packages  = logical_packages;
+	}
+
+	pr_info("Max logical packages: %u\n", __max_logical_packages);
 }
 
 void __init smp_store_boot_cpu_info(void)
@@ -496,7 +506,7 @@ void set_cpu_sibling_map(int cpu)
 	bool has_mp = has_smt || boot_cpu_data.x86_max_cores > 1;
 	struct cpuinfo_x86 *c = &cpu_data(cpu);
 	struct cpuinfo_x86 *o;
-	int i;
+	int i, threads;
 
 	cpumask_set_cpu(cpu, cpu_sibling_setup_mask);
 
@@ -553,6 +563,10 @@ void set_cpu_sibling_map(int cpu)
 		if (match_die(c, o) && !topology_same_node(c, o))
 			primarily_use_numa_for_topology();
 	}
+
+	threads = cpumask_weight(topology_sibling_cpumask(cpu));
+	if (threads > __max_smt_threads)
+		__max_smt_threads = threads;
 }
 
 /* maps the cpu to the sched domain representing multi-core */
@@ -1298,7 +1312,6 @@ void __init native_smp_prepare_cpus(unsigned int max_cpus)
 	cpumask_copy(cpu_callin_mask, cpumask_of(0));
 	mb();
 
-	current_thread_info()->cpu = 0;  /* needed? */
 	for_each_possible_cpu(i) {
 		zalloc_cpumask_var(&per_cpu(cpu_sibling_map, i), GFP_KERNEL);
 		zalloc_cpumask_var(&per_cpu(cpu_core_map, i), GFP_KERNEL);
@@ -1408,15 +1421,17 @@ __init void prefill_possible_map(void)
 
 	/* No boot processor was found in mptable or ACPI MADT */
 	if (!num_processors) {
-		int apicid = boot_cpu_physical_apicid;
-		int cpu = hard_smp_processor_id();
+		if (boot_cpu_has(X86_FEATURE_APIC)) {
+			int apicid = boot_cpu_physical_apicid;
+			int cpu = hard_smp_processor_id();
 
-		pr_warn("Boot CPU (id %d) not listed by BIOS\n", cpu);
+			pr_warn("Boot CPU (id %d) not listed by BIOS\n", cpu);
 
-		/* Make sure boot cpu is enumerated */
-		if (apic->cpu_present_to_apicid(0) == BAD_APICID &&
-		    apic->apic_id_valid(apicid))
-			generic_processor_info(apicid, boot_cpu_apic_version);
+			/* Make sure boot cpu is enumerated */
+			if (apic->cpu_present_to_apicid(0) == BAD_APICID &&
+			    apic->apic_id_valid(apicid))
+				generic_processor_info(apicid, boot_cpu_apic_version);
+		}
 
 		if (!num_processors)
 			num_processors = 1;
@@ -1466,6 +1481,21 @@ __init void prefill_possible_map(void)
 
 #ifdef CONFIG_HOTPLUG_CPU
 
+/* Recompute SMT state for all CPUs on offline */
+static void recompute_smt_state(void)
+{
+	int max_threads, cpu;
+
+	max_threads = 0;
+	for_each_online_cpu (cpu) {
+		int threads = cpumask_weight(topology_sibling_cpumask(cpu));
+
+		if (threads > max_threads)
+			max_threads = threads;
+	}
+	__max_smt_threads = max_threads;
+}
+
 static void remove_siblinginfo(int cpu)
 {
 	int sibling;
@@ -1490,6 +1520,7 @@ static void remove_siblinginfo(int cpu)
 	c->phys_proc_id = 0;
 	c->cpu_core_id = 0;
 	cpumask_clear_cpu(cpu, cpu_sibling_setup_mask);
+	recompute_smt_state();
 }
 
 static void remove_cpu_from_maps(int cpu)
@@ -1647,7 +1678,7 @@ static inline void mwait_play_dead(void)
 	}
 }
 
-static inline void hlt_play_dead(void)
+void hlt_play_dead(void)
 {
 	if (__this_cpu_read(cpu_info.x86) >= 4)
 		wbinvd();

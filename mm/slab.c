@@ -1241,61 +1241,6 @@ static void __init set_up_node(struct kmem_cache *cachep, int index)
 	}
 }
 
-#ifdef CONFIG_SLAB_FREELIST_RANDOM
-static void freelist_randomize(struct rnd_state *state, freelist_idx_t *list,
-			size_t count)
-{
-	size_t i;
-	unsigned int rand;
-
-	for (i = 0; i < count; i++)
-		list[i] = i;
-
-	/* Fisher-Yates shuffle */
-	for (i = count - 1; i > 0; i--) {
-		rand = prandom_u32_state(state);
-		rand %= (i + 1);
-		swap(list[i], list[rand]);
-	}
-}
-
-/* Create a random sequence per cache */
-static int cache_random_seq_create(struct kmem_cache *cachep, gfp_t gfp)
-{
-	unsigned int seed, count = cachep->num;
-	struct rnd_state state;
-
-	if (count < 2)
-		return 0;
-
-	/* If it fails, we will just use the global lists */
-	cachep->random_seq = kcalloc(count, sizeof(freelist_idx_t), gfp);
-	if (!cachep->random_seq)
-		return -ENOMEM;
-
-	/* Get best entropy at this stage */
-	get_random_bytes_arch(&seed, sizeof(seed));
-	prandom_seed_state(&state, seed);
-
-	freelist_randomize(&state, cachep->random_seq, count);
-	return 0;
-}
-
-/* Destroy the per-cache random freelist sequence */
-static void cache_random_seq_destroy(struct kmem_cache *cachep)
-{
-	kfree(cachep->random_seq);
-	cachep->random_seq = NULL;
-}
-#else
-static inline int cache_random_seq_create(struct kmem_cache *cachep, gfp_t gfp)
-{
-	return 0;
-}
-static inline void cache_random_seq_destroy(struct kmem_cache *cachep) { }
-#endif /* CONFIG_SLAB_FREELIST_RANDOM */
-
-
 /*
  * Initialisation.  Called after the page allocator have been initialised and
  * before smp_init().
@@ -1350,7 +1295,7 @@ void __init kmem_cache_init(void)
 	create_boot_cache(kmem_cache, "kmem_cache",
 		offsetof(struct kmem_cache, node) +
 				  nr_node_ids * sizeof(struct kmem_cache_node *),
-				  SLAB_HWCACHE_ALIGN);
+				  SLAB_HWCACHE_ALIGN, 0, 0);
 	list_add(&kmem_cache->list, &slab_caches);
 	slab_state = PARTIAL;
 
@@ -1358,8 +1303,8 @@ void __init kmem_cache_init(void)
 	 * Initialize the caches that provide memory for the  kmem_cache_node
 	 * structures first.  Without this, further allocations will bug.
 	 */
-	kmalloc_caches[INDEX_NODE] = create_kmalloc_cache("kmalloc-node",
-				kmalloc_size(INDEX_NODE), SLAB_USERCOPY | ARCH_KMALLOC_FLAGS);
+	kmalloc_caches[INDEX_NODE] = create_kmalloc_cache_usercopy("kmalloc-node",
+				kmalloc_size(INDEX_NODE), ARCH_KMALLOC_FLAGS, 0, alloc_size(INDEX_NODE));
 	slab_state = PARTIAL_NODE;
 	setup_kmalloc_cache_index_table();
 
@@ -1937,7 +1882,7 @@ static struct array_cache __percpu *alloc_kmem_cache_cpus(
 	return cpu_cache;
 }
 
-static int __init_refok setup_cpu_cache(struct kmem_cache *cachep, gfp_t gfp)
+static int __ref setup_cpu_cache(struct kmem_cache *cachep, gfp_t gfp)
 {
 	if (slab_state >= FULL)
 		return enable_cpucache(cachep, gfp);
@@ -2542,7 +2487,7 @@ static void cache_init_objs_debug(struct kmem_cache *cachep, struct page *page)
 union freelist_init_state {
 	struct {
 		unsigned int pos;
-		freelist_idx_t *list;
+		unsigned int *list;
 		unsigned int count;
 		unsigned int rand;
 	};
@@ -2561,7 +2506,7 @@ static bool freelist_state_initialize(union freelist_init_state *state,
 	unsigned int rand;
 
 	/* Use best entropy available to define a random shift */
-	get_random_bytes_arch(&rand, sizeof(rand));
+	rand = get_random_int();
 
 	/* Use a random state if the pre-computed list is not available */
 	if (!cachep->random_seq) {
@@ -2583,13 +2528,20 @@ static freelist_idx_t next_random_slot(union freelist_init_state *state)
 	return (state->list[state->pos++] + state->rand) % state->count;
 }
 
+/* Swap two freelist entries */
+static void swap_free_obj(struct page *page, unsigned int a, unsigned int b)
+{
+	swap(((freelist_idx_t *)page->freelist)[a],
+		((freelist_idx_t *)page->freelist)[b]);
+}
+
 /*
  * Shuffle the freelist initialization state based on pre-computed lists.
  * return true if the list was successfully shuffled, false otherwise.
  */
 static bool shuffle_freelist(struct kmem_cache *cachep, struct page *page)
 {
-	unsigned int objfreelist = 0, i, count = cachep->num;
+	unsigned int objfreelist = 0, i, rand, count = cachep->num;
 	union freelist_init_state state;
 	bool precomputed;
 
@@ -2614,7 +2566,15 @@ static bool shuffle_freelist(struct kmem_cache *cachep, struct page *page)
 	 * Later use a pre-computed list for speed.
 	 */
 	if (!precomputed) {
-		freelist_randomize(&state.rnd_state, page->freelist, count);
+		for (i = 0; i < count; i++)
+			set_free_obj(page, i, i);
+
+		/* Fisher-Yates shuffle */
+		for (i = count - 1; i > 0; i--) {
+			rand = prandom_u32_state(&state.rnd_state);
+			rand %= (i + 1);
+			swap_free_obj(page, i, rand);
+		}
 	} else {
 		for (i = 0; i < count; i++)
 			set_free_obj(page, i, next_random_slot(&state));
@@ -2651,9 +2611,11 @@ static void cache_init_objs(struct kmem_cache *cachep,
 	}
 
 	for (i = 0; i < cachep->num; i++) {
+		objp = index_to_obj(cachep, page, i);
+		kasan_init_slab_obj(cachep, objp);
+
 		/* constructor could break poison info */
 		if (DEBUG == 0 && cachep->ctor) {
-			objp = index_to_obj(cachep, page, i);
 			kasan_unpoison_object_data(cachep, objp);
 			cachep->ctor(objp);
 			kasan_poison_object_data(cachep, objp);
@@ -2733,8 +2695,11 @@ static struct page *cache_grow_begin(struct kmem_cache *cachep,
 	 * critical path in kmem_cache_alloc().
 	 */
 	if (unlikely(flags & GFP_SLAB_BUG_MASK)) {
-		pr_emerg("gfp: %u\n", flags & GFP_SLAB_BUG_MASK);
-		BUG();
+		gfp_t invalid_mask = flags & GFP_SLAB_BUG_MASK;
+		flags &= ~GFP_SLAB_BUG_MASK;
+		pr_warn("Unexpected gfp: %#x (%pGg). Fixing up to gfp: %#x (%pGg). Fix your code!\n",
+				invalid_mask, &invalid_mask, flags, &flags);
+		dump_stack();
 	}
 	local_flags = flags & (GFP_CONSTRAINT_MASK|GFP_RECLAIM_MASK);
 
@@ -3496,8 +3461,7 @@ static void free_block(struct kmem_cache *cachep, void **objpp,
 		n->free_objects -= cachep->num;
 
 		page = list_last_entry(&n->slabs_free, struct page, lru);
-		list_del(&page->lru);
-		list_add(&page->lru, list);
+		list_move(&page->lru, list);
 	}
 }
 
@@ -4001,7 +3965,7 @@ static int enable_cpucache(struct kmem_cache *cachep, gfp_t gfp)
 	int shared = 0;
 	int batchcount = 0;
 
-	err = cache_random_seq_create(cachep, gfp);
+	err = cache_random_seq_create(cachep, cachep->num, gfp);
 	if (err)
 		goto end;
 
@@ -4510,7 +4474,6 @@ module_init(slab_proc_init);
 bool is_usercopy_object(const void *ptr)
 {
 	struct page *page;
-	struct kmem_cache *cachep;
 
 	if (ZERO_OR_NULL_PTR(ptr))
 		return false;
@@ -4537,42 +4500,44 @@ bool is_usercopy_object(const void *ptr)
 	if (!PageSlab(page))
 		return false;
 
-	cachep = page->slab_cache;
-	return cachep->flags & SLAB_USERCOPY;
+	return !!page->slab_cache->usersize;
 }
 
-#ifdef CONFIG_PAX_USERCOPY
-const char *check_heap_object(const void *ptr, unsigned long n)
+#ifdef CONFIG_HARDENED_USERCOPY
+/*
+ * Detect unwanted object access
+ *
+ * Returns NULL if check passes, otherwise const char * to name of cache
+ * to indicate an error.
+ */
+const char *__check_heap_object(const void *ptr, unsigned long n,
+				struct page *page)
 {
-	struct page *page;
 	struct kmem_cache *cachep;
 	unsigned int objnr;
 	unsigned long offset;
 
-	if (ZERO_OR_NULL_PTR(ptr))
-		return "<null>";
-
-	if (!virt_addr_valid(ptr))
-		return NULL;
-
-	page = virt_to_head_page(ptr);
-
-	if (!PageSlab(page))
-		return NULL;
-
+	/* Find and validate object. */
 	cachep = page->slab_cache;
-	if (!(cachep->flags & SLAB_USERCOPY))
-		return cachep->name;
 
 	objnr = obj_to_index(cachep, page, ptr);
 	BUG_ON(objnr >= cachep->num);
-	offset = ptr - index_to_obj(cachep, page, objnr) - obj_offset(cachep);
-	if (offset <= cachep->object_size && n <= cachep->object_size - offset)
-		return NULL;
 
-	return cachep->name;
+	/* Find offset within object. */
+	offset = ptr - index_to_obj(cachep, page, objnr) - obj_offset(cachep);
+
+	if (offset < s->useroffset)
+		return s->name;
+
+	if (offset - s->useroffset >= s->usersize)
+		return s->name;
+
+	if (n > s->useroffset - offset + s->usersize)
+		return s->name;
+
+	return NULL;
 }
-#endif
+#endif /* CONFIG_HARDENED_USERCOPY */
 
 /**
  * ksize - get the actual amount of memory allocated for a given object

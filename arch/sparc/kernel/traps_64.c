@@ -102,7 +102,7 @@ void bad_trap(struct pt_regs *regs, long lvl)
 
 #ifdef CONFIG_PAX_REFCOUNT
 		if (lvl == 6)
-			pax_report_refcount_overflow(regs);
+			pax_report_refcount_error(regs, NULL);
 #endif
 
 		sprintf(buffer, "Kernel bad sw trap %lx", lvl);
@@ -130,7 +130,7 @@ void bad_trap_tl1(struct pt_regs *regs, long lvl)
 
 #ifdef CONFIG_PAX_REFCOUNT
 	if (lvl == 6)
-		pax_report_refcount_overflow(regs);
+		pax_report_refcount_error(regs, NULL);
 #endif
 
 	dump_tl1_traplog((struct tl1_traplog *)(regs + 1));

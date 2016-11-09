@@ -7,7 +7,8 @@
 #include <linux/prctl.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
-#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/export.h>
 #include <linux/pm.h>
 #include <linux/tick.h>
 #include <linux/random.h>
@@ -90,8 +91,8 @@ void __init arch_task_cache_init(void)
 {
 	/* create a slab on which task_structs can be allocated */
 	fpregs_state_cachep =
-		kmem_cache_create("fpregs_state", xstate_size,
-			ARCH_MIN_TASKALIGN, SLAB_PANIC | SLAB_NOTRACK | SLAB_USERCOPY, NULL);
+		kmem_cache_create_usercopy("fpregs_state", fpu_kernel_xstate_size,
+			ARCH_MIN_TASKALIGN, SLAB_PANIC | SLAB_NOTRACK, 0, fpu_kernel_xstate_size, NULL);
 }
 
 /*
@@ -102,7 +103,7 @@ int arch_dup_task_struct(struct task_struct *dst, struct task_struct *src)
 {
 	*dst = *src;
 	dst->thread.fpu.state = kmem_cache_alloc_node(fpregs_state_cachep, GFP_KERNEL, tsk_fork_get_node(src));
-	memcpy(dst->thread.fpu.state, src->thread.fpu.state, xstate_size);
+	memcpy(dst->thread.fpu.state, src->thread.fpu.state, fpu_kernel_xstate_size);
 #ifdef CONFIG_VM86
 	dst->thread.vm86 = NULL;
 #endif
@@ -429,7 +430,7 @@ static int prefer_mwait_c1_over_halt(const struct cpuinfo_x86 *c)
 	if (c->x86_vendor != X86_VENDOR_INTEL)
 		return 0;
 
-	if (!cpu_has(c, X86_FEATURE_MWAIT))
+	if (!cpu_has(c, X86_FEATURE_MWAIT) || static_cpu_has_bug(X86_BUG_MONITOR))
 		return 0;
 
 	return 1;

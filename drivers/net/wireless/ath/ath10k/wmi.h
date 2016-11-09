@@ -180,6 +180,7 @@ enum wmi_service {
 	WMI_SERVICE_MESH_NON_11S,
 	WMI_SERVICE_PEER_STATS,
 	WMI_SERVICE_RESTRT_CHNL_SUPPORT,
+	WMI_SERVICE_PERIODIC_CHAN_STAT_SUPPORT,
 	WMI_SERVICE_TX_MODE_PUSH_ONLY,
 	WMI_SERVICE_TX_MODE_PUSH_PULL,
 	WMI_SERVICE_TX_MODE_DYNAMIC,
@@ -305,6 +306,7 @@ enum wmi_10_4_service {
 	WMI_10_4_SERVICE_RESTRT_CHNL_SUPPORT,
 	WMI_10_4_SERVICE_PEER_STATS,
 	WMI_10_4_SERVICE_MESH_11S,
+	WMI_10_4_SERVICE_PERIODIC_CHAN_STAT_SUPPORT,
 	WMI_10_4_SERVICE_TX_MODE_PUSH_ONLY,
 	WMI_10_4_SERVICE_TX_MODE_PUSH_PULL,
 	WMI_10_4_SERVICE_TX_MODE_DYNAMIC,
@@ -402,6 +404,7 @@ static inline char *wmi_service_name(int service_id)
 	SVCSTR(WMI_SERVICE_MESH_NON_11S);
 	SVCSTR(WMI_SERVICE_PEER_STATS);
 	SVCSTR(WMI_SERVICE_RESTRT_CHNL_SUPPORT);
+	SVCSTR(WMI_SERVICE_PERIODIC_CHAN_STAT_SUPPORT);
 	SVCSTR(WMI_SERVICE_TX_MODE_PUSH_ONLY);
 	SVCSTR(WMI_SERVICE_TX_MODE_PUSH_PULL);
 	SVCSTR(WMI_SERVICE_TX_MODE_DYNAMIC);
@@ -652,6 +655,8 @@ static inline void wmi_10_4_svc_map(const __le32 *in, unsigned long *out,
 	       WMI_SERVICE_PEER_STATS, len);
 	SVCMAP(WMI_10_4_SERVICE_MESH_11S,
 	       WMI_SERVICE_MESH_11S, len);
+	SVCMAP(WMI_10_4_SERVICE_PERIODIC_CHAN_STAT_SUPPORT,
+	       WMI_SERVICE_PERIODIC_CHAN_STAT_SUPPORT, len);
 	SVCMAP(WMI_10_4_SERVICE_TX_MODE_PUSH_ONLY,
 	       WMI_SERVICE_TX_MODE_PUSH_ONLY, len);
 	SVCMAP(WMI_10_4_SERVICE_TX_MODE_PUSH_PULL,
@@ -3447,6 +3452,7 @@ struct wmi_pdev_param_map {
 	u32 wapi_mbssid_offset;
 	u32 arp_srcaddr;
 	u32 arp_dstaddr;
+	u32 enable_btcoex;
 };
 
 #define WMI_PDEV_PARAM_UNSUPPORTED 0
@@ -3760,6 +3766,9 @@ enum wmi_10_4_pdev_param {
 	WMI_10_4_PDEV_PARAM_ATF_OBSS_NOISE_SCH,
 	WMI_10_4_PDEV_PARAM_ATF_OBSS_NOISE_SCALING_FACTOR,
 	WMI_10_4_PDEV_PARAM_CUST_TXPOWER_SCALE,
+	WMI_10_4_PDEV_PARAM_ATF_DYNAMIC_ENABLE,
+	WMI_10_4_PDEV_PARAM_ATF_SSID_GROUP_POLICY,
+	WMI_10_4_PDEV_PARAM_ENABLE_BTCOEX,
 };
 
 struct wmi_pdev_set_param_cmd {
@@ -4336,12 +4345,24 @@ struct wmi_10_4_peer_stats {
 } __packed;
 
 struct wmi_10_4_peer_extd_stats {
-	struct wmi_10_4_peer_stats common;
 	struct wmi_mac_addr peer_macaddr;
 	__le32 inactive_time;
 	__le32 peer_chain_rssi;
 	__le32 rx_duration;
 	__le32 reserved[10];
+} __packed;
+
+struct wmi_10_4_bss_bcn_stats {
+	__le32 vdev_id;
+	__le32 bss_bcns_dropped;
+	__le32 bss_bcn_delivered;
+} __packed;
+
+struct wmi_10_4_bss_bcn_filter_stats {
+	__le32 bcns_dropped;
+	__le32 bcns_delivered;
+	__le32 active_filters;
+	struct wmi_10_4_bss_bcn_stats bss_stats;
 } __packed;
 
 struct wmi_10_2_pdev_ext_stats {

@@ -22,13 +22,11 @@
  * Authors: Ben Skeggs
  */
 
-#include <linux/apple-gmux.h>
 #include <linux/console.h>
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/pm_runtime.h>
-#include <linux/vgaarb.h>
 #include <linux/vga_switcheroo.h>
 
 #include "drmP.h"
@@ -199,6 +197,7 @@ nouveau_accel_init(struct nouveau_drm *drm)
 		case KEPLER_CHANNEL_GPFIFO_A:
 		case KEPLER_CHANNEL_GPFIFO_B:
 		case MAXWELL_CHANNEL_GPFIFO_A:
+		case PASCAL_CHANNEL_GPFIFO_A:
 			ret = nvc0_fence_create(drm);
 			break;
 		default:
@@ -314,13 +313,7 @@ static int nouveau_drm_probe(struct pci_dev *pdev,
 	bool boot = false;
 	int ret;
 
-	/*
-	 * apple-gmux is needed on dual GPU MacBook Pro
-	 * to probe the panel if we're the inactive GPU.
-	 */
-	if (IS_ENABLED(CONFIG_VGA_ARB) && IS_ENABLED(CONFIG_VGA_SWITCHEROO) &&
-	    apple_gmux_present() && pdev != vga_default_device() &&
-	    !vga_switcheroo_handler_flags())
+	if (vga_switcheroo_client_probe_defer(pdev))
 		return -EPROBE_DEFER;
 
 	/* We need to check that the chipset is supported before booting
@@ -446,6 +439,11 @@ nouveau_drm_load(struct drm_device *dev, unsigned long flags)
 	nouveau_vga_init(drm);
 
 	if (drm->device.info.family >= NV_DEVICE_INFO_V0_TESLA) {
+		if (!nvxx_device(&drm->device)->mmu) {
+			ret = -ENOSYS;
+			goto fail_device;
+		}
+
 		ret = nvkm_vm_new(nvxx_device(&drm->device), 0, (1ULL << 40),
 				  0x1000, NULL, &drm->client.vm);
 		if (ret)
@@ -506,7 +504,11 @@ nouveau_drm_unload(struct drm_device *dev)
 {
 	struct nouveau_drm *drm = nouveau_drm(dev);
 
-	pm_runtime_get_sync(dev->dev);
+	if (nouveau_runtime_pm != 0) {
+		pm_runtime_get_sync(dev->dev);
+		pm_runtime_forbid(dev->dev);
+	}
+
 	nouveau_fbcon_fini(dev);
 	nouveau_accel_fini(drm);
 	nouveau_hwmon_fini(dev);
@@ -980,7 +982,7 @@ driver_pci = {
 	.gem_prime_vmap = nouveau_gem_prime_vmap,
 	.gem_prime_vunmap = nouveau_gem_prime_vunmap,
 
-	.gem_free_object = nouveau_gem_object_del,
+	.gem_free_object_unlocked = nouveau_gem_object_del,
 	.gem_open_object = nouveau_gem_object_open,
 	.gem_close_object = nouveau_gem_object_close,
 
@@ -1087,7 +1089,7 @@ nouveau_drm_init(void)
 {
 	pax_open_kernel();
 	driver_platform = driver_pci;
-	driver_platform.set_busid = drm_platform_set_busid;
+	driver_platform.set_busid = NULL;
 	pax_close_kernel();
 
 	nouveau_display_options();

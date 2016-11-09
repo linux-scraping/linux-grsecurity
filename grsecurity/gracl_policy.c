@@ -350,7 +350,7 @@ insert_name_entry(char *name, const u64 inode, const dev_t device, __u8 deleted)
 	struct name_entry **curr, *nentry;
 	struct inodev_entry *ientry;
 	unsigned int len = strlen(name);
-	unsigned int key = full_name_hash((const unsigned char *)name, len);
+	unsigned int key = full_name_hash(NULL, (const unsigned char *)name, len);
 	unsigned int index = key % polstate->name_set.n_size;
 
 	curr = &polstate->name_set.n_hash[index];

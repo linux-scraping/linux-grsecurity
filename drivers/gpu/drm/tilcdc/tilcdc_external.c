@@ -27,7 +27,7 @@ static const struct tilcdc_panel_info panel_info_tda998x = {
 		.raster_order           = 0,
 };
 
-static int tilcdc_external_mode_valid(struct drm_connector *connector,
+static enum drm_mode_status tilcdc_external_mode_valid(struct drm_connector *connector,
 				      struct drm_display_mode *mode)
 {
 	struct tilcdc_drm_private *priv = connector->dev->dev_private;

@@ -66,10 +66,6 @@ static int dummycon_scroll(struct vc_data *a, int b, int c, int d, int e)
     return 0;
 }
 
-static void dummycon_bmove(struct vc_data *a, int b, int c, int d, int e, int f, int g)
-{
-}
-
 static int dummycon_switch(struct vc_data *a)
 {
     return 0;
@@ -100,16 +96,6 @@ static int dummycon_font_copy(struct vc_data *a, int b)
     return 0;
 }
 
-static int dummycon_set_palette(struct vc_data *a, const unsigned char *b)
-{
-    return 0;
-}
-
-static int dummycon_scrolldelta(struct vc_data *a, int b)
-{
-    return 0;
-}
-
 /*
  *  The console `switch' structure for the dummy console
  *
@@ -126,14 +112,11 @@ const struct consw dummy_con = {
     .con_putcs =	dummycon_putcs,
     .con_cursor =	dummycon_cursor,
     .con_scroll =	dummycon_scroll,
-    .con_bmove =	dummycon_bmove,
     .con_switch =	dummycon_switch,
     .con_blank =	dummycon_blank,
     .con_font_set =	dummycon_font_set,
     .con_font_get =	dummycon_font_get,
     .con_font_default =	dummycon_font_default,
     .con_font_copy =	dummycon_font_copy,
-    .con_set_palette =	dummycon_set_palette,
-    .con_scrolldelta =	dummycon_scrolldelta,
 };
 EXPORT_SYMBOL_GPL(dummy_con);

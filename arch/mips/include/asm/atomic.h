@@ -133,11 +133,9 @@ static inline void atomic_##op##suffix(int i, atomic##suffix##_t * v)	      \
 			      __ATOMIC_OP(op, , asm_op, __OVERFLOW_EXTABLE)
 
 #define __ATOMIC_OP_RETURN(op, suffix, asm_op, post_op, extable)	      \
-static inline int atomic_##op##_return##suffix(int i, atomic##suffix##_t * v) \
+static inline int atomic_##op##_return##suffix##_relaxed(int i, atomic##suffix##_t * v) \
 {									      \
 	int result;							      \
-									      \
-	smp_mb__before_llsc();						      \
 									      \
 	if (kernel_uses_llsc && R10000_LLSC_WAR) {			      \
 		int temp;						      \
@@ -187,26 +185,87 @@ static inline int atomic_##op##_return##suffix(int i, atomic##suffix##_t * v) \
 		raw_local_irq_restore(flags);				      \
 	}								      \
 									      \
-	smp_llsc_mb();							      \
-									      \
 	return result;							      \
 }
 
 #define ATOMIC_OP_RETURN(op, asm_op) __ATOMIC_OP_RETURN(op, _unchecked, asm_op##u, , )	\
 				     __ATOMIC_OP_RETURN(op, , asm_op, __OVERFLOW_POST, __OVERFLOW_EXTABLE)
 
-#define ATOMIC_OPS(op, asm_op)						      \
-	ATOMIC_OP(op, asm_op)						      \
-	ATOMIC_OP_RETURN(op, asm_op)
+#define ATOMIC_FETCH_OP(op, c_op, asm_op)				      \
+static __inline__ int atomic_fetch_##op##_relaxed(int i, atomic_t * v)	      \
+{									      \
+	int result;							      \
+									      \
+	if (kernel_uses_llsc && R10000_LLSC_WAR) {			      \
+		int temp;						      \
+									      \
+		__asm__ __volatile__(					      \
+		"	.set	arch=r4000				\n"   \
+		"1:	ll	%1, %2		# atomic_fetch_" #op "	\n"   \
+		"	" #asm_op " %0, %1, %3				\n"   \
+		"	sc	%0, %2					\n"   \
+		"	beqzl	%0, 1b					\n"   \
+		"	move	%0, %1					\n"   \
+		"	.set	mips0					\n"   \
+		: "=&r" (result), "=&r" (temp),				      \
+		  "+" GCC_OFF_SMALL_ASM() (v->counter)			      \
+		: "Ir" (i));						      \
+	} else if (kernel_uses_llsc) {					      \
+		int temp;						      \
+									      \
+		do {							      \
+			__asm__ __volatile__(				      \
+			"	.set	"MIPS_ISA_LEVEL"		\n"   \
+			"	ll	%1, %2	# atomic_fetch_" #op "	\n"   \
+			"	" #asm_op " %0, %1, %3			\n"   \
+			"	sc	%0, %2				\n"   \
+			"	.set	mips0				\n"   \
+			: "=&r" (result), "=&r" (temp),			      \
+			  "+" GCC_OFF_SMALL_ASM() (v->counter)		      \
+			: "Ir" (i));					      \
+		} while (unlikely(!result));				      \
+									      \
+		result = temp;						      \
+	} else {							      \
+		unsigned long flags;					      \
+									      \
+		raw_local_irq_save(flags);				      \
+		result = v->counter;					      \
+		v->counter c_op i;					      \
+		raw_local_irq_restore(flags);				      \
+	}								      \
+									      \
+	return result;							      \
+}
 
-ATOMIC_OPS(add, add)
-ATOMIC_OPS(sub, sub)
+#define ATOMIC_OPS(op, asm_op)					      \
+	ATOMIC_OP(op, asm_op)					      \
+	ATOMIC_OP_RETURN(op, asm_op)				      \
+	ATOMIC_FETCH_OP(op, asm_op)
 
-ATOMIC_OP(and, and)
-ATOMIC_OP(or, or)
-ATOMIC_OP(xor, xor)
+ATOMIC_OPS(add, addu)
+ATOMIC_OPS(sub, subu)
+
+#define atomic_add_return_relaxed	atomic_add_return_relaxed
+#define atomic_sub_return_relaxed	atomic_sub_return_relaxed
+#define atomic_fetch_add_relaxed	atomic_fetch_add_relaxed
+#define atomic_fetch_sub_relaxed	atomic_fetch_sub_relaxed
 
 #undef ATOMIC_OPS
+#define ATOMIC_OPS(op, asm_op)					      \
+	ATOMIC_OP(op, asm_op)					      \
+	ATOMIC_FETCH_OP(op, asm_op)
+
+ATOMIC_OPS(and, and)
+ATOMIC_OPS(or, or)
+ATOMIC_OPS(xor, xor)
+
+#define atomic_fetch_and_relaxed	atomic_fetch_and_relaxed
+#define atomic_fetch_or_relaxed		atomic_fetch_or_relaxed
+#define atomic_fetch_xor_relaxed	atomic_fetch_xor_relaxed
+
+#undef ATOMIC_OPS
+#undef ATOMIC_FETCH_OP
 #undef ATOMIC_OP_RETURN
 #undef __ATOMIC_OP_RETURN
 #undef ATOMIC_OP
@@ -486,11 +545,9 @@ static inline void atomic64_##op##suffix(long i, atomic64##suffix##_t * v)    \
 				__ATOMIC64_OP(op, , asm_op, __OVERFLOW_EXTABLE)
 
 #define __ATOMIC64_OP_RETURN(op, suffix, asm_op, post_op, extable)	      \
-static inline long atomic64_##op##_return##suffix(long i, atomic64##suffix##_t * v)\
+static inline long atomic64_##op##_return##suffix##_relaxed(long i, atomic64##suffix##_t * v)\
 {									      \
 	long result;							      \
-									      \
-	smp_mb__before_llsc();						      \
 									      \
 	if (kernel_uses_llsc && R10000_LLSC_WAR) {			      \
 		long temp;						      \
@@ -542,26 +599,88 @@ static inline long atomic64_##op##_return##suffix(long i, atomic64##suffix##_t *
 		raw_local_irq_restore(flags);				      \
 	}								      \
 									      \
-	smp_llsc_mb();							      \
-									      \
 	return result;							      \
 }
 
 #define ATOMIC64_OP_RETURN(op, asm_op) __ATOMIC64_OP_RETURN(op, _unchecked, asm_op##u, , )	\
 				       __ATOMIC64_OP_RETURN(op, , asm_op, __OVERFLOW_POST, __OVERFLOW_EXTABLE)
 
-#define ATOMIC64_OPS(op, asm_op)						\
-	ATOMIC64_OP(op, asm_op)							\
-	ATOMIC64_OP_RETURN(op, asm_op)
+#define ATOMIC64_FETCH_OP(op, c_op, asm_op)				      \
+static __inline__ long atomic64_fetch_##op##_relaxed(long i, atomic64_t * v)  \
+{									      \
+	long result;							      \
+									      \
+	if (kernel_uses_llsc && R10000_LLSC_WAR) {			      \
+		long temp;						      \
+									      \
+		__asm__ __volatile__(					      \
+		"	.set	arch=r4000				\n"   \
+		"1:	lld	%1, %2		# atomic64_fetch_" #op "\n"   \
+		"	" #asm_op " %0, %1, %3				\n"   \
+		"	scd	%0, %2					\n"   \
+		"	beqzl	%0, 1b					\n"   \
+		"	move	%0, %1					\n"   \
+		"	.set	mips0					\n"   \
+		: "=&r" (result), "=&r" (temp),				      \
+		  "+" GCC_OFF_SMALL_ASM() (v->counter)			      \
+		: "Ir" (i));						      \
+	} else if (kernel_uses_llsc) {					      \
+		long temp;						      \
+									      \
+		do {							      \
+			__asm__ __volatile__(				      \
+			"	.set	"MIPS_ISA_LEVEL"		\n"   \
+			"	lld	%1, %2	# atomic64_fetch_" #op "\n"   \
+			"	" #asm_op " %0, %1, %3			\n"   \
+			"	scd	%0, %2				\n"   \
+			"	.set	mips0				\n"   \
+			: "=&r" (result), "=&r" (temp),			      \
+			  "=" GCC_OFF_SMALL_ASM() (v->counter)		      \
+			: "Ir" (i), GCC_OFF_SMALL_ASM() (v->counter)	      \
+			: "memory");					      \
+		} while (unlikely(!result));				      \
+									      \
+		result = temp;						      \
+	} else {							      \
+		unsigned long flags;					      \
+									      \
+		raw_local_irq_save(flags);				      \
+		result = v->counter;					      \
+		v->counter c_op i;					      \
+		raw_local_irq_restore(flags);				      \
+	}								      \
+									      \
+	return result;							      \
+}
 
-ATOMIC64_OPS(add, dadd)
-ATOMIC64_OPS(sub, dsub)
+#define ATOMIC64_OPS(op, asm_op)					      \
+	ATOMIC64_OP(op, asm_op)					      \
+	ATOMIC64_OP_RETURN(op, asm_op)				      \
+	ATOMIC64_FETCH_OP(op, asm_op)
 
-ATOMIC64_OP(and, and)
-ATOMIC64_OP(or, or)
-ATOMIC64_OP(xor, xor)
+ATOMIC64_OPS(add, daddu)
+ATOMIC64_OPS(sub, dsubu)
+
+#define atomic64_add_return_relaxed	atomic64_add_return_relaxed
+#define atomic64_sub_return_relaxed	atomic64_sub_return_relaxed
+#define atomic64_fetch_add_relaxed	atomic64_fetch_add_relaxed
+#define atomic64_fetch_sub_relaxed	atomic64_fetch_sub_relaxed
 
 #undef ATOMIC64_OPS
+#define ATOMIC64_OPS(op, asm_op)					      \
+	ATOMIC64_OP(op, asm_op)					      \
+	ATOMIC64_FETCH_OP(op, asm_op)
+
+ATOMIC64_OPS(and, and)
+ATOMIC64_OPS(or, or)
+ATOMIC64_OPS(xor, xor)
+
+#define atomic64_fetch_and_relaxed	atomic64_fetch_and_relaxed
+#define atomic64_fetch_or_relaxed	atomic64_fetch_or_relaxed
+#define atomic64_fetch_xor_relaxed	atomic64_fetch_xor_relaxed
+
+#undef ATOMIC64_OPS
+#undef ATOMIC64_FETCH_OP
 #undef ATOMIC64_OP_RETURN
 #undef __ATOMIC64_OP_RETURN
 #undef ATOMIC64_OP

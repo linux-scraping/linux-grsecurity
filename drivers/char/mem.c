@@ -23,6 +23,7 @@
 #include <linux/device.h>
 #include <linux/highmem.h>
 #include <linux/backing-dev.h>
+#include <linux/shmem_fs.h>
 #include <linux/splice.h>
 #include <linux/pfn.h>
 #include <linux/export.h>
@@ -74,10 +75,6 @@ static inline int range_is_allowed(unsigned long pfn, unsigned long size)
 		if (!devmem_is_allowed(pfn)) {
 #ifdef CONFIG_GRKERNSEC_KMEM
 			gr_handle_mem_readwrite(from, to);
-#else
-			printk(KERN_INFO
-		"Program %s tried to access /dev/mem between %Lx->%Lx.\n",
-				current->comm, from, to);
 #endif
 			return 0;
 		}
@@ -115,6 +112,7 @@ static ssize_t read_mem(struct file *file, char __user *buf,
 	phys_addr_t p = *ppos;
 	ssize_t read, sz;
 	void *ptr;
+	char *temp;
 
 	if (p != *ppos)
 		return 0;
@@ -137,14 +135,19 @@ static ssize_t read_mem(struct file *file, char __user *buf,
 	}
 #endif
 
+	temp = kmalloc(PAGE_SIZE, GFP_KERNEL|GFP_USERCOPY);
+	if (!temp)
+		return -ENOMEM;
+
 	while (count > 0) {
-		unsigned long remaining = 0;
-		char *temp;
+		unsigned long remaining;
 
 		sz = size_inside_page(p, count);
 
-		if (!range_is_allowed(p >> PAGE_SHIFT, count))
+		if (!range_is_allowed(p >> PAGE_SHIFT, count)) {
+			kfree(temp);
 			return -EPERM;
+		}
 
 		/*
 		 * On ia64 if a page has been mapped somewhere as uncached, then
@@ -152,36 +155,25 @@ static ssize_t read_mem(struct file *file, char __user *buf,
 		 * corruption may occur.
 		 */
 		ptr = xlate_dev_mem_ptr(p);
-		if (!ptr)
+		if (!ptr || probe_kernel_read(temp, ptr, sz)) {
+			kfree(temp);
 			return -EFAULT;
-
-#ifdef CONFIG_PAX_USERCOPY
-		temp = kmalloc(sz, GFP_KERNEL|GFP_USERCOPY);
-		if (!temp) {
-			unxlate_dev_mem_ptr(p, ptr);
-			return -ENOMEM;
 		}
-		remaining = probe_kernel_read(temp, ptr, sz);
-#else
-		temp = ptr;
-#endif
 
-		if (!remaining)
-			remaining = copy_to_user(buf, temp, sz);
-
-#ifdef CONFIG_PAX_USERCOPY
-		kfree(temp);
-#endif
-
+		remaining = copy_to_user(buf, temp, sz);
 		unxlate_dev_mem_ptr(p, ptr);
-		if (remaining)
+		if (remaining) {
+			kfree(temp);
 			return -EFAULT;
+		}
 
 		buf += sz;
 		p += sz;
 		count -= sz;
 		read += sz;
 	}
+
+	kfree(temp);
 
 	*ppos += read;
 	return read;
@@ -412,11 +404,14 @@ static ssize_t read_kmem(struct file *file, char __user *buf,
 			 size_t count, loff_t *ppos)
 {
 	unsigned long p = *ppos;
-	ssize_t low_count, read, sz, err = 0;
+	ssize_t low_count, read, sz;
 	char *kbuf; /* k-addr because vread() takes vmlist_lock rwlock */
+	int err = 0;
 
 	read = 0;
 	if (p < (unsigned long) high_memory) {
+		char *temp;
+
 		low_count = count;
 		if (count > (unsigned long)high_memory - p)
 			low_count = (unsigned long)high_memory - p;
@@ -434,9 +429,12 @@ static ssize_t read_kmem(struct file *file, char __user *buf,
 			count -= sz;
 		}
 #endif
-		while (low_count > 0) {
-			char *temp;
 
+		temp = kmalloc(PAGE_SIZE, GFP_KERNEL|GFP_USERCOPY);
+		if (!temp)
+			return -ENOMEM;
+
+		while (low_count > 0) {
 			sz = size_inside_page(p, low_count);
 
 			/*
@@ -446,30 +444,18 @@ static ssize_t read_kmem(struct file *file, char __user *buf,
 			 */
 			kbuf = xlate_dev_kmem_ptr((void *)p);
 
-#ifdef CONFIG_PAX_USERCOPY
-			temp = kmalloc(sz, GFP_KERNEL|GFP_USERCOPY);
-			if (!temp)
-				return -ENOMEM;
-			err = probe_kernel_read(temp, kbuf, sz);
-#else
-			temp = kbuf;
-#endif
-
-			if (!err)
-				err = copy_to_user(buf, temp, sz);
-
-#ifdef CONFIG_PAX_USERCOPY
-			kfree(temp);
-#endif
-
-			if (err)
+			if (probe_kernel_read(temp, kbuf, sz) || copy_to_user(buf, temp, sz)) {
+				kfree(temp);
 				return -EFAULT;
+			}
 			buf += sz;
 			p += sz;
 			read += sz;
 			low_count -= sz;
 			count -= sz;
 		}
+
+		kfree(temp);
 	}
 
 	if (count > 0) {
@@ -710,6 +696,28 @@ static int mmap_zero(struct file *file, struct vm_area_struct *vma)
 	return 0;
 }
 
+static unsigned long get_unmapped_area_zero(struct file *file,
+				unsigned long addr, unsigned long len,
+				unsigned long pgoff, unsigned long flags)
+{
+#ifdef CONFIG_MMU
+	if (flags & MAP_SHARED) {
+		/*
+		 * mmap_zero() will call shmem_zero_setup() to create a file,
+		 * so use shmem's get_unmapped_area in case it can be huge;
+		 * and pass NULL for file as in mmap.c's get_unmapped_area(),
+		 * so as not to confuse shmem with our handle on "/dev/zero".
+		 */
+		return shmem_get_unmapped_area(NULL, addr, len, pgoff, flags);
+	}
+
+	/* Otherwise flags & MAP_PRIVATE: with no shmem object beneath it */
+	return current->mm->get_unmapped_area(file, addr, len, pgoff, flags);
+#else
+	return -ENOSYS;
+#endif
+}
+
 static ssize_t write_full(struct file *file, const char __user *buf,
 			  size_t count, loff_t *ppos)
 {
@@ -817,6 +825,7 @@ static const struct file_operations zero_fops = {
 	.read_iter	= read_iter_zero,
 	.write_iter	= write_iter_zero,
 	.mmap		= mmap_zero,
+	.get_unmapped_area = get_unmapped_area_zero,
 #ifndef CONFIG_MMU
 	.mmap_capabilities = zero_mmap_capabilities,
 #endif

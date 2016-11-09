@@ -31,9 +31,11 @@ void common(void) {
 	BLANK();
 	OFFSET(TI_flags, thread_info, flags);
 	OFFSET(TI_status, thread_info, status);
-	OFFSET(TI_addr_limit, thread_info, addr_limit);
 	OFFSET(TI_lowest_stack, thread_info, lowest_stack);
 	DEFINE(TI_task_thread_sp0, offsetof(struct task_struct, thread.sp0) - offsetof(struct task_struct, tinfo));
+
+	BLANK();
+	OFFSET(TASK_addr_limit, task_struct, tinfo.addr_limit);
 
 	BLANK();
 	OFFSET(crypto_tfm_ctx_offset, crypto_tfm, __crt_ctx);

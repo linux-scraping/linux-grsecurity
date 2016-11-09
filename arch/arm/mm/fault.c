@@ -276,7 +276,7 @@ good_area:
 		goto out;
 	}
 
-	return handle_mm_fault(mm, vma, addr & PAGE_MASK, flags);
+	return handle_mm_fault(vma, addr & PAGE_MASK, flags);
 
 check_stack:
 	/* Don't allow expansion below FIRST_USER_ADDRESS */
@@ -748,7 +748,7 @@ do_PrefetchAbort(unsigned long addr, unsigned int ifsr, struct pt_regs *regs)
 #endif
 			current->thread.error_code = ifsr;
 			current->thread.trap_no = 0;
-			pax_report_refcount_overflow(regs);
+			pax_report_refcount_error(regs, NULL);
 			fixup_exception(regs);
 			return;
 		}

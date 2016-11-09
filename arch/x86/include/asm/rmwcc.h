@@ -1,38 +1,25 @@
 #ifndef _ASM_X86_RMWcc
 #define _ASM_X86_RMWcc
 
-#ifdef CC_HAVE_ASM_GOTO
+#if !defined(__GCC_ASM_FLAG_OUTPUTS__) && defined(CC_HAVE_ASM_GOTO)
 
-#ifdef CONFIG_PAX_REFCOUNT
-#define __GEN_RMWcc(fullop, fullantiop, var, cc, ...)			\
+/* Use asm goto */
+
+#define __GEN_RMWcc(fullop, var, size, cc, ...)				\
 do {									\
 	asm_volatile_goto (fullop					\
-			";jno 0f\n"					\
-			fullantiop					\
-			";int $4\n0:\n"					\
-			_ASM_EXTABLE(0b, 0b)				\
-			 ";j" cc " %l[cc_label]"			\
-			: : "m" (var), ## __VA_ARGS__ 			\
-			: "memory" : cc_label);				\
+			"\n\t"__PAX_REFCOUNT(size)			\
+			";j" #cc " %l[cc_label]"			\
+			: : [counter] "m" (var), ## __VA_ARGS__ 	\
+			: "memory", "cc", "cx" : cc_label);		\
 	return 0;							\
 cc_label:								\
 	return 1;							\
 } while (0)
-#else
-#define __GEN_RMWcc(fullop, fullantiop, var, cc, ...)			\
-do {									\
-	asm_volatile_goto (fullop ";j" cc " %l[cc_label]"		\
-			: : "m" (var), ## __VA_ARGS__ 			\
-			: "memory" : cc_label);				\
-	return 0;							\
-cc_label:								\
-	return 1;							\
-} while (0)
-#endif
 
 #define __GEN_RMWcc_unchecked(fullop, var, cc, ...)			\
 do {									\
-	asm_volatile_goto (fullop "; j" cc " %l[cc_label]"		\
+	asm_volatile_goto (fullop "; j" #cc " %l[cc_label]"		\
 			: : "m" (var), ## __VA_ARGS__ 			\
 			: "memory" : cc_label);				\
 	return 0;							\
@@ -40,66 +27,54 @@ cc_label:								\
 	return 1;							\
 } while (0)
 
-#define GEN_UNARY_RMWcc(op, antiop, var, arg0, cc) 			\
-	__GEN_RMWcc(op " " arg0, antiop " " arg0, var, cc)
+#define GEN_UNARY_RMWcc(op, var, size, arg0, cc) 			\
+	__GEN_RMWcc(op " " arg0, var, size, cc)
 
 #define GEN_UNARY_RMWcc_unchecked(op, var, arg0, cc) 			\
 	__GEN_RMWcc_unchecked(op " " arg0, var, cc)
 
-#define GEN_BINARY_RMWcc(op, antiop, var, vcon, val, arg0, cc)		\
-	__GEN_RMWcc(op " %1, " arg0, antiop " %1, " arg0, var, cc, vcon (val))
+#define GEN_BINARY_RMWcc(op, var, size, vcon, val, arg0, cc)		\
+	__GEN_RMWcc(op " %1, " arg0, var, size, cc, vcon (val))
 
 #define GEN_BINARY_RMWcc_unchecked(op, var, vcon, val, arg0, cc)	\
 	__GEN_RMWcc_unchecked(op " %1, " arg0, var, cc, vcon (val))
 
-#else /* !CC_HAVE_ASM_GOTO */
+#else /* defined(__GCC_ASM_FLAG_OUTPUTS__) || !defined(CC_HAVE_ASM_GOTO) */
 
-#ifdef CONFIG_PAX_REFCOUNT
-#define __GEN_RMWcc(fullop, fullantiop, var, cc, ...)			\
+/* Use flags output or a set instruction */
+
+#define __GEN_RMWcc(fullop, var, size, cc, ...)				\
 do {									\
-	char c;								\
+	bool c;								\
 	asm volatile (fullop 						\
-			";jno 0f\n"					\
-			fullantiop					\
-			";int $4\n0:\n"					\
-			_ASM_EXTABLE(0b, 0b)				\
-			"; set" cc " %1"				\
-			: "+m" (var), "=qm" (c)				\
-			: __VA_ARGS__ : "memory");			\
+			"\n\t"__PAX_REFCOUNT(size)			\
+			";" CC_SET(cc)					\
+			: [counter] "+m" (var), CC_OUT(cc) (c)		\
+			: __VA_ARGS__ : "memory", "cc", "cx");		\
 	return c != 0;							\
 } while (0)
-#else
-#define __GEN_RMWcc(fullop, fullantiop, var, cc, ...)			\
-do {									\
-	char c;								\
-	asm volatile (fullop "; set" cc " %1"				\
-			: "+m" (var), "=qm" (c)				\
-			: __VA_ARGS__ : "memory");			\
-	return c != 0;							\
-} while (0)
-#endif
 
 #define __GEN_RMWcc_unchecked(fullop, var, cc, ...)			\
 do {									\
-	char c;								\
-	asm volatile (fullop "; set" cc " %1"				\
-			: "+m" (var), "=qm" (c)				\
+	bool c;								\
+	asm volatile (fullop ";" CC_SET(cc)				\
+			: "+m" (var), CC_OUT(cc) (c)			\
 			: __VA_ARGS__ : "memory");			\
-	return c != 0;							\
+	return c;							\
 } while (0)
 
-#define GEN_UNARY_RMWcc(op, antiop, var, arg0, cc)			\
-	__GEN_RMWcc(op " " arg0, antiop " " arg0, var, cc)
+#define GEN_UNARY_RMWcc(op, var, size, arg0, cc)			\
+	__GEN_RMWcc(op " " arg0, var, size, cc)
 
 #define GEN_UNARY_RMWcc_unchecked(op, var, arg0, cc)			\
 	__GEN_RMWcc_unchecked(op " " arg0, var, cc)
 
-#define GEN_BINARY_RMWcc(op, antiop, var, vcon, val, arg0, cc)		\
-	__GEN_RMWcc(op " %2, " arg0, antiop " %2, " arg0, var, cc, vcon (val))
+#define GEN_BINARY_RMWcc(op, var, size, vcon, val, arg0, cc)		\
+	__GEN_RMWcc(op " %2, " arg0, var, size, cc, vcon (val))
 
 #define GEN_BINARY_RMWcc_unchecked(op, var, vcon, val, arg0, cc)	\
 	__GEN_RMWcc_unchecked(op " %2, " arg0, var, cc, vcon (val))
 
-#endif /* CC_HAVE_ASM_GOTO */
+#endif /* defined(__GCC_ASM_FLAG_OUTPUTS__) || !defined(CC_HAVE_ASM_GOTO) */
 
 #endif /* _ASM_X86_RMWcc */

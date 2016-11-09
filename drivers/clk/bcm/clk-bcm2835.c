@@ -1006,15 +1006,27 @@ static int bcm2835_clock_set_rate(struct clk_hw *hw,
 	return 0;
 }
 
+static bool
+bcm2835_clk_is_pllc(struct clk_hw *hw)
+{
+	if (!hw)
+		return false;
+
+	return strncmp(clk_hw_get_name(hw), "pllc", 4) == 0;
+}
+
 static int bcm2835_clock_determine_rate(struct clk_hw *hw,
 					struct clk_rate_request *req)
 {
 	struct bcm2835_clock *clock = bcm2835_clock_from_hw(hw);
 	struct clk_hw *parent, *best_parent = NULL;
+	bool current_parent_is_pllc;
 	unsigned long rate, best_rate = 0;
 	unsigned long prate, best_prate = 0;
 	size_t i;
 	u32 div;
+
+	current_parent_is_pllc = bcm2835_clk_is_pllc(clk_hw_get_parent(hw));
 
 	/*
 	 * Select parent clock that results in the closest but lower rate
@@ -1023,6 +1035,17 @@ static int bcm2835_clock_determine_rate(struct clk_hw *hw,
 		parent = clk_hw_get_parent_by_index(hw, i);
 		if (!parent)
 			continue;
+
+		/*
+		 * Don't choose a PLLC-derived clock as our parent
+		 * unless it had been manually set that way.  PLLC's
+		 * frequency gets adjusted by the firmware due to
+		 * over-temp or under-voltage conditions, without
+		 * prior notification to our clock consumer.
+		 */
+		if (bcm2835_clk_is_pllc(parent) && !current_parent_is_pllc)
+			continue;
+
 		prate = clk_hw_get_rate(parent);
 		div = bcm2835_clock_choose_div(hw, req->rate, prate, true);
 		rate = bcm2835_clock_rate_from_divisor(clock, prate, div);
@@ -1122,8 +1145,9 @@ static const struct clk_ops bcm2835_vpu_clock_clk_ops = {
 };
 
 static struct clk *bcm2835_register_pll(struct bcm2835_cprman *cprman,
-					const struct bcm2835_pll_data *data)
+					const void *_data)
 {
+	const struct bcm2835_pll_data *data = _data;
 	struct bcm2835_pll *pll;
 	struct clk_init_data init;
 
@@ -1149,8 +1173,9 @@ static struct clk *bcm2835_register_pll(struct bcm2835_cprman *cprman,
 
 static struct clk *
 bcm2835_register_pll_divider(struct bcm2835_cprman *cprman,
-			     const struct bcm2835_pll_divider_data *data)
+			     const void *_data)
 {
+	const struct bcm2835_pll_divider_data *data = _data;
 	struct bcm2835_pll_divider *divider;
 	struct clk_init_data init;
 	struct clk *clk;
@@ -1208,8 +1233,9 @@ bcm2835_register_pll_divider(struct bcm2835_cprman *cprman,
 }
 
 static struct clk *bcm2835_register_clock(struct bcm2835_cprman *cprman,
-					  const struct bcm2835_clock_data *data)
+					  const void *_data)
 {
+	const struct bcm2835_clock_data *data = _data;
 	struct bcm2835_clock *clock;
 	struct clk_init_data init;
 	const char *parents[1 << CM_SRC_BITS];
@@ -1251,8 +1277,10 @@ static struct clk *bcm2835_register_clock(struct bcm2835_cprman *cprman,
 }
 
 static struct clk *bcm2835_register_gate(struct bcm2835_cprman *cprman,
-					 const struct bcm2835_gate_data *data)
+					 const void *_data)
 {
+	const struct bcm2835_gate_data *data = _data;
+
 	return clk_register_gate(cprman->dev, data->name, data->parent,
 				 CLK_IGNORE_UNUSED | CLK_SET_RATE_GATE,
 				 cprman->regs + data->ctl_reg,
@@ -1267,8 +1295,7 @@ struct bcm2835_clk_desc {
 };
 
 /* assignment helper macros for different clock types */
-#define _REGISTER(f, ...) { .clk_register = (bcm2835_clk_register)f, \
-			    .data = __VA_ARGS__ }
+#define _REGISTER(f, ...) { .clk_register = f, .data = __VA_ARGS__ }
 #define REGISTER_PLL(...)	_REGISTER(&bcm2835_register_pll,	\
 					  &(struct bcm2835_pll_data)	\
 					  {__VA_ARGS__})

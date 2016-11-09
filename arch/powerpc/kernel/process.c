@@ -58,6 +58,7 @@
 #include <asm/code-patching.h>
 #include <asm/exec.h>
 #include <asm/livepatch.h>
+#include <asm/cpu_has_feature.h>
 
 #include <linux/kprobes.h>
 #include <linux/kdebug.h>
@@ -87,7 +88,13 @@ static void check_if_tm_restore_required(struct task_struct *tsk)
 		set_thread_flag(TIF_RESTORE_TM);
 	}
 }
+
+static inline bool msr_tm_active(unsigned long msr)
+{
+	return MSR_TM_ACTIVE(msr);
+}
 #else
+static inline bool msr_tm_active(unsigned long msr) { return false; }
 static inline void check_if_tm_restore_required(struct task_struct *tsk) { }
 #endif /* CONFIG_PPC_TRANSACTIONAL_MEM */
 
@@ -139,12 +146,16 @@ EXPORT_SYMBOL(__msr_check_and_clear);
 #ifdef CONFIG_PPC_FPU
 void __giveup_fpu(struct task_struct *tsk)
 {
+	unsigned long msr;
+
 	save_fpu(tsk);
-	tsk->thread.regs->msr &= ~MSR_FP;
+	msr = tsk->thread.regs->msr;
+	msr &= ~MSR_FP;
 #ifdef CONFIG_VSX
 	if (cpu_has_feature(CPU_FTR_VSX))
-		tsk->thread.regs->msr &= ~MSR_VSX;
+		msr &= ~MSR_VSX;
 #endif
+	tsk->thread.regs->msr = msr;
 }
 
 void giveup_fpu(struct task_struct *tsk)
@@ -203,7 +214,7 @@ void enable_kernel_fp(void)
 EXPORT_SYMBOL(enable_kernel_fp);
 
 static int restore_fp(struct task_struct *tsk) {
-	if (tsk->thread.load_fp) {
+	if (tsk->thread.load_fp || msr_tm_active(tsk->thread.regs->msr)) {
 		load_fp_state(&current->thread.fp_state);
 		current->thread.load_fp++;
 		return 1;
@@ -219,12 +230,16 @@ static int restore_fp(struct task_struct *tsk) { return 0; }
 
 static void __giveup_altivec(struct task_struct *tsk)
 {
+	unsigned long msr;
+
 	save_altivec(tsk);
-	tsk->thread.regs->msr &= ~MSR_VEC;
+	msr = tsk->thread.regs->msr;
+	msr &= ~MSR_VEC;
 #ifdef CONFIG_VSX
 	if (cpu_has_feature(CPU_FTR_VSX))
-		tsk->thread.regs->msr &= ~MSR_VSX;
+		msr &= ~MSR_VSX;
 #endif
+	tsk->thread.regs->msr = msr;
 }
 
 void giveup_altivec(struct task_struct *tsk)
@@ -269,7 +284,8 @@ EXPORT_SYMBOL_GPL(flush_altivec_to_thread);
 
 static int restore_altivec(struct task_struct *tsk)
 {
-	if (cpu_has_feature(CPU_FTR_ALTIVEC) && tsk->thread.load_vec) {
+	if (cpu_has_feature(CPU_FTR_ALTIVEC) &&
+		(tsk->thread.load_vec || msr_tm_active(tsk->thread.regs->msr))) {
 		load_vr_state(&tsk->thread.vr_state);
 		tsk->thread.used_vr = 1;
 		tsk->thread.load_vec++;
@@ -429,6 +445,7 @@ void giveup_all(struct task_struct *tsk)
 		return;
 
 	msr_check_and_set(msr_all_available);
+	check_if_tm_restore_required(tsk);
 
 #ifdef CONFIG_PPC_FPU
 	if (usermsr & MSR_FP)
@@ -455,7 +472,8 @@ void restore_math(struct pt_regs *regs)
 {
 	unsigned long msr;
 
-	if (!current->thread.load_fp && !loadvec(current->thread))
+	if (!msr_tm_active(regs->msr) &&
+		!current->thread.load_fp && !loadvec(current->thread))
 		return;
 
 	msr = regs->msr;
@@ -794,7 +812,7 @@ static void tm_reclaim_thread(struct thread_struct *thr,
 	 * this state.
 	 * We do this using the current MSR, rather tracking it in
 	 * some specific thread_struct bit, as it has the additional
-	 * benifit of checking for a potential TM bad thing exception.
+	 * benefit of checking for a potential TM bad thing exception.
 	 */
 	if (!MSR_TM_SUSPENDED(mfmsr()))
 		return;
@@ -974,6 +992,13 @@ void restore_tm_state(struct pt_regs *regs)
 	msr_diff = current->thread.ckpt_regs.msr & ~regs->msr;
 	msr_diff &= MSR_FP | MSR_VEC | MSR_VSX;
 
+	/* Ensure that restore_math() will restore */
+	if (msr_diff & MSR_FP)
+		current->thread.load_fp = 1;
+#ifdef CONFIG_ALIVEC
+	if (cpu_has_feature(CPU_FTR_ALTIVEC) && msr_diff & MSR_VEC)
+		current->thread.load_vec = 1;
+#endif
 	restore_math(regs);
 
 	regs->msr |= msr_diff;
@@ -1009,6 +1034,14 @@ static inline void save_sprs(struct thread_struct *t)
 		 */
 		t->tar = mfspr(SPRN_TAR);
 	}
+
+	if (cpu_has_feature(CPU_FTR_ARCH_300)) {
+		/* Conditionally save Load Monitor registers, if enabled */
+		if (t->fscr & FSCR_LM) {
+			t->lmrr = mfspr(SPRN_LMRR);
+			t->lmser = mfspr(SPRN_LMSER);
+		}
+	}
 #endif
 }
 
@@ -1023,18 +1056,11 @@ static inline void restore_sprs(struct thread_struct *old_thread,
 #ifdef CONFIG_PPC_BOOK3S_64
 	if (cpu_has_feature(CPU_FTR_DSCR)) {
 		u64 dscr = get_paca()->dscr_default;
-		u64 fscr = old_thread->fscr & ~FSCR_DSCR;
-
-		if (new_thread->dscr_inherit) {
+		if (new_thread->dscr_inherit)
 			dscr = new_thread->dscr;
-			fscr |= FSCR_DSCR;
-		}
 
 		if (old_thread->dscr != dscr)
 			mtspr(SPRN_DSCR, dscr);
-
-		if (old_thread->fscr != fscr)
-			mtspr(SPRN_FSCR, fscr);
 	}
 
 	if (cpu_has_feature(CPU_FTR_ARCH_207S)) {
@@ -1045,8 +1071,21 @@ static inline void restore_sprs(struct thread_struct *old_thread,
 		if (old_thread->ebbrr != new_thread->ebbrr)
 			mtspr(SPRN_EBBRR, new_thread->ebbrr);
 
+		if (old_thread->fscr != new_thread->fscr)
+			mtspr(SPRN_FSCR, new_thread->fscr);
+
 		if (old_thread->tar != new_thread->tar)
 			mtspr(SPRN_TAR, new_thread->tar);
+	}
+
+	if (cpu_has_feature(CPU_FTR_ARCH_300)) {
+		/* Conditionally restore Load Monitor registers, if enabled */
+		if (new_thread->fscr & FSCR_LM) {
+			if (old_thread->lmrr != new_thread->lmrr)
+				mtspr(SPRN_LMRR, new_thread->lmrr);
+			if (old_thread->lmser != new_thread->lmser)
+				mtspr(SPRN_LMSER, new_thread->lmser);
+		}
 	}
 #endif
 }

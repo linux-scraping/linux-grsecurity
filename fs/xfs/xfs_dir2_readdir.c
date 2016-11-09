@@ -140,12 +140,7 @@ xfs_dir2_sf_getdents(
 		ino = dp->d_ops->sf_get_ino(sfp, sfep);
 		filetype = dp->d_ops->sf_get_ftype(sfep);
 		ctx->pos = off & 0x7fffffff;
-		if (dp->i_df.if_u1.if_data == dp->i_df.if_u2.if_inline_data) {
-			char name[sfep->namelen];
-			memcpy(name, sfep->name, sfep->namelen);
-			if (!dir_emit(ctx, name, sfep->namelen, ino, xfs_dir3_get_dtype(dp->i_mount, filetype)))
-				return 0;
-		} else if (!dir_emit(ctx, (char *)sfep->name, sfep->namelen, ino,
+		if (!dir_emit(ctx, (char *)sfep->name, sfep->namelen, ino,
 			    xfs_dir3_get_dtype(dp->i_mount, filetype)))
 			return 0;
 		sfep = dp->d_ops->sf_nextentry(sfp, sfep);

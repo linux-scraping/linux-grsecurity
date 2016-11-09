@@ -10,6 +10,7 @@
  */
 
 #include <linux/linkage.h>
+#include <asm/irq_vectors.h>
 #include <asm/alternative-asm.h>
 
 .macro read64 reg
@@ -83,11 +84,11 @@ ENTRY(atomic64_\func\()_return\unchecked\()_cx8)
 	\insc\()l %edi, %ecx
 
 .ifb \unchecked
-#ifdef CONFIG_PAX_REFCOUNT
-	into
-2:
-	_ASM_EXTABLE(2b, 3f)
-#endif
+.if \func == add
+	PAX_REFCOUNT64_OVERFLOW (%ebp)
+.else
+	PAX_REFCOUNT64_UNDERFLOW (%ebp)
+.endif
 .endif
 
 	LOCK_PREFIX
@@ -95,12 +96,6 @@ ENTRY(atomic64_\func\()_return\unchecked\()_cx8)
 	jne 1b
 	movl %ebx, %eax
 	movl %ecx, %edx
-
-.ifb \unchecked
-#ifdef CONFIG_PAX_REFCOUNT
-3:
-#endif
-.endif
 
 	popl %edi
 	popl %esi
@@ -128,11 +123,11 @@ ENTRY(atomic64_\func\()_return\unchecked\()_cx8)
 	\insc\()l $0, %ecx
 
 .ifb \unchecked
-#ifdef CONFIG_PAX_REFCOUNT
-	into
-2:
-	_ASM_EXTABLE(2b, 3f)
-#endif
+.if \func == inc
+	PAX_REFCOUNT64_OVERFLOW (%esi)
+.else
+	PAX_REFCOUNT64_UNDERFLOW (%esi)
+.endif
 .endif
 
 	LOCK_PREFIX
@@ -140,12 +135,6 @@ ENTRY(atomic64_\func\()_return\unchecked\()_cx8)
 	jne 1b
 	movl %ebx, %eax
 	movl %ecx, %edx
-
-.ifb \unchecked
-#ifdef CONFIG_PAX_REFCOUNT
-3:
-#endif
-.endif
 
 	popl %ebx
 	pax_force_retaddr
@@ -168,11 +157,7 @@ ENTRY(atomic64_dec_if_positive_cx8)
 	subl $1, %ebx
 	sbb $0, %ecx
 
-#ifdef CONFIG_PAX_REFCOUNT
-	into
-1234:
-	_ASM_EXTABLE(1234b, 2f)
-#endif
+	PAX_REFCOUNT64_UNDERFLOW (%esi)
 
 	js 2f
 	LOCK_PREFIX
@@ -207,11 +192,7 @@ ENTRY(atomic64_add_unless_cx8)
 	addl %ebp, %ebx
 	adcl %edi, %ecx
 
-#ifdef CONFIG_PAX_REFCOUNT
-	into
-1234:
-	_ASM_EXTABLE(1234b, 3f)
-#endif
+	PAX_REFCOUNT64_OVERFLOW (%esi)
 
 	LOCK_PREFIX
 	cmpxchg8b (%esi)
@@ -244,11 +225,7 @@ ENTRY(atomic64_inc_not_zero_cx8)
 	addl $1, %ebx
 	adcl %edx, %ecx
 
-#ifdef CONFIG_PAX_REFCOUNT
-	into
-1234:
-	_ASM_EXTABLE(1234b, 3f)
-#endif
+	PAX_REFCOUNT64_OVERFLOW (%esi)
 
 	LOCK_PREFIX
 	cmpxchg8b (%esi)

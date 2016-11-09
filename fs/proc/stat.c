@@ -81,13 +81,12 @@ static u64 get_iowait_time(int cpu)
 static int show_stat(struct seq_file *p, void *v)
 {
 	int i, j;
-	unsigned long jif;
 	u64 user, nice, system, idle, iowait, irq, softirq, steal;
 	u64 guest, guest_nice;
 	u64 sum = 0;
 	u64 sum_softirq = 0;
 	unsigned int per_softirq_sums[NR_SOFTIRQS] = {0};
-	struct timespec boottime;
+	struct timespec64 boottime;
 	int unrestricted = 1;
 
 #ifdef CONFIG_GRKERNSEC_PROC_ADD
@@ -104,8 +103,7 @@ static int show_stat(struct seq_file *p, void *v)
 	user = nice = system = idle = iowait =
 		irq = softirq = steal = 0;
 	guest = guest_nice = 0;
-	getboottime(&boottime);
-	jif = boottime.tv_sec;
+	getboottime64(&boottime);
 
 	for_each_possible_cpu(i) {
 		user += kcpustat_cpu(i).cpustat[CPUTIME_USER];
@@ -180,12 +178,12 @@ static int show_stat(struct seq_file *p, void *v)
 
 	seq_printf(p,
 		"\nctxt %llu\n"
-		"btime %lu\n"
+		"btime %llu\n"
 		"processes %lu\n"
 		"procs_running %lu\n"
 		"procs_blocked %lu\n",
 		unrestricted ? nr_context_switches() : 0ULL,
-		(unsigned long)jif,
+		(unsigned long long)boottime.tv_sec,
 		unrestricted ? total_forks : 0UL,
 		unrestricted ? nr_running() : 0UL,
 		unrestricted ? nr_iowait() : 0UL);

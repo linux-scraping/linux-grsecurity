@@ -946,6 +946,15 @@ ENTRY(spurious_interrupt_bug)
 	jmp	error_code
 ENDPROC(spurious_interrupt_bug)
 
+#ifdef CONFIG_PAX_REFCOUNT
+ENTRY(refcount_error)
+	ASM_CLAC
+	pushl	$0
+	pushl	$do_refcount_error
+	jmp	error_code
+ENDPROC(refcount_error)
+#endif
+
 #ifdef CONFIG_XEN
 ENTRY(xen_hypervisor_callback)
 	pushl	$-1				/* orig_ax = -1 => not a system call */
@@ -1395,3 +1404,14 @@ ENTRY(async_page_fault)
 	jmp	error_code
 ENDPROC(async_page_fault)
 #endif
+
+ENTRY(rewind_stack_do_exit)
+	/* Prevent any naive code from trying to unwind to our caller. */
+	xorl	%ebp, %ebp
+
+	movl	PER_CPU_VAR(cpu_current_top_of_stack), %esi
+	leal	-TOP_OF_KERNEL_STACK_PADDING-PTREGS_SIZE(%esi), %esp
+
+	call	do_group_exit
+1:	jmp 1b
+ENDPROC(rewind_stack_do_exit)

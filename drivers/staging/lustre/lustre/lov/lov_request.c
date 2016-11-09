@@ -15,11 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * version 2 along with this program; If not, see
- * http://www.sun.com/software/products/lustre/docs/GPLv2.pdf
- *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * http://www.gnu.org/licenses/gpl-2.0.html
  *
  * GPL HEADER END
  */
@@ -45,9 +41,9 @@
 static void lov_init_set(struct lov_request_set *set)
 {
 	set->set_count = 0;
-	atomic_set(&set->set_completes, 0);
-	atomic_set(&set->set_success, 0);
-	atomic_set(&set->set_finish_checked, 0);
+	atomic_set_unchecked(&set->set_completes, 0);
+	atomic_set_unchecked(&set->set_success, 0);
+	atomic_set_unchecked(&set->set_finish_checked, 0);
 	set->set_cookies = NULL;
 	INIT_LIST_HEAD(&set->set_list);
 	atomic_set(&set->set_refcount, 1);
@@ -75,14 +71,14 @@ void lov_finish_set(struct lov_request_set *set)
 
 static int lov_set_finished(struct lov_request_set *set, int idempotent)
 {
-	int completes = atomic_read(&set->set_completes);
+	int completes = atomic_read_unchecked(&set->set_completes);
 
 	CDEBUG(D_INFO, "check set %d/%d\n", completes, set->set_count);
 
 	if (completes == set->set_count) {
 		if (idempotent)
 			return 1;
-		if (atomic_inc_return(&set->set_finish_checked) == 1)
+		if (atomic_inc_return_unchecked(&set->set_finish_checked) == 1)
 			return 1;
 	}
 	return 0;
@@ -94,9 +90,9 @@ static void lov_update_set(struct lov_request_set *set,
 	req->rq_complete = 1;
 	req->rq_rc = rc;
 
-	atomic_inc(&set->set_completes);
+	atomic_inc_unchecked(&set->set_completes);
 	if (rc == 0)
-		atomic_inc(&set->set_success);
+		atomic_inc_unchecked(&set->set_success);
 
 	wake_up(&set->set_waitq);
 }
@@ -196,7 +192,7 @@ static int common_attr_done(struct lov_request_set *set)
 	if (!set->set_oi->oi_oa)
 		return 0;
 
-	if (!atomic_read(&set->set_success))
+	if (!atomic_read_unchecked(&set->set_success))
 		return -EIO;
 
 	tmp_oa = kmem_cache_zalloc(obdo_cachep, GFP_NOFS);
@@ -243,7 +239,7 @@ int lov_fini_getattr_set(struct lov_request_set *set)
 	if (!set)
 		return 0;
 	LASSERT(set->set_exp);
-	if (atomic_read(&set->set_completes))
+	if (atomic_read_unchecked(&set->set_completes))
 		rc = common_attr_done(set);
 
 	lov_put_reqset(set);
@@ -334,7 +330,7 @@ int lov_fini_destroy_set(struct lov_request_set *set)
 	if (!set)
 		return 0;
 	LASSERT(set->set_exp);
-	if (atomic_read(&set->set_completes)) {
+	if (atomic_read_unchecked(&set->set_completes)) {
 		/* FIXME update qos data here */
 	}
 
@@ -414,7 +410,7 @@ int lov_fini_setattr_set(struct lov_request_set *set)
 	if (!set)
 		return 0;
 	LASSERT(set->set_exp);
-	if (atomic_read(&set->set_completes)) {
+	if (atomic_read_unchecked(&set->set_completes)) {
 		rc = common_attr_done(set);
 		/* FIXME update qos data here */
 	}
@@ -575,9 +571,9 @@ int lov_fini_statfs_set(struct lov_request_set *set)
 	if (!set)
 		return 0;
 
-	if (atomic_read(&set->set_completes)) {
+	if (atomic_read_unchecked(&set->set_completes)) {
 		rc = lov_fini_statfs(set->set_obd, set->set_oi->oi_osfs,
-				     atomic_read(&set->set_success));
+				     atomic_read_unchecked(&set->set_success));
 	}
 	lov_put_reqset(set);
 	return rc;
@@ -658,7 +654,7 @@ static int cb_statfs_update(void *cookie, int rc)
 	lov = &lovobd->u.lov;
 	osfs = set->set_oi->oi_osfs;
 	lov_sfs = oinfo->oi_osfs;
-	success = atomic_read(&set->set_success);
+	success = atomic_read_unchecked(&set->set_success);
 	/* XXX: the same is done in lov_update_common_set, however
 	 * lovset->set_exp is not initialized.
 	 */
@@ -686,7 +682,7 @@ out:
 	if (set->set_oi->oi_flags & OBD_STATFS_PTLRPCD &&
 	    lov_set_finished(set, 0)) {
 		lov_statfs_interpret(NULL, set, set->set_count !=
-				     atomic_read(&set->set_success));
+				     atomic_read_unchecked(&set->set_success));
 	}
 
 	return 0;

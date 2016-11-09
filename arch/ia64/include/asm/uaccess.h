@@ -245,10 +245,9 @@ __copy_to_user (void __user *to, const void *from, unsigned long count)
 	if (count > INT_MAX)
 		return count;
 
-	if (!__builtin_constant_p(count))
-		check_object_size(from, count, true);
+	check_object_size(from, count, true);
 
-	return __copy_user(to, (__force void __user *) from, count);
+	return __copy_user(to, (void __force_user *) from, count);
 }
 
 static inline unsigned long
@@ -257,10 +256,9 @@ __copy_from_user (void *to, const void __user *from, unsigned long count)
 	if (count > INT_MAX)
 		return count;
 
-	if (!__builtin_constant_p(count))
-		check_object_size(to, count, false);
+	check_object_size(to, count, false);
 
-	return __copy_user((__force void __user *) to, from, count);
+	return __copy_user((void __force_user *) to, from, count);
 }
 
 #define __copy_to_user_inatomic		__copy_to_user
@@ -272,9 +270,8 @@ __copy_from_user (void *to, const void __user *from, unsigned long count)
 	unsigned long __cu_len = (n);							\
 											\
 	if (__cu_len <= INT_MAX && __access_ok(__cu_to, __cu_len, get_fs())) {		\
-		if (!__builtin_constant_p(n))						\
-			check_object_size(__cu_from, __cu_len, true);			\
-		__cu_len = __copy_user(__cu_to, (__force void __user *) __cu_from, __cu_len);	\
+		check_object_size(__cu_from, __cu_len, true);				\
+		__cu_len = __copy_user(__cu_to, (void __force_user *)  __cu_from, __cu_len);	\
 	}										\
 	__cu_len;									\
 })

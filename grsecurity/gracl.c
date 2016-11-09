@@ -560,7 +560,7 @@ struct name_entry *
 __lookup_name_entry(const struct gr_policy_state *state, const char *name)
 {
 	unsigned int len = strlen(name);
-	unsigned int key = full_name_hash((const unsigned char *)name, len);
+	unsigned int key = full_name_hash(NULL, (const unsigned char *)name, len);
 	unsigned int index = key % state->name_set.n_size;
 	struct name_entry *match;
 
@@ -582,7 +582,7 @@ static struct name_entry *
 lookup_name_entry_create(const char *name)
 {
 	unsigned int len = strlen(name);
-	unsigned int key = full_name_hash((const unsigned char *)name, len);
+	unsigned int key = full_name_hash(NULL, (const unsigned char *)name, len);
 	unsigned int index = key % running_polstate.name_set.n_size;
 	struct name_entry *match;
 

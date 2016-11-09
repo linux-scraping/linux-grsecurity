@@ -140,23 +140,15 @@ static int blk_fill_sgv4_hdr_rq(struct request_queue *q, struct request *rq,
 				struct sg_io_v4 *hdr, struct bsg_device *bd,
 				fmode_t has_write_perm)
 {
-	unsigned char tmpcmd[sizeof(rq->__cmd)];
-	unsigned char *cmdptr;
-
 	if (hdr->request_len > BLK_MAX_CDB) {
 		rq->cmd = kzalloc(hdr->request_len, GFP_KERNEL);
 		if (!rq->cmd)
 			return -ENOMEM;
-		cmdptr = rq->cmd;
-	} else
-		cmdptr = tmpcmd;
+	}
 
-	if (copy_from_user(cmdptr, (void __user *)(unsigned long)hdr->request,
+	if (copy_from_user(rq->cmd, (void __user *)(unsigned long)hdr->request,
 			   hdr->request_len))
 		return -EFAULT;
-
-	if (cmdptr != rq->cmd)
-		memcpy(rq->cmd, cmdptr, hdr->request_len);
 
 	if (hdr->subprotocol == BSG_SUB_PROTOCOL_SCSI_CMD) {
 		if (blk_verify_command(rq->cmd, has_write_perm))

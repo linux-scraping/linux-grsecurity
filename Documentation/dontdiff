@@ -118,7 +118,6 @@ conf
 config
 config-*
 config_data.h*
-config.c
 config.mak
 config.mak.autogen
 config.tmp

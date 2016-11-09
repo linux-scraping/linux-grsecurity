@@ -7,6 +7,7 @@
 #include <linux/stddef.h>
 #include <linux/stringify.h>
 #include <asm/asm.h>
+#include <asm/irq_vectors.h>
 
 /*
  * Alternative inline assembly for SMP.
@@ -233,6 +234,35 @@ static inline int alternatives_text_reserved(void *start, void *end)
  * alternative_{input,io,call}()
  */
 #define ASM_NO_INPUT_CLOBBER(clbr...) "i" (0) : clbr
+
+#ifdef CONFIG_PAX_REFCOUNT
+#define __PAX_REFCOUNT(size)				\
+	"jo 111f\n"					\
+	".if "__stringify(size)" == 4\n\t"		\
+	".pushsection .text.refcount_overflow\n"	\
+	".elseif "__stringify(size)" == -4\n\t"		\
+	".pushsection .text.refcount_underflow\n"	\
+	".elseif "__stringify(size)" == 8\n\t"		\
+	".pushsection .text.refcount64_overflow\n"	\
+	".elseif "__stringify(size)" == -8\n\t"		\
+	".pushsection .text.refcount64_underflow\n"	\
+	".else\n"					\
+	".error \"invalid size\"\n"			\
+	".endif\n"					\
+	"111:\tlea %[counter],%%"_ASM_CX"\n\t"		\
+	"int $"__stringify(X86_REFCOUNT_VECTOR)"\n"	\
+	"222:\n\t"					\
+	".popsection\n"					\
+	"333:\n"					\
+	_ASM_EXTABLE(222b, 333b)
+
+#define PAX_REFCOUNT_OVERFLOW(size)	__PAX_REFCOUNT(size)
+#define PAX_REFCOUNT_UNDERFLOW(size)	__PAX_REFCOUNT(-(size))
+#else
+#define __PAX_REFCOUNT(size)
+#define PAX_REFCOUNT_OVERFLOW(size)
+#define PAX_REFCOUNT_UNDERFLOW(size)
+#endif
 
 #endif /* __ASSEMBLY__ */
 

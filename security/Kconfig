@@ -21,9 +21,6 @@ config TASK_SIZE_MAX_SHIFT
 config PAX_ENABLE_PAE
 	bool
 	default y if (X86_32 && (MPENTIUM4 || MK8 || MPSC || MCORE2 || MATOM))
-	
-config PAX_USERCOPY_SLABS
-	bool
 
 config GRKERNSEC
 	bool "Grsecurity"
@@ -522,7 +519,7 @@ config PAX_MPROTECT_COMPAT
 	  allocations will not be prevented by PaX or SELinux and other access
 	  control systems and have no fallback mechanisms.  For modern distros,
 	  this option should generally be set to 'N'.
-	  
+
 config PAX_ELFRELOCS
 	bool "Allow ELF text relocations (read help)"
 	depends on PAX_MPROTECT
@@ -893,31 +890,11 @@ config PAX_REFCOUNT
 	  Since this has a negligible performance impact, you should enable
 	  this feature.
 
-config PAX_CONSTIFY_PLUGIN
-	bool "Automatically constify eligible structures"
-	default y
-	depends on GCC_PLUGINS
-	depends on !UML && PAX_KERNEXEC
-	help
-	  By saying Y here the compiler will automatically constify a class
-	  of types that contain only function pointers.  This reduces the
-	  kernel's attack surface and also produces a better memory layout.
-
-	  Note that the implementation requires a gcc with plugin support,
-	  i.e., gcc 4.5 or newer.  You may need to install the supporting
-	  headers explicitly in addition to the normal gcc package.
- 
-	  Note that if some code really has to modify constified variables
-	  then the source code will have to be patched to allow it.  Examples
-	  can be found in PaX itself (the no_const attribute) and for some
-	  out-of-tree modules at http://www.grsecurity.net/~paxguy1/ .
-
 config PAX_USERCOPY
-	bool "Harden heap object copies between kernel and userland"
+	bool "Harden memory copies between kernel and userland"
 	default y if GRKERNSEC_CONFIG_AUTO
-	depends on ARM || IA64 || PPC || SPARC || X86
-	depends on GRKERNSEC && (SLAB || SLUB || SLOB)
-	select PAX_USERCOPY_SLABS
+	depends on GRKERNSEC && HAVE_ARCH_HARDENED_USERCOPY
+	select HARDENED_USERCOPY
 	help
 	  By saying Y here the kernel will enforce the size of heap objects
 	  when they are copied in either direction between the kernel and
@@ -942,6 +919,25 @@ config PAX_USERCOPY
 
 	  Since this has a negligible performance impact, you should enable
 	  this feature.
+
+config PAX_CONSTIFY_PLUGIN
+	bool "Automatically constify eligible structures"
+	default y
+	depends on !UML && PAX_KERNEXEC && GCC_PLUGINS
+	help
+	  By saying Y here the compiler will automatically constify a class
+	  of types that contain only function pointers.  This reduces the
+	  kernel's attack surface and also produces a better memory layout.
+
+	  Note that the implementation requires a gcc with plugin support,
+	  i.e., gcc 4.5 or newer.  You may need to install the supporting
+	  headers explicitly in addition to the normal gcc package.
+
+	  Note that if some code really has to modify constified variables
+	  then the source code will have to be patched to allow it.  Examples
+	  can be found in PaX itself (the no_const attribute) and for some
+	  out-of-tree modules at http://www.grsecurity.net/~paxguy1/ .
+
 
 config PAX_USERCOPY_DEBUG
 	bool
@@ -1018,6 +1014,7 @@ config PAX_INITIFY_VERBOSE
 config PAX_LATENT_ENTROPY
 	bool "Generate some entropy during boot and runtime"
 	default y if GRKERNSEC_CONFIG_AUTO
+	depends on BROKEN || !ARM
 	depends on GCC_PLUGINS
 	help
 	  By saying Y here the kernel will instrument some kernel code to
@@ -1182,6 +1179,30 @@ config LSM_MMAP_MIN_ADDR
 	  this low address space will need the permission specific to the
 	  systems running LSM.
 
+config HAVE_ARCH_HARDENED_USERCOPY
+	bool
+	help
+	  The architecture supports CONFIG_HARDENED_USERCOPY by
+	  calling check_object_size() just before performing the
+	  userspace copies in the low level implementation of
+	  copy_to_user() and copy_from_user().
+
+config HARDENED_USERCOPY
+	def_bool y
+	select BUG if BROKEN_SECURITY
+
+config HARDENED_USERCOPY_PAGESPAN
+	bool "Refuse to copy allocations that span multiple pages"
+	depends on HARDENED_USERCOPY
+	depends on EXPERT
+	depends on BROKEN_SECURITY
+	help
+	  When a multi-page allocation is done without __GFP_COMP,
+	  hardened usercopy will reject attempts to copy it. There are,
+	  however, several cases of this in the kernel that have not all
+	  been removed. This config is intended to be used only while
+	  trying to find such users.
+
 source security/selinux/Kconfig
 source security/smack/Kconfig
 source security/tomoyo/Kconfig
@@ -1229,4 +1250,3 @@ config DEFAULT_SECURITY
 	default "" if DEFAULT_SECURITY_DAC
 
 endmenu
-

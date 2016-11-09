@@ -15,11 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * version 2 along with this program; If not, see
- * http://www.sun.com/software/products/lustre/docs/GPLv2.pdf
- *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * http://www.gnu.org/licenses/gpl-2.0.html
  *
  * GPL HEADER END
  */
@@ -78,7 +74,7 @@ ping_client_fini(struct sfw_test_instance *tsi)
 	LASSERT(sn);
 	LASSERT(tsi->tsi_is_client);
 
-	errors = atomic_read(&sn->sn_ping_errors);
+	errors = atomic_read_unchecked(&sn->sn_ping_errors);
 	if (errors)
 		CWARN("%d pings have failed.\n", errors);
 	else
@@ -130,7 +126,7 @@ ping_client_done_rpc(struct sfw_test_unit *tsu, struct srpc_client_rpc *rpc)
 
 	if (rpc->crpc_status) {
 		if (!tsi->tsi_stopping)	/* rpc could have been aborted */
-			atomic_inc(&sn->sn_ping_errors);
+			atomic_inc_unchecked(&sn->sn_ping_errors);
 		CERROR("Unable to ping %s (%d): %d\n",
 		       libcfs_id2str(rpc->crpc_dest),
 		       reqst->pnr_seq, rpc->crpc_status);
@@ -145,7 +141,7 @@ ping_client_done_rpc(struct sfw_test_unit *tsu, struct srpc_client_rpc *rpc)
 
 	if (reply->pnr_magic != LST_PING_TEST_MAGIC) {
 		rpc->crpc_status = -EBADMSG;
-		atomic_inc(&sn->sn_ping_errors);
+		atomic_inc_unchecked(&sn->sn_ping_errors);
 		CERROR("Bad magic %u from %s, %u expected.\n",
 		       reply->pnr_magic, libcfs_id2str(rpc->crpc_dest),
 		       LST_PING_TEST_MAGIC);
@@ -154,7 +150,7 @@ ping_client_done_rpc(struct sfw_test_unit *tsu, struct srpc_client_rpc *rpc)
 
 	if (reply->pnr_seq != reqst->pnr_seq) {
 		rpc->crpc_status = -EBADMSG;
-		atomic_inc(&sn->sn_ping_errors);
+		atomic_inc_unchecked(&sn->sn_ping_errors);
 		CERROR("Bad seq %u from %s, %u expected.\n",
 		       reply->pnr_seq, libcfs_id2str(rpc->crpc_dest),
 		       reqst->pnr_seq);

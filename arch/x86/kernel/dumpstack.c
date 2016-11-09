@@ -88,7 +88,7 @@ static inline int valid_stack_ptr(void *t, void *p, unsigned int size, void *end
 		else
 			return 0;
 	}
-	return p > t && p < t + THREAD_SIZE - size;
+	return p >= t && p < t + THREAD_SIZE - size;
 }
 
 unsigned long
@@ -98,6 +98,14 @@ print_context_stack(struct task_struct *task, void *stack_start,
 		unsigned long *end, int *graph)
 {
 	struct stack_frame *frame = (struct stack_frame *)bp;
+
+	/*
+	 * If we overflowed the stack into a guard page, jump back to the
+	 * bottom of the usable stack.
+	 */
+	if ((unsigned long)task_stack_page(task) - (unsigned long)stack <
+	    PAGE_SIZE)
+		stack = (unsigned long *)task_stack_page(task);
 
 	while (valid_stack_ptr(stack_start, stack, sizeof(*stack), end)) {
 		unsigned long addr;
@@ -198,6 +206,11 @@ void show_stack(struct task_struct *task, unsigned long *sp)
 	show_stack_log_lvl(task, NULL, sp, bp, "");
 }
 
+void show_stack_regs(struct pt_regs *regs)
+{
+	show_stack_log_lvl(current, regs, (unsigned long *)regs->sp, regs->bp, "");
+}
+
 static arch_spinlock_t die_lock = __ARCH_SPIN_LOCK_UNLOCKED;
 static int die_owner = -1;
 static unsigned int die_nest_count;
@@ -227,6 +240,7 @@ unsigned long oops_begin(void)
 EXPORT_SYMBOL_GPL(oops_begin);
 NOKPROBE_SYMBOL(oops_begin);
 
+void __noreturn rewind_stack_do_exit(int signr);
 extern void gr_handle_kernel_exploit(void);
 
 void oops_end(unsigned long flags, struct pt_regs *regs, int signr)
@@ -253,7 +267,12 @@ void oops_end(unsigned long flags, struct pt_regs *regs, int signr)
 
 	gr_handle_kernel_exploit();
 
-	do_group_exit(signr);
+	/*
+	 * We're not going to return, but we might be on an IST stack or
+	 * have very little stack space left.  Rewind the stack and kill
+	 * the task.
+	 */
+	rewind_stack_do_exit(signr);
 }
 NOKPROBE_SYMBOL(oops_end);
 

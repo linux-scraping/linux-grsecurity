@@ -15,11 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * version 2 along with this program; If not, see
- * http://www.sun.com/software/products/lustre/docs/GPLv2.pdf
- *
- * Please contact Sun Microsystems, Inc., 4150 Network Circle, Santa Clara,
- * CA 95054 USA or visit www.sun.com if you need additional information or
- * have any questions.
+ * http://www.gnu.org/licenses/gpl-2.0.html
  *
  * GPL HEADER END
  */
@@ -266,8 +262,8 @@ sfw_init_session(struct sfw_session *sn, lst_sid_t sid,
 	INIT_LIST_HEAD(&sn->sn_list);
 	INIT_LIST_HEAD(&sn->sn_batches);
 	atomic_set(&sn->sn_refcount, 1);	/* +1 for caller */
-	atomic_set(&sn->sn_brw_errors, 0);
-	atomic_set(&sn->sn_ping_errors, 0);
+	atomic_set_unchecked(&sn->sn_brw_errors, 0);
+	atomic_set_unchecked(&sn->sn_ping_errors, 0);
 	strlcpy(&sn->sn_name[0], name, sizeof(sn->sn_name));
 
 	sn->sn_timer_active = 0;
@@ -387,8 +383,8 @@ sfw_get_stats(struct srpc_stat_reqst *request, struct srpc_stat_reply *reply)
 	 * with 32 bits to send, this is ~49 days
 	 */
 	cnt->running_ms = jiffies_to_msecs(jiffies - sn->sn_started);
-	cnt->brw_errors = atomic_read(&sn->sn_brw_errors);
-	cnt->ping_errors = atomic_read(&sn->sn_ping_errors);
+	cnt->brw_errors = atomic_read_unchecked(&sn->sn_brw_errors);
+	cnt->ping_errors = atomic_read_unchecked(&sn->sn_ping_errors);
 	cnt->zombie_sessions = atomic_read(&sfw_data.fw_nzombies);
 
 	cnt->active_batches = 0;

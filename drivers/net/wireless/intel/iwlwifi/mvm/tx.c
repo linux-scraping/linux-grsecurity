@@ -379,6 +379,23 @@ void iwl_mvm_set_tx_cmd_rate(struct iwl_mvm *mvm, struct iwl_tx_cmd *tx_cmd,
 	tx_cmd->rate_n_flags = cpu_to_le32((u32)rate_plcp | rate_flags);
 }
 
+static inline void iwl_mvm_set_tx_cmd_pn(struct ieee80211_tx_info *info,
+					 u8 *crypto_hdr)
+{
+	struct ieee80211_key_conf *keyconf = info->control.hw_key;
+	u64 pn;
+
+	pn = atomic64_inc_return_unchecked(&keyconf->tx_pn);
+	crypto_hdr[0] = pn;
+	crypto_hdr[2] = 0;
+	crypto_hdr[3] = 0x20 | (keyconf->keyidx << 6);
+	crypto_hdr[1] = pn >> 8;
+	crypto_hdr[4] = pn >> 16;
+	crypto_hdr[5] = pn >> 24;
+	crypto_hdr[6] = pn >> 32;
+	crypto_hdr[7] = pn >> 40;
+}
+
 /*
  * Sets the fields in the Tx cmd that are crypto related
  */
@@ -396,15 +413,7 @@ static void iwl_mvm_set_tx_cmd_crypto(struct iwl_mvm *mvm,
 	case WLAN_CIPHER_SUITE_CCMP:
 	case WLAN_CIPHER_SUITE_CCMP_256:
 		iwl_mvm_set_tx_cmd_ccmp(info, tx_cmd);
-		pn = atomic64_inc_return_unchecked(&keyconf->tx_pn);
-		crypto_hdr[0] = pn;
-		crypto_hdr[2] = 0;
-		crypto_hdr[3] = 0x20 | (keyconf->keyidx << 6);
-		crypto_hdr[1] = pn >> 8;
-		crypto_hdr[4] = pn >> 16;
-		crypto_hdr[5] = pn >> 24;
-		crypto_hdr[6] = pn >> 32;
-		crypto_hdr[7] = pn >> 40;
+		iwl_mvm_set_tx_cmd_pn(info, crypto_hdr);
 		break;
 
 	case WLAN_CIPHER_SUITE_TKIP:
@@ -423,6 +432,18 @@ static void iwl_mvm_set_tx_cmd_crypto(struct iwl_mvm *mvm,
 			  TX_CMD_SEC_WEP_KEY_IDX_MSK);
 
 		memcpy(&tx_cmd->key[3], keyconf->key, keyconf->keylen);
+		break;
+	case WLAN_CIPHER_SUITE_GCMP:
+	case WLAN_CIPHER_SUITE_GCMP_256:
+		/* TODO: Taking the key from the table might introduce a race
+		 * when PTK rekeying is done, having an old packets with a PN
+		 * based on the old key but the message encrypted with a new
+		 * one.
+		 * Need to handle this.
+		 */
+		tx_cmd->sec_ctl |= TX_CMD_SEC_GCMP | TC_CMD_SEC_KEY_FROM_TABLE;
+		tx_cmd->key[0] = keyconf->hw_key_idx;
+		iwl_mvm_set_tx_cmd_pn(info, crypto_hdr);
 		break;
 	default:
 		tx_cmd->sec_ctl |= TX_CMD_SEC_EXT;
@@ -524,6 +545,9 @@ int iwl_mvm_tx_skb_non_sta(struct iwl_mvm *mvm, struct sk_buff *skb)
 	 * (this is not possible for unicast packets as a TLDS discovery
 	 * response are sent without a station entry); otherwise use the
 	 * AUX station.
+	 * In DQA mode, if vif is of type STATION and frames are not multicast,
+	 * they should be sent from the BSS queue. For example, TDLS setup
+	 * frames should be sent on this queue, as they go through the AP.
 	 */
 	sta_id = mvm->aux_sta.sta_id;
 	if (info.control.vif) {
@@ -541,6 +565,9 @@ int iwl_mvm_tx_skb_non_sta(struct iwl_mvm *mvm, struct sk_buff *skb)
 
 			if (ap_sta_id != IWL_MVM_STATION_COUNT)
 				sta_id = ap_sta_id;
+		} else if (iwl_mvm_is_dqa_supported(mvm) &&
+			   info.control.vif->type == NL80211_IFTYPE_STATION) {
+			queue = IWL_MVM_DQA_BSS_CLIENT_QUEUE;
 		}
 	}
 
@@ -874,7 +901,13 @@ static int iwl_mvm_tx_mpdu(struct iwl_mvm *mvm, struct sk_buff *skb,
 		 * nullfunc frames should go to the MGMT queue regardless of QOS
 		 */
 		tid = IWL_MAX_TID_COUNT;
+	}
+
+	if (iwl_mvm_is_dqa_supported(mvm)) {
 		txq_id = mvmsta->tid_data[tid].txq_id;
+
+		if (ieee80211_is_mgmt(fc))
+			tx_cmd->tid_tspec = IWL_TID_NON_QOS;
 	}
 
 	/* Copy MAC header from skb into command buffer */
@@ -882,7 +915,7 @@ static int iwl_mvm_tx_mpdu(struct iwl_mvm *mvm, struct sk_buff *skb,
 
 	WARN_ON_ONCE(info->flags & IEEE80211_TX_CTL_SEND_AFTER_DTIM);
 
-	if (sta->tdls) {
+	if (sta->tdls && !iwl_mvm_is_dqa_supported(mvm)) {
 		/* default to TID 0 for non-QoS packets */
 		u8 tdls_tid = tid == IWL_MAX_TID_COUNT ? 0 : tid;
 
@@ -895,9 +928,12 @@ static int iwl_mvm_tx_mpdu(struct iwl_mvm *mvm, struct sk_buff *skb,
 		txq_id = mvmsta->tid_data[tid].txq_id;
 	}
 
-	if (iwl_mvm_is_dqa_supported(mvm)) {
-		if (unlikely(mvmsta->tid_data[tid].txq_id ==
-			     IEEE80211_INVAL_HW_QUEUE)) {
+	/* Check if TXQ needs to be allocated or re-activated */
+	if (unlikely(txq_id == IEEE80211_INVAL_HW_QUEUE ||
+		     !mvmsta->tid_data[tid].is_tid_active) &&
+	    iwl_mvm_is_dqa_supported(mvm)) {
+		/* If TXQ needs to be allocated... */
+		if (txq_id == IEEE80211_INVAL_HW_QUEUE) {
 			iwl_mvm_tx_add_stream(mvm, mvmsta, tid, skb);
 
 			/*
@@ -907,10 +943,21 @@ static int iwl_mvm_tx_mpdu(struct iwl_mvm *mvm, struct sk_buff *skb,
 			iwl_trans_free_tx_cmd(mvm->trans, dev_cmd);
 			spin_unlock(&mvmsta->lock);
 			return 0;
+
 		}
 
-		txq_id = mvmsta->tid_data[tid].txq_id;
+		/* If we are here - TXQ exists and needs to be re-activated */
+		spin_lock(&mvm->queue_info_lock);
+		mvm->queue_info[txq_id].status = IWL_MVM_QUEUE_READY;
+		mvmsta->tid_data[tid].is_tid_active = true;
+		spin_unlock(&mvm->queue_info_lock);
+
+		IWL_DEBUG_TX_QUEUES(mvm, "Re-activating queue %d for TX\n",
+				    txq_id);
 	}
+
+	/* Keep track of the time of the last frame for this RA/TID */
+	mvm->queue_info[txq_id].last_frame_time[tid] = jiffies;
 
 	IWL_DEBUG_TX(mvm, "TX to [%d|%d] Q:%d - seq: 0x%x\n", mvmsta->sta_id,
 		     tid, txq_id, IEEE80211_SEQ_TO_SN(seq_number));
@@ -1642,7 +1689,7 @@ void iwl_mvm_rx_ba_notif(struct iwl_mvm *mvm, struct iwl_rx_cmd_buffer *rxb)
 		iwl_mvm_tx_info_from_ba_notif(&ba_info, ba_notif, tid_data);
 
 		IWL_DEBUG_TX_REPLY(mvm, "No reclaim. Update rs directly\n");
-		iwl_mvm_rs_tx_status(mvm, sta, tid, &ba_info);
+		iwl_mvm_rs_tx_status(mvm, sta, tid, &ba_info, false);
 	}
 
 out:

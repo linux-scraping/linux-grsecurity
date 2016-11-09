@@ -66,17 +66,11 @@ static inline void atomic64_set_unchecked(atomic64_unchecked_t *v, long i)
  */
 static __always_inline void atomic64_add(long i, atomic64_t *v)
 {
-	asm volatile(LOCK_PREFIX "addq %1,%0\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-		     "jno 0f\n"
-		     LOCK_PREFIX "subq %1,%0\n"
-		     "int $4\n0:\n"
-		     _ASM_EXTABLE(0b, 0b)
-#endif
-
-		     : "=m" (v->counter)
-		     : "er" (i), "m" (v->counter));
+	asm volatile(LOCK_PREFIX "addq %1,%0\n\t"
+		     PAX_REFCOUNT_OVERFLOW(8)
+		     : [counter] "=m" (v->counter)
+		     : "er" (i), "m" (v->counter)
+		     : "cc", "cx");
 }
 
 /**
@@ -102,17 +96,11 @@ static __always_inline void atomic64_add_unchecked(long i, atomic64_unchecked_t 
  */
 static inline void atomic64_sub(long i, atomic64_t *v)
 {
-	asm volatile(LOCK_PREFIX "subq %1,%0\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-		     "jno 0f\n"
-		     LOCK_PREFIX "addq %1,%0\n"
-		     "int $4\n0:\n"
-		     _ASM_EXTABLE(0b, 0b)
-#endif
-
-		     : "=m" (v->counter)
-		     : "er" (i), "m" (v->counter));
+	asm volatile(LOCK_PREFIX "subq %1,%0\n\t"
+		     PAX_REFCOUNT_UNDERFLOW(8)
+		     : [counter] "=m" (v->counter)
+		     : "er" (i), "m" (v->counter)
+		     : "cc", "cx");
 }
 
 /**
@@ -138,9 +126,9 @@ static inline void atomic64_sub_unchecked(long i, atomic64_unchecked_t *v)
  * true if the result is zero, or false for all
  * other cases.
  */
-static inline int atomic64_sub_and_test(long i, atomic64_t *v)
+static inline bool atomic64_sub_and_test(long i, atomic64_t *v)
 {
-	GEN_BINARY_RMWcc(LOCK_PREFIX "subq", LOCK_PREFIX "addq", v->counter, "er", i, "%0", "e");
+	GEN_BINARY_RMWcc(LOCK_PREFIX "subq", v->counter, -8, "er", i, "%0", e);
 }
 
 /**
@@ -151,17 +139,11 @@ static inline int atomic64_sub_and_test(long i, atomic64_t *v)
  */
 static __always_inline void atomic64_inc(atomic64_t *v)
 {
-	asm volatile(LOCK_PREFIX "incq %0\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-		     "jno 0f\n"
-		     LOCK_PREFIX "decq %0\n"
-		     "int $4\n0:\n"
-		     _ASM_EXTABLE(0b, 0b)
-#endif
-
-		     : "=m" (v->counter)
-		     : "m" (v->counter));
+	asm volatile(LOCK_PREFIX "incq %0\n\t"
+		     PAX_REFCOUNT_OVERFLOW(8)
+		     : [counter] "=m" (v->counter)
+		     : "m" (v->counter)
+		     : "cc", "cx");
 }
 
 /**
@@ -185,17 +167,11 @@ static __always_inline void atomic64_inc_unchecked(atomic64_unchecked_t *v)
  */
 static __always_inline void atomic64_dec(atomic64_t *v)
 {
-	asm volatile(LOCK_PREFIX "decq %0\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-		     "jno 0f\n"
-		     LOCK_PREFIX "incq %0\n"
-		     "int $4\n0:\n"
-		     _ASM_EXTABLE(0b, 0b)
-#endif
-
-		     : "=m" (v->counter)
-		     : "m" (v->counter));
+	asm volatile(LOCK_PREFIX "decq %0\n\t"
+		     PAX_REFCOUNT_UNDERFLOW(8)
+		     : [counter] "=m" (v->counter)
+		     : "m" (v->counter)
+		     : "cc", "cx");
 }
 
 /**
@@ -219,9 +195,9 @@ static __always_inline void atomic64_dec_unchecked(atomic64_unchecked_t *v)
  * returns true if the result is 0, or false for all other
  * cases.
  */
-static inline int atomic64_dec_and_test(atomic64_t *v)
+static inline bool atomic64_dec_and_test(atomic64_t *v)
 {
-	GEN_UNARY_RMWcc(LOCK_PREFIX "decq", LOCK_PREFIX "incq", v->counter, "%0", "e");
+	GEN_UNARY_RMWcc(LOCK_PREFIX "decq", v->counter, -8, "%0", e);
 }
 
 /**
@@ -232,9 +208,9 @@ static inline int atomic64_dec_and_test(atomic64_t *v)
  * and returns true if the result is zero, or false for all
  * other cases.
  */
-static inline int atomic64_inc_and_test(atomic64_t *v)
+static inline bool atomic64_inc_and_test(atomic64_t *v)
 {
-	GEN_UNARY_RMWcc(LOCK_PREFIX "incq", LOCK_PREFIX "decq", v->counter, "%0", "e");
+	GEN_UNARY_RMWcc(LOCK_PREFIX "incq", v->counter, 8, "%0", e);
 }
 
 /**
@@ -246,9 +222,9 @@ static inline int atomic64_inc_and_test(atomic64_t *v)
  * if the result is negative, or false when
  * result is greater than or equal to zero.
  */
-static inline int atomic64_add_negative(long i, atomic64_t *v)
+static inline bool atomic64_add_negative(long i, atomic64_t *v)
 {
-	GEN_BINARY_RMWcc(LOCK_PREFIX "addq", LOCK_PREFIX "subq",  v->counter, "er", i, "%0", "s");
+	GEN_BINARY_RMWcc(LOCK_PREFIX "addq", v->counter, 8, "er", i, "%0", s);
 }
 
 /**
@@ -278,6 +254,16 @@ static __always_inline long atomic64_add_return_unchecked(long i, atomic64_unche
 static inline long atomic64_sub_return(long i, atomic64_t *v)
 {
 	return atomic64_add_return(-i, v);
+}
+
+static inline long atomic64_fetch_add(long i, atomic64_t *v)
+{
+	return xadd_check_overflow(&v->counter, i);
+}
+
+static inline long atomic64_fetch_sub(long i, atomic64_t *v)
+{
+	return xadd_check_overflow(&v->counter, -i);
 }
 
 #define atomic64_inc_return(v)  (atomic64_add_return(1, (v)))
@@ -316,7 +302,7 @@ static inline long atomic64_xchg_unchecked(atomic64_unchecked_t *v, long new)
  * Atomically adds @a to @v, so long as it was not @u.
  * Returns the old value of @v.
  */
-static inline int atomic64_add_unless(atomic64_t *v, long a, long u)
+static inline bool atomic64_add_unless(atomic64_t *v, long a, long u)
 {
 	long c, old, new;
 	c = atomic64_read(v);
@@ -324,17 +310,12 @@ static inline int atomic64_add_unless(atomic64_t *v, long a, long u)
 		if (unlikely(c == u))
 			break;
 
-		asm volatile("add %2,%0\n"
-
-#ifdef CONFIG_PAX_REFCOUNT
-			     "jno 0f\n"
-			     "sub %2,%0\n"
-			     "int $4\n0:\n"
-			     _ASM_EXTABLE(0b, 0b)
-#endif
-
+		asm volatile("addq %2,%0\n\t"
+			     PAX_REFCOUNT_OVERFLOW(8)
 			     : "=r" (new)
-			     : "0" (c), "ir" (a));
+			     : "0" (c), "ir" (a),
+			       [counter] "m" (v->counter)
+			     : "cc", "cx");
 
 		old = atomic64_cmpxchg(v, c, new);
 		if (likely(old == c))
@@ -378,10 +359,29 @@ static inline void atomic64_##op(long i, atomic64_t *v)			\
 			: "memory");					\
 }
 
-ATOMIC64_OP(and)
-ATOMIC64_OP(or)
-ATOMIC64_OP(xor)
+#define ATOMIC64_FETCH_OP(op, c_op)					\
+static inline long atomic64_fetch_##op(long i, atomic64_t *v)		\
+{									\
+	long old, val = atomic64_read(v);				\
+	for (;;) {							\
+		old = atomic64_cmpxchg(v, val, val c_op i);		\
+		if (old == val)						\
+			break;						\
+		val = old;						\
+	}								\
+	return old;							\
+}
 
+#define ATOMIC64_OPS(op, c_op)						\
+	ATOMIC64_OP(op)							\
+	ATOMIC64_FETCH_OP(op, c_op)
+
+ATOMIC64_OPS(and, &)
+ATOMIC64_OPS(or, |)
+ATOMIC64_OPS(xor, ^)
+
+#undef ATOMIC64_OPS
+#undef ATOMIC64_FETCH_OP
 #undef ATOMIC64_OP
 
 #endif /* _ASM_X86_ATOMIC64_64_H */

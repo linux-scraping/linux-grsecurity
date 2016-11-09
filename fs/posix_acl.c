@@ -206,7 +206,7 @@ posix_acl_clone(const struct posix_acl *acl, gfp_t flags)
  * Check if an acl is valid. Returns 0 if it is, or -E... otherwise.
  */
 int
-posix_acl_valid(const struct posix_acl *acl)
+posix_acl_valid(struct user_namespace *user_ns, const struct posix_acl *acl)
 {
 	const struct posix_acl_entry *pa, *pe;
 	int state = ACL_USER_OBJ;
@@ -226,7 +226,7 @@ posix_acl_valid(const struct posix_acl *acl)
 			case ACL_USER:
 				if (state != ACL_USER)
 					return -EINVAL;
-				if (!uid_valid(pa->e_uid))
+				if (!kuid_has_mapping(user_ns, pa->e_uid))
 					return -EINVAL;
 				needs_mask = 1;
 				break;
@@ -241,7 +241,7 @@ posix_acl_valid(const struct posix_acl *acl)
 			case ACL_GROUP:
 				if (state != ACL_GROUP)
 					return -EINVAL;
-				if (!gid_valid(pa->e_gid))
+				if (!kgid_has_mapping(user_ns, pa->e_gid))
 					return -EINVAL;
 				needs_mask = 1;
 				break;
@@ -629,6 +629,37 @@ no_mem:
 }
 EXPORT_SYMBOL_GPL(posix_acl_create);
 
+/**
+ * posix_acl_update_mode  -  update mode in set_acl
+ *
+ * Update the file mode when setting an ACL: compute the new file permission
+ * bits based on the ACL.  In addition, if the ACL is equivalent to the new
+ * file mode, set *acl to NULL to indicate that no ACL should be set.
+ *
+ * As with chmod, clear the setgit bit if the caller is not in the owning group
+ * or capable of CAP_FSETID (see inode_change_ok).
+ *
+ * Called from set_acl inode operations.
+ */
+int posix_acl_update_mode(struct inode *inode, umode_t *mode_p,
+			  struct posix_acl **acl)
+{
+	umode_t mode = inode->i_mode;
+	int error;
+
+	error = posix_acl_equiv_mode(*acl, &mode);
+	if (error < 0)
+		return error;
+	if (error == 0)
+		*acl = NULL;
+	if (!in_group_p(inode->i_gid) &&
+	    !capable_wrt_inode_uidgid(inode, CAP_FSETID))
+		mode &= ~S_ISGID;
+	*mode_p = mode;
+	return 0;
+}
+EXPORT_SYMBOL(posix_acl_update_mode);
+
 /*
  * Fix up the uids and gids in posix acl extended attributes in place.
  */
@@ -845,7 +876,7 @@ set_posix_acl(struct inode *inode, int type, struct posix_acl *acl)
 		return -EPERM;
 
 	if (acl) {
-		int ret = posix_acl_valid(acl);
+		int ret = posix_acl_valid(inode->i_sb->s_user_ns, acl);
 		if (ret)
 			return ret;
 	}

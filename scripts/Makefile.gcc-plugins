@@ -2,6 +2,23 @@ ifdef CONFIG_GCC_PLUGINS
   __PLUGINCC := $(call cc-ifversion, -ge, 0408, $(HOSTCXX), $(HOSTCC))
   PLUGINCC := $(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-plugin.sh "$(__PLUGINCC)" "$(HOSTCXX)" "$(CC)")
 
+  SANCOV_PLUGIN := -fplugin=$(objtree)/scripts/gcc-plugins/sancov_plugin.so
+
+  gcc-plugin-$(CONFIG_GCC_PLUGIN_CYC_COMPLEXITY)	+= cyc_complexity_plugin.so
+
+  ifdef CONFIG_GCC_PLUGIN_SANCOV
+    ifeq ($(CFLAGS_KCOV),)
+      # It is needed because of the gcc-plugin.sh and gcc version checks.
+      gcc-plugin-$(CONFIG_GCC_PLUGIN_SANCOV)           += sancov_plugin.so
+
+      ifneq ($(PLUGINCC),)
+        CFLAGS_KCOV := $(SANCOV_PLUGIN)
+      else
+        $(warning warning: cannot use CONFIG_KCOV: -fsanitize-coverage=trace-pc is not supported by compiler)
+      endif
+    endif
+  endif
+
   gcc-plugin-$(CONFIG_PAX_CONSTIFY_PLUGIN)		+= constify_plugin.so
   gcc-plugin-cflags-$(CONFIG_PAX_CONSTIFY_PLUGIN)	+= -DCONSTIFY_PLUGIN
 
@@ -49,6 +66,11 @@ ifdef CONFIG_GCC_PLUGINS
   gcc-plugin-$(CONFIG_PAX_MEMORY_STRUCTLEAK)		+= structleak_plugin.so
   gcc-plugin-cflags-$(CONFIG_PAX_MEMORY_STRUCTLEAK)	+= -DSTRUCTLEAK_PLUGIN
 
+  ifneq ($(PLUGINCC),)
+    # SANCOV_PLUGIN can be only in CFLAGS_KCOV because avoid duplication.
+    GCC_PLUGINS_CFLAGS := $(filter-out $(SANCOV_PLUGIN), $(GCC_PLUGINS_CFLAGS))
+  endif
+
   gcc-plugin-$(CONFIG_PAX_INITIFY)			+= initify_plugin.so
   gcc-plugin-cflags-$(CONFIG_PAX_INITIFY)		+= -DINITIFY_PLUGIN -fplugin-arg-initify_plugin-search_init_exit_functions
   gcc-plugin-cflags-$(CONFIG_PAX_INITIFY_VERBOSE)	+= -fplugin-arg-initify_plugin-verbose -fplugin-arg-initify_plugin-print_missing_attr
@@ -70,7 +92,7 @@ ifdef CONFIG_GCC_PLUGINS
   GCC_PLUGINS_CFLAGS := $(strip $(addprefix -fplugin=$(objtree)/scripts/gcc-plugins/, $(gcc-plugin-y)) $(gcc-plugin-cflags-y))
   GCC_PLUGINS_AFLAGS := $(gcc-plugin-aflags-y)
 
-  export PLUGINCC GCC_PLUGIN GCC_PLUGIN_SUBDIR GCC_PLUGINS_CFLAGS GCC_PLUGINS_AFLAGS
+  export PLUGINCC GCC_PLUGIN GCC_PLUGIN_SUBDIR GCC_PLUGINS_CFLAGS GCC_PLUGINS_AFLAGS SANCOV_PLUGIN
   export DISABLE_LATENT_ENTROPY_PLUGIN RAP_PLUGIN_ABS_CFLAGS INITIFY_DISABLE_VERIFY_NOCAPTURE_FUNCTIONS
 
   KBUILD_CFLAGS += $(GCC_PLUGINS_CFLAGS)

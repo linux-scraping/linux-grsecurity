@@ -463,7 +463,7 @@ static struct neighbour *ipv4_neigh_lookup(const struct dst_entry *dst,
 
 #define IP_IDENTS_SZ 2048u
 
-static atomic_unchecked_t ip_idents[IP_IDENTS_SZ] __read_mostly;
+static atomic_t ip_idents[IP_IDENTS_SZ] __read_mostly;
 static u32 *ip_tstamps __read_mostly;
 
 /* In order to protect privacy, we add a perturbation to identifiers
@@ -473,15 +473,21 @@ static u32 *ip_tstamps __read_mostly;
 u32 ip_idents_reserve(u32 hash, int segs)
 {
 	u32 *p_tstamp = ip_tstamps + hash % IP_IDENTS_SZ;
-	atomic_unchecked_t *p_id = ip_idents + hash % IP_IDENTS_SZ;
+	atomic_t *p_id = ip_idents + hash % IP_IDENTS_SZ;
 	u32 old = ACCESS_ONCE(*p_tstamp);
 	u32 now = (u32)jiffies;
-	u32 delta = 0;
+	u32 new, delta = 0;
 
 	if (old != now && cmpxchg(p_tstamp, old, now) == old)
 		delta = prandom_u32_max(now - old);
 
-	return atomic_add_return_unchecked(segs + delta, p_id) - segs;
+	/* Do not use atomic_add_return() as it makes UBSAN unhappy */
+	do {
+		old = (u32)atomic_read(p_id);
+		new = old + delta + segs;
+	} while (atomic_cmpxchg(p_id, old, new) != old);
+
+	return new - segs;
 }
 EXPORT_SYMBOL(ip_idents_reserve);
 
@@ -2497,7 +2503,8 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src, u32 table_id,
 		    IPV4_DEVCONF_ALL(net, MC_FORWARDING)) {
 			int err = ipmr_get_route(net, skb,
 						 fl4->saddr, fl4->daddr,
-						 r, nowait);
+						 r, nowait, portid);
+
 			if (err <= 0) {
 				if (!nowait) {
 					if (err == 0)

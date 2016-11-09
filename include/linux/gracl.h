@@ -309,7 +309,7 @@ gr_fhash(const u64 ino, const dev_t dev, const unsigned int sz)
 static __inline__ unsigned int
 gr_nhash(const char *name, const __u16 len, const unsigned int sz)
 {
-	return full_name_hash((const unsigned char *)name, len) % sz;
+	return full_name_hash(NULL, (const unsigned char *)name, len) % sz;
 }
 
 #define FOR_EACH_SUBJECT_START(role,subj,iter) \

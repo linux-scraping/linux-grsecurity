@@ -543,9 +543,6 @@ void tracefs_remove(struct dentry *dentry)
 		return;
 
 	parent = dentry->d_parent;
-	if (!parent || !parent->d_inode)
-		return;
-
 	inode_lock(parent->d_inode);
 	ret = __tracefs_remove(dentry, parent);
 	inode_unlock(parent->d_inode);
@@ -566,10 +563,6 @@ void tracefs_remove_recursive(struct dentry *dentry)
 	struct dentry *child, *parent;
 
 	if (IS_ERR_OR_NULL(dentry))
-		return;
-
-	parent = dentry->d_parent;
-	if (!parent || !parent->d_inode)
 		return;
 
 	parent = dentry;
