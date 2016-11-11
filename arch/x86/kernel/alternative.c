@@ -593,7 +593,9 @@ void alternatives_enable_smp(void)
 	if (uniproc_patched) {
 		pr_info("switching to SMP code\n");
 		BUG_ON(num_online_cpus() != 1);
+		pax_open_kernel();
 		clear_cpu_cap(&boot_cpu_data, X86_FEATURE_UP);
+		pax_close_kernel();
 		clear_cpu_cap(&cpu_data(0), X86_FEATURE_UP);
 		list_for_each_entry(mod, &smp_alt_modules, next)
 			alternatives_smp_lock(mod->locks, mod->locks_end,
