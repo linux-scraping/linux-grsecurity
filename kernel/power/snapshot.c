@@ -1022,7 +1022,6 @@ static void swsusp_unset_page_forbidden(struct page *page)
 
 void clear_free_pages(void)
 {
-#if defined(CONFIG_PAX_MEMORY_SANITIZE) || defined(CONFIG_PAGE_POISONING_ZERO)
 	struct memory_bitmap *bm = free_pages_map;
 	unsigned long pfn;
 
@@ -1039,7 +1038,6 @@ void clear_free_pages(void)
 	}
 	memory_bm_position_reset(bm);
 	pr_info("PM: free pages cleared after restore\n");
-#endif /* CONFIG_PAX_MEMORY_SANITIZE || PAGE_POISONING_ZERO */
 }
 
 /**
@@ -1152,26 +1150,6 @@ void free_basic_memory_bitmaps(void)
 	kfree(bm2);
 
 	pr_debug("PM: Basic memory bitmaps freed\n");
-}
-
-void clear_free_pages(void)
-{
-	struct memory_bitmap *bm = free_pages_map;
-	unsigned long pfn;
-
-	if (WARN_ON(!(free_pages_map)))
-		return;
-
-	memory_bm_position_reset(bm);
-	pfn = memory_bm_next_pfn(bm);
-	while (pfn != BM_END_OF_MAP) {
-		if (pfn_valid(pfn))
-			clear_highpage(pfn_to_page(pfn));
-
-		pfn = memory_bm_next_pfn(bm);
-	}
-	memory_bm_position_reset(bm);
-	pr_info("PM: free pages cleared after restore\n");
 }
 
 /**

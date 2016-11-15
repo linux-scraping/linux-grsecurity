@@ -969,8 +969,12 @@ static void has_capture_use_ssa_var(bool *has_capture_use, gimple_set *visited_d
 			gassign *assign = as_a_gassign(use_stmt);
 			const_tree rhs = gimple_assign_rhs1(assign);
 
+			if (TREE_CODE(rhs) == INDIRECT_REF)
+				break;
+#if BUILDING_GCC_VERSION >= 4006
 			if (TREE_CODE(rhs) == MEM_REF)
 				return;
+#endif
 
 			if (is_cast_to_integer_type(assign))
 				return;
@@ -1056,8 +1060,12 @@ static bool search_capture_use(const_tree vardecl, gimple stmt)
 			tree lhs;
 			const_tree rhs = gimple_assign_rhs1(stmt);
 
+			if (TREE_CODE(rhs) == INDIRECT_REF)
+				break;
+#if BUILDING_GCC_VERSION >= 4006
 			if (TREE_CODE(rhs) == MEM_REF)
 				break;
+#endif
 
 			lhs = gimple_assign_lhs(stmt);
 			if (lhs_is_a_nocapture_parm_decl(lhs))

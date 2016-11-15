@@ -982,7 +982,6 @@ config PAX_SIZE_OVERFLOW_EXTRA
 config PAX_INITIFY
 	bool "Free more kernel memory after init"
 	depends on GCC_PLUGINS
-	depends on BROKEN
 	help
 	  The kernel has a mechanism to free up code and data memory that is
 	  only used during kernel or module initialization.  Enabling this
