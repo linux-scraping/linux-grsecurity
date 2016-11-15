@@ -4687,7 +4687,7 @@ static int sctp_getsockopt_events(struct sock *sk, int len, char __user *optval,
 {
 	struct sctp_event_subscribe subscribe;
 
-	if (len <= 0)
+	if (len == 0)
 		return -EINVAL;
 	if (len > sizeof(struct sctp_event_subscribe))
 		len = sizeof(struct sctp_event_subscribe);
@@ -6438,6 +6438,9 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
 
 	if (get_user(len, optlen))
 		return -EFAULT;
+
+	if (len < 0)
+		return -EINVAL;
 
 	lock_sock(sk);
 

@@ -47,7 +47,7 @@
 __visible int plugin_is_GPL_compatible;
 
 static struct plugin_info initify_plugin_info = {
-	.version	=	"20160929",
+	.version	=	"20161115",
 	.help		=	"disable\tturn off the initify plugin\n"
 				"verbose\tprint all initified strings and all"
 				" functions which should be __init/__exit\n"
@@ -944,7 +944,7 @@ static void has_capture_use_ssa_var(bool *has_capture_use, gimple_set *visited_d
 		if (is_gimple_debug(use_stmt))
 			continue;
 
-		if (pointer_set_contains(visited_defs, use_stmt))
+		if (pointer_set_insert(visited_defs, use_stmt))
 			continue;
 
 		switch (gimple_code(use_stmt)) {
@@ -970,12 +970,11 @@ static void has_capture_use_ssa_var(bool *has_capture_use, gimple_set *visited_d
 			const_tree rhs = gimple_assign_rhs1(assign);
 
 			if (TREE_CODE(rhs) == INDIRECT_REF)
-				break;
+				return;
 #if BUILDING_GCC_VERSION >= 4006
 			if (TREE_CODE(rhs) == MEM_REF)
 				return;
 #endif
-
 			if (is_cast_to_integer_type(assign))
 				return;
 
