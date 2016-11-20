@@ -143,7 +143,9 @@ static uint32_t vtermnos[MAX_NR_HVC_CONSOLES] =
 static void hvc_console_print(struct console *co, const char *b,
 			      unsigned count)
 {
-	char c[N_OUTBUF] __ALIGNED__;
+	char c_stack[N_OUTBUF] __ALIGNED__;
+	char *c_alloc = NULL;
+	char *c;
 	unsigned i = 0, n = 0;
 	int r, donecr = 0, index = co->index;
 
@@ -155,8 +157,13 @@ static void hvc_console_print(struct console *co, const char *b,
 	if (vtermnos[index] == -1)
 		return;
 
+	if (slab_is_available())
+		c = c_alloc = kmalloc(N_OUTBUF, GFP_ATOMIC);
+	else
+		c = c_stack;
+
 	while (count > 0 || i > 0) {
-		if (count > 0 && i < sizeof(c)) {
+		if (count > 0 && i < sizeof(c_stack)) {
 			if (b[n] == '\n' && !donecr) {
 				c[i++] = '\r';
 				donecr = 1;
@@ -179,6 +186,8 @@ static void hvc_console_print(struct console *co, const char *b,
 			}
 		}
 	}
+
+	kfree(c_alloc);
 }
 
 static struct tty_driver *hvc_console_device(struct console *c, int *index)

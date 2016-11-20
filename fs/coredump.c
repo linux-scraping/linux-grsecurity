@@ -1,6 +1,7 @@
 #include <linux/slab.h>
 #include <linux/file.h>
 #include <linux/fdtable.h>
+#include <linux/freezer.h>
 #include <linux/mm.h>
 #include <linux/stat.h>
 #include <linux/fcntl.h>
@@ -423,7 +424,9 @@ static int coredump_wait(int exit_code, struct core_state *core_state)
 	if (core_waiters > 0) {
 		struct core_thread *ptr;
 
+		freezer_do_not_count();
 		wait_for_completion(&core_state->startup);
+		freezer_count();
 		/*
 		 * Wait for all the threads to become inactive, so that
 		 * all the thread context (extended register state, like
@@ -562,9 +565,6 @@ void do_coredump(const siginfo_t *siginfo)
 	audit_core_dumps(signr);
 
 	dumpable = __get_dumpable(cprm.mm_flags);
-
-	if (signr == SIGSEGV || signr == SIGBUS || signr == SIGKILL || signr == SIGILL)
-		gr_handle_brute_attach(dumpable);
 
 	binfmt = mm->binfmt;
 	if (!binfmt || !binfmt->core_dump)
@@ -780,6 +780,9 @@ fail_unlock:
 fail_creds:
 	put_cred(cred);
 fail:
+	if (signr == SIGSEGV || signr == SIGBUS || signr == SIGKILL || signr == SIGILL)
+		gr_handle_brute_attach(dumpable);
+
 	return;
 }
 
