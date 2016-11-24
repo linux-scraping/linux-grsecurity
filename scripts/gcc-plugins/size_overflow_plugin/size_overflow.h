@@ -58,7 +58,7 @@ typedef struct next_interesting_function *  next_interesting_function_t;
 struct interesting_stmts;
 typedef struct interesting_stmts * interesting_stmts_t;
 
-enum decl_type {
+enum based_decl {
 	SO_FUNCTION, SO_VAR, SO_FIELD, SO_FUNCTION_POINTER, SO_AUX, SO_DISABLE, SO_NONE
 };
 
@@ -71,7 +71,7 @@ struct fn_raw_data
 	unsigned int hash;
 	unsigned int num;
 	enum size_overflow_mark marked;
-	enum decl_type decl_type;
+	enum based_decl based_decl;
 	const char *orig_decl_str;
 	unsigned int orig_num;
 };
@@ -161,7 +161,7 @@ struct next_interesting_function {
 #endif
 	const char *decl_name;
 	const char *context;
-	enum decl_type decl_type;
+	enum based_decl based_decl;
 	unsigned int hash;
 	unsigned int num;
 	enum size_overflow_mark marked;
@@ -193,7 +193,7 @@ extern const struct size_overflow_hash *get_size_overflow_hash_entry(struct fn_r
 extern const struct size_overflow_hash *get_size_overflow_hash_entry_tree(struct fn_raw_data *raw_data, bool hash_table);
 extern unsigned int find_arg_number_tree(const_tree arg, const_tree func);
 extern unsigned int get_decl_hash(const_tree decl, const char *decl_name);
-extern const char *get_decl_type_str(enum decl_type decl_type);
+extern const char *get_based_decl_str(enum based_decl based_decl);
 extern void initialize_raw_data(struct fn_raw_data *raw_data);
 
 

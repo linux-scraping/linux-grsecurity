@@ -194,9 +194,10 @@ static int init_inodecache(void)
 {
 	exofs_inode_cachep = kmem_cache_create_usercopy("exofs_inode_cache",
 				sizeof(struct exofs_i_info), 0,
-				SLAB_RECLAIM_ACCOUNT | SLAB_MEM_SPREAD |
-				SLAB_ACCOUNT, offsetof(struct exofs_i_info, i_data),
-				sizeof(((struct exofs_i_info *)0)->i_data), exofs_init_once);
+				SLAB_RECLAIM_ACCOUNT | SLAB_MEM_SPREAD | SLAB_ACCOUNT,
+				offsetof(struct exofs_i_info, i_data),
+				sizeof(((struct exofs_i_info *)0)->i_data),
+				exofs_init_once);
 	if (exofs_inode_cachep == NULL)
 		return -ENOMEM;
 	return 0;

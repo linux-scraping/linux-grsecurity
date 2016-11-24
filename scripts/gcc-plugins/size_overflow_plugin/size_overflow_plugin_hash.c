@@ -33,7 +33,7 @@ void initialize_raw_data(struct fn_raw_data *raw_data)
 	raw_data->context = NULL;
 	raw_data->hash = NO_HASH;
 	raw_data->num = NONE_ARGNUM;
-	raw_data->decl_type = SO_NONE;
+	raw_data->based_decl = SO_NONE;
 	raw_data->orig_decl_str = NULL;
 	raw_data->orig_num = NONE_ARGNUM;
 }
@@ -125,7 +125,7 @@ static void set_hash(struct decl_hash *decl_hash_data)
 	decl_hash_data->hash = type ^ fn ^ codes;
 }
 
-static void set_decl_type_codes(const_tree type, struct decl_hash *decl_hash_data)
+static void set_based_decl_codes(const_tree type, struct decl_hash *decl_hash_data)
 {
 	gcc_assert(type != NULL_TREE);
 	gcc_assert(TREE_CODE_CLASS(TREE_CODE(type)) == tcc_type);
@@ -146,7 +146,7 @@ static void set_result_codes(const_tree node, struct decl_hash *decl_hash_data)
 	if (DECL_P(node)) {
 		result = DECL_RESULT(node);
 		if (result != NULL_TREE)
-			return set_decl_type_codes(TREE_TYPE(result), decl_hash_data);
+			return set_based_decl_codes(TREE_TYPE(result), decl_hash_data);
 		return set_result_codes(TREE_TYPE(node), decl_hash_data);
 	}
 
@@ -155,7 +155,7 @@ static void set_result_codes(const_tree node, struct decl_hash *decl_hash_data)
 	if (TREE_CODE(node) == FUNCTION_TYPE)
 		return set_result_codes(TREE_TYPE(node), decl_hash_data);
 
-	return set_decl_type_codes(node, decl_hash_data);
+	return set_based_decl_codes(node, decl_hash_data);
 }
 
 static void set_decl_codes(struct decl_hash *decl_hash_data)
@@ -164,7 +164,7 @@ static void set_decl_codes(struct decl_hash *decl_hash_data)
 	enum tree_code code;
 
 	if (TREE_CODE(decl_hash_data->decl) == VAR_DECL || TREE_CODE(decl_hash_data->decl) == FIELD_DECL) {
-		set_decl_type_codes(TREE_TYPE(decl_hash_data->decl), decl_hash_data);
+		set_based_decl_codes(TREE_TYPE(decl_hash_data->decl), decl_hash_data);
 		return;
 	}
 
@@ -178,7 +178,7 @@ static void set_decl_codes(struct decl_hash *decl_hash_data)
 		set_result_codes(decl_hash_data->decl, decl_hash_data);
 
 	for (arg = TYPE_ARG_TYPES(type); arg != NULL_TREE && decl_hash_data->tree_codes_len < CODES_LIMIT; arg = TREE_CHAIN(arg))
-		set_decl_type_codes(TREE_VALUE(arg), decl_hash_data);
+		set_based_decl_codes(TREE_VALUE(arg), decl_hash_data);
 }
 
 static const struct size_overflow_hash *get_proper_hash_chain(const struct size_overflow_hash *entry, struct fn_raw_data *raw_data)
@@ -260,7 +260,7 @@ static const struct size_overflow_hash *get_disable_size_overflow_hash_entry(str
 	entry = disable_hash[raw_data->hash];
 	entry_node = get_proper_hash_chain(entry, raw_data);
 	if (entry_node && entry_node->param & (1U << raw_data->orig_num)) {
-		raw_data->decl_type = SO_DISABLE;
+		raw_data->based_decl = SO_DISABLE;
 		return entry_node;
 	}
 
@@ -286,41 +286,41 @@ const struct size_overflow_hash *get_size_overflow_hash_entry(struct fn_raw_data
 {
 	const struct size_overflow_hash *entry;
 
-	gcc_assert(raw_data->decl_type == SO_NONE);
+	gcc_assert(raw_data->based_decl == SO_NONE);
 
 	gcc_assert(raw_data->hash != NO_HASH);
 
 	entry = get_proper_node(fns_hash[raw_data->hash], raw_data);
 	if (entry) {
-		raw_data->decl_type = SO_FUNCTION;
+		raw_data->based_decl = SO_FUNCTION;
 		return check_fns ? entry : NULL;
 	}
 
 	entry = get_proper_node(fields_hash[raw_data->hash], raw_data);
 	if (entry) {
-		raw_data->decl_type = SO_FIELD;
+		raw_data->based_decl = SO_FIELD;
 		return check_fields ? entry : NULL;
 	}
 
 	entry = get_proper_node(vars_hash[raw_data->hash], raw_data);
 	if (entry) {
-		raw_data->decl_type = SO_VAR;
+		raw_data->based_decl = SO_VAR;
 		return check_vars ? entry : NULL;
 	}
 
 	entry = get_proper_node(fptrs_hash[raw_data->hash], raw_data);
 	if (entry) {
-		raw_data->decl_type = SO_FUNCTION_POINTER;
+		raw_data->based_decl = SO_FUNCTION_POINTER;
 		return check_fnptrs ? entry : NULL;
 	}
 
 	entry = get_proper_node(aux_hash[raw_data->hash], raw_data);
 	if (entry) {
-		raw_data->decl_type = SO_AUX;
+		raw_data->based_decl = SO_AUX;
 		return entry;
 	}
 
-	raw_data->decl_type = SO_NONE;
+	raw_data->based_decl = SO_NONE;
 	return NULL;
 }
 
@@ -389,9 +389,9 @@ const_tree get_attribute(const char* attr_name, const_tree decl)
 	return NULL_TREE;
 }
 
-const char *get_decl_type_str(enum decl_type decl_type)
+const char *get_based_decl_str(enum based_decl based_decl)
 {
-	switch (decl_type) {
+	switch (based_decl) {
 	case SO_FUNCTION:
 		return "fns";
 	case SO_FIELD:
@@ -417,13 +417,13 @@ const char *get_decl_type_str(enum decl_type decl_type)
 void print_missing_function(next_interesting_function_t node)
 {
 	const struct size_overflow_hash *entry;
-	const char *decl_type;
+	const char *based_decl;
 	struct fn_raw_data raw_data;
 
 	if (node->marked == ASM_STMT_SO_MARK)
 		return;
 
-	switch (node->decl_type) {
+	switch (node->based_decl) {
 	case SO_FUNCTION:
 		if (!check_fns)
 			return;
@@ -462,8 +462,8 @@ void print_missing_function(next_interesting_function_t node)
 	if (entry)
 		return;
 
-	decl_type = get_decl_type_str(node->decl_type);
+	based_decl = get_based_decl_str(node->based_decl);
 	// inform() would be too slow
-	fprintf(stderr, "Function %s is missing from the e_%s hash table +%s+%s+%u+%u+\n", raw_data.orig_decl_str, decl_type, raw_data.orig_decl_str, raw_data.context, raw_data.orig_num, raw_data.hash);
+	fprintf(stderr, "Function %s is missing from the e_%s hash table +%s+%s+%u+%u+\n", raw_data.orig_decl_str, based_decl, raw_data.orig_decl_str, raw_data.context, raw_data.orig_num, raw_data.hash);
 }
 

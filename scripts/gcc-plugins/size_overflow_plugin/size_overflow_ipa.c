@@ -24,8 +24,6 @@ static void walk_use_def_next_functions(struct walk_use_def_data *use_def_data, 
 
 next_interesting_function_t global_next_interesting_function[GLOBAL_NIFN_LEN];
 static bool global_changed;
-#define PRINT_DATA_FLOW true
-#define NO_PRINT_DATA_FLOW false
 
 static struct cgraph_node_hook_list *function_insertion_hook_holder;
 static struct cgraph_2node_hook_list *node_duplication_hook_holder;
@@ -134,7 +132,7 @@ next_interesting_function_t create_new_next_interesting_entry(struct fn_raw_data
 	gcc_assert(raw_data->context);
 	gcc_assert(raw_data->hash != NO_HASH);
 	gcc_assert(raw_data->num != NONE_ARGNUM);
-	gcc_assert(raw_data->decl_type != SO_NONE);
+	gcc_assert(raw_data->based_decl != SO_NONE);
 
 	new_node = (next_interesting_function_t)xmalloc(sizeof(*new_node));
 	new_node->decl_name = xstrdup(raw_data->decl_str);
@@ -147,7 +145,7 @@ next_interesting_function_t create_new_next_interesting_entry(struct fn_raw_data
 	new_node->children = NULL;
 	new_node->marked = raw_data->marked;
 	new_node->orig_next_node = orig_next_node;
-	new_node->decl_type = raw_data->decl_type;
+	new_node->based_decl = raw_data->based_decl;
 
 	return new_node;
 }
@@ -257,7 +255,7 @@ static next_interesting_function_t create_orig_next_node_for_a_clone(struct fn_r
 
 	gcc_assert(clone_raw_data->decl != NULL_TREE);
 	gcc_assert(clone_raw_data->num != NONE_ARGNUM);
-	gcc_assert(clone_raw_data->decl_type != SO_NONE);
+	gcc_assert(clone_raw_data->based_decl != SO_NONE);
 
 	initialize_raw_data(&orig_raw_data);
 	orig_raw_data.decl = get_orig_fndecl(clone_raw_data->decl);
@@ -285,7 +283,7 @@ static next_interesting_function_t create_orig_next_node_for_a_clone(struct fn_r
 		return orig_next_node;
 
 	orig_raw_data.marked = clone_raw_data->marked;
-	orig_raw_data.decl_type = clone_raw_data->decl_type;
+	orig_raw_data.based_decl = clone_raw_data->based_decl;
 	orig_next_node = create_new_next_interesting_decl(&orig_raw_data, NULL);
 	if (!orig_next_node)
 		return NULL;
@@ -369,7 +367,7 @@ static void handle_function(struct walk_use_def_data *use_def_data, tree fndecl,
 
 	initialize_raw_data(&raw_data);
 	raw_data.decl = fndecl;
-	raw_data.decl_type = SO_FUNCTION;
+	raw_data.based_decl = SO_FUNCTION;
 	raw_data.decl_str = DECL_NAME_POINTER(fndecl);
 	raw_data.marked = NO_SO_MARK;
 
@@ -472,7 +470,7 @@ static void handle_struct_fields(struct walk_use_def_data *use_def_data, const_t
 	case INDIRECT_REF:
 	case COMPONENT_REF:
 		raw_data.decl = get_ref_field(node);
-		raw_data.decl_type = SO_FIELD;
+		raw_data.based_decl = SO_FIELD;
 		break;
 	// TODO
 	case BIT_FIELD_REF:
@@ -498,7 +496,7 @@ static void handle_vardecl(struct walk_use_def_data *use_def_data, tree node)
 	initialize_raw_data(&raw_data);
 
 	raw_data.decl = node;
-	raw_data.decl_type = SO_VAR;
+	raw_data.based_decl = SO_VAR;
 	create_and_append_new_next_interesting_field_var_decl(use_def_data, &raw_data);
 }
 
@@ -678,7 +676,7 @@ static next_interesting_function_t create_parent_next_cnode(const_gimple stmt, u
 	initialize_raw_data(&raw_data);
 	raw_data.num = num;
 	raw_data.marked = NO_SO_MARK;
-	raw_data.decl_type = SO_FUNCTION;
+	raw_data.based_decl = SO_FUNCTION;
 
 	switch (gimple_code(stmt)) {
 	case GIMPLE_ASM:
@@ -875,7 +873,7 @@ static void size_overflow_node_duplication_hook(struct cgraph_node *src, struct 
 		dst_raw_data.decl = NODE_DECL(dst);
 		dst_raw_data.decl_str = cgraph_node_name(dst);
 		dst_raw_data.marked = cur->marked;
-		dst_raw_data.decl_type = cur->decl_type;
+		dst_raw_data.based_decl = cur->based_decl;
 
 		if (!made_by_compiler(dst_raw_data.decl))
 			break;
@@ -1080,7 +1078,7 @@ static void search_missing_fptr_arg(next_interesting_function_t parent)
 #endif
 }
 
-static void walk_so_marked_fns(next_interesting_function_set *visited, next_interesting_function_t parent, bool debug)
+static void walk_so_marked_fns(next_interesting_function_set *visited, next_interesting_function_t parent)
 {
 	unsigned int i;
 	next_interesting_function_t child;
@@ -1098,13 +1096,8 @@ static void walk_so_marked_fns(next_interesting_function_set *visited, next_inte
 #endif
 		set_yes_so_mark(child);
 
-		if (in_lto_p && debug == PRINT_DATA_FLOW) {
-			fprintf(stderr, " PARENT: decl: %s-%u context: %s %p\n", parent->decl_name, parent->num, parent->context, parent);
-			fprintf(stderr, " \tCHILD: decl: %s-%u context: %s %p\n", child->decl_name, child->num, child->context, child);
-		}
-
 		if (!pointer_set_insert(visited, child))
-			walk_so_marked_fns(visited, child, debug);
+			walk_so_marked_fns(visited, child);
 	}
 }
 
@@ -1132,26 +1125,19 @@ static void print_missing_functions(next_interesting_function_set *visited, next
 }
 
 // Set YES_SO_MARK on functions that will be emitted into the hash table
-static void search_so_marked_fns(bool debug)
+static void search_so_marked_fns(void)
 {
 
 	unsigned int i;
 	next_interesting_function_set *visited;
-	next_interesting_function_t cur_global;
 
 	visited = next_interesting_function_pointer_set_create();
 	for (i = 0; i < GLOBAL_NIFN_LEN; i++) {
+		next_interesting_function_t cur_global;
+
 		for (cur_global = global_next_interesting_function[i]; cur_global; cur_global = cur_global->next) {
-			if (cur_global->marked == NO_SO_MARK || pointer_set_insert(visited, cur_global))
-				continue;
-
-			if  (in_lto_p && debug == PRINT_DATA_FLOW)
-				fprintf(stderr, "Data flow: decl: %s-%u context: %s %p\n", cur_global->decl_name, cur_global->num, cur_global->context, cur_global);
-
-			walk_so_marked_fns(visited, cur_global, debug);
-
-			if  (in_lto_p && debug == PRINT_DATA_FLOW)
-				fprintf(stderr, "\n");
+			if (cur_global->marked != NO_SO_MARK && !pointer_set_insert(visited, cur_global))
+				walk_so_marked_fns(visited, cur_global);
 		}
 	}
 	pointer_set_destroy(visited);
@@ -1172,14 +1158,14 @@ static void walk_marked_functions(next_interesting_function_set *visited, next_i
 #else
 	FOR_EACH_VEC_SAFE_ELT(parent->children, i, child) {
 #endif
-		switch (parent->decl_type) {
+		switch (parent->based_decl) {
 		case SO_FIELD:
-			child->decl_type = SO_FIELD;
-			gcc_assert(child->decl_type != SO_FUNCTION_POINTER);
+			child->based_decl = SO_FIELD;
+			gcc_assert(child->based_decl != SO_FUNCTION_POINTER);
 			break;
 		case SO_FUNCTION_POINTER:
-			child->decl_type = SO_FUNCTION_POINTER;
-			gcc_assert(child->decl_type != SO_FIELD);
+			child->based_decl = SO_FUNCTION_POINTER;
+			gcc_assert(child->based_decl != SO_FIELD);
 			break;
 		case SO_FUNCTION:
 		case SO_VAR:
@@ -1192,14 +1178,15 @@ static void walk_marked_functions(next_interesting_function_set *visited, next_i
 	}
 }
 
-static void set_base_decl_type(void)
+static void set_based_decl(void)
 {
 	unsigned int i;
 	next_interesting_function_set *visited;
-	next_interesting_function_t cur;
 
 	visited = next_interesting_function_pointer_set_create();
 	for (i = 0; i < GLOBAL_NIFN_LEN; i++) {
+		next_interesting_function_t cur;
+
 		for (cur = global_next_interesting_function[i]; cur; cur = cur->next) {
 			if (cur->marked == ASM_STMT_SO_MARK && !pointer_set_contains(visited, cur))
 				walk_marked_functions(visited, cur);
@@ -1213,10 +1200,11 @@ static void print_so_marked_fns(void)
 {
 	unsigned int i;
 	next_interesting_function_set *visited;
-	next_interesting_function_t cur_global;
 
 	visited = next_interesting_function_pointer_set_create();
 	for (i = 0; i < GLOBAL_NIFN_LEN; i++) {
+		next_interesting_function_t cur_global;
+
 		for (cur_global = global_next_interesting_function[i]; cur_global; cur_global = cur_global->next) {
 			if (cur_global->marked != NO_SO_MARK && !pointer_set_insert(visited, cur_global))
 				print_missing_functions(visited, cur_global);
@@ -1227,31 +1215,90 @@ static void print_so_marked_fns(void)
 
 void __attribute__((weak)) check_global_variables(next_interesting_function_t cur_global __unused) {}
 
-// Print all missing interesting functions
-static unsigned int size_overflow_execute(void)
+static void global_vars_and_fptrs(void)
 {
 	unsigned int i;
-	next_interesting_function_t cur_global;
 
-	if (flag_lto && !in_lto_p)
-		return 0;
+	if (!in_lto_p)
+		return;
 
 	// Collect vardecls and funtions reachable by function pointers
 	for (i = 0; i < GLOBAL_NIFN_LEN; i++) {
+		next_interesting_function_t cur_global;
+
 		for (cur_global = global_next_interesting_function[i]; cur_global; cur_global = cur_global->next) {
 			check_global_variables(cur_global);
 			search_missing_fptr_arg(cur_global);
 		}
 	}
+}
 
-	search_so_marked_fns(PRINT_DATA_FLOW);
-	while (global_changed) {
-		global_changed = false;
-		search_so_marked_fns(NO_PRINT_DATA_FLOW);
+static void print_parent_child(next_interesting_function_set *visited, next_interesting_function_t parent)
+{
+	unsigned int i;
+	next_interesting_function_t child;
+
+#if BUILDING_GCC_VERSION <= 4007
+	if (VEC_empty(next_interesting_function_t, parent->children))
+		return;
+	FOR_EACH_VEC_ELT(next_interesting_function_t, parent->children, i, child) {
+#else
+	FOR_EACH_VEC_SAFE_ELT(parent->children, i, child) {
+#endif
+		fprintf(stderr, " PARENT: decl: %s-%u context: %s %p\n", parent->decl_name, parent->num, parent->context, parent);
+		fprintf(stderr, " \tCHILD: decl: %s-%u context: %s %p\n", child->decl_name, child->num, child->context, child);
+
+		if (!pointer_set_insert(visited, child))
+			print_parent_child(visited, child);
 	}
+}
 
-	set_base_decl_type();
+static void print_data_flow(void)
+{
+	unsigned int i;
+	next_interesting_function_set *visited;
 
+	if (!in_lto_p)
+		return;
+
+	visited = next_interesting_function_pointer_set_create();
+	for (i = 0; i < GLOBAL_NIFN_LEN; i++) {
+		next_interesting_function_t cur_global;
+
+		for (cur_global = global_next_interesting_function[i]; cur_global; cur_global = cur_global->next) {
+			if (cur_global->marked == NO_SO_MARK || pointer_set_insert(visited, cur_global))
+				continue;
+
+			fprintf(stderr, "Data flow: decl: %s-%u context: %s %p\n", cur_global->decl_name, cur_global->num, cur_global->context, cur_global);
+
+			print_parent_child(visited, cur_global);
+
+			fprintf(stderr, "\n");
+		}
+	}
+	pointer_set_destroy(visited);
+}
+
+static void set_so_fns(void)
+{
+	do {
+		global_changed = false;
+		search_so_marked_fns();
+	} while (global_changed);
+
+	print_data_flow();
+}
+
+// Print all missing interesting functions
+static unsigned int size_overflow_execute(void)
+{
+	if (flag_lto && !in_lto_p)
+		return 0;
+
+	global_vars_and_fptrs();
+
+	set_so_fns();
+	set_based_decl();
 	print_so_marked_fns();
 
 	if (in_lto_p) {
