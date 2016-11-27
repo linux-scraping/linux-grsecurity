@@ -226,6 +226,7 @@ config GRKERNSEC_HIDESYM
 config GRKERNSEC_RANDSTRUCT
 	bool "Randomize layout of sensitive kernel structures"
 	default y if GRKERNSEC_CONFIG_AUTO
+	depends on GCC_PLUGINS
 	select GRKERNSEC_HIDESYM
 	select MODVERSIONS if MODULES
 	help

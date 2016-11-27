@@ -94,11 +94,11 @@ static inline const char *check_kernel_text_object(const void *ptr,
 						   unsigned long n)
 {
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_KERNEXEC)
-        unsigned long textlow = ktla_ktva((unsigned long)_stext);
+	unsigned long textlow = ktla_ktva((unsigned long)_stext);
 #ifdef CONFIG_MODULES
-        unsigned long texthigh = (unsigned long)MODULES_EXEC_VADDR;
+	unsigned long texthigh = (unsigned long)MODULES_EXEC_VADDR;
 #else
-        unsigned long texthigh = ktla_ktva((unsigned long)_etext);
+	unsigned long texthigh = ktla_ktva((unsigned long)_etext);
 #endif
 #else
 	unsigned long textlow = (unsigned long)_stext;
