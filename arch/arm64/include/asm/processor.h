@@ -194,11 +194,4 @@ void cpu_enable_pan(void *__unused);
 void cpu_enable_uao(void *__unused);
 void cpu_enable_cache_maint_trap(void *__unused);
 
-#ifdef CONFIG_PAX_RAP
-static inline void pax_reload_rap_cookie(unsigned long *rap_cookie)
-{
-	asm volatile("mov\tx19, %0\n\t" : : "r"(*rap_cookie) : "r19");
-}
-#endif
-
 #endif /* __ASM_PROCESSOR_H */

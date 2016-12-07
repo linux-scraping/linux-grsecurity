@@ -282,9 +282,13 @@ int hibernate_resume_nonboot_cpu_disable(void)
 	 * any more at that point (the page tables used by it previously may
 	 * have been overwritten by hibernate image data).
 	 */
+	pax_open_kernel();
 	smp_ops.play_dead = resume_play_dead;
+	pax_close_kernel();
 	ret = disable_nonboot_cpus();
+	pax_open_kernel();
 	smp_ops.play_dead = play_dead;
+	pax_close_kernel();
 	return ret;
 }
 #endif

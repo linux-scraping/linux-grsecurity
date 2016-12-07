@@ -39,7 +39,7 @@ ENTRY(atomic_##op##suffix) /* %o0 = increment, %o1 = atomic_ptr */	\
 	retl;								\
 	 nop;								\
 2:	BACKOFF_SPIN(%o2, %o3, 1b);					\
-ENDPROC(atomic_##op);							\
+ENDPROC(atomic_##op##suffix);
 
 #define ATOMIC_OP(op) __ATOMIC_OP(op, , op, ) \
 		      __ATOMIC_OP(op, _unchecked, __REFCOUNT_OP(op), __OVERFLOW_IOP)
@@ -57,7 +57,7 @@ ENTRY(atomic_##op##_return##suffix) /* %o0 = increment, %o1 = atomic_ptr */\
 	retl;								\
 	 sra	%g1, 0, %o0;						\
 2:	BACKOFF_SPIN(%o2, %o3, 1b);					\
-ENDPROC(atomic_##op##_return);
+ENDPROC(atomic_##op##_return##suffix);
 
 #define ATOMIC_OP_RETURN(op) __ATOMIC_OP_RETURN(op, , op, ) \
 			     __ATOMIC_OP_RETURN(op, _unchecked, __REFCOUNT_OP(op), __OVERFLOW_IOP)
@@ -108,7 +108,7 @@ ENTRY(atomic64_##op##suffix) /* %o0 = increment, %o1 = atomic_ptr */	\
 	retl;								\
 	 nop;								\
 2:	BACKOFF_SPIN(%o2, %o3, 1b);					\
-ENDPROC(atomic64_##op);							\
+ENDPROC(atomic64_##op##suffix);
 
 #define ATOMIC64_OP(op) __ATOMIC64_OP(op, , op, ) \
 			__ATOMIC64_OP(op, _unchecked, __REFCOUNT_OP(op), __OVERFLOW_XOP)
@@ -126,7 +126,7 @@ ENTRY(atomic64_##op##_return##suffix) /* %o0 = increment, %o1 = atomic_ptr */\
 	retl;								\
 	 op	%g1, %o0, %o0;						\
 2:	BACKOFF_SPIN(%o2, %o3, 1b);					\
-ENDPROC(atomic64_##op##_return);
+ENDPROC(atomic64_##op##_return##suffix);
 
 #define ATOMIC64_OP_RETURN(op) __ATOMIC64_OP_RETURN(op, , op, ) \
 			       __ATOMIC64_OP_RETURN(op, _unchecked, __REFCOUNT_OP(op), __OVERFLOW_XOP)

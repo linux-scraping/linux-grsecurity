@@ -161,7 +161,10 @@ is_prefetch(struct pt_regs *regs, unsigned long error_code, unsigned long addr)
 	if (error_code & PF_INSTR)
 		return 0;
 
-	instr = (void *)convert_ip_to_linear(current, regs);
+	addr = convert_ip_to_linear(current, regs);
+	if (addr == -1L)
+		return 0;
+	instr = (void *)addr;
 	max_instr = instr + 15;
 
 	if (user_mode(regs) && instr >= (unsigned char *)TASK_SIZE_MAX)

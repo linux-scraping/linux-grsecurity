@@ -94,7 +94,7 @@
 static int p80211knetdev_init(netdevice_t *netdev);
 static int p80211knetdev_open(netdevice_t *netdev);
 static int p80211knetdev_stop(netdevice_t *netdev);
-static int p80211knetdev_hard_start_xmit(struct sk_buff *skb,
+static netdev_tx_t p80211knetdev_hard_start_xmit(struct sk_buff *skb,
 					 netdevice_t *netdev);
 static void p80211knetdev_set_multicast_list(netdevice_t *dev);
 static int p80211knetdev_do_ioctl(netdevice_t *dev, struct ifreq *ifr,

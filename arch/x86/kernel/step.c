@@ -58,7 +58,7 @@ static int is_setting_trap_flag(struct task_struct *child, struct pt_regs *regs)
 	unsigned char opcode[15];
 	unsigned long addr = convert_ip_to_linear(child, regs);
 
-	if (addr == -EINVAL)
+	if (addr == -1L)
 		return 0;
 
 	copied = access_process_vm(child, addr, opcode, sizeof(opcode), 0);
