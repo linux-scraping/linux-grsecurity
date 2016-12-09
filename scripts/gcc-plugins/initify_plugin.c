@@ -47,7 +47,7 @@
 __visible int plugin_is_GPL_compatible;
 
 static struct plugin_info initify_plugin_info = {
-	.version	=	"20161115",
+	.version	=	"20161208",
 	.help		=	"disable\tturn off the initify plugin\n"
 				"verbose\tprint all initified strings and all"
 				" functions which should be __init/__exit\n"
@@ -1474,10 +1474,8 @@ static void verify_nocapture_functions(void)
 		arg = chain_index(i, arg_list);
 		gcc_assert(arg != NULL_TREE);
 
-		if (has_capture_use_local_var(arg)) {
-			error("%qE captures its %u (%qD) parameter, please remove it from the nocapture attribute.", current_function_decl, i + 1, arg);
-			gcc_unreachable();
-		}
+		if (has_capture_use_local_var(arg))
+			warning(0, "%qE captures its %u (%qD) parameter, please remove it from the nocapture attribute.", current_function_decl, i + 1, arg);
 	}
 }
 
@@ -1625,10 +1623,10 @@ static bool can_move_to_init_exit(const_tree fndecl)
 	if (!section_name)
 		return true;
 
-	if (!strcmp(section_name, ".ref.text\000"))
-		return true;
+	if (!strcmp(section_name, ".ref.text"))
+		return false;
 
-	if (!strcmp(section_name, ".meminit.text\000"))
+	if (!strcmp(section_name, ".meminit.text"))
 		return false;
 
 	inform(DECL_SOURCE_LOCATION(fndecl), "Section of %qE: %s\n", fndecl, section_name);

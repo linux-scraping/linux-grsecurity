@@ -222,7 +222,7 @@ int hv_init(void)
 
 	hypercall_msr.enable = 1;
 
-	hypercall_msr.guest_physical_address = __phys_to_pfn(__pa(ktla_ktva((unsigned long)hv_hypercall_page)));
+	hypercall_msr.guest_physical_address = __phys_to_pfn(slow_virt_to_phys((ktla_ktva((unsigned long)hv_hypercall_page))));
 	wrmsrl(HV_X64_MSR_HYPERCALL, hypercall_msr.as_uint64);
 
 	/* Confirm that hypercall page did get setup. */
