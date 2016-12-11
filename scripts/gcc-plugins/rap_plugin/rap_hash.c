@@ -117,8 +117,6 @@ const_tree type_name(const_tree type)
 	}
 }
 
-__attribute__((weak)) tree c_global_trees[CTI_MAX];
-
 // the core computation of the rap hash
 // the first piece is a (hopefully) compiler independent encondig of the type, derived from the gcc tree code
 // the second piece is type specific information, such as the size, qualifiers, (recursively) referenced types, etc
