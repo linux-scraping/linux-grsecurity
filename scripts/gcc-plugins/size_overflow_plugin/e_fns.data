@@ -2495,6 +2495,7 @@ vbe_state_size_uvesafb_par_29809_fns vbe_state_size uvesafb_par 0 29809 &otp_rea
 si_lasti_bfs_sb_info_29842_fns si_lasti bfs_sb_info 0 29842 NULL
 len_ethtool_dump_29843_fns len ethtool_dump 0 29843 NULL
 fq_alloc_node_fndecl_29850_fns fq_alloc_node fndecl 1 29850 NULL
+nd_cmd_out_size_fndecl_29867_fns nd_cmd_out_size fndecl 0-7 29867 NULL
 nfs_idmap_lookup_id_fndecl_29879_fns nfs_idmap_lookup_id fndecl 2 29879 NULL
 parport_write_fndecl_29886_fns parport_write fndecl 0 29886 NULL
 length_ndis_80211_pmkid_29893_fns length ndis_80211_pmkid 0 29893 NULL
