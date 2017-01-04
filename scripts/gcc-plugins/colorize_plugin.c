@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2016 by PaX Team <pageexec@freemail.hu>
+ * Copyright 2012-2017 by PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -117,13 +117,9 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 	const int argc = plugin_info->argc;
 	const struct plugin_argument * const argv = plugin_info->argv;
 	int i;
-	struct register_pass_info colorize_rearm_pass_info;
 	bool colorize;
 
-	colorize_rearm_pass_info.pass				= make_colorize_rearm_pass();
-	colorize_rearm_pass_info.reference_pass_name		= "*free_lang_data";
-	colorize_rearm_pass_info.ref_pass_instance_number	= 1;
-	colorize_rearm_pass_info.pos_op 			= PASS_POS_INSERT_AFTER;
+	PASS_INFO(colorize_rearm, "*free_lang_data", 1, PASS_POS_INSERT_AFTER);
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));

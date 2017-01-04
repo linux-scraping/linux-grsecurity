@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2016 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2017 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -281,8 +281,7 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 	const int argc = plugin_info->argc;
 	const struct plugin_argument * const argv = plugin_info->argv;
 	int i;
-	struct register_pass_info stackleak_tree_instrument_pass_info;
-	struct register_pass_info stackleak_final_pass_info;
+
 	static const struct ggc_root_tab gt_ggc_r_gt_stackleak[] = {
 		{
 			.base = &track_function_decl,
@@ -301,16 +300,9 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 		LAST_GGC_ROOT_TAB
 	};
 
-	stackleak_tree_instrument_pass_info.pass			= make_stackleak_tree_instrument_pass();
-//	stackleak_tree_instrument_pass_info.reference_pass_name		= "tree_profile";
-	stackleak_tree_instrument_pass_info.reference_pass_name		= "optimized";
-	stackleak_tree_instrument_pass_info.ref_pass_instance_number	= 1;
-	stackleak_tree_instrument_pass_info.pos_op 			= PASS_POS_INSERT_BEFORE;
-
-	stackleak_final_pass_info.pass				= make_stackleak_final_pass();
-	stackleak_final_pass_info.reference_pass_name		= "final";
-	stackleak_final_pass_info.ref_pass_instance_number	= 1;
-	stackleak_final_pass_info.pos_op 			= PASS_POS_INSERT_BEFORE;
+//	PASS_INFO(stackleak_tree_instrument, "tree_profile", 1, PASS_POS_INSERT_BEFORE);
+	PASS_INFO(stackleak_tree_instrument, "optimized", 1, PASS_POS_INSERT_BEFORE);
+	PASS_INFO(stackleak_final, "final", 1, PASS_POS_INSERT_BEFORE);
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));

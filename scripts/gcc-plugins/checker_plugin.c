@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2016 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2017 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -229,7 +229,7 @@ static void context_start_unit(void __unused *gcc_data, void __unused *user_data
 	TREE_THIS_VOLATILE(context_error_decl) = 1;
 	DECL_ASSEMBLER_NAME(context_error_decl);
 
-	attr = tree_cons(NULL, build_string(14, "context error"), NULL);
+	attr = tree_cons(NULL, build_const_char_string(14, "context error"), NULL);
 	attr = tree_cons(get_identifier("error"), attr, NULL);
 	decl_attributes(&context_error_decl, attr, 0);
 }
@@ -297,8 +297,7 @@ static basic_block verify_context_before(gimple_stmt_iterator *gsi, tree context
 
 //	stmt = gimple_build_call(builtin_decl_implicit(BUILT_IN_TRAP), 0);
 	len = strlen(file) + 1;
-	filename = build_string(len, file);
-	TREE_TYPE(filename) = build_array_type(unsigned_char_type_node, build_index_type(size_int(len)));
+	filename = build_const_char_string(len, file);
 	filename = build1(ADDR_EXPR, const_ptr_type_node, filename);
 	stmt = gimple_build_call(error, 2, filename, build_int_cst(NULL_TREE, line));
 	gimple_set_location(stmt, loc);
@@ -436,7 +435,6 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 	const struct plugin_argument * const argv = plugin_info->argv;
 	int i;
 	bool enable_user, enable_context;
-	struct register_pass_info context_pass_info;
 
 	static const struct ggc_root_tab gt_ggc_r_gt_checker[] = {
 		{
@@ -456,11 +454,8 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 		LAST_GGC_ROOT_TAB
 	};
 
-	context_pass_info.pass				= make_context_pass();
-//	context_pass_info.reference_pass_name		= "ssa";
-	context_pass_info.reference_pass_name		= "phiprop";
-	context_pass_info.ref_pass_instance_number	= 1;
-	context_pass_info.pos_op 			= PASS_POS_INSERT_AFTER;
+//	PASS_INFO(context, "ssa", 1, PASS_POS_INSERT_AFTER);
+	PASS_INFO(context, "phiprop", 1, PASS_POS_INSERT_AFTER);
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2016 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011-2017 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2
  *
  * Homepage:
@@ -120,9 +120,9 @@ static void create_so_asm_stmt(struct asm_data *asm_data)
 	mark_str = convert_mark_to_str(asm_data->intentional_mark);
 	asm_comment = create_asm_comment(asm_data, mark_str);
 
-	str_input = build_string(2, "0");
+	str_input = build_const_char_string(2, "0");
 	input = create_asm_io_list(str_input, asm_data->input);
-	str_output = build_string(4, "=rm");
+	str_output = build_const_char_string(4, "=rm");
 	output = create_asm_io_list(str_output, asm_data->output);
 
 	asm_stmt = as_a_gasm(gimple_build_asm_vec(asm_comment, input, output, NULL, NULL));

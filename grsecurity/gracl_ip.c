@@ -67,7 +67,7 @@ static const char * gr_socktypes[SOCK_MAX] = {
 static const char * gr_sockfamilies[AF_MAX] = {
 	"unspec", "unix", "inet", "ax25", "ipx", "appletalk", "netrom", "bridge", "atmpvc", "x25",
 	"inet6", "rose", "decnet", "netbeui", "security", "key", "netlink", "packet", "ash",
-	"econet", "atmsvc", "rds", "sna", "irda", "ppox", "wanpipe", "llc", "fam_27", "fam_28",
+	"econet", "atmsvc", "rds", "sna", "irda", "ppox", "wanpipe", "llc", "ib", "mpls", "can",
 	"tipc", "bluetooth", "iucv", "rxrpc", "isdn", "phonet", "ieee802154", "ciaf", "alg",
 	"nfc", "vsock", "kcm", "qipcrtr"
 	};

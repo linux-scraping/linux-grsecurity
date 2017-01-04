@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2016 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2015-2017 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2
  *
  * Homepage:
@@ -1676,7 +1676,7 @@ static void move_function_to_init_exit_text(struct cgraph_node *node)
 	DECL_ATTRIBUTES(fndecl) = copy_list(DECL_ATTRIBUTES(fndecl));
 
 	section_name = NODE_SYMBOL(node)->aux == (void *)INIT ? ".init.text" : ".exit.text";
-	section_str = build_string(strlen(section_name) + 1, section_name);
+	section_str = build_const_char_string(strlen(section_name) + 1, section_name);
 	TREE_READONLY(section_str) = 1;
 	TREE_STATIC(section_str) = 1;
 	attr_args = build_tree_list(NULL_TREE, section_str);
@@ -1751,17 +1751,13 @@ static void initify_start_unit(void __unused *gcc_data, void __unused *user_data
 
 __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
-	struct register_pass_info initify_info;
 	int i;
 	const int argc = plugin_info->argc;
 	bool enabled = true;
 	const struct plugin_argument * const argv = plugin_info->argv;
 	const char * const plugin_name = plugin_info->base_name;
 
-	initify_info.pass				= make_initify_pass();
-	initify_info.reference_pass_name		= "inline";
-	initify_info.ref_pass_instance_number		= 1;
-	initify_info.pos_op				= PASS_POS_INSERT_AFTER;
+	PASS_INFO(initify, "inline", 1, PASS_POS_INSERT_AFTER);
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));
@@ -1800,7 +1796,7 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 
 	register_callback(plugin_name, PLUGIN_INFO, NULL, &initify_plugin_info);
 	if (enabled) {
-		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &initify_info);
+		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &initify_pass_info);
 		register_callback(plugin_name, PLUGIN_START_UNIT, initify_start_unit, NULL);
 	}
 	register_callback(plugin_name, PLUGIN_ATTRIBUTES, register_attributes, NULL);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2016 by PaX Team <pageexec@freemail.hu>
+ * Copyright 2013-2017 by PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -203,12 +203,8 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 	const int argc = plugin_info->argc;
 	const struct plugin_argument * const argv = plugin_info->argv;
 	bool enable = true;
-	struct register_pass_info structleak_pass_info;
 
-	structleak_pass_info.pass			= make_structleak_pass();
-	structleak_pass_info.reference_pass_name	= "early_optimizations";
-	structleak_pass_info.ref_pass_instance_number	= 1;
-	structleak_pass_info.pos_op			= PASS_POS_INSERT_BEFORE;
+	PASS_INFO(structleak, "early_optimizations", 1, PASS_POS_INSERT_BEFORE);
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));

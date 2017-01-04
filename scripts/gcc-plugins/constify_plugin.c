@@ -1,6 +1,6 @@
 /*
  * Copyright 2011 by Emese Revfy <re.emese@gmail.com>
- * Copyright 2011-2016 by PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2017 by PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2, or (at your option) v3
  *
  * This gcc plugin constifies all structures which contain only function pointers or are explicitly marked for constification.
@@ -544,12 +544,7 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 	const struct plugin_argument * const argv = plugin_info->argv;
 	int i;
 
-	struct register_pass_info check_local_variables_pass_info;
-
-	check_local_variables_pass_info.pass				= make_check_local_variables_pass();
-	check_local_variables_pass_info.reference_pass_name		= "ssa";
-	check_local_variables_pass_info.ref_pass_instance_number	= 1;
-	check_local_variables_pass_info.pos_op				= PASS_POS_INSERT_BEFORE;
+	PASS_INFO(check_local_variables, "ssa", 1, PASS_POS_INSERT_BEFORE);
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));

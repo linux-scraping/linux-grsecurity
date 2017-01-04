@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2016 by PaX Team <pageexec@freemail.hu>
+ * Copyright 2012-2017 by PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Homepage: http://pax.grsecurity.net/
@@ -55,7 +55,7 @@ gimple barrier(tree var, bool full)
 	if (!var && full) {
 		tree clobber;
 
-		clobber = build_tree_list(NULL_TREE, build_string(7, "memory"));
+		clobber = build_tree_list(NULL_TREE, build_const_char_string(7, "memory"));
 #if BUILDING_GCC_VERSION <= 4007
 		VEC_safe_push(tree, gc, clobbers, clobber);
 #else
@@ -64,7 +64,7 @@ gimple barrier(tree var, bool full)
 	} else if (full) {
 		tree input, output;
 
-		input = build_tree_list(NULL_TREE, build_string(2, "0"));
+		input = build_tree_list(NULL_TREE, build_const_char_string(2, "0"));
 		input = chainon(NULL_TREE, build_tree_list(input, var));
 #if BUILDING_GCC_VERSION <= 4007
 		VEC_safe_push(tree, gc, inputs, input);
@@ -72,7 +72,7 @@ gimple barrier(tree var, bool full)
 		vec_safe_push(inputs, input);
 #endif
 
-		output = build_tree_list(NULL_TREE, build_string(4, "=rm"));
+		output = build_tree_list(NULL_TREE, build_const_char_string(4, "=rm"));
 		gcc_assert(SSA_NAME_VAR(var));
 		var = make_ssa_name(SSA_NAME_VAR(var), NULL);
 		output = chainon(NULL_TREE, build_tree_list(output, var));
@@ -84,7 +84,7 @@ gimple barrier(tree var, bool full)
 	} else {
 		tree input;
 
-		input = build_tree_list(NULL_TREE, build_string(3, "rm"));
+		input = build_tree_list(NULL_TREE, build_const_char_string(3, "rm"));
 		input = chainon(NULL_TREE, build_tree_list(input, var));
 #if BUILDING_GCC_VERSION <= 4007
 		VEC_safe_push(tree, gc, inputs, input);
@@ -387,18 +387,8 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 	bool enable_call = false;
 	bool enable_abs = false, enable_abs_finish = false;
 
-	struct register_pass_info rap_fptr_pass_info;
-	struct register_pass_info rap_unignore_pass_info;
-
-	rap_fptr_pass_info.pass						= make_rap_fptr_pass();
-	rap_fptr_pass_info.reference_pass_name				= "nrv";
-	rap_fptr_pass_info.ref_pass_instance_number			= 1;
-	rap_fptr_pass_info.pos_op 					= PASS_POS_INSERT_AFTER;
-
-	rap_unignore_pass_info.pass					= make_rap_unignore_pass();
-	rap_unignore_pass_info.reference_pass_name			= "final";
-	rap_unignore_pass_info.ref_pass_instance_number			= 1;
-	rap_unignore_pass_info.pos_op 					= PASS_POS_INSERT_BEFORE;
+	PASS_INFO(rap_fptr, "nrv", 1, PASS_POS_INSERT_AFTER);
+	PASS_INFO(rap_unignore, "final", 1, PASS_POS_INSERT_BEFORE);
 
 	if (!rap_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));

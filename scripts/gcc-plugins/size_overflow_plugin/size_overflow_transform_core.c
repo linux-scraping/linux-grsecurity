@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2016 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011-2017 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2
  *
  * Homepage:
@@ -428,18 +428,6 @@ static bool skip_lhs_cast_check(struct visited *visited, const gassign *stmt)
 
 static tree create_string_param(tree string)
 {
-	tree i_type, a_type;
-	const int length = TREE_STRING_LENGTH(string);
-
-	gcc_assert(length > 0);
-
-	i_type = build_index_type(build_int_cst(NULL_TREE, length - 1));
-	a_type = build_array_type(char_type_node, i_type);
-
-	TREE_TYPE(string) = a_type;
-	TREE_CONSTANT(string) = 1;
-	TREE_READONLY(string) = 1;
-
 	return build1(ADDR_EXPR, ptr_type_node, string);
 }
 
@@ -477,17 +465,17 @@ static void insert_cond_result(interesting_stmts_t expand_from, basic_block bb_t
 
 	loc_line = build_int_cstu(unsigned_type_node, xloc.line);
 
-	loc_file = build_string(strlen(xloc.file) + 1, xloc.file);
+	loc_file = build_const_char_string(strlen(xloc.file) + 1, xloc.file);
 	loc_file = create_string_param(loc_file);
 
-	current_func = build_string(DECL_NAME_LENGTH(current_function_decl) + 1, DECL_NAME_POINTER(current_function_decl));
+	current_func = build_const_char_string(DECL_NAME_LENGTH(current_function_decl) + 1, DECL_NAME_POINTER(current_function_decl));
 	current_func = create_string_param(current_func);
 
 	gcc_assert(DECL_NAME(SSA_NAME_VAR(arg)) != NULL);
 	call_count++;
 	len = asprintf(&ssa_name_buf, "%s_%u %s, count: %u, decl: %s; num: %u; context: %s;\n", DECL_NAME_POINTER(SSA_NAME_VAR(arg)), SSA_NAME_VERSION(arg), min ? "min" : "max", call_count, expand_from->next_node->decl_name, expand_from->next_node->num, expand_from->next_node->context);
 	gcc_assert(len > 0);
-	ssa_name = build_string(len + 1, ssa_name_buf);
+	ssa_name = build_const_char_string(len + 1, ssa_name_buf);
 	free(ssa_name_buf);
 	ssa_name = create_string_param(ssa_name);
 

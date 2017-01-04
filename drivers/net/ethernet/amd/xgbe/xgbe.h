@@ -786,9 +786,9 @@ struct xgbe_prv_data {
 	int dev_irq;
 	unsigned int per_channel_irq;
 
-	struct xgbe_hw_if *hw_if;
-	struct xgbe_phy_if *phy_if;
-	struct xgbe_desc_if *desc_if;
+	const struct xgbe_hw_if *hw_if;
+	const struct xgbe_phy_if *phy_if;
+	const struct xgbe_desc_if *desc_if;
 
 	/* AXI DMA settings */
 	unsigned int coherent;

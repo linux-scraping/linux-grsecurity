@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2016 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2017 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -116,12 +116,8 @@ static unsigned int kallocstat_execute(void)
 __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version)
 {
 	const char * const plugin_name = plugin_info->base_name;
-	struct register_pass_info kallocstat_pass_info;
 
-	kallocstat_pass_info.pass			= make_kallocstat_pass();
-	kallocstat_pass_info.reference_pass_name	= "ssa";
-	kallocstat_pass_info.ref_pass_instance_number	= 1;
-	kallocstat_pass_info.pos_op 			= PASS_POS_INSERT_AFTER;
+	PASS_INFO(kallocstat, "ssa", 1, PASS_POS_INSERT_AFTER);
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));

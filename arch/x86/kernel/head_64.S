@@ -343,10 +343,9 @@ ENTRY(secondary_startup_64)
 	 *		address given in m16:64.
 	 */
 	pax_set_fptr_mask
-	movq	initial_code(%rip),%rax
 	pushq	$0		# fake return address to stop unwinder
 	pushq	$__KERNEL_CS	# set correct cs
-	pushq	%rax		# target address in negative space
+	pushq	initial_code(%rip) # target address in negative space
 	lretq
 ENDPROC(secondary_startup_64)
 
@@ -360,10 +359,9 @@ ENDPROC(secondary_startup_64)
  */
 ENTRY(start_cpu0)
 	movq stack_start(%rip),%rsp
-	movq	initial_code(%rip),%rax
 	pushq	$0		# fake return address to stop unwinder
 	pushq	$__KERNEL_CS	# set correct cs
-	pushq	%rax		# target address in negative space
+	pushq	initial_code(%rip) # target address in negative space
 	lretq
 ENDPROC(start_cpu0)
 #endif

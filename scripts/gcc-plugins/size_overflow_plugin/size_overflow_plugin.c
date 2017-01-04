@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2016 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011-2017 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2
  *
  * Homepage:
@@ -224,11 +224,6 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 	const int argc = plugin_info->argc;
 	const struct plugin_argument * const argv = plugin_info->argv;
 	bool enable = true;
-	struct register_pass_info insert_size_overflow_asm_pass_info;
-	struct register_pass_info size_overflow_pass_info;
-#if BUILDING_GCC_VERSION >= 4009
-	struct register_pass_info disable_ubsan_si_overflow_pass_info;
-#endif
 
 	static const struct ggc_root_tab gt_ggc_r_gt_size_overflow[] = {
 		{
@@ -241,15 +236,11 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 		LAST_GGC_ROOT_TAB
 	};
 
-	insert_size_overflow_asm_pass_info.pass				= make_insert_size_overflow_asm_pass();
-	insert_size_overflow_asm_pass_info.reference_pass_name		= "ssa";
-	insert_size_overflow_asm_pass_info.ref_pass_instance_number	= 1;
-	insert_size_overflow_asm_pass_info.pos_op			= PASS_POS_INSERT_AFTER;
-
-	size_overflow_pass_info.pass			= make_size_overflow_pass();
-	size_overflow_pass_info.reference_pass_name	= "inline";
-	size_overflow_pass_info.ref_pass_instance_number	= 1;
-	size_overflow_pass_info.pos_op			= PASS_POS_INSERT_AFTER;
+	PASS_INFO(insert_size_overflow_asm, "ssa", 1, PASS_POS_INSERT_AFTER);
+	PASS_INFO(size_overflow, "inline", 1, PASS_POS_INSERT_AFTER);
+#if BUILDING_GCC_VERSION >= 4009
+	PASS_INFO(disable_ubsan_si_overflow, "ubsan", 1, PASS_POS_REPLACE);
+#endif
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));
@@ -297,11 +288,6 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 		register_callback(plugin_name, PLUGIN_REGISTER_GGC_ROOTS, NULL, (void *)&gt_ggc_r_gt_size_overflow);
 #if BUILDING_GCC_VERSION >= 4009
 		flag_sanitize |= SANITIZE_SI_OVERFLOW;
-		disable_ubsan_si_overflow_pass_info.pass			= make_disable_ubsan_si_overflow_pass();
-		disable_ubsan_si_overflow_pass_info.reference_pass_name		= "ubsan";
-		disable_ubsan_si_overflow_pass_info.ref_pass_instance_number	= 1;
-		disable_ubsan_si_overflow_pass_info.pos_op			= PASS_POS_REPLACE;
-
 		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &disable_ubsan_si_overflow_pass_info);
 #endif
 		register_callback(plugin_name, PLUGIN_PASS_MANAGER_SETUP, NULL, &insert_size_overflow_asm_pass_info);

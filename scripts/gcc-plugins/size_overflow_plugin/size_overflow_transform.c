@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2016 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011-2017 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2
  *
  * Homepage:
@@ -49,7 +49,7 @@ static void change_size_overflow_asm_input(gasm *stmt, tree new_input)
 
 	gcc_assert(is_size_overflow_insert_check_asm(stmt));
 
-	list = build_tree_list(NULL_TREE, build_string(3, "rm"));
+	list = build_tree_list(NULL_TREE, build_const_char_string(3, "rm"));
 	list = chainon(NULL_TREE, build_tree_list(list, new_input));
 	gimple_asm_set_input_op(stmt, 0, list);
 }

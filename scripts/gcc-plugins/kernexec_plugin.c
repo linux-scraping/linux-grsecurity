@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2016 by the PaX Team <pageexec@freemail.hu>
+ * Copyright 2011-2017 by the PaX Team <pageexec@freemail.hu>
  * Licensed under the GPL v2
  *
  * Note: the choice of the license means that the compilation process is
@@ -152,9 +152,9 @@ static void kernexec_instrument_fptr_or(gimple_stmt_iterator *gsi)
 	new_fptr = make_ssa_name(new_fptr, NULL);
 
 	// build asm volatile("orq %%r12, %0\n\t" : "=r"(new_fptr) : "0"(old_fptr));
-	input = build_tree_list(NULL_TREE, build_string(2, "0"));
+	input = build_tree_list(NULL_TREE, build_const_char_string(2, "0"));
 	input = chainon(NULL_TREE, build_tree_list(input, old_fptr));
-	output = build_tree_list(NULL_TREE, build_string(3, "=r"));
+	output = build_tree_list(NULL_TREE, build_const_char_string(3, "=r"));
 	output = chainon(NULL_TREE, build_tree_list(output, new_fptr));
 #if BUILDING_GCC_VERSION <= 4007
 	VEC_safe_push(tree, gc, inputs, input);
@@ -347,24 +347,10 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 	const int argc = plugin_info->argc;
 	const struct plugin_argument * const argv = plugin_info->argv;
 	int i;
-	struct register_pass_info kernexec_reload_pass_info;
-	struct register_pass_info kernexec_fptr_pass_info;
-	struct register_pass_info kernexec_retaddr_pass_info;
 
-	kernexec_reload_pass_info.pass				= make_kernexec_reload_pass();
-	kernexec_reload_pass_info.reference_pass_name		= "early_optimizations";
-	kernexec_reload_pass_info.ref_pass_instance_number	= 1;
-	kernexec_reload_pass_info.pos_op 			= PASS_POS_INSERT_BEFORE;
-
-	kernexec_fptr_pass_info.pass				= make_kernexec_fptr_pass();
-	kernexec_fptr_pass_info.reference_pass_name		= "early_optimizations";
-	kernexec_fptr_pass_info.ref_pass_instance_number	= 1;
-	kernexec_fptr_pass_info.pos_op 				= PASS_POS_INSERT_BEFORE;
-
-	kernexec_retaddr_pass_info.pass				= make_kernexec_retaddr_pass();
-	kernexec_retaddr_pass_info.reference_pass_name		= "pro_and_epilogue";
-	kernexec_retaddr_pass_info.ref_pass_instance_number	= 1;
-	kernexec_retaddr_pass_info.pos_op 			= PASS_POS_INSERT_AFTER;
+	PASS_INFO(kernexec_reload, "early_optimizations", 1, PASS_POS_INSERT_BEFORE);
+	PASS_INFO(kernexec_fptr, "early_optimizations", 1, PASS_POS_INSERT_BEFORE);
+	PASS_INFO(kernexec_retaddr, "pro_and_epilogue", 1, PASS_POS_INSERT_AFTER);
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
 		error(G_("incompatible gcc/plugin versions"));
