@@ -1732,6 +1732,8 @@ struct task_struct {
 	struct rt_mutex_waiter *pi_blocked_on;
 #endif
 
+	const struct cred __rcu *ptracer_cred; /* Tracer's credentials at attach */
+
 #ifdef CONFIG_DEBUG_MUTEXES
 	/* mutex deadlock detection */
 	struct mutex_waiter *blocked_on;

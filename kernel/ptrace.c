@@ -39,6 +39,9 @@ void __ptrace_link(struct task_struct *child, struct task_struct *new_parent)
 	BUG_ON(!list_empty(&child->ptrace_entry));
 	list_add(&child->ptrace_entry, &new_parent->ptraced);
 	child->parent = new_parent;
+	rcu_read_lock();
+	child->ptracer_cred = get_cred(__task_cred(new_parent));
+	rcu_read_unlock();
 }
 
 /**
@@ -71,10 +74,14 @@ void __ptrace_link(struct task_struct *child, struct task_struct *new_parent)
  */
 void __ptrace_unlink(struct task_struct *child)
 {
+	const struct cred *old_cred;
 	BUG_ON(!child->ptrace);
 
 	child->parent = child->real_parent;
 	list_del_init(&child->ptrace_entry);
+	old_cred = child->ptracer_cred;
+	child->ptracer_cred = NULL;
+	put_cred(old_cred);
 
 	spin_lock(&child->sighand->siglock);
 	child->ptrace = 0;
@@ -234,13 +241,22 @@ static bool ptrace_has_cap(const struct cred *tcred, unsigned int mode)
 		return has_ns_capability(current, tns, CAP_SYS_PTRACE);
 }
 
+static bool ptrace_userns_has_cap(struct user_namespace *ns, unsigned int mode)
+{
+	if (mode & PTRACE_MODE_NOAUDIT)
+		return has_ns_capability_noaudit(current, ns, CAP_SYS_PTRACE);
+	else
+		return has_ns_capability(current, ns, CAP_SYS_PTRACE);
+}
+
 /* Returns 0 on success, -errno on denial. */
 static int __ptrace_may_access(struct task_struct *task, unsigned int mode)
 {
 	const struct cred *cred = current_cred(), *tcred;
-	int dumpable = 0;
+	struct mm_struct *mm;
 	kuid_t caller_uid;
 	kgid_t caller_gid;
+	int dumpable = 0;
 
 	if (!(mode & PTRACE_MODE_FSCREDS) == !(mode & PTRACE_MODE_REALCREDS)) {
 		WARN(1, "denying ptrace access check without PTRACE_MODE_*CREDS\n");
@@ -290,8 +306,10 @@ static int __ptrace_may_access(struct task_struct *task, unsigned int mode)
 ok:
 	rcu_read_unlock();
 	smp_rmb();
-	if (task->mm)
-		dumpable = get_dumpable(task->mm);
+	mm = task->mm;
+	if (mm)
+		dumpable = get_dumpable(mm);
+
 	rcu_read_lock();
 	if (dumpable != SUID_DUMP_USER &&
 	    !ptrace_has_cap(__task_cred(task), mode)) {
@@ -299,6 +317,11 @@ ok:
 		return -EPERM;
 	}
 	rcu_read_unlock();
+
+	if (mm &&
+	    (dumpable != SUID_DUMP_USER) &&
+	     !ptrace_userns_has_cap(mm->user_ns, mode))
+	    return -EPERM;
 
 	return security_ptrace_access_check(task, mode);
 }
@@ -362,10 +385,6 @@ static int ptrace_attach(struct task_struct *task, long request,
 
 	if (seize)
 		flags |= PT_SEIZED;
-	rcu_read_lock();
-	if (ns_capable_noaudit(__task_cred(task)->user_ns, CAP_SYS_PTRACE))
-		flags |= PT_PTRACE_CAP;
-	rcu_read_unlock();
 	task->ptrace = flags;
 
 	__ptrace_link(task, current);
