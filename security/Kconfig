@@ -1186,7 +1186,7 @@ config HAVE_ARCH_HARDENED_USERCOPY
 	  copy_to_user() and copy_from_user().
 
 config HARDENED_USERCOPY
-	def_bool y
+	bool
 	select BUG if BROKEN_SECURITY
 
 config HARDENED_USERCOPY_PAGESPAN

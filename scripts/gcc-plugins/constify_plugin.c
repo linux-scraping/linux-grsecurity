@@ -556,7 +556,7 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 			enabled = false;
 			continue;
 		}
-		error(G_("unkown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
+		error(G_("unknown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
 	}
 
 	if (strncmp(lang_hooks.name, "GNU C", 5) && !strncmp(lang_hooks.name, "GNU C+", 6)) {

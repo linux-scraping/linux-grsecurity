@@ -3437,6 +3437,11 @@ static int do_cow_fault(struct fault_env *fe, pgoff_t pgoff)
 		copy_user_highpage(new_page, fault_page, fe->address, vma);
 	__SetPageUptodate(new_page);
 
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (pax_find_mirror_vma(vma))
+		BUG_ON(!trylock_page(new_page));
+#endif
+
 	ret |= alloc_set_pte(fe, memcg, new_page);
 	if (fe->pte)
 		pte_unmap_unlock(fe->pte, fe->ptl);
@@ -3446,6 +3451,12 @@ static int do_cow_fault(struct fault_env *fe, pgoff_t pgoff)
 	} else {
 		dax_unlock_mapping_entry(vma->vm_file->f_mapping, pgoff);
 	}
+
+#ifdef CONFIG_PAX_SEGMEXEC
+	if (pax_find_mirror_vma(vma))
+		unlock_page(new_page);
+#endif
+
 	if (unlikely(ret & (VM_FAULT_ERROR | VM_FAULT_NOPAGE | VM_FAULT_RETRY)))
 		goto uncharge_out;
 	return ret;

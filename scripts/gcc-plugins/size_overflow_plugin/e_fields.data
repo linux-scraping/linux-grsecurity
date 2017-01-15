@@ -936,7 +936,6 @@ error_btrfs_end_io_wq_3838_fields error btrfs_end_io_wq 0 3838 NULL
 find_end_of_node_fndecl_3843_fields find_end_of_node fndecl 0-3-1-2 3843 NULL
 bg_inode_table_hi_ext4_group_desc_3844_fields bg_inode_table_hi ext4_group_desc 0 3844 NULL
 btrfs_dirty_pages_fndecl_3848_fields btrfs_dirty_pages fndecl 6-5 3848 NULL
-qdisc_tree_reduce_backlog_fndecl_3865_fields qdisc_tree_reduce_backlog fndecl 2 3865 NULL
 ocfs2_free_clusters_fndecl_3866_fields ocfs2_free_clusters fndecl 4 3866 NULL
 minlen_fstrim_range_3870_fields minlen fstrim_range 0 3870 NULL
 size_of_priv_dvb_usb_adapter_fe_properties_3875_fields size_of_priv dvb_usb_adapter_fe_properties 0 3875 NULL

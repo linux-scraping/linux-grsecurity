@@ -475,7 +475,7 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 			enable_context = true;
 			continue;
 		}
-		error(G_("unkown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
+		error(G_("unknown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
 	}
 
 	if (enable_user)

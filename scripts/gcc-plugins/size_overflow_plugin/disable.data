@@ -12469,3 +12469,4 @@ e_jffs2_encode_dev_fndecl_39156 jffs2_encode_dev fndecl 2-0 39156 NULL
 btrfs_get_token_32_fndecl_7192_fns btrfs_get_token_32 fndecl 0 7192 NULL
 btrfs_get_token_16_fndecl_46639_fns btrfs_get_token_16 fndecl 0 46639 NULL
 btrfs_get_token_64_fndecl_54223_fns btrfs_get_token_64 fndecl 0 54223 NULL
+qdisc_tree_reduce_backlog_fndecl_3865_fields qdisc_tree_reduce_backlog fndecl 2 3865 NULL

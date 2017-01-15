@@ -330,7 +330,7 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 			init_locals = true;
 			continue;
 		}
-		error(G_("unkown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
+		error(G_("unknown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
 	}
 
 	register_callback(plugin_name, PLUGIN_START_UNIT, &stackleak_start_unit, NULL);

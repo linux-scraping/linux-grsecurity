@@ -379,7 +379,7 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 				error(G_("invalid option argument '-fplugin-arg-%s-%s=%s'"), plugin_name, argv[i].key, argv[i].value);
 			continue;
 		}
-		error(G_("unkown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
+		error(G_("unknown option '-fplugin-arg-%s-%s'"), plugin_name, argv[i].key);
 	}
 	if (!kernexec_instrument_fptr || !kernexec_instrument_retaddr)
 		error(G_("no instrumentation method was selected via '-fplugin-arg-%s-method'"), plugin_name);
