@@ -58,7 +58,7 @@ save_registers:
 	popl	saved_context_eflags
 
 	movl	$ret_point, saved_eip
-	ret
+	pax_ret save_registers
 
 
 restore_registers:
@@ -69,13 +69,13 @@ restore_registers:
 	pushl	saved_context_eflags
 	popfl
 	ASM_CLAC
-	ret
+	pax_ret restore_registers
 
 ENTRY(do_suspend_lowlevel)
-	call	save_processor_state
-	call	save_registers
+	pax_direct_call save_processor_state
+	pax_direct_call save_registers
 	pushl	$3
-	call	x86_acpi_enter_sleep_state
+	pax_direct_call x86_acpi_enter_sleep_state
 	addl	$4, %esp
 
 #	In case of S3 failure, we'll emerge here.  Jump
@@ -83,9 +83,9 @@ ENTRY(do_suspend_lowlevel)
 	jmp	ret_point
 	.p2align 4,,7
 ret_point:
-	call	restore_registers
-	call	restore_processor_state
-	ret
+	pax_direct_call restore_registers
+	pax_direct_call restore_processor_state
+	pax_ret do_suspend_lowlevel
 
 .data
 ALIGN

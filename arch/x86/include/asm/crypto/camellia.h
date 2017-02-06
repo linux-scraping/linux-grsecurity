@@ -53,6 +53,12 @@ asmlinkage void camellia_ecb_enc_16way(void *ctx, u8 *dst,
 				       const u8 *src);
 asmlinkage void camellia_ecb_dec_16way(void *ctx, u8 *dst,
 				       const u8 *src);
+void roundsm16_x0_x1_x2_x3_x4_x5_x6_x7_y0_y1_y2_y3_y4_y5_y6_y7_cd(void *ctx, u8 *dst, const u8 *src) __rap_hash;
+void roundsm16_x4_x5_x6_x7_x0_x1_x2_x3_y4_y5_y6_y7_y0_y1_y2_y3_ab(void *ctx, u8 *dst, const u8 *src) __rap_hash;
+void roundsm32_x0_x1_x2_x3_x4_x5_x6_x7_y0_y1_y2_y3_y4_y5_y6_y7_cd(void *ctx, u8 *dst, const u8 *src) __rap_hash;
+void roundsm32_x4_x5_x6_x7_x0_x1_x2_x3_y4_y5_y6_y7_y0_y1_y2_y3_ab(void *ctx, u8 *dst, const u8 *src) __rap_hash;
+void __camellia_enc_blk16(void *ctx, u8 *dst, const u8 *src) __rap_hash;
+void __camellia_dec_blk16(void *ctx, u8 *dst, const u8 *src) __rap_hash;
 
 asmlinkage void camellia_cbc_dec_16way(void *ctx, u8 *dst,
 				       const u8 *src);

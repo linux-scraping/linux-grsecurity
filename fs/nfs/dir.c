@@ -477,7 +477,7 @@ void nfs_force_use_readdirplus(struct inode *dir)
 {
 	if (!list_empty(&NFS_I(dir)->open_files)) {
 		nfs_advise_use_readdirplus(dir);
-		nfs_zap_mapping(dir, dir->i_mapping);
+		invalidate_mapping_pages(dir->i_mapping, 0, -1);
 	}
 }
 
@@ -495,6 +495,14 @@ void nfs_prime_dcache(struct dentry *parent, struct nfs_entry *entry)
 	if (!(entry->fattr->valid & NFS_ATTR_FATTR_FILEID))
 		return;
 	if (!(entry->fattr->valid & NFS_ATTR_FATTR_FSID))
+		return;
+	if (filename.len == 0)
+		return;
+	/* Validate that the name doesn't contain any illegal '\0' */
+	if (strnlen(filename.name, filename.len) != filename.len)
+		return;
+	/* ...or '/' */
+	if (strnchr(filename.name, filename.len, '/'))
 		return;
 	if (filename.name[0] == '.') {
 		if (filename.len == 1)
@@ -879,17 +887,6 @@ int uncached_readdir(nfs_readdir_descriptor_t *desc)
 	goto out;
 }
 
-static bool nfs_dir_mapping_need_revalidate(struct inode *dir)
-{
-	struct nfs_inode *nfsi = NFS_I(dir);
-
-	if (nfs_attribute_cache_expired(dir))
-		return true;
-	if (nfsi->cache_validity & NFS_INO_INVALID_DATA)
-		return true;
-	return false;
-}
-
 /* The file offset position represents the dirent entry number.  A
    last cookie cache takes care of the common case of reading the
    whole directory.
@@ -921,7 +918,7 @@ static int nfs_readdir(struct file *file, struct dir_context *ctx)
 	desc->decode = NFS_PROTO(inode)->decode_dirent;
 	desc->plus = nfs_use_readdirplus(inode, ctx) ? 1 : 0;
 
-	if (ctx->pos == 0 || nfs_dir_mapping_need_revalidate(inode))
+	if (ctx->pos == 0 || nfs_attribute_cache_expired(inode))
 		res = nfs_revalidate_mapping(inode, file->f_mapping);
 	if (res < 0)
 		goto out;
@@ -2020,13 +2017,17 @@ EXPORT_SYMBOL_GPL(nfs_link);
  * the rename.
  */
 int nfs_rename(struct inode *old_dir, struct dentry *old_dentry,
-		      struct inode *new_dir, struct dentry *new_dentry)
+	       struct inode *new_dir, struct dentry *new_dentry,
+	       unsigned int flags)
 {
 	struct inode *old_inode = d_inode(old_dentry);
 	struct inode *new_inode = d_inode(new_dentry);
 	struct dentry *dentry = NULL, *rehash = NULL;
 	struct rpc_task *task;
 	int error = -EBUSY;
+
+	if (flags)
+		return -EINVAL;
 
 	dfprintk(VFS, "NFS: rename(%pd2 -> %pd2, ct=%d)\n",
 		 old_dentry, new_dentry,

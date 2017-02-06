@@ -16,6 +16,7 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/uaccess.h>
+#include <linux/syscalls.h>
 
 #include <asm/ldt.h>
 #include <asm/desc.h>
@@ -305,8 +306,7 @@ out:
 	return error;
 }
 
-asmlinkage int sys_modify_ldt(int func, void __user *ptr,
-			      unsigned long bytecount)
+SYSCALL_DEFINE3(modify_ldt, int, func, void __user *, ptr, unsigned long, bytecount)
 {
 	int ret = -ENOSYS;
 

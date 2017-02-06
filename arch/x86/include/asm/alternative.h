@@ -85,6 +85,16 @@ static inline int alternatives_text_reserved(void *start, void *end)
 }
 #endif	/* CONFIG_SMP */
 
+#ifdef CONFIG_PAX_RAP
+#define PAX_DIRECT_CALL(target) "rap_direct_call " target
+#define PAX_INDIRECT_CALL(target, extra) "rap_indirect_call " target " " extra
+#define PAX_RET(extra) "rap_ret " extra
+#else
+#define PAX_DIRECT_CALL(target) "call " target
+#define PAX_INDIRECT_CALL(target, extra) "call " target
+#define PAX_RET(extra) "ret"
+#endif
+
 #define b_replacement(num)	"664"#num
 #define e_replacement(num)	"665"#num
 
@@ -207,7 +217,7 @@ static inline int alternatives_text_reserved(void *start, void *end)
 
 /* Like alternative_io, but for replacing a direct call with another one. */
 #define alternative_call(oldfunc, newfunc, feature, output, input...)	\
-	asm volatile (ALTERNATIVE("call %P[old]", "call %P[new]", feature) \
+	asm volatile (ALTERNATIVE(PAX_DIRECT_CALL("%P[old]"), PAX_DIRECT_CALL("%P[new]"), feature) \
 		: output : [old] "i" (oldfunc), [new] "i" (newfunc), ## input)
 
 /*
@@ -218,10 +228,14 @@ static inline int alternatives_text_reserved(void *start, void *end)
  */
 #define alternative_call_2(oldfunc, newfunc1, feature1, newfunc2, feature2,   \
 			   output, input...)				      \
-	asm volatile (ALTERNATIVE_2("call %P[old]", "call %P[new1]", feature1,\
-		"call %P[new2]", feature2)				      \
-		: output : [old] "i" (oldfunc), [new1] "i" (newfunc1),	      \
-		[new2] "i" (newfunc2), ## input)
+{									      \
+	register void *__sp asm(_ASM_SP);				      \
+	asm volatile (ALTERNATIVE_2(PAX_DIRECT_CALL("%P[old]"), PAX_DIRECT_CALL("%P[new1]"), feature1,\
+		PAX_DIRECT_CALL("%P[new2]"), feature2)				      \
+		: output, "+r" (__sp)					      \
+		: [old] "i" (oldfunc), [new1] "i" (newfunc1),		      \
+		  [new2] "i" (newfunc2), ## input);			      \
+}
 
 /*
  * use this macro(s) if you need more than one output parameter

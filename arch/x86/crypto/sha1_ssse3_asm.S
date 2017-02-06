@@ -106,8 +106,7 @@ ALIGN
 	pop	%r14
 	pop	%rbp
 	pop	%rbx
-	pax_force_retaddr
-	ret
+	pax_ret \name
 
 	ENDPROC(\name)
 .endm

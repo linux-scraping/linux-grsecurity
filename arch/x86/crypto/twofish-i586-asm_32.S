@@ -22,6 +22,7 @@
 
 #include <linux/linkage.h>
 #include <asm/asm-offsets.h>
+#include <asm/alternative-asm.h>
 
 /* return address at 0 */
 
@@ -273,7 +274,7 @@ RAP_ENTRY(twofish_enc_blk)
 	pop	%ebx
 	pop	%ebp
 	mov	$1,	%eax
-	ret
+	pax_ret twofish_enc_blk
 ENDPROC(twofish_enc_blk)
 
 RAP_ENTRY(twofish_dec_blk)
@@ -330,5 +331,5 @@ RAP_ENTRY(twofish_dec_blk)
 	pop	%ebx
 	pop	%ebp
 	mov	$1,	%eax
-	ret
+	pax_ret twofish_dec_blk
 ENDPROC(twofish_dec_blk)

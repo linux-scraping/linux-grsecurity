@@ -470,8 +470,7 @@ done_hash:
 	popq    %rbp
 	popq    %rbx
 
-	pax_force_retaddr
-	ret
+	pax_ret sha256_transform_ssse3
 ENDPROC(sha256_transform_ssse3)
 
 .data

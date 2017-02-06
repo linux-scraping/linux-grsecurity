@@ -800,7 +800,7 @@ out_free_file:
 	return retval;
 }
 
-static struct file_operations ptmx_fops;
+static file_operations_no_const ptmx_fops __read_only;
 
 static void __init unix98_pty_init(void)
 {

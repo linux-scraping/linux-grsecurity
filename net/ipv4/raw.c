@@ -606,12 +606,6 @@ static int raw_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 			    (inet->hdrincl ? FLOWI_FLAG_KNOWN_NH : 0),
 			   daddr, saddr, 0, 0);
 
-	if (!saddr && ipc.oif) {
-		err = l3mdev_get_saddr(net, ipc.oif, &fl4);
-		if (err < 0)
-			goto done;
-	}
-
 	if (!inet->hdrincl) {
 		rfv.msg = msg;
 		rfv.hlen = 0;
@@ -786,20 +780,16 @@ static int raw_init(struct sock *sk)
 
 static int raw_seticmpfilter(struct sock *sk, char __user *optval, int optlen)
 {
-	struct icmp_filter filter;
-
 	if (optlen > sizeof(struct icmp_filter))
 		optlen = sizeof(struct icmp_filter);
-	if (copy_from_user(&filter, optval, optlen))
+	if (copy_from_user(&raw_sk(sk)->filter, optval, optlen))
 		return -EFAULT;
-	raw_sk(sk)->filter = filter;
 	return 0;
 }
 
 static int raw_geticmpfilter(struct sock *sk, char __user *optval, int __user *optlen)
 {
 	int len, ret = -EFAULT;
-	struct icmp_filter filter;
 
 	if (get_user(len, optlen))
 		goto out;
@@ -809,8 +799,8 @@ static int raw_geticmpfilter(struct sock *sk, char __user *optval, int __user *o
 	if (len > sizeof(struct icmp_filter))
 		len = sizeof(struct icmp_filter);
 	ret = -EFAULT;
-	filter = raw_sk(sk)->filter;
-	if (put_user(len, optlen) || len > sizeof filter || copy_to_user(optval, &filter, len))
+	if (put_user(len, optlen) ||
+	    copy_to_user(optval, &raw_sk(sk)->filter, len))
 		goto out;
 	ret = 0;
 out:	return ret;
@@ -928,7 +918,7 @@ struct proto raw_prot = {
 	.close		   = raw_close,
 	.destroy	   = raw_destroy,
 	.connect	   = ip4_datagram_connect,
-	.disconnect	   = udp_disconnect,
+	.disconnect	   = __udp_disconnect,
 	.ioctl		   = raw_ioctl,
 	.init		   = raw_init,
 	.setsockopt	   = raw_setsockopt,
@@ -941,6 +931,8 @@ struct proto raw_prot = {
 	.hash		   = raw_hash_sk,
 	.unhash		   = raw_unhash_sk,
 	.obj_size	   = sizeof(struct raw_sock),
+	.useroffset	   = offsetof(struct raw_sock, filter),
+	.usersize	   = sizeof(((struct raw_sock *)0)->filter),
 	.h.raw_hash	   = &raw_v4_hashinfo,
 #ifdef CONFIG_COMPAT
 	.compat_setsockopt = compat_raw_setsockopt,

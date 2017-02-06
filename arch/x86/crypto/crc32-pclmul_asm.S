@@ -39,6 +39,7 @@
 
 #include <linux/linkage.h>
 #include <asm/inst.h>
+#include <asm/alternative-asm.h>
 
 
 .align 16
@@ -247,5 +248,5 @@ fold_64:
 	pxor    %xmm2, %xmm1
 	PEXTRD  0x01, %xmm1, %eax
 
-	ret
+	pax_ret crc32_pclmul_le_16
 ENDPROC(crc32_pclmul_le_16)

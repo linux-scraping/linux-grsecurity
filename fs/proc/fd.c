@@ -32,7 +32,7 @@ static int seq_show(struct seq_file *m, void *v)
 	put_task_struct(task);
 
 	if (files) {
-		int fd = proc_fd(m->private);
+		unsigned int fd = proc_fd(m->private);
 
 		spin_lock(&files->file_lock);
 		file = fcheck_files(files, fd);
@@ -87,7 +87,7 @@ static int tid_fd_revalidate(struct dentry *dentry, unsigned int flags)
 	struct task_struct *task;
 	const struct cred *cred;
 	struct inode *inode;
-	int fd;
+	unsigned int fd;
 
 	if (flags & LOOKUP_RCU)
 		return -ECHILD;
@@ -159,7 +159,7 @@ static int proc_fd_link(struct dentry *dentry, struct path *path)
 	}
 
 	if (files) {
-		int fd = proc_fd(d_inode(dentry));
+		unsigned int fd = proc_fd(d_inode(dentry));
 		struct file *fd_file;
 
 		spin_lock(&files->file_lock);
@@ -254,7 +254,7 @@ static int proc_readfd_common(struct file *file, struct dir_context *ctx,
 			continue;
 		rcu_read_unlock();
 
-		len = snprintf(name, sizeof(name), "%d", fd);
+		len = snprintf(name, sizeof(name), "%u", fd);
 		if (!proc_fill_cache(file, ctx,
 				     name, len, instantiate, p,
 				     (void *)(unsigned long)fd))

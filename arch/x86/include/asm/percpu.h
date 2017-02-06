@@ -493,7 +493,7 @@ do {									\
 	bool __ret;							\
 	typeof(pcp1) __o1 = (o1), __n1 = (n1);				\
 	typeof(pcp2) __o2 = (o2), __n2 = (n2);				\
-	alternative_io("leaq %P1,%%rsi\n\tcall this_cpu_cmpxchg16b_emu\n\t", \
+	alternative_io("leaq %P1,%%rsi\n\t" PAX_DIRECT_CALL("this_cpu_cmpxchg16b_emu")"\n\t", \
 		       "cmpxchg16b " __percpu_arg(1) "\n\tsetz %0\n\t",	\
 		       X86_FEATURE_CX16,				\
 		       ASM_OUTPUT2("=a" (__ret), "+m" (pcp1),		\
@@ -501,6 +501,7 @@ do {									\
 		       "b" (__n1), "c" (__n2), "a" (__o1) : "rsi");	\
 	__ret;								\
 })
+bool this_cpu_cmpxchg16b_emu(void *, void*, long, long, long, long) __rap_hash;
 
 #define raw_cpu_cmpxchg_double_8	percpu_cmpxchg16b_double
 #define this_cpu_cmpxchg_double_8	percpu_cmpxchg16b_double
@@ -521,7 +522,8 @@ do {									\
 static __always_inline bool x86_this_cpu_constant_test_bit(unsigned int nr,
                         const unsigned long __percpu *addr)
 {
-	unsigned long __percpu *a = (unsigned long *)addr + nr / BITS_PER_LONG;
+	unsigned long __percpu *a =
+		(unsigned long __percpu *)addr + nr / BITS_PER_LONG;
 
 #ifdef CONFIG_X86_64
 	return ((1UL << (nr % BITS_PER_LONG)) & raw_cpu_read_8(*a)) != 0;
@@ -538,7 +540,7 @@ static inline bool x86_this_cpu_variable_test_bit(int nr,
 	asm volatile("bt "__percpu_arg(2)",%1\n\t"
 			CC_SET(c)
 			: CC_OUT(c) (oldbit)
-			: "m" (*(unsigned long *)addr), "Ir" (nr));
+			: "m" (*(unsigned long __percpu *)addr), "Ir" (nr));
 
 	return oldbit;
 }

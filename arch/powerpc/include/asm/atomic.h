@@ -257,7 +257,7 @@ static __inline__ int __atomic_add_unless(atomic_t *v, int a, int u)
 	PPC_ATOMIC_ENTRY_BARRIER
 "1:	lwarx	%0,0,%1		# __atomic_add_unless\n\
 	cmpw	0,%0,%3 \n\
-	beq-	5f \n"
+	beq	5f \n"
 
 	__OVERFLOW_PRE
 	__REFCOUNT_OP(add) "	%0,%2,%0 \n"
@@ -584,7 +584,7 @@ static __inline__ int atomic64_add_unless(atomic64_t *v, long a, long u)
 	PPC_ATOMIC_ENTRY_BARRIER
 "1:	ldarx	%0,0,%1		# atomic64_add_unless\n\
 	cmpd	0,%0,%3 \n\
-	beq-	5f \n"
+	beq	5f \n"
 
 	__OVERFLOW_PRE
 	__REFCOUNT_OP(add) "	%0,%2,%0 \n"

@@ -759,9 +759,11 @@ static inline void gr_init_ebda(void)
 static inline void gr_init_ebda(void) { }
 #endif
 
-void free_initmem(void)
+void __ref free_initmem(void)
 {
 	gr_init_ebda();
+
+	e820_reallocate_tables();
 
 	free_init_pages("unused kernel",
 			(unsigned long)(&__init_begin),

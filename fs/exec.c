@@ -217,15 +217,20 @@ static struct page *get_arg_page(struct linux_binprm *bprm, unsigned long pos,
 		int write)
 {
 	struct page *page;
+	unsigned int gup_flags = FOLL_FORCE;
 
 	if (0 > expand_downwards(bprm->vma, pos))
 		return NULL;
+
+	if (write)
+		gup_flags |= FOLL_WRITE;
+
 	/*
 	 * We are doing an exec().  'current' is the process
 	 * doing the exec and bprm->mm is the new process's mm.
 	 */
-	if (0 >= get_user_pages_remote(current, bprm->mm, pos, 1, write,
-			1, &page, NULL))
+	if (0 >= get_user_pages_remote(current, bprm->mm, pos, 1, gup_flags,
+			&page, NULL))
 		return NULL;
 
 	if (write) {
@@ -2266,9 +2271,9 @@ void pax_report_refcount_error(struct pt_regs *regs, const char *kind)
 void __used pax_track_stack(void)
 {
 	unsigned long sp = (unsigned long)&sp;
-	if (sp < current_thread_info()->lowest_stack &&
+	if (sp < current->thread.lowest_stack &&
 	    sp >= (unsigned long)task_stack_page(current) + 2 * sizeof(unsigned long))
-		current_thread_info()->lowest_stack = sp;
+		current->thread.lowest_stack = sp;
 	if (unlikely((sp & ~(THREAD_SIZE - 1)) < (THREAD_SIZE/16)))
 		BUG();
 }

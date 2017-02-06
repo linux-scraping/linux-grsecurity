@@ -1466,13 +1466,13 @@ static struct vm_struct *__get_vm_area_node(unsigned long size,
 	}
 #endif
 
-	if (flags & VM_IOREMAP)
-		align = 1ul << clamp_t(int, fls_long(size),
-				       PAGE_SHIFT, IOREMAP_MAX_ORDER);
-
 	size = PAGE_ALIGN(size);
 	if (unlikely(!size))
 		return NULL;
+
+	if (flags & VM_IOREMAP)
+		align = 1ul << clamp_t(int, get_count_order_long(size),
+				       PAGE_SHIFT, IOREMAP_MAX_ORDER);
 
 	area = kzalloc_node(sizeof(*area), gfp_mask & GFP_RECLAIM_MASK, node);
 	if (unlikely(!area))
@@ -1740,7 +1740,6 @@ static void *__vmalloc_node(unsigned long size, unsigned long align,
 static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 				 pgprot_t prot, int node)
 {
-	const int order = 0;
 	struct page **pages;
 	unsigned int nr_pages, array_size, i;
 	const gfp_t nested_gfp = (gfp_mask & GFP_RECLAIM_MASK) | __GFP_ZERO;
@@ -1768,9 +1767,9 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 		struct page *page;
 
 		if (node == NUMA_NO_NODE)
-			page = alloc_pages(alloc_mask, order);
+			page = alloc_page(alloc_mask);
 		else
-			page = alloc_pages_node(node, alloc_mask, order);
+			page = alloc_pages_node(node, alloc_mask, 0);
 
 		if (unlikely(!page)) {
 			/* Successfully allocated i pages, free them in __vunmap() */
@@ -1787,8 +1786,8 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 	return area->addr;
 
 fail:
-	warn_alloc_failed(gfp_mask, order,
-			  "vmalloc: allocation failure, allocated %ld of %ld bytes\n",
+	warn_alloc(gfp_mask,
+			  "vmalloc: allocation failure, allocated %ld of %ld bytes",
 			  (area->nr_pages*PAGE_SIZE), area->size);
 	vfree(area->addr);
 	return NULL;
@@ -1857,9 +1856,8 @@ void *__vmalloc_node_range(unsigned long size, unsigned long align,
 	return addr;
 
 fail:
-	warn_alloc_failed(gfp_mask, 0,
-			  "vmalloc: allocation failure: %lu bytes\n",
-			  real_size);
+	warn_alloc(gfp_mask,
+			  "vmalloc: allocation failure: %lu bytes", real_size);
 	return NULL;
 }
 
@@ -1905,16 +1903,6 @@ static inline void *__vmalloc_node_flags(unsigned long size,
 	return __vmalloc_node(size, 1, flags, PAGE_KERNEL,
 					node, __builtin_return_address(0));
 }
-
-#if defined(CONFIG_GRKERNSEC_KSTACKOVERFLOW) && defined(CONFIG_X86_64)
-void *vzalloc_irq_stack(void)
-{
-	return __vmalloc_node(IRQ_STACK_SIZE, IRQ_STACK_SIZE,
-			      GFP_KERNEL | __GFP_NOTRACK | __GFP_ZERO,
-			      PAGE_KERNEL, NUMA_NO_NODE,
-			      __builtin_return_address(0));
-}
-#endif
 
 /**
  *	vmalloc  -  allocate virtually contiguous memory

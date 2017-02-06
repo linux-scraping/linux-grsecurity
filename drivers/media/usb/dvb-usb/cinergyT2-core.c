@@ -41,6 +41,7 @@ DVB_DEFINE_MOD_OPT_ADAPTER_NR(adapter_nr);
 
 struct cinergyt2_state {
 	u8 rc_counter;
+	unsigned char data[64];
 };
 
 /* We are missing a release hook with usb_device data */
@@ -50,83 +51,57 @@ static struct dvb_usb_device_properties cinergyt2_properties;
 
 static int cinergyt2_streaming_ctrl(struct dvb_usb_adapter *adap, int enable)
 {
-	char *buf;
-	char *result;
-	int retval;
+	struct dvb_usb_device *d = adap->dev;
+	struct cinergyt2_state *st = d->priv;
+	int ret;
 
-	buf = kmalloc(2, GFP_KERNEL);
-	if (buf == NULL)
-		return -ENOMEM;
-	result = kmalloc(64, GFP_KERNEL);
-	if (result == NULL) {
-		kfree(buf);
-		return -ENOMEM;
-	}
+	mutex_lock(&d->data_mutex);
+	st->data[0] = CINERGYT2_EP1_CONTROL_STREAM_TRANSFER;
+	st->data[1] = enable ? 1 : 0;
 
-	buf[0] = CINERGYT2_EP1_CONTROL_STREAM_TRANSFER;
-	buf[1] = enable ? 1 : 0;
+	ret = dvb_usb_generic_rw(d, st->data, 2, st->data, 64, 0);
+	mutex_unlock(&d->data_mutex);
 
-	retval = dvb_usb_generic_rw(adap->dev, buf, 2, result, 64, 0);
-
-	kfree(buf);
-	kfree(result);
-	return retval;
+	return ret;
 }
 
 static int cinergyt2_power_ctrl(struct dvb_usb_device *d, int enable)
 {
-	char *buf;
-	char *state;
-	int retval;
+	struct cinergyt2_state *st = d->priv;
+	int ret;
 
-	buf = kmalloc(2, GFP_KERNEL);
-	if (buf == NULL)
-		return -ENOMEM;
-	state = kmalloc(3, GFP_KERNEL);
-	if (state == NULL) {
-		kfree(buf);
-		return -ENOMEM;
-	}
+	mutex_lock(&d->data_mutex);
+	st->data[0] = CINERGYT2_EP1_SLEEP_MODE;
+	st->data[1] = enable ? 0 : 1;
 
-	buf[0] = CINERGYT2_EP1_SLEEP_MODE;
-	buf[1] = enable ? 1 : 0;
+	ret = dvb_usb_generic_rw(d, st->data, 2, st->data, 3, 0);
+	mutex_unlock(&d->data_mutex);
 
-	retval = dvb_usb_generic_rw(d, buf, 2, state, 3, 0);
-
-	kfree(buf);
-	kfree(state);
-	return retval;
+	return ret;
 }
 
 static int cinergyt2_frontend_attach(struct dvb_usb_adapter *adap)
 {
-	char *query;
-	char *state;
+	struct dvb_usb_device *d = adap->dev;
+	struct cinergyt2_state *st = d->priv;
 	int ret;
-	query = kmalloc(1, GFP_KERNEL);
-	if (query == NULL)
-		return -ENOMEM;
-	state = kmalloc(3, GFP_KERNEL);
-	if (state == NULL) {
-		kfree(query);
-		return -ENOMEM;
-	}
-
-	query[0] = CINERGYT2_EP1_GET_FIRMWARE_VERSION;
 
 	adap->fe_adap[0].fe = cinergyt2_fe_attach(adap->dev);
 
-	ret = dvb_usb_generic_rw(adap->dev, query, 1, state, 3, 0);
+	mutex_lock(&d->data_mutex);
+	st->data[0] = CINERGYT2_EP1_GET_FIRMWARE_VERSION;
+
+	ret = dvb_usb_generic_rw(d, st->data, 1, st->data, 3, 0);
 	if (ret < 0) {
 		deb_rc("cinergyt2_power_ctrl() Failed to retrieve sleep "
 			"state info\n");
 	}
+	mutex_unlock(&d->data_mutex);
 
 	/* Copy this pointer as we are gonna need it in the release phase */
 	cinergyt2_usb_device = adap->dev;
-	kfree(query);
-	kfree(state);
-	return 0;
+
+	return ret;
 }
 
 static struct rc_map_table rc_map_cinergyt2_table[] = {
@@ -186,24 +161,18 @@ static int repeatable_keys[] = {
 static int cinergyt2_rc_query(struct dvb_usb_device *d, u32 *event, int *state)
 {
 	struct cinergyt2_state *st = d->priv;
-	u8 *key, *cmd;
-	int i;
-
-	cmd = kmalloc(1, GFP_KERNEL);
-	if (cmd == NULL)
-		return -EINVAL;
-	key = kzalloc(5, GFP_KERNEL);
-	if (key == NULL) {
-		kfree(cmd);
-		return -EINVAL;
-	}
-
-	cmd[0] = CINERGYT2_EP1_GET_RC_EVENTS;
+	int i, ret;
 
 	*state = REMOTE_NO_KEY_PRESSED;
 
-	dvb_usb_generic_rw(d, cmd, 1, key, 5, 0);
-	if (key[4] == 0xff) {
+	mutex_lock(&d->data_mutex);
+	st->data[0] = CINERGYT2_EP1_GET_RC_EVENTS;
+
+	ret = dvb_usb_generic_rw(d, st->data, 1, st->data, 5, 0);
+	if (ret < 0)
+		goto ret;
+
+	if (st->data[4] == 0xff) {
 		/* key repeat */
 		st->rc_counter++;
 		if (st->rc_counter > RC_REPEAT_DELAY) {
@@ -213,36 +182,35 @@ static int cinergyt2_rc_query(struct dvb_usb_device *d, u32 *event, int *state)
 					*event = d->last_event;
 					deb_rc("repeat key, event %x\n",
 						   *event);
-					goto out;
+					goto ret;
 				}
 			}
 			deb_rc("repeated key (non repeatable)\n");
 		}
-		goto out;
+		goto ret;
 	}
 
 	/* hack to pass checksum on the custom field */
-	key[2] = ~key[1];
-	dvb_usb_nec_rc_key_to_event(d, key, event, state);
-	if (key[0] != 0) {
+	st->data[2] = ~st->data[1];
+	dvb_usb_nec_rc_key_to_event(d, st->data, event, state);
+	if (st->data[0] != 0) {
 		if (*event != d->last_event)
 			st->rc_counter = 0;
 
-		deb_rc("key: %*ph\n", 5, key);
+		deb_rc("key: %*ph\n", 5, st->data);
 	}
-out:
-	kfree(cmd);
-	kfree(key);
-	return 0;
+
+ret:
+	mutex_unlock(&d->data_mutex);
+	return ret;
 }
 
 static int cinergyt2_usb_probe(struct usb_interface *intf,
 				const struct usb_device_id *id)
 {
 	return dvb_usb_device_init(intf, &cinergyt2_properties,
-					THIS_MODULE, NULL, adapter_nr);
+				   THIS_MODULE, NULL, adapter_nr);
 }
-
 
 static struct usb_device_id cinergyt2_usb_table[] = {
 	{ USB_DEVICE(USB_VID_TERRATEC, 0x0038) },

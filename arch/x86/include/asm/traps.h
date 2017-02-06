@@ -64,6 +64,8 @@ asmlinkage void trace_page_fault(void);
 #define trace_simd_coprocessor_error simd_coprocessor_error
 #define trace_async_page_fault async_page_fault
 #define trace_refcount_error refcount_error
+#define trace_rap_call_error rap_call_error
+#define trace_rap_ret_error rap_ret_error
 #endif
 
 dotraplinkage void do_divide_error(struct pt_regs *, long);
@@ -126,6 +128,12 @@ extern void ist_enter(struct pt_regs *regs);
 extern void ist_exit(struct pt_regs *regs);
 extern void ist_begin_non_atomic(struct pt_regs *regs);
 extern void ist_end_non_atomic(void);
+
+#if defined(CONFIG_VMAP_STACK) || defined(CONFIG_GRKERNSEC_KSTACKOVERFLOW)
+void __noreturn handle_stack_overflow(const char *message,
+				      struct pt_regs *regs,
+				      unsigned long fault_address);
+#endif
 
 /* Interrupts/Exceptions */
 enum {

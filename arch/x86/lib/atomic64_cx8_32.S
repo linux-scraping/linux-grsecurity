@@ -23,14 +23,12 @@
 
 ENTRY(atomic64_read_cx8)
 	read64 %ecx
-	pax_force_retaddr
-	ret
+	pax_ret atomic64_read
 ENDPROC(atomic64_read_cx8)
 
 ENTRY(atomic64_read_unchecked_cx8)
 	read64 %ecx
-	pax_force_retaddr
-	ret
+	pax_ret atomic64_read_unchecked
 ENDPROC(atomic64_read_unchecked_cx8)
 
 ENTRY(atomic64_set_cx8)
@@ -40,8 +38,7 @@ ENTRY(atomic64_set_cx8)
 	cmpxchg8b (%esi)
 	jne 1b
 
-	pax_force_retaddr
-	ret
+	pax_ret atomic64_set
 ENDPROC(atomic64_set_cx8)
 
 ENTRY(atomic64_set_unchecked_cx8)
@@ -51,8 +48,7 @@ ENTRY(atomic64_set_unchecked_cx8)
 	cmpxchg8b (%esi)
 	jne 1b
 
-	pax_force_retaddr
-	ret
+	pax_ret atomic64_set_unchecked
 ENDPROC(atomic64_set_unchecked_cx8)
 
 ENTRY(atomic64_xchg_cx8)
@@ -61,8 +57,7 @@ ENTRY(atomic64_xchg_cx8)
 	cmpxchg8b (%esi)
 	jne 1b
 
-	pax_force_retaddr
-	ret
+	pax_ret atomic64_xchg
 ENDPROC(atomic64_xchg_cx8)
 
 .macro addsub_return func ins insc unchecked=""
@@ -101,8 +96,7 @@ ENTRY(atomic64_\func\()_return\unchecked\()_cx8)
 	popl %esi
 	popl %ebx
 	popl %ebp
-	pax_force_retaddr
-	ret
+	pax_ret atomic64_\func\()_return\unchecked
 ENDPROC(atomic64_\func\()_return\unchecked\()_cx8)
 .endm
 
@@ -137,8 +131,7 @@ ENTRY(atomic64_\func\()_return\unchecked\()_cx8)
 	movl %ecx, %edx
 
 	popl %ebx
-	pax_force_retaddr
-	ret
+	pax_ret atomic64_\func\()_return\unchecked
 ENDPROC(atomic64_\func\()_return\unchecked\()_cx8)
 .endm
 
@@ -168,8 +161,7 @@ ENTRY(atomic64_dec_if_positive_cx8)
 	movl %ebx, %eax
 	movl %ecx, %edx
 	popl %ebx
-	pax_force_retaddr
-	ret
+	pax_ret atomic64_dec_if_positive
 ENDPROC(atomic64_dec_if_positive_cx8)
 
 ENTRY(atomic64_add_unless_cx8)
@@ -203,8 +195,7 @@ ENTRY(atomic64_add_unless_cx8)
 	addl $8, %esp
 	popl %ebx
 	popl %ebp
-	pax_force_retaddr
-	ret
+	pax_ret atomic64_add_unless
 4:
 	cmpl %edx, 4(%esp)
 	jne 2b
@@ -234,6 +225,5 @@ ENTRY(atomic64_inc_not_zero_cx8)
 	movl $1, %eax
 3:
 	popl %ebx
-	pax_force_retaddr
-	ret
+	pax_ret atomic64_inc_not_zero
 ENDPROC(atomic64_inc_not_zero_cx8)

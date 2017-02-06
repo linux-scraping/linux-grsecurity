@@ -428,7 +428,7 @@ static void walk_use_def_next_functions_unary(struct walk_use_def_data *use_def_
 	walk_use_def_next_functions(use_def_data, rhs1);
 }
 
-void __attribute__((weak)) handle_function_ptr_ret(struct walk_use_def_data *use_def_data __unused, const_tree fn_ptr __unused)
+void __weak handle_function_ptr_ret(struct walk_use_def_data *use_def_data __unused, const_tree fn_ptr __unused)
 {
 }
 
@@ -627,7 +627,7 @@ void push_child(next_interesting_function_t parent, next_interesting_function_t 
 	}
 }
 
-void __attribute__((weak)) check_local_variables(next_interesting_function_t next_node __unused) {}
+void __weak check_local_variables(next_interesting_function_t next_node __unused) {}
 
 // Add children to parent and global_next_interesting_function
 static void collect_data_for_execute(next_interesting_function_t parent, next_interesting_function_t children)
@@ -664,7 +664,7 @@ static void collect_data_for_execute(next_interesting_function_t parent, next_in
 	check_local_variables(parent);
 }
 
-next_interesting_function_t __attribute__((weak)) get_and_create_next_node_from_global_next_nodes_fnptr(const_tree fn_ptr __unused, struct fn_raw_data *raw_data __unused)
+next_interesting_function_t __weak get_and_create_next_node_from_global_next_nodes_fnptr(const_tree fn_ptr __unused, struct fn_raw_data *raw_data __unused)
 {
 	return NULL;
 }
@@ -1213,7 +1213,7 @@ static void print_so_marked_fns(void)
 	pointer_set_destroy(visited);
 }
 
-void __attribute__((weak)) check_global_variables(next_interesting_function_t cur_global __unused) {}
+void __weak check_global_variables(next_interesting_function_t cur_global __unused) {}
 
 static void global_vars_and_fptrs(void)
 {
@@ -1311,18 +1311,18 @@ static unsigned int size_overflow_execute(void)
 
 // Omit the IPA/LTO callbacks until https://gcc.gnu.org/bugzilla/show_bug.cgi?id=61311 gets fixed (license concerns)
 #if BUILDING_GCC_VERSION >= 4008
-void __attribute__((weak)) size_overflow_write_summary(void) {}
-void __attribute__((weak)) size_overflow_write_optimization_summary(void) {}
+void __weak size_overflow_write_summary(void) {}
+void __weak size_overflow_write_optimization_summary(void) {}
 #elif BUILDING_GCC_VERSION >= 4006
-void __attribute__((weak)) size_overflow_write_summary(cgraph_node_set set __unused, varpool_node_set vset __unused) {}
-void __attribute__((weak)) size_overflow_write_optimization_summary(cgraph_node_set set __unused, varpool_node_set vset __unused) {}
+void __weak size_overflow_write_summary(cgraph_node_set set __unused, varpool_node_set vset __unused) {}
+void __weak size_overflow_write_optimization_summary(cgraph_node_set set __unused, varpool_node_set vset __unused) {}
 #else
-void __attribute__((weak)) size_overflow_write_summary(cgraph_node_set set __unused) {}
-void __attribute__((weak)) size_overflow_write_optimization_summary(cgraph_node_set set __unused) {}
+void __weak size_overflow_write_summary(cgraph_node_set set __unused) {}
+void __weak size_overflow_write_optimization_summary(cgraph_node_set set __unused) {}
 #endif
 
-void __attribute__((weak)) size_overflow_read_summary(void);
-void __attribute__((weak)) size_overflow_read_optimization_summary(void);
+void __weak size_overflow_read_summary(void);
+void __weak size_overflow_read_optimization_summary(void);
 
 #define PASS_NAME size_overflow
 

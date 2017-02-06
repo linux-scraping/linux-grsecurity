@@ -137,12 +137,7 @@ static inline struct page *sg_page(struct scatterlist *sg)
 static inline void sg_set_buf(struct scatterlist *sg, const void *buf,
 			      unsigned int buflen)
 {
-	const void *realbuf = buf;
-
-#ifdef CONFIG_GRKERNSEC_KSTACKOVERFLOW
-	if (object_starts_on_stack(buf))
-		realbuf = buf - current->stack + current->lowmem_stack;
-#endif
+	const void *realbuf = gr_convert_stack_address_to_lowmem(buf);
 
 #ifdef CONFIG_DEBUG_SG
 	BUG_ON(!virt_addr_valid(realbuf));

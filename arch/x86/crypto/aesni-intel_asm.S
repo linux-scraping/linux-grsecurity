@@ -1454,8 +1454,7 @@ _return_T_done_decrypt:
 	pop	%r14
 	pop	%r13
 	pop	%r15
-	pax_force_retaddr
-	ret
+	pax_ret aesni_gcm_dec
 ENDPROC(aesni_gcm_dec)
 
 
@@ -1719,8 +1718,7 @@ _return_T_done_encrypt:
 	pop	%r14
 	pop	%r13
 	pop	%r15
-	pax_force_retaddr
-	ret
+	pax_ret aesni_gcm_enc
 ENDPROC(aesni_gcm_enc)
 
 #endif
@@ -1737,8 +1735,7 @@ _key_expansion_256a:
 	pxor %xmm1, %xmm0
 	movaps %xmm0, (TKEYP)
 	add $0x10, TKEYP
-	pax_force_retaddr
-	ret
+	pax_ret _key_expansion_128
 ENDPROC(_key_expansion_128)
 ENDPROC(_key_expansion_256a)
 
@@ -1764,8 +1761,7 @@ _key_expansion_192a:
 	shufps $0b01001110, %xmm2, %xmm1
 	movaps %xmm1, 0x10(TKEYP)
 	add $0x20, TKEYP
-	pax_force_retaddr
-	ret
+	pax_ret _key_expansion_192a
 ENDPROC(_key_expansion_192a)
 
 .align 4
@@ -1785,8 +1781,7 @@ _key_expansion_192b:
 
 	movaps %xmm0, (TKEYP)
 	add $0x10, TKEYP
-	pax_force_retaddr
-	ret
+	pax_ret _key_expansion_192b
 ENDPROC(_key_expansion_192b)
 
 .align 4
@@ -1799,8 +1794,7 @@ _key_expansion_256b:
 	pxor %xmm1, %xmm2
 	movaps %xmm2, (TKEYP)
 	add $0x10, TKEYP
-	pax_force_retaddr
-	ret
+	pax_ret _key_expansion_256b
 ENDPROC(_key_expansion_256b)
 
 /*
@@ -1827,72 +1821,72 @@ ENTRY(aesni_set_key)
 	movaps %xmm2, (TKEYP)
 	add $0x10, TKEYP
 	AESKEYGENASSIST 0x1 %xmm2 %xmm1		# round 1
-	call _key_expansion_256a
+	pax_direct_call _key_expansion_256a
 	AESKEYGENASSIST 0x1 %xmm0 %xmm1
-	call _key_expansion_256b
+	pax_direct_call _key_expansion_256b
 	AESKEYGENASSIST 0x2 %xmm2 %xmm1		# round 2
-	call _key_expansion_256a
+	pax_direct_call _key_expansion_256a
 	AESKEYGENASSIST 0x2 %xmm0 %xmm1
-	call _key_expansion_256b
+	pax_direct_call _key_expansion_256b
 	AESKEYGENASSIST 0x4 %xmm2 %xmm1		# round 3
-	call _key_expansion_256a
+	pax_direct_call _key_expansion_256a
 	AESKEYGENASSIST 0x4 %xmm0 %xmm1
-	call _key_expansion_256b
+	pax_direct_call _key_expansion_256b
 	AESKEYGENASSIST 0x8 %xmm2 %xmm1		# round 4
-	call _key_expansion_256a
+	pax_direct_call _key_expansion_256a
 	AESKEYGENASSIST 0x8 %xmm0 %xmm1
-	call _key_expansion_256b
+	pax_direct_call _key_expansion_256b
 	AESKEYGENASSIST 0x10 %xmm2 %xmm1	# round 5
-	call _key_expansion_256a
+	pax_direct_call _key_expansion_256a
 	AESKEYGENASSIST 0x10 %xmm0 %xmm1
-	call _key_expansion_256b
+	pax_direct_call _key_expansion_256b
 	AESKEYGENASSIST 0x20 %xmm2 %xmm1	# round 6
-	call _key_expansion_256a
+	pax_direct_call _key_expansion_256a
 	AESKEYGENASSIST 0x20 %xmm0 %xmm1
-	call _key_expansion_256b
+	pax_direct_call _key_expansion_256b
 	AESKEYGENASSIST 0x40 %xmm2 %xmm1	# round 7
-	call _key_expansion_256a
+	pax_direct_call _key_expansion_256a
 	jmp .Ldec_key
 .Lenc_key192:
 	movq 0x10(UKEYP), %xmm2		# other user key
 	AESKEYGENASSIST 0x1 %xmm2 %xmm1		# round 1
-	call _key_expansion_192a
+	pax_direct_call _key_expansion_192a
 	AESKEYGENASSIST 0x2 %xmm2 %xmm1		# round 2
-	call _key_expansion_192b
+	pax_direct_call _key_expansion_192b
 	AESKEYGENASSIST 0x4 %xmm2 %xmm1		# round 3
-	call _key_expansion_192a
+	pax_direct_call _key_expansion_192a
 	AESKEYGENASSIST 0x8 %xmm2 %xmm1		# round 4
-	call _key_expansion_192b
+	pax_direct_call _key_expansion_192b
 	AESKEYGENASSIST 0x10 %xmm2 %xmm1	# round 5
-	call _key_expansion_192a
+	pax_direct_call _key_expansion_192a
 	AESKEYGENASSIST 0x20 %xmm2 %xmm1	# round 6
-	call _key_expansion_192b
+	pax_direct_call _key_expansion_192b
 	AESKEYGENASSIST 0x40 %xmm2 %xmm1	# round 7
-	call _key_expansion_192a
+	pax_direct_call _key_expansion_192a
 	AESKEYGENASSIST 0x80 %xmm2 %xmm1	# round 8
-	call _key_expansion_192b
+	pax_direct_call _key_expansion_192b
 	jmp .Ldec_key
 .Lenc_key128:
 	AESKEYGENASSIST 0x1 %xmm0 %xmm1		# round 1
-	call _key_expansion_128
+	pax_direct_call _key_expansion_128
 	AESKEYGENASSIST 0x2 %xmm0 %xmm1		# round 2
-	call _key_expansion_128
+	pax_direct_call _key_expansion_128
 	AESKEYGENASSIST 0x4 %xmm0 %xmm1		# round 3
-	call _key_expansion_128
+	pax_direct_call _key_expansion_128
 	AESKEYGENASSIST 0x8 %xmm0 %xmm1		# round 4
-	call _key_expansion_128
+	pax_direct_call _key_expansion_128
 	AESKEYGENASSIST 0x10 %xmm0 %xmm1	# round 5
-	call _key_expansion_128
+	pax_direct_call _key_expansion_128
 	AESKEYGENASSIST 0x20 %xmm0 %xmm1	# round 6
-	call _key_expansion_128
+	pax_direct_call _key_expansion_128
 	AESKEYGENASSIST 0x40 %xmm0 %xmm1	# round 7
-	call _key_expansion_128
+	pax_direct_call _key_expansion_128
 	AESKEYGENASSIST 0x80 %xmm0 %xmm1	# round 8
-	call _key_expansion_128
+	pax_direct_call _key_expansion_128
 	AESKEYGENASSIST 0x1b %xmm0 %xmm1	# round 9
-	call _key_expansion_128
+	pax_direct_call _key_expansion_128
 	AESKEYGENASSIST 0x36 %xmm0 %xmm1	# round 10
-	call _key_expansion_128
+	pax_direct_call _key_expansion_128
 .Ldec_key:
 	sub $0x10, TKEYP
 	movaps (KEYP), %xmm0
@@ -1915,8 +1909,7 @@ ENTRY(aesni_set_key)
 	popl KEYP
 #endif
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret aesni_set_key
 ENDPROC(aesni_set_key)
 
 /*
@@ -1933,15 +1926,14 @@ RAP_ENTRY(aesni_enc)
 #endif
 	movl 480(KEYP), KLEN		# key length
 	movups (INP), STATE		# input
-	call _aesni_enc1
+	pax_direct_call _aesni_enc1
 	movups STATE, (OUTP)		# output
 #ifndef __x86_64__
 	popl KLEN
 	popl KEYP
 #endif
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret aesni_enc
 ENDPROC(aesni_enc)
 
 /*
@@ -1999,8 +1991,7 @@ _aesni_enc1:
 	AESENC KEY STATE
 	movaps 0x70(TKEYP), KEY
 	AESENCLAST KEY STATE
-	pax_force_retaddr
-	ret
+	pax_ret _aesni_enc1
 ENDPROC(_aesni_enc1)
 
 /*
@@ -2109,8 +2100,7 @@ _aesni_enc4:
 	AESENCLAST KEY STATE2
 	AESENCLAST KEY STATE3
 	AESENCLAST KEY STATE4
-	pax_force_retaddr
-	ret
+	pax_ret _aesni_enc4
 ENDPROC(_aesni_enc4)
 
 /*
@@ -2128,15 +2118,14 @@ RAP_ENTRY(aesni_dec)
 	mov 480(KEYP), KLEN		# key length
 	add $240, KEYP
 	movups (INP), STATE		# input
-	call _aesni_dec1
+	pax_direct_call _aesni_dec1
 	movups STATE, (OUTP)		#output
 #ifndef __x86_64__
 	popl KLEN
 	popl KEYP
 #endif
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret aesni_dec
 ENDPROC(aesni_dec)
 
 /*
@@ -2194,8 +2183,7 @@ _aesni_dec1:
 	AESDEC KEY STATE
 	movaps 0x70(TKEYP), KEY
 	AESDECLAST KEY STATE
-	pax_force_retaddr
-	ret
+	pax_ret _aesni_dec1
 ENDPROC(_aesni_dec1)
 
 /*
@@ -2304,8 +2292,7 @@ _aesni_dec4:
 	AESDECLAST KEY STATE2
 	AESDECLAST KEY STATE3
 	AESDECLAST KEY STATE4
-	pax_force_retaddr
-	ret
+	pax_ret _aesni_dec4
 ENDPROC(_aesni_dec4)
 
 /*
@@ -2336,7 +2323,7 @@ ENTRY(aesni_ecb_enc)
 	movups 0x10(INP), STATE2
 	movups 0x20(INP), STATE3
 	movups 0x30(INP), STATE4
-	call _aesni_enc4
+	pax_direct_call _aesni_enc4
 	movups STATE1, (OUTP)
 	movups STATE2, 0x10(OUTP)
 	movups STATE3, 0x20(OUTP)
@@ -2351,7 +2338,7 @@ ENTRY(aesni_ecb_enc)
 .align 4
 .Lecb_enc_loop1:
 	movups (INP), STATE1
-	call _aesni_enc1
+	pax_direct_call _aesni_enc1
 	movups STATE1, (OUTP)
 	sub $16, LEN
 	add $16, INP
@@ -2365,8 +2352,7 @@ ENTRY(aesni_ecb_enc)
 	popl LEN
 #endif
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret aesni_ecb_enc
 ENDPROC(aesni_ecb_enc)
 
 /*
@@ -2398,7 +2384,7 @@ ENTRY(aesni_ecb_dec)
 	movups 0x10(INP), STATE2
 	movups 0x20(INP), STATE3
 	movups 0x30(INP), STATE4
-	call _aesni_dec4
+	pax_direct_call _aesni_dec4
 	movups STATE1, (OUTP)
 	movups STATE2, 0x10(OUTP)
 	movups STATE3, 0x20(OUTP)
@@ -2413,7 +2399,7 @@ ENTRY(aesni_ecb_dec)
 .align 4
 .Lecb_dec_loop1:
 	movups (INP), STATE1
-	call _aesni_dec1
+	pax_direct_call _aesni_dec1
 	movups STATE1, (OUTP)
 	sub $16, LEN
 	add $16, INP
@@ -2427,8 +2413,7 @@ ENTRY(aesni_ecb_dec)
 	popl LEN
 #endif
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret aesni_ecb_dec
 ENDPROC(aesni_ecb_dec)
 
 /*
@@ -2456,7 +2441,7 @@ ENTRY(aesni_cbc_enc)
 .Lcbc_enc_loop:
 	movups (INP), IN	# load input
 	pxor IN, STATE
-	call _aesni_enc1
+	pax_direct_call _aesni_enc1
 	movups STATE, (OUTP)	# store output
 	sub $16, LEN
 	add $16, INP
@@ -2472,8 +2457,7 @@ ENTRY(aesni_cbc_enc)
 	popl IVP
 #endif
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret aesni_cbc_enc
 ENDPROC(aesni_cbc_enc)
 
 /*
@@ -2517,7 +2501,7 @@ ENTRY(aesni_cbc_dec)
 	movups 0x30(INP), IN2
 	movaps IN2, STATE4
 #endif
-	call _aesni_dec4
+	pax_direct_call _aesni_dec4
 	pxor IV, STATE1
 #ifdef __x86_64__
 	pxor IN1, STATE2
@@ -2547,7 +2531,7 @@ ENTRY(aesni_cbc_dec)
 .Lcbc_dec_loop1:
 	movups (INP), IN
 	movaps IN, STATE
-	call _aesni_dec1
+	pax_direct_call _aesni_dec1
 	pxor IV, STATE
 	movups STATE, (OUTP)
 	movaps IN, IV
@@ -2566,8 +2550,7 @@ ENTRY(aesni_cbc_dec)
 	popl IVP
 #endif
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret aesni_cbc_dec
 ENDPROC(aesni_cbc_dec)
 
 #ifdef __x86_64__
@@ -2596,8 +2579,7 @@ _aesni_inc_init:
 	mov $1, TCTR_LOW
 	MOVQ_R64_XMM TCTR_LOW INC
 	MOVQ_R64_XMM CTR TCTR_LOW
-	pax_force_retaddr
-	ret
+	pax_ret _aesni_inc_init
 ENDPROC(_aesni_inc_init)
 
 /*
@@ -2626,8 +2608,7 @@ _aesni_inc:
 .Linc_low:
 	movaps CTR, IV
 	PSHUFB_XMM BSWAP_MASK IV
-	pax_force_retaddr
-	ret
+	pax_ret _aesni_inc
 ENDPROC(_aesni_inc)
 
 /*
@@ -2640,24 +2621,24 @@ RAP_ENTRY(aesni_ctr_enc)
 	jb .Lctr_enc_just_ret
 	mov 480(KEYP), KLEN
 	movups (IVP), IV
-	call _aesni_inc_init
+	pax_direct_call _aesni_inc_init
 	cmp $64, LEN
 	jb .Lctr_enc_loop1
 .align 4
 .Lctr_enc_loop4:
 	movaps IV, STATE1
-	call _aesni_inc
+	pax_direct_call _aesni_inc
 	movups (INP), IN1
 	movaps IV, STATE2
-	call _aesni_inc
+	pax_direct_call _aesni_inc
 	movups 0x10(INP), IN2
 	movaps IV, STATE3
-	call _aesni_inc
+	pax_direct_call _aesni_inc
 	movups 0x20(INP), IN3
 	movaps IV, STATE4
-	call _aesni_inc
+	pax_direct_call _aesni_inc
 	movups 0x30(INP), IN4
-	call _aesni_enc4
+	pax_direct_call _aesni_enc4
 	pxor IN1, STATE1
 	movups STATE1, (OUTP)
 	pxor IN2, STATE2
@@ -2676,9 +2657,9 @@ RAP_ENTRY(aesni_ctr_enc)
 .align 4
 .Lctr_enc_loop1:
 	movaps IV, STATE
-	call _aesni_inc
+	pax_direct_call _aesni_inc
 	movups (INP), IN
-	call _aesni_enc1
+	pax_direct_call _aesni_enc1
 	pxor IN, STATE
 	movups STATE, (OUTP)
 	sub $16, LEN
@@ -2690,8 +2671,7 @@ RAP_ENTRY(aesni_ctr_enc)
 	movups IV, (IVP)
 .Lctr_enc_just_ret:
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret aesni_ctr_enc
 ENDPROC(aesni_ctr_enc)
 
 /*
@@ -2755,7 +2735,7 @@ ENTRY(aesni_xts_crypt8)
 	pxor INC, STATE4
 	movdqu IV, 0x30(OUTP)
 
-	call *%r11
+	pax_indirect_call "*%r11", _aesni_enc4
 
 	movdqu 0x00(OUTP), INC
 	pxor INC, STATE1
@@ -2800,7 +2780,7 @@ ENTRY(aesni_xts_crypt8)
 	_aesni_gf128mul_x_ble()
 	movups IV, (IVP)
 
-	call *%r11
+	pax_indirect_call "*%r11", _aesni_enc4
 
 	movdqu 0x40(OUTP), INC
 	pxor INC, STATE1
@@ -2819,8 +2799,7 @@ ENTRY(aesni_xts_crypt8)
 	movdqu STATE4, 0x70(OUTP)
 
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret aesni_xts_crypt8
 ENDPROC(aesni_xts_crypt8)
 
 #endif

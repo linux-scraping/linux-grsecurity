@@ -283,8 +283,7 @@ __cast5_enc_blk16:
 	outunpack_blocks(RR3, RL3, RTMP, RX, RKM);
 	outunpack_blocks(RR4, RL4, RTMP, RX, RKM);
 
-	pax_force_retaddr
-	ret;
+	pax_ret __cast5_enc_blk16;
 ENDPROC(__cast5_enc_blk16)
 
 .align 16
@@ -355,8 +354,7 @@ __cast5_dec_blk16:
 	outunpack_blocks(RR3, RL3, RTMP, RX, RKM);
 	outunpack_blocks(RR4, RL4, RTMP, RX, RKM);
 
-	pax_force_retaddr
-	ret;
+	pax_ret __cast5_dec_blk16;
 
 .L__skip_dec:
 	vpsrldq $4, RKR, RKR;
@@ -382,7 +380,7 @@ RAP_ENTRY(cast5_ecb_enc_16way)
 	vmovdqu (6*4*4)(%rdx), RL4;
 	vmovdqu (7*4*4)(%rdx), RR4;
 
-	call __cast5_enc_blk16;
+	pax_direct_call __cast5_enc_blk16;
 
 	vmovdqu RR1, (0*4*4)(%r11);
 	vmovdqu RL1, (1*4*4)(%r11);
@@ -394,8 +392,7 @@ RAP_ENTRY(cast5_ecb_enc_16way)
 	vmovdqu RL4, (7*4*4)(%r11);
 
 	FRAME_END
-	pax_force_retaddr
-	ret;
+	pax_ret cast5_ecb_enc_16way;
 ENDPROC(cast5_ecb_enc_16way)
 
 RAP_ENTRY(cast5_ecb_dec_16way)
@@ -417,7 +414,7 @@ RAP_ENTRY(cast5_ecb_dec_16way)
 	vmovdqu (6*4*4)(%rdx), RL4;
 	vmovdqu (7*4*4)(%rdx), RR4;
 
-	call __cast5_dec_blk16;
+	pax_direct_call __cast5_dec_blk16;
 
 	vmovdqu RR1, (0*4*4)(%r11);
 	vmovdqu RL1, (1*4*4)(%r11);
@@ -429,8 +426,7 @@ RAP_ENTRY(cast5_ecb_dec_16way)
 	vmovdqu RL4, (7*4*4)(%r11);
 
 	FRAME_END
-	pax_force_retaddr
-	ret;
+	pax_ret cast5_ecb_dec_16way;
 ENDPROC(cast5_ecb_dec_16way)
 
 ENTRY(cast5_cbc_dec_16way)
@@ -455,7 +451,7 @@ ENTRY(cast5_cbc_dec_16way)
 	vmovdqu (6*16)(%rdx), RL4;
 	vmovdqu (7*16)(%rdx), RR4;
 
-	call __cast5_dec_blk16;
+	pax_direct_call __cast5_dec_blk16;
 
 	/* xor with src */
 	vmovq (%r14), RX;
@@ -481,8 +477,7 @@ ENTRY(cast5_cbc_dec_16way)
 	popq %r14;
 
 	FRAME_END
-	pax_force_retaddr
-	ret;
+	pax_ret cast5_cbc_dec_16way;
 ENDPROC(cast5_cbc_dec_16way)
 
 ENTRY(cast5_ctr_16way)
@@ -534,7 +529,7 @@ ENTRY(cast5_ctr_16way)
 	vpshufb R1ST, RX, RX; /* be: IV16, IV16 */
 	vmovq RX, (%rcx);
 
-	call __cast5_enc_blk16;
+	pax_direct_call __cast5_enc_blk16;
 
 	/* dst = src ^ iv */
 	vpxor (0*16)(%r14), RR1, RR1;
@@ -557,6 +552,5 @@ ENTRY(cast5_ctr_16way)
 	popq %r14;
 
 	FRAME_END
-	pax_force_retaddr
-	ret;
+	pax_ret cast5_ctr_16way;
 ENDPROC(cast5_ctr_16way)

@@ -23,7 +23,16 @@
 #endif
 
 #ifndef cond_syscall
+# ifdef CONFIG_PAX_RAP
+#  define rap_cond_syscall(x)				\
+	".weak " VMLINUX_SYMBOL_STR(rap_##x) "\n\t"	\
+	".set  " VMLINUX_SYMBOL_STR(rap_##x) ","	\
+		 VMLINUX_SYMBOL_STR(rap_sys_ni_syscall) "\n\t"
+# else
+#  define rap_cond_syscall(x)
+# endif
 #define cond_syscall(x)	asm(				\
+	rap_cond_syscall(x)				\
 	".weak " VMLINUX_SYMBOL_STR(x) "\n\t"		\
 	".set  " VMLINUX_SYMBOL_STR(x) ","		\
 		 VMLINUX_SYMBOL_STR(sys_ni_syscall))
@@ -74,6 +83,18 @@
 #define __ALIGN_STR	".align 4,0x90"
 #endif
 
+#ifdef CONFIG_PAX_RAP
+# if BITS_PER_LONG == 64
+#  define __ASM_RAP_HASH(hash) .quad 0, hash
+#  define __ASM_RAP_RET_HASH(hash) .quad hash
+# elif BITS_PER_LONG == 32
+#  define __ASM_RAP_HASH(hash) .long 0, hash
+#  define __ASM_RAP_RET_HASH(hash) .long hash
+# else
+#  error incompatible BITS_PER_LONG
+# endif
+#endif
+
 #ifdef __ASSEMBLY__
 
 #ifndef LINKER_SCRIPT
@@ -103,18 +124,11 @@
 #endif
 
 #ifdef CONFIG_PAX_RAP
-#if BITS_PER_LONG == 64
-#define __ASM_RAP_HASH(hash) .quad 0, hash ASM_NL
-#elif BITS_PER_LONG == 32
-#define __ASM_RAP_HASH(hash) .long 0, 0, 0, hash ASM_NL
+# define RAP_ENTRY(name) __ENTRY(name, __ASM_RAP_HASH(__rap_hash_call_##name) ASM_NL)
+# define RAP_WEAK(name) __WEAK(name, __ASM_RAP_HASH(__rap_hash_call_##name) ASM_NL)
 #else
-#error incompatible BITS_PER_LONG
-#endif
-#define RAP_ENTRY(name) __ENTRY(name, __ASM_RAP_HASH(__rap_hash_##name))
-#define RAP_WEAK(name) __WEAK(name, __ASM_RAP_HASH(__rap_hash_##name))
-#else
-#define RAP_ENTRY(name) ENTRY(name)
-#define RAP_WEAK(name) WEAK(name)
+# define RAP_ENTRY(name) ENTRY(name)
+# define RAP_WEAK(name) WEAK(name)
 #endif
 
 #ifndef END

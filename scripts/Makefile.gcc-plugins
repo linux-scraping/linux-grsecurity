@@ -6,6 +6,12 @@ ifdef CONFIG_GCC_PLUGINS
 
   gcc-plugin-$(CONFIG_GCC_PLUGIN_CYC_COMPLEXITY)	+= cyc_complexity_plugin.so
 
+  gcc-plugin-$(CONFIG_GCC_PLUGIN_LATENT_ENTROPY)	+= latent_entropy_plugin.so
+  gcc-plugin-cflags-$(CONFIG_GCC_PLUGIN_LATENT_ENTROPY)	+= -DLATENT_ENTROPY_PLUGIN
+  ifdef CONFIG_PAX_LATENT_ENTROPY
+    DISABLE_LATENT_ENTROPY_PLUGIN			+= -fplugin-arg-latent_entropy_plugin-disable
+  endif
+
   ifdef CONFIG_GCC_PLUGIN_SANCOV
     ifeq ($(CFLAGS_KCOV),)
       # It is needed because of the gcc-plugin.sh and gcc version checks.
@@ -19,6 +25,7 @@ ifdef CONFIG_GCC_PLUGINS
     endif
   endif
 
+  GCC_PLUGINS_CFLAGS := $(strip $(addprefix -fplugin=$(objtree)/scripts/gcc-plugins/, $(gcc-plugin-y)) $(gcc-plugin-cflags-y))
   gcc-plugin-$(CONFIG_PAX_CONSTIFY_PLUGIN)		+= constify_plugin.so
   gcc-plugin-cflags-$(CONFIG_PAX_CONSTIFY_PLUGIN)	+= -DCONSTIFY_PLUGIN
 
@@ -56,13 +63,6 @@ ifdef CONFIG_GCC_PLUGINS
   gcc-plugin-cflags-$(CONFIG_GRKERNSEC_RANDSTRUCT)	+= -DRANDSTRUCT_PLUGIN
   gcc-plugin-cflags-$(CONFIG_GRKERNSEC_RANDSTRUCT_PERFORMANCE) += -fplugin-arg-randomize_layout_plugin-performance-mode
 
-
-  gcc-plugin-$(CONFIG_PAX_LATENT_ENTROPY)		+= latent_entropy_plugin.so
-  gcc-plugin-cflags-$(CONFIG_PAX_LATENT_ENTROPY)	+= -DLATENT_ENTROPY_PLUGIN
-  ifdef CONFIG_PAX_LATENT_ENTROPY
-    DISABLE_LATENT_ENTROPY_PLUGIN			+= -fplugin-arg-latent_entropy_plugin-disable
-  endif
-
   gcc-plugin-$(CONFIG_PAX_MEMORY_STRUCTLEAK)		+= structleak_plugin.so
   gcc-plugin-cflags-$(CONFIG_PAX_MEMORY_STRUCTLEAK)	+= -DSTRUCTLEAK_PLUGIN
 
@@ -81,22 +81,24 @@ ifdef CONFIG_GCC_PLUGINS
 
   gcc-plugin-subdir-$(CONFIG_PAX_RAP)			+= rap_plugin
   gcc-plugin-$(CONFIG_PAX_RAP)				+= rap_plugin/rap_plugin.so
-  gcc-plugin-cflags-$(CONFIG_PAX_RAP)			+= -DRAP_PLUGIN -fplugin-arg-rap_plugin-check=call
+  gcc-plugin-cflags-$(CONFIG_PAX_RAP)			+= -DRAP_PLUGIN -fplugin-arg-rap_plugin-typecheck=call,ret
+  gcc-plugin-cflags-$(CONFIG_PAX_RAP)			+= -fplugin-arg-rap_plugin-hash=abs-finish
+  gcc-plugin-cflags-$(CONFIG_PAX_RAP)			+= -fplugin-arg-rap_plugin-hash=abs-ops
+  gcc-plugin-cflags-$(CONFIG_PAX_RAP)			+= -fplugin-arg-rap_plugin-hash=abs-attr
 #  gcc-plugin-cflags-$(CONFIG_PAX_RAP)			+= -fplugin-arg-rap_plugin-report=func,fptr,abs
+  gcc-plugin-cflags-$(CONFIG_PAX_RAP)			+= -DX86_RAP_CALL_VECTOR=0x82 -DX86_RAP_RET_VECTOR=0x83
+  gcc-plugin-cflags-$(CONFIG_PAX_RAP)			+= '-fplugin-arg-rap_plugin-callabort=int $$0x82'
+  gcc-plugin-cflags-$(CONFIG_PAX_RAP)			+= '-fplugin-arg-rap_plugin-retabort=int $$0x83'
   gcc-plugin-aflags-$(CONFIG_PAX_RAP)			+= -DRAP_PLUGIN
-  ifdef CONFIG_PAX_RAP
-    RAP_PLUGIN_ABS_CFLAGS				:= -fplugin-arg-rap_plugin-hash=abs-finish
-  endif
-  gcc-plugin-cflags-$(CONFIG_PAX_RAP)			+= $(RAP_PLUGIN_ABS_CFLAGS)
 
   GCC_PLUGINS_CFLAGS := $(strip $(addprefix -fplugin=$(objtree)/scripts/gcc-plugins/, $(gcc-plugin-y)) $(gcc-plugin-cflags-y))
   GCC_PLUGINS_AFLAGS := $(gcc-plugin-aflags-y)
 
-  export PLUGINCC GCC_PLUGIN GCC_PLUGIN_SUBDIR GCC_PLUGINS_CFLAGS GCC_PLUGINS_AFLAGS SANCOV_PLUGIN
-  export DISABLE_LATENT_ENTROPY_PLUGIN RAP_PLUGIN_ABS_CFLAGS INITIFY_DISABLE_VERIFY_NOCAPTURE_FUNCTIONS
+  export SHELL_GCC_PLUGINS_CFLAGS := $(subst $$,$$$$,$(value GCC_PLUGINS_CFLAGS))
+  export PLUGINCC GCC_PLUGIN GCC_PLUGIN_SUBDIR GCC_PLUGINS_CFLAGS GCC_PLUGINS_AFLAGS
+  export SANCOV_PLUGIN DISABLE_LATENT_ENTROPY_PLUGIN
+  export INITIFY_DISABLE_VERIFY_NOCAPTURE_FUNCTIONS
 
-  KBUILD_CFLAGS += $(GCC_PLUGINS_CFLAGS)
-  KBUILD_AFLAGS += $(GCC_PLUGINS_AFLAGS)
   GCC_PLUGIN := $(gcc-plugin-y)
   GCC_PLUGIN_SUBDIR := $(gcc-plugin-subdir-y)
 endif

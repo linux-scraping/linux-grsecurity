@@ -31,7 +31,7 @@ tree size_overflow_type_TI;
 bool check_fields, check_fns, check_fnptrs, check_vars;
 
 static struct plugin_info size_overflow_plugin_info = {
-	.version	= "20161113",
+	.version	= "20170102",
 	.help		= "no-size-overflow\tturn off size overflow checking\n",
 };
 
@@ -243,7 +243,7 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 #endif
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
-		error(G_("incompatible gcc/plugin versions"));
+		error_gcc_version(version);
 		return 1;
 	}
 

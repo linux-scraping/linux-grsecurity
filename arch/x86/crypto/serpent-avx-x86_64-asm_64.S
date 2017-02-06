@@ -620,8 +620,7 @@ __serpent_enc_blk8_avx:
 	write_blocks(RA1, RB1, RC1, RD1, RK0, RK1, RK2);
 	write_blocks(RA2, RB2, RC2, RD2, RK0, RK1, RK2);
 
-	pax_force_retaddr
-	ret;
+	pax_ret __serpent_enc_blk8_avx;
 ENDPROC(__serpent_enc_blk8_avx)
 
 .align 8
@@ -675,8 +674,7 @@ __serpent_dec_blk8_avx:
 	write_blocks(RC1, RD1, RB1, RE1, RK0, RK1, RK2);
 	write_blocks(RC2, RD2, RB2, RE2, RK0, RK1, RK2);
 
-	pax_force_retaddr
-	ret;
+	pax_ret __serpent_dec_blk8_avx;
 ENDPROC(__serpent_dec_blk8_avx)
 
 RAP_ENTRY(serpent_ecb_enc_8way_avx)
@@ -689,13 +687,12 @@ RAP_ENTRY(serpent_ecb_enc_8way_avx)
 
 	load_8way(%rdx, RA1, RB1, RC1, RD1, RA2, RB2, RC2, RD2);
 
-	call __serpent_enc_blk8_avx;
+	pax_direct_call __serpent_enc_blk8_avx;
 
 	store_8way(%rsi, RA1, RB1, RC1, RD1, RA2, RB2, RC2, RD2);
 
 	FRAME_END
-	pax_force_retaddr
-	ret;
+	pax_ret serpent_ecb_enc_8way_avx;
 ENDPROC(serpent_ecb_enc_8way_avx)
 
 RAP_ENTRY(serpent_ecb_dec_8way_avx)
@@ -708,13 +705,12 @@ RAP_ENTRY(serpent_ecb_dec_8way_avx)
 
 	load_8way(%rdx, RA1, RB1, RC1, RD1, RA2, RB2, RC2, RD2);
 
-	call __serpent_dec_blk8_avx;
+	pax_direct_call __serpent_dec_blk8_avx;
 
 	store_8way(%rsi, RC1, RD1, RB1, RE1, RC2, RD2, RB2, RE2);
 
 	FRAME_END
-	pax_force_retaddr
-	ret;
+	pax_ret serpent_ecb_dec_8way_avx;
 ENDPROC(serpent_ecb_dec_8way_avx)
 
 RAP_ENTRY(serpent_cbc_dec_8way_avx)
@@ -727,13 +723,12 @@ RAP_ENTRY(serpent_cbc_dec_8way_avx)
 
 	load_8way(%rdx, RA1, RB1, RC1, RD1, RA2, RB2, RC2, RD2);
 
-	call __serpent_dec_blk8_avx;
+	pax_direct_call __serpent_dec_blk8_avx;
 
 	store_cbc_8way(%rdx, %rsi, RC1, RD1, RB1, RE1, RC2, RD2, RB2, RE2);
 
 	FRAME_END
-	pax_force_retaddr
-	ret;
+	pax_ret serpent_cbc_dec_8way_avx;
 ENDPROC(serpent_cbc_dec_8way_avx)
 
 RAP_ENTRY(serpent_ctr_8way_avx)
@@ -748,13 +743,12 @@ RAP_ENTRY(serpent_ctr_8way_avx)
 	load_ctr_8way(%rcx, .Lbswap128_mask, RA1, RB1, RC1, RD1, RA2, RB2, RC2,
 		      RD2, RK0, RK1, RK2);
 
-	call __serpent_enc_blk8_avx;
+	pax_direct_call __serpent_enc_blk8_avx;
 
 	store_ctr_8way(%rdx, %rsi, RA1, RB1, RC1, RD1, RA2, RB2, RC2, RD2);
 
 	FRAME_END
-	pax_force_retaddr
-	ret;
+	pax_ret serpent_ctr_8way_avx;
 ENDPROC(serpent_ctr_8way_avx)
 
 RAP_ENTRY(serpent_xts_enc_8way_avx)
@@ -770,14 +764,13 @@ RAP_ENTRY(serpent_xts_enc_8way_avx)
 	load_xts_8way(%rcx, %rdx, %rsi, RA1, RB1, RC1, RD1, RA2, RB2, RC2, RD2,
 		      RK0, RK1, RK2, .Lxts_gf128mul_and_shl1_mask);
 
-	call __serpent_enc_blk8_avx;
+	pax_direct_call __serpent_enc_blk8_avx;
 
 	/* dst <= regs xor IVs(in dst) */
 	store_xts_8way(%rsi, RA1, RB1, RC1, RD1, RA2, RB2, RC2, RD2);
 
 	FRAME_END
-	pax_force_retaddr
-	ret;
+	pax_ret serpent_xts_enc_8way_avx;
 ENDPROC(serpent_xts_enc_8way_avx)
 
 RAP_ENTRY(serpent_xts_dec_8way_avx)
@@ -793,12 +786,11 @@ RAP_ENTRY(serpent_xts_dec_8way_avx)
 	load_xts_8way(%rcx, %rdx, %rsi, RA1, RB1, RC1, RD1, RA2, RB2, RC2, RD2,
 		      RK0, RK1, RK2, .Lxts_gf128mul_and_shl1_mask);
 
-	call __serpent_dec_blk8_avx;
+	pax_direct_call __serpent_dec_blk8_avx;
 
 	/* dst <= regs xor IVs(in dst) */
 	store_xts_8way(%rsi, RC1, RD1, RB1, RE1, RC2, RD2, RB2, RE2);
 
 	FRAME_END
-	pax_force_retaddr
-	ret;
+	pax_ret serpent_xts_dec_8way_avx;
 ENDPROC(serpent_xts_dec_8way_avx)

@@ -31,6 +31,8 @@ asmlinkage void camellia_ecb_enc_32way(void *ctx, u8 *dst,
 				       const u8 *src);
 asmlinkage void camellia_ecb_dec_32way(void *ctx, u8 *dst,
 				       const u8 *src);
+void __camellia_enc_blk32(void *ctx, u8 *dst, const u8 *src) __rap_hash;
+void __camellia_dec_blk32(void *ctx, u8 *dst, const u8 *src) __rap_hash;
 
 asmlinkage void camellia_cbc_dec_32way(void *ctx, u8 *dst,
 				       const u8 *src);

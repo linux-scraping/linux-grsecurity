@@ -35,9 +35,11 @@
 #include <asm/asm.h>
 #include <asm/smap.h>
 #include <asm/pgtable_types.h>
+#include <asm/export.h>
 #include <linux/err.h>
 #include <asm/pgtable.h>
 #include <asm/alternative-asm.h>
+#include <asm/current.h>
 
 /* Avoid __ASSEMBLER__'ifying <linux/audit.h> just for this.  */
 #include <linux/elf-em.h>
@@ -72,13 +74,13 @@ ENDPROC(native_usergs_sysret64)
 	.macro pax_enter_kernel
 	pax_set_fptr_mask
 #if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
-	call	pax_enter_kernel
+	pax_direct_call pax_enter_kernel
 #endif
 	.endm
 
 	.macro pax_exit_kernel
 #if defined(CONFIG_PAX_KERNEXEC) || defined(CONFIG_PAX_MEMORY_UDEREF)
-	call	pax_exit_kernel
+	pax_direct_call pax_exit_kernel
 #endif
 	.endm
 
@@ -124,8 +126,7 @@ ENTRY(pax_enter_kernel)
 #endif
 
 	popq	%rdi
-	pax_force_retaddr
-	retq
+	pax_ret pax_enter_kernel
 
 #ifdef CONFIG_PAX_KERNEXEC
 2:	ljmpq	__KERNEL_CS,1b
@@ -174,8 +175,7 @@ ENTRY(pax_exit_kernel)
 #endif
 
 	popq	%rdi
-	pax_force_retaddr
-	retq
+	pax_ret pax_exit_kernel
 
 #ifdef CONFIG_PAX_KERNEXEC
 2:	GET_CR0_INTO_RDI
@@ -193,18 +193,18 @@ ENDPROC(pax_exit_kernel)
 	.macro pax_enter_kernel_user
 	pax_set_fptr_mask
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	call	pax_enter_kernel_user
+	pax_direct_call pax_enter_kernel_user
 #endif
 	.endm
 
 	.macro pax_exit_kernel_user
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	call	pax_exit_kernel_user
+	pax_direct_call pax_exit_kernel_user
 #endif
 #ifdef CONFIG_PAX_RANDKSTACK
 	pushq	%rax
 	pushq	%r11
-	call	pax_randomize_kstack
+	pax_direct_call pax_randomize_kstack
 	popq	%r11
 	popq	%rax
 #endif
@@ -212,6 +212,7 @@ ENDPROC(pax_exit_kernel)
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
 ENTRY(pax_enter_kernel_user)
+GLOBAL(patch_pax_enter_kernel_user)
 	pushq	%rdi
 	pushq	%rbx
 
@@ -241,7 +242,7 @@ ENTRY(pax_enter_kernel_user)
 	mov	i*8(%rbx),%rsi
 	mov	$0,%sil
 	lea	i*8(%rbx),%rdi
-	call	PARA_INDIRECT(pv_mmu_ops+PV_MMU_set_pgd_batched)
+	pax_indirect_call PARA_INDIRECT(pv_mmu_ops+PV_MMU_set_pgd_batched), pv_mmu_ops.set_pgd_batched
 	i = i + 1
 	.endr
 	popq	%rdi
@@ -269,12 +270,12 @@ ENTRY(pax_enter_kernel_user)
 
 	popq	%rbx
 	popq	%rdi
-	pax_force_retaddr
-	retq
+	pax_ret pax_enter_kernel_user
 4:	ud2
 ENDPROC(pax_enter_kernel_user)
 
 ENTRY(pax_exit_kernel_user)
+GLOBAL(patch_pax_exit_kernel_user)
 	pushq	%rdi
 	pushq	%rbx
 
@@ -310,7 +311,7 @@ ENTRY(pax_exit_kernel_user)
 	mov	i*8(%rbx),%rsi
 	mov	$0x67,%sil
 	lea	i*8(%rbx),%rdi
-	call	PARA_INDIRECT(pv_mmu_ops+PV_MMU_set_pgd_batched)
+	pax_indirect_call PARA_INDIRECT(pv_mmu_ops+PV_MMU_set_pgd_batched), pv_mmu_ops.set_pgd_batched
 	i = i + 1
 	.endr
 #else
@@ -329,8 +330,7 @@ ENTRY(pax_exit_kernel_user)
 
 	popq	%rbx
 	popq	%rdi
-	pax_force_retaddr
-	retq
+	pax_ret pax_exit_kernel_user
 3:	ud2
 ENDPROC(pax_exit_kernel_user)
 #endif
@@ -388,7 +388,7 @@ ENDPROC(pax_exit_kernel_user)
 
 	.macro pax_erase_kstack
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
-	call	pax_erase_kstack
+	pax_direct_call pax_erase_kstack
 #endif
 	.endm
 
@@ -399,8 +399,8 @@ ENTRY(pax_erase_kstack)
 	pushq	%rax
 	pushq	%r11
 
-	GET_THREAD_INFO(%r11)
-	mov	TI_lowest_stack(%r11), %rdi
+	GET_CURRENT(%r11)
+	mov	TASK_lowest_stack(%r11), %rdi
 	mov	$-0xBEEF, %rax
 	std
 
@@ -431,16 +431,15 @@ ENTRY(pax_erase_kstack)
 	shr	$3, %ecx
 	rep	stosq
 
-	mov	TI_task_thread_sp0(%r11), %rdi
+	mov	TASK_thread_sp0(%r11), %rdi
 	sub	$256, %rdi
-	mov	%rdi, TI_lowest_stack(%r11)
+	mov	%rdi, TASK_lowest_stack(%r11)
 
 	popq	%r11
 	popq	%rax
 	popq	%rcx
 	popq	%rdi
-	pax_force_retaddr
-	ret
+	pax_ret pax_erase_kstack
 ENDPROC(pax_erase_kstack)
 #endif
 
@@ -467,15 +466,15 @@ ENDPROC(pax_erase_kstack)
 #if defined(CONFIG_DYNAMIC_FTRACE) && defined(CONFIG_TRACE_IRQFLAGS)
 
 .macro TRACE_IRQS_OFF_DEBUG
-	call	debug_stack_set_zero
+	pax_direct_call debug_stack_set_zero
 	TRACE_IRQS_OFF
-	call	debug_stack_reset
+	pax_direct_call debug_stack_reset
 .endm
 
 .macro TRACE_IRQS_ON_DEBUG
-	call	debug_stack_set_zero
+	pax_direct_call debug_stack_set_zero
 	TRACE_IRQS_ON
-	call	debug_stack_reset
+	pax_direct_call debug_stack_reset
 .endm
 
 .macro TRACE_IRQS_IRETQ_DEBUG
@@ -580,8 +579,8 @@ GLOBAL(entry_SYSCALL_64_after_swapgs)
 	 * If we need to do entry work or if we guess we'll need to do
 	 * exit work, go straight to the slow path.
 	 */
-	GET_THREAD_INFO(%rcx)
-	testl	$_TIF_WORK_SYSCALL_ENTRY|_TIF_ALLWORK_MASK, TI_flags(%rcx)
+	movq	PER_CPU_VAR(current_task), %r11
+	testl	$_TIF_WORK_SYSCALL_ENTRY|_TIF_ALLWORK_MASK, TASK_TI_flags(%r11)
 	jnz	entry_SYSCALL64_slow_path
 
 entry_SYSCALL_64_fastpath:
@@ -606,7 +605,7 @@ entry_SYSCALL_64_fastpath:
 	 * It might end up jumping to the slow path.  If it jumps, RAX
 	 * and all argument registers are clobbered.
 	 */
-	call	*sys_call_table(, %rax, 8)
+	pax_indirect_call "*sys_call_table(, %rax, 8)", sys_ni_syscall
 .Lentry_SYSCALL_64_after_fastpath_call:
 
 	movq	%rax, RAX(%rsp)
@@ -619,8 +618,8 @@ entry_SYSCALL_64_fastpath:
 	 */
 	DISABLE_INTERRUPTS(CLBR_NONE)
 	TRACE_IRQS_OFF
-	GET_THREAD_INFO(%rcx)
-	testl	$_TIF_ALLWORK_MASK, TI_flags(%rcx)
+	movq	PER_CPU_VAR(current_task), %r11
+	testl	$_TIF_ALLWORK_MASK, TASK_TI_flags(%r11)
 	jnz	1f
 
 	pax_exit_kernel_user
@@ -644,14 +643,14 @@ entry_SYSCALL_64_fastpath:
 	ENABLE_INTERRUPTS(CLBR_NONE)
 	SAVE_EXTRA_REGS
 	movq	%rsp, %rdi
-	call	syscall_return_slowpath	/* returns with IRQs disabled */
+	pax_direct_call syscall_return_slowpath	/* returns with IRQs disabled */
 	jmp	return_from_SYSCALL_64
 
 entry_SYSCALL64_slow_path:
 	/* IRQs are off. */
 	SAVE_EXTRA_REGS
 	movq	%rsp, %rdi
-	call	do_syscall_64		/* returns with IRQs disabled */
+	pax_direct_call do_syscall_64		/* returns with IRQs disabled */
 
 return_from_SYSCALL_64:
 	pax_exit_kernel_user
@@ -759,13 +758,16 @@ ENTRY(stub_ptregs_64)
 	jmp	entry_SYSCALL64_slow_path
 
 1:
-	/* Called from C */
-	jmp	*%rax				/* called from C */
+	jmp	*%rax				/* Called from C */
 ENDPROC(stub_ptregs_64)
 
 .macro ptregs_stub func
-ENTRY(ptregs_\func)
+RAP_ENTRY(ptregs_\func)
+#ifdef CONFIG_PAX_RAP
+	leaq	rap_\func(%rip), %rax
+#else
 	leaq	\func(%rip), %rax
+#endif
 	jmp	stub_ptregs_64
 ENDPROC(ptregs_\func)
 .endm
@@ -777,43 +779,86 @@ ENDPROC(ptregs_\func)
 #include <asm/syscalls_64.h>
 
 /*
+ * %rdi: prev task
+ * %rsi: next task
+ */
+ENTRY(__switch_to_asm)
+	/*
+	 * Save callee-saved registers
+	 * This must match the order in inactive_task_frame
+	 */
+	pushq	%rbp
+	pushq	%rbx
+#ifndef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
+	pushq	%r12
+#endif
+	pushq	%r13
+	pushq	%r14
+	pushq	%r15
+
+	/* switch stack */
+	movq	%rsp, TASK_threadsp(%rdi)
+	movq	TASK_threadsp(%rsi), %rsp
+
+#ifdef CONFIG_CC_STACKPROTECTOR
+	movq	TASK_stack_canary(%rsi), %rbx
+	movq	%rbx, PER_CPU_VAR(irq_stack_union)+stack_canary_offset
+#endif
+
+	/* restore callee-saved registers */
+	popq	%r15
+	popq	%r14
+	popq	%r13
+#ifndef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
+	popq	%r12
+#endif
+	popq	%rbx
+	popq	%rbp
+
+	jmp	__switch_to
+END(__switch_to_asm)
+
+/*
  * A newly forked process directly context switches into this address.
  *
- * rdi: prev task we switched from
+ * rax: prev task we switched from
+ * rbx: kernel thread func (NULL for user thread)
+ * r13: kernel thread arg
  */
+#ifdef CONFIG_PAX_RAP
+	__ALIGN
+	pax_retloc __switch_to
+	.globl ret_from_fork
+ret_from_fork:
+#else
 ENTRY(ret_from_fork)
-	LOCK ; btr $TIF_FORK, TI_flags(%r8)
+#endif
+	movq	%rax, %rdi
+	pax_direct_call schedule_tail		/* rdi: 'prev' task parameter */
 
-	call	schedule_tail			/* rdi: 'prev' task parameter */
+	testq	%rbx, %rbx			/* from kernel_thread? */
+	jnz	1f				/* kernel threads are uncommon */
 
-	testb	$3, CS(%rsp)			/* from kernel_thread? */
-	jnz	1f
-
-	/*
-	 * We came from kernel_thread.  This code path is quite twisted, and
-	 * someone should clean it up.
-	 *
-	 * copy_thread_tls stashes the function pointer in RBX and the
-	 * parameter to be passed in RBP.  The called function is permitted
-	 * to call do_execve and thereby jump to user mode.
-	 */
-	movq	RBP(%rsp), %rdi
-	call	*RBX(%rsp)
-	movl	$0, RAX(%rsp)
-
-	/*
-	 * Fall through as though we're exiting a syscall.  This makes a
-	 * twisted sort of sense if we just called do_execve.
-	 */
-
-1:
+2:
 	movq	%rsp, %rdi
-	call	syscall_return_slowpath	/* returns with IRQs disabled */
+	pax_direct_call syscall_return_slowpath	/* returns with IRQs disabled */
 	pax_exit_kernel_user
 	pax_erase_kstack
 	TRACE_IRQS_ON			/* user mode is traced as IRQS on */
 	SWAPGS
 	jmp	restore_regs_and_iret
+
+1:
+	/* kernel thread */
+	movq	%r13, %rdi
+	pax_indirect_call *%rbx, kthreadd
+	/*
+	 * A kernel thread is allowed to return here after successfully
+	 * calling do_execve().  Exit to userspace to complete the execve()
+	 * syscall.
+	 */
+	movq	$0, RAX(%rsp)
+	jmp	2b
 ENDPROC(ret_from_fork)
 
 /*
@@ -891,7 +936,7 @@ ENDPROC(irq_entries_start)
 	/* We entered an interrupt context - irqs are off: */
 	TRACE_IRQS_OFF
 
-	call	\func	/* rdi points to pt_regs */
+	pax_direct_call \func	/* rdi points to pt_regs */
 	.endm
 
 	/*
@@ -918,7 +963,7 @@ ret_from_intr:
 	/* Interrupt came from user space */
 GLOBAL(retint_user)
 	mov	%rsp,%rdi
-	call	prepare_exit_to_usermode
+	pax_direct_call prepare_exit_to_usermode
 	pax_exit_kernel_user
 #	pax_erase_kstack
 	TRACE_IRQS_IRETQ
@@ -934,7 +979,7 @@ retint_kernel:
 	jnc	1f
 0:	cmpl	$0, PER_CPU_VAR(__preempt_count)
 	jnz	1f
-	call	preempt_schedule_irq
+	pax_direct_call preempt_schedule_irq
 	jmp	0b
 1:
 #endif
@@ -991,27 +1036,69 @@ native_irq_return_iret:
 
 #ifdef CONFIG_X86_ESPFIX64
 native_irq_return_ldt:
-	pushq	%rax
-	pushq	%rdi
+	/*
+	 * We are running with user GSBASE.  All GPRs contain their user
+	 * values.  We have a percpu ESPFIX stack that is eight slots
+	 * long (see ESPFIX_STACK_SIZE).  espfix_waddr points to the bottom
+	 * of the ESPFIX stack.
+	 *
+	 * We clobber RAX and RDI in this code.  We stash RDI on the
+	 * normal stack and RAX on the ESPFIX stack.
+	 *
+	 * The ESPFIX stack layout we set up looks like this:
+	 *
+	 * --- top of ESPFIX stack ---
+	 * SS
+	 * RSP
+	 * RFLAGS
+	 * CS
+	 * RIP  <-- RSP points here when we're done
+	 * RAX  <-- espfix_waddr points here
+	 * --- bottom of ESPFIX stack ---
+	 */
+
+	pushq	%rdi				/* Stash user RDI */
 	SWAPGS
 	movq	PER_CPU_VAR(espfix_waddr), %rdi
-	movq	%rax, (0*8)(%rdi)		/* RAX */
-	movq	(2*8 + RIP-RIP)(%rsp), %rax	/* RIP */
+	movq	%rax, (0*8)(%rdi)		/* user RAX */
+	movq	(8 + RIP-RIP)(%rsp), %rax	/* user RIP */
 	movq	%rax, (1*8)(%rdi)
-	movq	(2*8 + CS-RIP)(%rsp), %rax	/* CS */
+	movq	(8 + CS-RIP)(%rsp), %rax	/* user CS */
 	movq	%rax, (2*8)(%rdi)
-	movq	(2*8 + EFLAGS-RIP)(%rsp), %rax	/* RFLAGS */
+	movq	(8 + EFLAGS-RIP)(%rsp), %rax	/* user RFLAGS */
 	movq	%rax, (3*8)(%rdi)
-	movq	(2*8 + SS-RIP)(%rsp), %rax	/* SS */
+	movq	(8 + SS-RIP)(%rsp), %rax	/* user SS */
 	movq	%rax, (5*8)(%rdi)
-	movq	(2*8 + RSP-RIP)(%rsp), %rax	/* RSP */
+	movq	(8 + RSP-RIP)(%rsp), %rax	/* user RSP */
 	movq	%rax, (4*8)(%rdi)
-	andl	$0xffff0000, %eax
-	popq	%rdi
+	/* Now RAX == RSP. */
+
+	andl	$0xffff0000, %eax		/* RAX = (RSP & 0xffff0000) */
+	popq	%rdi				/* Restore user RDI */
+
+	/*
+	 * espfix_stack[31:16] == 0.  The page tables are set up such that
+	 * (espfix_stack | (X & 0xffff0000)) points to a read-only alias of
+	 * espfix_waddr for any X.  That is, there are 65536 RO aliases of
+	 * the same page.  Set up RSP so that RSP[31:16] contains the
+	 * respective 16 bits of the /userspace/ RSP and RSP nonetheless
+	 * still points to an RO alias of the ESPFIX stack.
+	 */
 	orq	PER_CPU_VAR(espfix_stack), %rax
 	SWAPGS
 	movq	%rax, %rsp
-	popq	%rax
+
+	/*
+	 * At this point, we cannot write to the stack any more, but we can
+	 * still read.
+	 */
+	popq	%rax				/* Restore user RAX */
+
+	/*
+	 * RSP now points to an ordinary IRET frame, except that the page
+	 * is read-only and RSP[31:16] are preloaded with the userspace
+	 * values.  We can now IRET back to userspace.
+	 */
 	jmp	native_irq_return_iret
 #endif
 ENDPROC(common_interrupt)
@@ -1104,11 +1191,15 @@ apicinterrupt IRQ_WORK_VECTOR			irq_work_interrupt		smp_irq_work_interrupt
  */
 #define CPU_TSS_IST(x) (TSS_ist + ((x) - 1) * 8)(%r13)
 
-.macro idtentry sym do_sym has_error_code:req paranoid=0 shift_ist=-1
+.macro idtentry sym do_sym has_error_code:req paranoid=0 shift_ist=-1 rap_hash=0
 ENTRY(\sym)
 	/* Sanity check */
 	.if \shift_ist != -1 && \paranoid == 0
 	.error "using shift_ist requires paranoid=1"
+	.endif
+
+	.if \paranoid != 0 && \rap_hash==tailcall
+	.error "tail called idt entry cannot be paranoid"
 	.endif
 
 	ASM_CLAC
@@ -1125,9 +1216,9 @@ ENTRY(\sym)
 	testb	$3, CS(%rsp)			/* If coming from userspace, switch stacks */
 	jnz	1f
 	.endif
-	call	paranoid_entry
+	pax_direct_call paranoid_entry
 	.else
-	call	error_entry
+	pax_direct_call error_entry
 	.endif
 	/* returned flag: ebx=0: need swapgs on exit, ebx=1: don't need it */
 
@@ -1158,7 +1249,14 @@ ENTRY(\sym)
 	subq	$EXCEPTION_STKSZ, CPU_TSS_IST(\shift_ist)
 	.endif
 
-	call	\do_sym
+	.ifc \rap_hash,tailcall
+	jmp \do_sym
+	.exitm
+	.elseif \rap_hash == 0
+	pax_direct_call \do_sym
+	.else
+	pax_indirect_call \do_sym, \rap_hash
+	.endif
 
 	.if \shift_ist != -1
 	addq	$EXCEPTION_STKSZ, CPU_TSS_IST(\shift_ist)
@@ -1178,11 +1276,11 @@ ENTRY(\sym)
 	 * run in real process context if user_mode(regs).
 	 */
 1:
-	call	error_entry
+	pax_direct_call error_entry
 
 
 	movq	%rsp, %rdi			/* pt_regs pointer */
-	call	sync_regs
+	pax_direct_call sync_regs
 	movq	%rax, %rsp			/* switch stack */
 
 	movq	%rsp, %rdi			/* pt_regs pointer */
@@ -1194,7 +1292,11 @@ ENTRY(\sym)
 	xorl	%esi, %esi			/* no error code */
 	.endif
 
-	call	\do_sym
+	.if \rap_hash == 0
+	pax_direct_call \do_sym
+	.else
+	pax_indirect_call \do_sym, \rap_hash
+	.endif
 
 	jmp	error_exit			/* %ebx: no swapgs flag */
 	.endif
@@ -1230,6 +1332,11 @@ idtentry simd_coprocessor_error		do_simd_coprocessor_error	has_error_code=0
 idtentry refcount_error			do_refcount_error		has_error_code=0
 #endif
 
+#ifdef CONFIG_PAX_RAP
+idtentry rap_call_error			do_rap_call_error		has_error_code=0
+idtentry rap_ret_error			do_rap_ret_error		has_error_code=0
+#endif
+
 	/*
 	 * Reload gs selector with exception handling
 	 * edi:  new selector
@@ -1243,9 +1350,9 @@ ENTRY(native_load_gs_index)
 2:	ALTERNATIVE "", "mfence", X86_BUG_SWAPGS_FENCE
 	SWAPGS
 	popfq
-	pax_force_retaddr
-	ret
+	pax_ret native_load_gs_index
 ENDPROC(native_load_gs_index)
+EXPORT_SYMBOL(native_load_gs_index)
 
 	_ASM_EXTABLE(.Lgs_change, bad_gs)
 	.section .fixup, "ax"
@@ -1270,15 +1377,14 @@ ENTRY(do_softirq_own_stack)
 	incl	PER_CPU_VAR(irq_count)
 	cmove	PER_CPU_VAR(irq_stack_ptr), %rsp
 	push	%rbp				/* frame pointer backlink */
-	call	__do_softirq
+	pax_direct_call __do_softirq
 	leaveq
 	decl	PER_CPU_VAR(irq_count)
-	pax_force_retaddr
-	ret
+	pax_ret do_softirq_own_stack
 ENDPROC(do_softirq_own_stack)
 
 #ifdef CONFIG_XEN
-idtentry xen_hypervisor_callback xen_do_hypervisor_callback has_error_code=0
+idtentry xen_hypervisor_callback xen_do_hypervisor_callback has_error_code=0 rap_hash=tailcall
 
 /*
  * A note on the "critical region" in our callback handler.
@@ -1299,16 +1405,15 @@ ENTRY(xen_do_hypervisor_callback)		/* do_hypervisor_callback(struct *pt_regs) */
  * Since we don't modify %rdi, evtchn_do_upall(struct *pt_regs) will
  * see the correct pointer to the pt_regs
  */
-	movq	%rdi, %rsp			/* we don't return, adjust the stack frame */
 11:	incl	PER_CPU_VAR(irq_count)
 	movq	%rsp, %rbp
 	cmovzq	PER_CPU_VAR(irq_stack_ptr), %rsp
 	pushq	%rbp				/* frame pointer backlink */
-	call	xen_evtchn_do_upcall
+	pax_direct_call xen_evtchn_do_upcall
 	popq	%rsp
 	decl	PER_CPU_VAR(irq_count)
 #ifndef CONFIG_PREEMPT
-	call	xen_maybe_preempt_hcall
+	pax_direct_call xen_maybe_preempt_hcall
 #endif
 	jmp	error_exit
 ENDPROC(xen_do_hypervisor_callback)
@@ -1386,7 +1491,7 @@ idtentry async_page_fault	do_async_page_fault	has_error_code=1
 #endif
 
 #ifdef CONFIG_X86_MCE
-idtentry machine_check					has_error_code=0	paranoid=1 do_sym=*machine_check_vector(%rip)
+idtentry machine_check					has_error_code=0	paranoid=1 do_sym="*machine_check_vector(%rip)" rap_hash=do_machine_check
 #endif
 
 /*
@@ -1414,8 +1519,7 @@ ENTRY(paranoid_entry)
 #endif
 1:	pax_enter_kernel
 2:
-	pax_force_retaddr
-	ret
+	pax_ret paranoid_entry
 ENDPROC(paranoid_entry)
 
 ENTRY(paranoid_entry_nmi)
@@ -1430,8 +1534,7 @@ ENTRY(paranoid_entry_nmi)
 	SWAPGS
 	xorl	%ebx, %ebx
 1:	pax_enter_kernel_nmi
-	pax_force_retaddr
-	ret
+	pax_ret paranoid_entry_nmi
 ENDPROC(paranoid_entry_nmi)
 
 /*
@@ -1502,13 +1605,11 @@ ENTRY(error_entry)
 	 */
 	TRACE_IRQS_OFF
 	CALL_enter_from_user_mode
-	pax_force_retaddr
-	ret
+	pax_ret error_entry
 
 .Lerror_entry_done:
 	TRACE_IRQS_OFF
-	pax_force_retaddr
-	ret
+	pax_ret error_entry
 
 	/*
 	 * There are two places in the kernel that can potentially fault with
@@ -1560,7 +1661,7 @@ ENTRY(error_entry)
 	 * error_exit knows that we will be returning to user mode.
 	 */
 	mov	%rsp, %rdi
-	call	fixup_bad_iret
+	pax_direct_call fixup_bad_iret
 	mov	%rax, %rsp
 	decl	%ebx
 	jmp	.Lerror_entry_from_usermode_after_swapgs
@@ -1692,7 +1793,7 @@ ENTRY(nmi)
 
 	movq	%rsp, %rdi
 	movq	$-1, %rsi
-	call	do_nmi
+	pax_direct_call do_nmi
 
 	pax_exit_kernel_nmi
 
@@ -1908,12 +2009,12 @@ end_repeat_nmi:
 	 * setting NEED_RESCHED or anything that normal interrupts and
 	 * exceptions might do.
 	 */
-	call	paranoid_entry_nmi
+	pax_direct_call paranoid_entry_nmi
 
 	/* paranoidentry do_nmi, 0; without TRACE_IRQS_OFF */
 	movq	%rsp, %rdi
 	movq	$-1, %rsi
-	call	do_nmi
+	pax_direct_call do_nmi
 
 	pax_exit_kernel_nmi
 
@@ -1961,6 +2062,6 @@ ENTRY(rewind_stack_do_exit)
 	movq	PER_CPU_VAR(cpu_current_top_of_stack), %rax
 	leaq	-TOP_OF_KERNEL_STACK_PADDING-PTREGS_SIZE(%rax), %rsp
 
-	call	do_group_exit
+	pax_direct_call do_group_exit
 1:	jmp 1b
 ENDPROC(rewind_stack_do_exit)

@@ -28,7 +28,9 @@
 #include <linux/linkage.h>
 #include <asm/errno.h>
 #include <asm/asm.h>
+#include <asm/export.h>
 #include <asm/segment.h>
+#include <asm/alternative-asm.h>
 
 /*
  * computes a partial checksum, e.g. for TCP/UDP fragments
@@ -130,7 +132,7 @@ ENTRY(csum_partial)
 8:
 	popl %ebx
 	popl %esi
-	ret
+	pax_ret csum_partial
 ENDPROC(csum_partial)
 
 #else
@@ -248,10 +250,11 @@ ENTRY(csum_partial)
 90: 
 	popl %ebx
 	popl %esi
-	ret
+	pax_ret csum_partial
 ENDPROC(csum_partial)
 				
 #endif
+EXPORT_SYMBOL(csum_partial)
 
 /*
 unsigned int csum_partial_copy_generic (const char *src, char *dst,
@@ -421,7 +424,7 @@ DST(	movb %cl, %es:(%edi)	)
 	popl %esi
 	popl %edi
 	popl %ecx			# equivalent to addl $4,%esp
-	ret	
+	pax_ret csum_partial_copy_generic_to_user
 ENDPROC(csum_partial_copy_generic_to_user)
 
 #else
@@ -530,10 +533,13 @@ DST(	movb %dl, %es:(%edi)     )
 	popl %esi
 	popl %edi
 	popl %ebx
-	ret
+	pax_ret csum_partial_copy_generic_to_user
 ENDPROC(csum_partial_copy_generic_to_user)
 				
 #undef ROUND
 #undef ROUND1		
 		
 #endif
+EXPORT_SYMBOL(csum_partial_copy_generic)
+EXPORT_SYMBOL(csum_partial_copy_generic_to_user);
+EXPORT_SYMBOL(csum_partial_copy_generic_from_user);

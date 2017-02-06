@@ -53,6 +53,7 @@
  */
 #include <linux/linkage.h>
 #include <asm/frame.h>
+#include <asm/alternative-asm.h>
 #include "sha1_mb_mgr_datastruct.S"
 
 
@@ -183,7 +184,7 @@ LABEL skip_ %I
 
 	# "state" and "args" are the same address, arg1
 	# len is arg2
-	call	sha1_x8_avx2
+	pax_direct_call sha1_x8_avx2
 	# state and idx are intact
 
 
@@ -215,7 +216,7 @@ len_is_0:
 return:
 	pop	%rbx
 	FRAME_END
-	ret
+	pax_ret sha1_mb_mgr_flush_avx2
 
 return_null:
 	xor     job_rax, job_rax
@@ -273,12 +274,12 @@ RAP_ENTRY(sha1_mb_mgr_get_comp_job_avx2)
 
 	pop     %rbx
 
-	ret
+	pax_ret sha1_mb_mgr_get_comp_job_avx2
 
 .return_null:
 	xor     job_rax, job_rax
 	pop     %rbx
-	ret
+	pax_ret sha1_mb_mgr_get_comp_job_avx2
 ENDPROC(sha1_mb_mgr_get_comp_job_avx2)
 
 .data

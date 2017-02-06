@@ -117,11 +117,13 @@ static void __init set_vsmp_pv_ops(void)
 
 	if (cap & ctl & (1 << 4)) {
 		/* Setup irq ops and turn on vSMP  IRQ fastpath handling */
+		pax_open_kernel();
 		pv_irq_ops.irq_disable = PV_CALLEE_SAVE(vsmp_irq_disable);
 		pv_irq_ops.irq_enable  = PV_CALLEE_SAVE(vsmp_irq_enable);
 		pv_irq_ops.save_fl  = PV_CALLEE_SAVE(vsmp_save_fl);
 		pv_irq_ops.restore_fl  = PV_CALLEE_SAVE(vsmp_restore_fl);
 		pv_init_ops.patch = vsmp_patch;
+		pax_close_kernel();
 		ctl &= ~(1 << 4);
 	}
 	writel(ctl, address + 4);

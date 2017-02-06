@@ -1173,7 +1173,7 @@ static void kgdbts_post_exp_handler(void)
 		module_put(THIS_MODULE);
 }
 
-static struct kgdb_io kgdbts_io_ops = {
+static struct kgdb_io kgdbts_io_ops __read_only = {
 	.name			= "kgdbts",
 	.read_char		= kgdbts_get_char,
 	.write_char		= kgdbts_put_char,

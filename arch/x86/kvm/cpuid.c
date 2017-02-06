@@ -224,20 +224,15 @@ int kvm_vcpu_ioctl_set_cpuid2(struct kvm_vcpu *vcpu,
 			      struct kvm_cpuid2 *cpuid,
 			      struct kvm_cpuid_entry2 __user *entries)
 {
-	int r, i;
+	int r;
 
 	r = -E2BIG;
 	if (cpuid->nent > KVM_MAX_CPUID_ENTRIES)
 		goto out;
 	r = -EFAULT;
-	if (!access_ok(VERIFY_READ, entries, cpuid->nent * sizeof(struct kvm_cpuid_entry2)))
+	if (copy_from_user(&vcpu->arch.cpuid_entries, entries,
+			   cpuid->nent * sizeof(struct kvm_cpuid_entry2)))
 		goto out;
-	for (i = 0; i < cpuid->nent; ++i) {
-		struct kvm_cpuid_entry2 cpuid_entry;
-		if (__copy_from_user(&cpuid_entry, entries + i, sizeof(cpuid_entry)))
-			goto out;
-		vcpu->arch.cpuid_entries[i] = cpuid_entry;
-	}
 	vcpu->arch.cpuid_nent = cpuid->nent;
 	kvm_apic_set_version(vcpu);
 	kvm_x86_ops->cpuid_update(vcpu);
@@ -250,19 +245,15 @@ int kvm_vcpu_ioctl_get_cpuid2(struct kvm_vcpu *vcpu,
 			      struct kvm_cpuid2 *cpuid,
 			      struct kvm_cpuid_entry2 __user *entries)
 {
-	int r, i;
+	int r;
 
 	r = -E2BIG;
 	if (cpuid->nent < vcpu->arch.cpuid_nent)
 		goto out;
 	r = -EFAULT;
-	if (!access_ok(VERIFY_WRITE, entries, vcpu->arch.cpuid_nent * sizeof(struct kvm_cpuid_entry2)))
+	if (copy_to_user(entries, &vcpu->arch.cpuid_entries,
+			 vcpu->arch.cpuid_nent * sizeof(struct kvm_cpuid_entry2)))
 		goto out;
-	for (i = 0; i < vcpu->arch.cpuid_nent; ++i) {
-		struct kvm_cpuid_entry2 cpuid_entry = vcpu->arch.cpuid_entries[i];
-		if (__copy_to_user(entries + i, &cpuid_entry, sizeof(cpuid_entry)))
-			goto out;
-	}
 	return 0;
 
 out:
@@ -375,7 +366,8 @@ static inline int __do_cpuid_ent(struct kvm_cpuid_entry2 *entry, u32 function,
 		F(FSGSBASE) | F(BMI1) | F(HLE) | F(AVX2) | F(SMEP) |
 		F(BMI2) | F(ERMS) | f_invpcid | F(RTM) | f_mpx | F(RDSEED) |
 		F(ADX) | F(SMAP) | F(AVX512F) | F(AVX512PF) | F(AVX512ER) |
-		F(AVX512CD) | F(CLFLUSHOPT) | F(CLWB);
+		F(AVX512CD) | F(CLFLUSHOPT) | F(CLWB) | F(AVX512DQ) |
+		F(AVX512BW) | F(AVX512VL);
 
 	/* cpuid 0xD.1.eax */
 	const u32 kvm_cpuid_D_1_eax_x86_features =

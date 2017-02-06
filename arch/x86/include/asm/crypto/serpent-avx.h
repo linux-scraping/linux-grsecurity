@@ -20,6 +20,8 @@ asmlinkage void serpent_ecb_enc_8way_avx(void *ctx, u8 *dst,
 					 const u8 *src);
 asmlinkage void serpent_ecb_dec_8way_avx(void *ctx, u8 *dst,
 					 const u8 *src);
+void __serpent_enc_blk8_avx(void *ctx, u8 *dst, const u8 *src) __rap_hash;
+void __serpent_dec_blk8_avx(void *ctx, u8 *dst, const u8 *src) __rap_hash;
 
 asmlinkage void serpent_cbc_dec_8way_avx(void *ctx, u8 *dst,
 					 const u8 *src);

@@ -83,6 +83,15 @@ asmlinkage void aesni_cbc_enc(struct crypto_aes_ctx *ctx, u8 *out,
 			      const u8 *in, unsigned int len, u8 *iv);
 asmlinkage void aesni_cbc_dec(struct crypto_aes_ctx *ctx, u8 *out,
 			      const u8 *in, unsigned int len, u8 *iv);
+int _key_expansion_128(struct crypto_aes_ctx *ctx, const u8 *in_key, unsigned int key_len) __rap_hash;
+int _key_expansion_192a(struct crypto_aes_ctx *ctx, const u8 *in_key, unsigned int key_len) __rap_hash;
+int _key_expansion_192b(struct crypto_aes_ctx *ctx, const u8 *in_key, unsigned int key_len) __rap_hash;
+int _key_expansion_256a(struct crypto_aes_ctx *ctx, const u8 *in_key, unsigned int key_len) __rap_hash;
+int _key_expansion_256b(struct crypto_aes_ctx *ctx, const u8 *in_key, unsigned int key_len) __rap_hash;
+void _aesni_enc1(void *ctx, u8 *out, const u8 *in) __rap_hash;
+void _aesni_enc4(void *ctx, u8 *out, const u8 *in) __rap_hash;
+void _aesni_dec1(void *ctx, u8 *out, const u8 *in) __rap_hash;
+void _aesni_dec4(void *ctx, u8 *out, const u8 *in) __rap_hash;
 
 int crypto_fpu_init(void);
 void crypto_fpu_exit(void);
@@ -96,6 +105,8 @@ static void (*aesni_ctr_enc_tfm)(struct crypto_aes_ctx *ctx, u8 *out,
 			      const u8 *in, unsigned int len, u8 *iv);
 asmlinkage void aesni_ctr_enc(struct crypto_aes_ctx *ctx, u8 *out,
 			      const u8 *in, unsigned int len, u8 *iv);
+void _aesni_inc(struct crypto_aes_ctx *ctx, u8 *out, const u8 *in, unsigned int len, u8 *iv) __rap_hash;
+void _aesni_inc_init(struct crypto_aes_ctx *ctx, u8 *out, const u8 *in, unsigned int len, u8 *iv) __rap_hash;
 
 asmlinkage void aesni_xts_crypt8(struct crypto_aes_ctx *ctx, u8 *out,
 				 const u8 *in, bool enc, u8 *iv);
@@ -888,7 +899,7 @@ static int helper_rfc4106_encrypt(struct aead_request *req)
 	unsigned long auth_tag_len = crypto_aead_authsize(tfm);
 	u8 iv[16] __attribute__ ((__aligned__(AESNI_ALIGN)));
 	struct scatter_walk src_sg_walk;
-	struct scatter_walk dst_sg_walk;
+	struct scatter_walk dst_sg_walk = {};
 	unsigned int i;
 
 	/* Assuming we are supporting rfc4106 64-bit extended */
@@ -968,7 +979,7 @@ static int helper_rfc4106_decrypt(struct aead_request *req)
 	u8 iv[16] __attribute__ ((__aligned__(AESNI_ALIGN)));
 	u8 authTag[16];
 	struct scatter_walk src_sg_walk;
-	struct scatter_walk dst_sg_walk;
+	struct scatter_walk dst_sg_walk = {};
 	unsigned int i;
 
 	if (unlikely(req->assoclen != 16 && req->assoclen != 20))

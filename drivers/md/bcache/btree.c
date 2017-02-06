@@ -364,12 +364,8 @@ static void btree_node_write_done(struct work_struct *work)
 {
 	struct closure *cl = container_of(work, struct closure, work);
 	struct btree *b = container_of(cl, struct btree, io);
-	struct bio_vec *bv;
-	int n;
 
-	bio_for_each_segment_all(bv, b->bio, n)
-		__free_page(bv->bv_page);
-
+	bio_free_pages(b->bio);
 	__btree_node_write_done(&cl->work);
 }
 

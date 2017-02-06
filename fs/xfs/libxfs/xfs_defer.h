@@ -51,6 +51,8 @@ struct xfs_defer_pending {
  * find all the space it needs.
  */
 enum xfs_defer_ops_type {
+	XFS_DEFER_OPS_TYPE_BMAP,
+	XFS_DEFER_OPS_TYPE_REFCOUNT,
 	XFS_DEFER_OPS_TYPE_RMAP,
 	XFS_DEFER_OPS_TYPE_FREE,
 	XFS_DEFER_OPS_TYPE_MAX,
@@ -90,7 +92,7 @@ struct xfs_defer_op_type {
 	int (*diff_items)(void *, struct list_head *, struct list_head *);
 	void *(*create_intent)(struct xfs_trans *, uint);
 	void (*log_item)(struct xfs_trans *, void *, struct list_head *);
-};
+} __do_const;
 
 void xfs_defer_init_op_type(const struct xfs_defer_op_type *type);
 

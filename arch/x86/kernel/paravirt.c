@@ -78,17 +78,25 @@ void __init default_banner(void)
 /* Undefined instruction for dealing with missing ops pointers. */
 static const unsigned char ud2a[] = { 0x0f, 0x0b };
 
-struct branch {
+struct longbranch {
 	unsigned char opcode;
 	u32 delta;
 } __attribute__((packed));
+
+struct shortbranch {
+	unsigned char opcode;
+	signed char delta;
+};
 
 unsigned paravirt_patch_call(void *insnbuf,
 			     const void *target, u16 tgt_clobbers,
 			     unsigned long addr, u16 site_clobbers,
 			     unsigned len)
 {
-	struct branch *b = insnbuf;
+	struct longbranch *b = insnbuf;
+#ifdef CONFIG_PAX_RAP
+	struct shortbranch *hashb = insnbuf;
+#endif
 	unsigned long delta = (unsigned long)target - (addr+5);
 
 	if (tgt_clobbers & ~site_clobbers)
@@ -96,17 +104,29 @@ unsigned paravirt_patch_call(void *insnbuf,
 	if (len < 5)
 		return len;	/* call too long for patch site */
 
+#ifdef CONFIG_PAX_RAP
+	if (hashb->opcode != 0xeb)
+		return len;
+	hashb->delta = len - sizeof(*b) - sizeof(*hashb);
+	b = insnbuf + len - sizeof(*b);
+	delta = (unsigned long)target - (addr + len);
+#endif
+
 	b->opcode = 0xe8; /* call */
 	b->delta = delta;
 	BUILD_BUG_ON(sizeof(*b) != 5);
 
+#ifdef CONFIG_PAX_RAP
+	return len;
+#else
 	return 5;
+#endif
 }
 
 unsigned paravirt_patch_jmp(void *insnbuf, const void *target,
 			    unsigned long addr, unsigned len)
 {
-	struct branch *b = insnbuf;
+	struct longbranch *b = insnbuf;
 	unsigned long delta = (unsigned long)target - (addr+5);
 
 	if (len < 5)
@@ -355,7 +375,6 @@ __visible struct pv_cpu_ops pv_cpu_ops __read_only = {
 	.read_cr0 = native_read_cr0,
 	.write_cr0 = native_write_cr0,
 	.read_cr4 = native_read_cr4,
-	.read_cr4_safe = native_read_cr4_safe,
 	.write_cr4 = native_write_cr4,
 #ifdef CONFIG_X86_64
 	.read_cr8 = native_read_cr8,
@@ -461,7 +480,7 @@ static void native_activate_mm(struct mm_struct *prev, struct mm_struct *next)
 {
 }
 
-struct pv_mmu_ops pv_mmu_ops __read_only = {
+struct pv_mmu_ops pv_mmu_ops __ro_after_init = {
 
 	.read_cr2 = native_read_cr2,
 	.write_cr2 = native_write_cr2,

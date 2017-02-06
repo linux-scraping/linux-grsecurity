@@ -5,7 +5,7 @@
  */
 #include <linux/sched.h>		/* test_thread_flag(), ...	*/
 #include <linux/kdebug.h>		/* oops_begin/end, ...		*/
-#include <linux/module.h>		/* search_exception_table	*/
+#include <linux/extable.h>		/* search_exception_tables	*/
 #include <linux/bootmem.h>		/* max_low_pfn			*/
 #include <linux/kprobes.h>		/* NOKPROBE_SYMBOL, ...		*/
 #include <linux/mmiotrace.h>		/* kmmio_handler, ...		*/
@@ -851,6 +851,35 @@ no_context(struct pt_regs *regs, unsigned long error_code,
 		return;
 	}
 
+#ifdef CONFIG_VMAP_STACK
+	/*
+	 * Stack overflow?  During boot, we can fault near the initial
+	 * stack in the direct map, but that's not an overflow -- check
+	 * that we're in vmalloc space to avoid this.
+	 */
+	if (is_vmalloc_addr((void *)address) &&
+	    (((unsigned long)tsk->stack - 1 - address < PAGE_SIZE) ||
+	     address - ((unsigned long)tsk->stack + THREAD_SIZE) < PAGE_SIZE)) {
+		register void *__sp asm("rsp");
+		unsigned long stack = this_cpu_read(orig_ist.ist[DOUBLEFAULT_STACK]) - sizeof(void *);
+		/*
+		 * We're likely to be running with very little stack space
+		 * left.  It's plausible that we'd hit this condition but
+		 * double-fault even before we get this far, in which case
+		 * we're fine: the double-fault handler will deal with it.
+		 *
+		 * We don't want to make it all the way into the oops code
+		 * and then double-fault, though, because we're likely to
+		 * break the console driver and lose most of the stack dump.
+		 */
+		asm volatile ("movq %[stack], %%rsp\n\t"
+			      : "+r" (__sp)
+			      : [stack] "rm" (stack));
+		handle_stack_overflow("kernel stack overflow (page fault)", regs, address);
+		unreachable();
+	}
+#endif
+
 	/*
 	 * 32-bit:
 	 *
@@ -1333,6 +1362,14 @@ access_error(unsigned long error_code, struct vm_area_struct *vma)
 		return 1;
 
 	/*
+	 * Read or write was blocked by protection keys.  This is
+	 * always an unconditional error and can never result in
+	 * a follow-up action to resolve the fault, like a COW.
+	 */
+	if (error_code & PF_PK)
+		return 1;
+
+	/*
 	 * Make sure to check the VMA so that we do not perform
 	 * faults just to hit a PF_PK as soon as we fill in a
 	 * page.
@@ -1413,7 +1450,7 @@ __do_page_fault(struct pt_regs *regs, unsigned long error_code,
 		if (address < pax_user_shadow_base) {
 			printk(KERN_EMERG "PAX: please report this to pageexec@freemail.hu\n");
 			printk(KERN_EMERG "PAX: faulting IP: %pS\n", (void *)regs->ip);
-			show_trace_log_lvl(NULL, NULL, (void *)regs->sp, regs->bp, KERN_EMERG);
+			show_trace_log_lvl(current, regs, (void *)regs->sp, KERN_EMERG);
 		} else
 			address -= pax_user_shadow_base;
 	}

@@ -19,10 +19,11 @@ struct random_ready_callback {
 
 extern void add_device_randomness(const void *, unsigned int);
 
-#if defined(LATENT_ENTROPY_PLUGIN) && !defined(__CHECKER__)
+#if defined(CONFIG_GCC_PLUGIN_LATENT_ENTROPY) && !defined(__CHECKER__)
 static inline void add_latent_entropy(void)
 {
-	add_device_randomness((const void *)&latent_entropy, sizeof(latent_entropy));
+	add_device_randomness((const void *)&latent_entropy,
+			      sizeof(latent_entropy));
 }
 #else
 static inline void add_latent_entropy(void) {}
@@ -44,7 +45,7 @@ extern const struct file_operations random_fops, urandom_fops;
 
 unsigned int get_random_int(void);
 unsigned long get_random_long(void);
-unsigned long randomize_range(unsigned long start, unsigned long end, unsigned long len);
+unsigned long randomize_page(unsigned long start, unsigned long range);
 
 u32 prandom_u32(void);
 void prandom_bytes(void *buf, size_t nbytes);

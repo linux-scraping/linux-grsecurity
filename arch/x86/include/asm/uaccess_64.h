@@ -19,11 +19,11 @@
 
 /* Handles exceptions in both to and from, but doesn't do access_ok */
 __must_check unsigned long
-copy_user_enhanced_fast_string(void *to, const void *from, unsigned len);
+copy_user_enhanced_fast_string(void *to, const void *from, unsigned long len);
 __must_check unsigned long
-copy_user_generic_string(void *to, const void *from, unsigned len);
+copy_user_generic_string(void *to, const void *from, unsigned long len);
 __must_check unsigned long
-copy_user_generic_unrolled(void *to, const void *from, unsigned len);
+copy_user_generic_unrolled(void *to, const void *from, unsigned long len);
 
 static __always_inline __must_check __size_overflow(3) unsigned long
 copy_user_generic(void *to, const void *from, unsigned long len)
@@ -348,6 +348,6 @@ __copy_from_user_inatomic_nocache(void *dst, const void __user *src,
 }
 
 unsigned long
-copy_user_handle_tail(char __user *to, char __user *from, unsigned long len) __size_overflow(3);
+copy_user_handle_tail(void __user *to, const void __user *from, unsigned long len) __size_overflow(3);
 
 #endif /* _ASM_X86_UACCESS_64_H */

@@ -733,7 +733,7 @@ static void __noreturn native_machine_power_off(void)
 	unreachable();
 }
 
-struct machine_ops machine_ops __read_only = {
+struct machine_ops machine_ops __ro_after_init = {
 	.power_off = native_machine_power_off,
 	.shutdown = native_machine_shutdown,
 	.emergency_restart = native_machine_emergency_restart,

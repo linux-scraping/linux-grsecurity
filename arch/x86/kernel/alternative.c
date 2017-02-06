@@ -439,13 +439,23 @@ void __init_or_module apply_alternatives(struct alt_instr *start,
 		memcpy(insnbuf, vreplacement, a->replacementlen);
 		insnbuf_sz = a->replacementlen;
 
-		/* 0xe8 is a relative jump; fix the offset. */
+		/* 0xe8 is a call; fix the relative offset. */
 		if (*insnbuf == 0xe8 && a->replacementlen == 5) {
 			*(s32 *)(insnbuf + 1) += vreplacement - instr;
 			DPRINTK("Fix CALL offset: 0x%x, CALL 0x%lx",
 				*(s32 *)(insnbuf + 1),
 				(unsigned long)vinstr + *(s32 *)(insnbuf + 1) + 5);
 		}
+
+#ifdef CONFIG_PAX_RAP
+		/* 0xeb ... 0xe8 is a rap_call; fix the relative offset. */
+		if (*insnbuf == 0xeb && a->replacementlen == 5 + 3 + 8 + 2 && insnbuf[a->replacementlen - 5] == 0xe8) {
+			*(s32 *)(insnbuf + a->replacementlen - 4) += vreplacement - instr;
+			DPRINTK("Fix CALL offset: 0x%x, CALL 0x%lx",
+				*(s32 *)(insnbuf + a->replacementlen - 4),
+				(unsigned long)vinstr + *(s32 *)(insnbuf + a->replacementlen - 4) + 5);
+		}
+#endif
 
 		if (a->replacementlen && is_jmp(vreplacement[0]))
 			recompute_jump(a, instr, vreplacement, insnbuf);

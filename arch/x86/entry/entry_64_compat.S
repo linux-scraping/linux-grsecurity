@@ -23,18 +23,18 @@
 	.macro pax_enter_kernel_user
 	pax_set_fptr_mask
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	call	pax_enter_kernel_user
+	pax_direct_call pax_enter_kernel_user
 #endif
 	.endm
 
 	.macro pax_exit_kernel_user
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	call	pax_exit_kernel_user
+	pax_direct_call pax_exit_kernel_user
 #endif
 #ifdef CONFIG_PAX_RANDKSTACK
 	pushq	%rax
 	pushq	%r11
-	call	pax_randomize_kstack
+	pax_direct_call pax_randomize_kstack
 	popq	%r11
 	popq	%rax
 #endif
@@ -42,7 +42,7 @@
 
 	.macro pax_erase_kstack
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
-	call	pax_erase_kstack
+	pax_direct_call pax_erase_kstack
 #endif
 	.endm
 
@@ -160,7 +160,7 @@ ENTRY(entry_SYSENTER_compat)
 	TRACE_IRQS_OFF
 
 	movq	%rsp, %rdi
-	call	do_fast_syscall_32
+	pax_direct_call do_fast_syscall_32
 	/* XEN PV guests always use IRET path */
 	ALTERNATIVE "testl %eax, %eax; jz .Lsyscall_32_done", \
 		    "jmp .Lsyscall_32_done", X86_FEATURE_XENPV
@@ -272,7 +272,7 @@ ENTRY(entry_SYSCALL_compat)
 	TRACE_IRQS_OFF
 
 	movq	%rsp, %rdi
-	call	do_fast_syscall_32
+	pax_direct_call do_fast_syscall_32
 	/* XEN PV guests always use IRET path */
 	ALTERNATIVE "testl %eax, %eax; jz .Lsyscall_32_done", \
 		    "jmp .Lsyscall_32_done", X86_FEATURE_XENPV
@@ -397,7 +397,7 @@ ENTRY(entry_INT80_compat)
 	TRACE_IRQS_OFF
 
 	movq	%rsp, %rdi
-	call	do_int80_syscall_32
+	pax_direct_call do_int80_syscall_32
 .Lsyscall_32_done:
 
 	/* Go back to user mode. */
@@ -409,7 +409,11 @@ ENTRY(entry_INT80_compat)
 ENDPROC(entry_INT80_compat)
 
 	ALIGN
+#ifdef CONFIG_PAX_RAP
+RAP_ENTRY(rap_stub32_clone)
+#else
 GLOBAL(stub32_clone)
+#endif
 	/*
 	 * The 32-bit clone ABI is: clone(..., int tls_val, int *child_tidptr).
 	 * The 64-bit clone ABI is: clone(..., int *child_tidptr, int tls_val).
@@ -418,4 +422,8 @@ GLOBAL(stub32_clone)
 	 * so we need to swap arguments here before calling it:
 	 */
 	xchg	%r8, %rcx
+#ifdef CONFIG_PAX_RAP
+	jmp	rap_sys_clone
+#else
 	jmp	sys_clone
+#endif

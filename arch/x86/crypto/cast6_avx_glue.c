@@ -56,6 +56,9 @@ asmlinkage void cast6_xts_enc_8way(void *ctx, u128 *dst,
 asmlinkage void cast6_xts_dec_8way(void *ctx, u128 *dst,
 				   const u128 *src, le128 *iv);
 
+void __cast6_enc_blk8(void *ctx, u8 *dst, const u8 *src) __rap_hash;
+void __cast6_dec_blk8(void *ctx, u8 *dst, const u8 *src) __rap_hash;
+
 static void cast6_xts_enc(void *ctx, u128 *dst, const u128 *src, le128 *iv)
 {
 	glue_xts_crypt_128bit_one(ctx, dst, src, iv,

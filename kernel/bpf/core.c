@@ -208,7 +208,7 @@ struct bpf_prog *bpf_patch_insn_single(struct bpf_prog *prog, u32 off,
 }
 
 #ifdef CONFIG_BPF_JIT
-extern long __rap_hash___bpf_prog_run;
+extern long __rap_hash_call___bpf_prog_run;
 
 struct bpf_binary_header *
 bpf_jit_binary_alloc(unsigned int proglen, u8 **image_ptr,
@@ -252,7 +252,7 @@ bpf_jit_binary_alloc(unsigned int proglen, u8 **image_ptr,
 
 #ifdef CONFIG_PAX_RAP
 	pax_open_kernel();
-	*(long *)(*image_ptr - 8) = (long)&__rap_hash___bpf_prog_run;
+	*(long *)(*image_ptr - 8) = (long)&__rap_hash_call___bpf_prog_run;
 	pax_close_kernel();
 #endif
 
@@ -1038,7 +1038,7 @@ void bpf_user_rnd_init_once(void)
 	prandom_init_once(&bpf_user_rnd_state);
 }
 
-u64 bpf_user_rnd_u32(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+BPF_CALL_0(bpf_user_rnd_u32)
 {
 	/* Should someone ever have the rather unwise idea to use some
 	 * of the registers passed into this function, then note that
@@ -1051,7 +1051,7 @@ u64 bpf_user_rnd_u32(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
 
 	state = &get_cpu_var(bpf_user_rnd_state);
 	res = prandom_u32_state(state);
-	put_cpu_var(state);
+	put_cpu_var(bpf_user_rnd_state);
 
 	return res;
 }

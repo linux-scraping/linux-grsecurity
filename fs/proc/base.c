@@ -419,33 +419,6 @@ static const struct file_operations proc_pid_cmdline_ops = {
 			      _mm->pax_flags & MF_PAX_SEGMEXEC))
 #endif
 
-static int proc_pid_auxv(struct seq_file *m, struct pid_namespace *ns,
-			 struct pid *pid, struct task_struct *task)
-{
-	struct mm_struct *mm = mm_access(task, PTRACE_MODE_READ_FSCREDS);
-	if (mm && !IS_ERR(mm)) {
-		unsigned int nwords = 0;
-
-#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-		/* allow if we're currently ptracing this task */
-		if (PAX_RAND_FLAGS(mm) &&
-		    (!(task->ptrace & PT_PTRACED) || (task->parent != current))) {
-			mmput(mm);
-			return 0;
-		}
-#endif
-
-		do {
-			nwords += 2;
-		} while (mm->saved_auxv[nwords - 2] != 0); /* AT_NULL */
-		seq_write(m, mm->saved_auxv, nwords * sizeof(mm->saved_auxv[0]));
-		mmput(mm);
-		return 0;
-	} else
-		return PTR_ERR(mm);
-}
-
-
 #if defined(CONFIG_KALLSYMS) && !defined(CONFIG_GRKERNSEC_HIDESYM)
 /*
  * Provides a wchan file via kallsyms in a proper one-value-per-file format.
@@ -512,7 +485,7 @@ static int proc_pid_stack(struct seq_file *m, struct pid_namespace *ns,
 		save_stack_trace_tsk(task, &trace);
 
 		for (i = 0; i < trace.nr_entries; i++) {
-			seq_printf(m, "[<%pK>] %pS\n",
+			seq_printf(m, "[<%pK>] %pB\n",
 				   (void *)entries[i], (void *)entries[i]);
 		}
 		unlock_trace(task);
@@ -741,7 +714,7 @@ int proc_setattr(struct dentry *dentry, struct iattr *attr)
 	if (attr->ia_valid & ATTR_MODE)
 		return -EPERM;
 
-	error = inode_change_ok(inode, attr);
+	error = setattr_prepare(dentry, attr);
 	if (error)
 		return error;
 
@@ -925,6 +898,7 @@ static ssize_t mem_rw(struct file *file, char __user *buf,
 	unsigned long addr = *ppos;
 	ssize_t copied;
 	char *page;
+	unsigned int flags;
 
 #ifdef CONFIG_GRKERNSEC
 	struct task_struct *task = get_proc_task(file_inode(file));
@@ -957,6 +931,11 @@ static ssize_t mem_rw(struct file *file, char __user *buf,
 	if (!atomic_inc_not_zero(&mm->mm_users))
 		goto free;
 
+	/* Maybe we should limit FOLL_FORCE to actual ptrace users? */
+	flags = FOLL_FORCE;
+	if (write)
+		flags |= FOLL_WRITE;
+
 	while (count > 0) {
 		ssize_t this_len = min_t(ssize_t, count, PAGE_SIZE);
 
@@ -965,7 +944,7 @@ static ssize_t mem_rw(struct file *file, char __user *buf,
 			break;
 		}
 
-		this_len = access_remote_vm(mm, addr, page, this_len, write);
+		this_len = access_remote_vm(mm, addr, page, this_len, flags);
 		if (!this_len) {
 			if (!copied)
 				copied = -EIO;
@@ -1087,8 +1066,7 @@ static ssize_t environ_read(struct file *file, char __user *buf,
 		max_len = min_t(size_t, PAGE_SIZE, count);
 		this_len = min(max_len, this_len);
 
-		retval = access_remote_vm(mm, (env_start + src),
-			page, this_len, 0);
+		retval = access_remote_vm(mm, (env_start + src), page, this_len, 0);
 
 		if (retval <= 0) {
 			ret = retval;
@@ -1116,6 +1094,48 @@ free:
 static const struct file_operations proc_environ_operations = {
 	.open		= environ_open,
 	.read		= environ_read,
+	.llseek		= generic_file_llseek,
+	.release	= mem_release,
+};
+
+static int auxv_open(struct inode *inode, struct file *file)
+{
+	return __mem_open(inode, file, PTRACE_MODE_READ_FSCREDS);
+}
+
+static ssize_t auxv_read(struct file *file, char __user *buf,
+			size_t count, loff_t *ppos)
+{
+	struct mm_struct *mm = file->private_data;
+	unsigned int nwords = 0;
+
+	if (!mm)
+		return 0;
+
+#ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
+	{
+		struct task_struct *task = get_proc_task(file_inode(file));
+		bool is_by_ptracer = false;
+
+		if (task) {
+			is_by_ptracer = current_is_ptracer(task, NULL);
+			put_task_struct(task);
+		}
+		if (!is_by_ptracer)
+			return 0;
+	}
+#endif
+
+	do {
+		nwords += 2;
+	} while (mm->saved_auxv[nwords - 2] != 0); /* AT_NULL */
+	return simple_read_from_buffer(buf, count, ppos, mm->saved_auxv,
+				       nwords * sizeof(mm->saved_auxv[0]));
+}
+
+static const struct file_operations proc_auxv_operations = {
+	.open		= auxv_open,
+	.read		= auxv_read,
 	.llseek		= generic_file_llseek,
 	.release	= mem_release,
 };
@@ -1780,7 +1800,7 @@ struct inode *proc_pid_make_inode(struct super_block * sb, struct task_struct *t
 	/* Common stuff */
 	ei = PROC_I(inode);
 	inode->i_ino = get_next_ino();
-	inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME;
+	inode->i_mtime = inode->i_atime = inode->i_ctime = current_time(inode);
 	inode->i_op = &proc_def_inode_operations;
 
 	/*
@@ -2418,16 +2438,27 @@ static ssize_t timerslack_ns_write(struct file *file, const char __user *buf,
 	if (!p)
 		return -ESRCH;
 
-	if (ptrace_may_access(p, PTRACE_MODE_ATTACH_FSCREDS)) {
-		task_lock(p);
-		if (slack_ns == 0)
-			p->timer_slack_ns = p->default_timer_slack_ns;
-		else
-			p->timer_slack_ns = slack_ns;
-		task_unlock(p);
-	} else
-		count = -EPERM;
+	if (p != current) {
+		if (!capable(CAP_SYS_NICE)) {
+			count = -EPERM;
+			goto out;
+		}
 
+		err = security_task_setscheduler(p);
+		if (err) {
+			count = err;
+			goto out;
+		}
+	}
+
+	task_lock(p);
+	if (slack_ns == 0)
+		p->timer_slack_ns = p->default_timer_slack_ns;
+	else
+		p->timer_slack_ns = slack_ns;
+	task_unlock(p);
+
+out:
 	put_task_struct(p);
 
 	return count;
@@ -2437,19 +2468,28 @@ static int timerslack_ns_show(struct seq_file *m, void *v)
 {
 	struct inode *inode = m->private;
 	struct task_struct *p;
-	int err =  0;
+	int err = 0;
 
 	p = get_proc_task(inode);
 	if (!p)
 		return -ESRCH;
 
-	if (ptrace_may_access(p, PTRACE_MODE_ATTACH_FSCREDS)) {
-		task_lock(p);
-		seq_printf(m, "%llu\n", p->timer_slack_ns);
-		task_unlock(p);
-	} else
-		err = -EPERM;
+	if (p != current) {
 
+		if (!capable(CAP_SYS_NICE)) {
+			err = -EPERM;
+			goto out;
+		}
+		err = security_task_getscheduler(p);
+		if (err)
+			goto out;
+	}
+
+	task_lock(p);
+	seq_printf(m, "%llu\n", p->timer_slack_ns);
+	task_unlock(p);
+
+out:
 	put_task_struct(p);
 
 	return err;
@@ -2968,7 +3008,7 @@ static const struct pid_entry tgid_base_stuff[] = {
 	DIR("net",        S_IRUGO|S_IXUGO, proc_net_inode_operations, proc_net_operations),
 #endif
 	REG("environ",    S_IRUSR, proc_environ_operations),
-	ONE("auxv",       S_IRUSR, proc_pid_auxv),
+	REG("auxv",       S_IRUSR, proc_auxv_operations),
 	ONE("status",     S_IRUGO, proc_pid_status),
 	ONE("personality", S_IRUSR, proc_pid_personality),
 	ONE("limits",	  S_IRUGO, proc_pid_limits),
@@ -3370,7 +3410,7 @@ static const struct pid_entry tid_base_stuff[] = {
 	DIR("net",        S_IRUGO|S_IXUGO, proc_net_inode_operations, proc_net_operations),
 #endif
 	REG("environ",   S_IRUSR, proc_environ_operations),
-	ONE("auxv",      S_IRUSR, proc_pid_auxv),
+	REG("auxv",      S_IRUSR, proc_auxv_operations),
 	ONE("status",    S_IRUGO, proc_pid_status),
 	ONE("personality", S_IRUSR, proc_pid_personality),
 	ONE("limits",	 S_IRUGO, proc_pid_limits),

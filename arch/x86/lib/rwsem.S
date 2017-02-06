@@ -91,33 +91,31 @@ ENTRY(call_rwsem_down_read_failed)
 	save_common_regs
 	__ASM_SIZE(push,) %__ASM_REG(dx)
 	movq %rax,%rdi
-	call rwsem_down_read_failed
+	pax_direct_call rwsem_down_read_failed
 	__ASM_SIZE(pop,) %__ASM_REG(dx)
 	restore_common_regs
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret rwsem_down_read_failed
 ENDPROC(call_rwsem_down_read_failed)
 
 ENTRY(call_rwsem_down_write_failed)
 	FRAME_BEGIN
 	save_common_regs
 	movq %rax,%rdi
-	call rwsem_down_write_failed
+	pax_direct_call rwsem_down_write_failed
 	restore_common_regs
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret rwsem_down_write_failed
 ENDPROC(call_rwsem_down_write_failed)
 
 ENTRY(call_rwsem_down_write_failed_killable)
 	FRAME_BEGIN
 	save_common_regs
 	movq %rax,%rdi
-	call rwsem_down_write_failed_killable
+	pax_direct_call rwsem_down_write_failed_killable
 	restore_common_regs
 	FRAME_END
-	ret
+	pax_ret rwsem_down_write_failed_killable
 ENDPROC(call_rwsem_down_write_failed_killable)
 
 ENTRY(call_rwsem_wake)
@@ -127,11 +125,10 @@ ENTRY(call_rwsem_wake)
 	jnz 1f
 	save_common_regs
 	movq %rax,%rdi
-	call rwsem_wake
+	pax_direct_call rwsem_wake
 	restore_common_regs
 1:	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret rwsem_wake
 ENDPROC(call_rwsem_wake)
 
 ENTRY(call_rwsem_downgrade_wake)
@@ -139,10 +136,9 @@ ENTRY(call_rwsem_downgrade_wake)
 	save_common_regs
 	__ASM_SIZE(push,) %__ASM_REG(dx)
 	movq %rax,%rdi
-	call rwsem_downgrade_wake
+	pax_direct_call rwsem_downgrade_wake
 	__ASM_SIZE(pop,) %__ASM_REG(dx)
 	restore_common_regs
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret rwsem_downgrade_wake
 ENDPROC(call_rwsem_downgrade_wake)

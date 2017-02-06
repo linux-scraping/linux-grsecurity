@@ -7,6 +7,7 @@
  */
 
 #include <linux/linkage.h>
+#include <asm/export.h>
 
 .text
 
@@ -37,7 +38,7 @@ ENTRY(cmpxchg8b_emu)
 	movl %ecx, 4(%esi)
 
 	popfl
-	ret
+	pax_ret cmpxchg8b_emu
 
 .Lnot_same:
 	movl  (%esi), %eax
@@ -45,6 +46,7 @@ ENTRY(cmpxchg8b_emu)
 	movl 4(%esi), %edx
 
 	popfl
-	ret
+	pax_ret cmpxchg8b_emu
 
 ENDPROC(cmpxchg8b_emu)
+EXPORT_SYMBOL(cmpxchg8b_emu)

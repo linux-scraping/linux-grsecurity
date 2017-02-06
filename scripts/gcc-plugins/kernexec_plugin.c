@@ -106,8 +106,8 @@ static void kernexec_instrument_fptr_bts(gimple_stmt_iterator *gsi)
 	update_stmt(assign_intptr);
 
 	// apply logical or to temporary unsigned long and bitmask
-	kernexec_mask = build_int_cstu(long_long_unsigned_type_node, 0x8000000000000000LL);
-//	kernexec_mask = build_int_cstu(long_long_unsigned_type_node, 0xffffffff80000000LL);
+	kernexec_mask = build_int_cstu(long_long_unsigned_type_node, 0x8000000000000000ULL);
+//	kernexec_mask = build_int_cstu(long_long_unsigned_type_node, 0xffffffff80000000ULL);
 	orptr = fold_build2(BIT_IOR_EXPR, long_long_unsigned_type_node, intptr, kernexec_mask);
 	intptr = make_ssa_name(SSA_NAME_VAR(intptr), NULL);
 	assign_intptr = gimple_build_assign(intptr, orptr);
@@ -202,8 +202,13 @@ static unsigned int kernexec_fptr_execute(void)
 				continue;
 			if (TREE_CODE(fn) == ADDR_EXPR)
 				continue;
-			if (TREE_CODE(fn) != SSA_NAME)
+			if (TREE_CODE(fn) == INTEGER_CST)
+				continue;
+
+			if (TREE_CODE(fn) != SSA_NAME) {
+debug_tree(fn);
 				gcc_unreachable();
+			}
 
 			// ... through a function pointer
 			if (SSA_NAME_VAR(fn) != NULL_TREE) {
@@ -349,11 +354,14 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 	int i;
 
 	PASS_INFO(kernexec_reload, "early_optimizations", 1, PASS_POS_INSERT_BEFORE);
-	PASS_INFO(kernexec_fptr, "early_optimizations", 1, PASS_POS_INSERT_BEFORE);
+// unfortunately PRE can screw up fptr types from unions...
+// see cpuhp_step_startup/cpuhp_step_teardown and kernel.cpu.c:cpuhp_invoke_callback
+//	PASS_INFO(kernexec_fptr, "early_optimizations", 1, PASS_POS_INSERT_BEFORE);
+	PASS_INFO(kernexec_fptr, "pre", 1, PASS_POS_INSERT_AFTER);
 	PASS_INFO(kernexec_retaddr, "pro_and_epilogue", 1, PASS_POS_INSERT_AFTER);
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
-		error(G_("incompatible gcc/plugin versions"));
+		error_gcc_version(version);
 		return 1;
 	}
 

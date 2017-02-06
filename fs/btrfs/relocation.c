@@ -337,8 +337,9 @@ static void backref_tree_panic(struct rb_node *rb_node, int errno, u64 bytenr)
 					      rb_node);
 	if (bnode->root)
 		fs_info = bnode->root->fs_info;
-	btrfs_panic(fs_info, errno, "Inconsistency in backref cache "
-		    "found at offset %llu", bytenr);
+	btrfs_panic(fs_info, errno,
+		    "Inconsistency in backref cache found at offset %llu",
+		    bytenr);
 }
 
 /*
@@ -1303,9 +1304,9 @@ static int __must_check __add_reloc_root(struct btrfs_root *root)
 			      node->bytenr, &node->rb_node);
 	spin_unlock(&rc->reloc_root_tree.lock);
 	if (rb_node) {
-		btrfs_panic(root->fs_info, -EEXIST, "Duplicate root found "
-			    "for start=%llu while inserting into relocation "
-			    "tree", node->bytenr);
+		btrfs_panic(root->fs_info, -EEXIST,
+			    "Duplicate root found for start=%llu while inserting into relocation tree",
+			    node->bytenr);
 		kfree(node);
 		return -EEXIST;
 	}
@@ -2736,7 +2737,14 @@ static int do_relocation(struct btrfs_trans_handle *trans,
 
 		bytenr = btrfs_node_blockptr(upper->eb, slot);
 		if (lowest) {
-			BUG_ON(bytenr != node->bytenr);
+			if (bytenr != node->bytenr) {
+				btrfs_err(root->fs_info,
+		"lowest leaf/node mismatch: bytenr %llu node->bytenr %llu slot %d upper %llu",
+					  bytenr, node->bytenr, slot,
+					  upper->eb->start);
+				err = -EIO;
+				goto next;
+			}
 		} else {
 			if (node->eb->start == bytenr)
 				goto next;
@@ -3227,7 +3235,7 @@ static int relocate_file_extent_cluster(struct inode *inode,
 			nr++;
 		}
 
-		btrfs_set_extent_delalloc(inode, page_start, page_end, NULL);
+		btrfs_set_extent_delalloc(inode, page_start, page_end, NULL, 0);
 		set_page_dirty(page);
 
 		unlock_extent(&BTRFS_I(inode)->io_tree,
@@ -3976,7 +3984,7 @@ static int qgroup_fix_relocated_data_extents(struct btrfs_trans_handle *trans,
 	struct btrfs_key key;
 	int ret = 0;
 
-	if (!fs_info->quota_enabled)
+	if (!test_bit(BTRFS_FS_QUOTA_ENABLED, &fs_info->flags))
 		return 0;
 
 	/*
@@ -4389,8 +4397,9 @@ int btrfs_relocate_block_group(struct btrfs_root *extent_root, u64 group_start)
 		goto out;
 	}
 
-	btrfs_info(extent_root->fs_info, "relocating block group %llu flags %llu",
-	       rc->block_group->key.objectid, rc->block_group->flags);
+	btrfs_info(extent_root->fs_info,
+		   "relocating block group %llu flags %llu",
+		   rc->block_group->key.objectid, rc->block_group->flags);
 
 	btrfs_wait_block_group_reservations(rc->block_group);
 	btrfs_wait_nocow_writers(rc->block_group);

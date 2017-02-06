@@ -24,6 +24,5 @@
 ENTRY(__iowrite32_copy)
 	movl %edx,%ecx
 	rep movsd
-	pax_force_retaddr
-	ret
+	pax_ret __iowrite32_copy
 ENDPROC(__iowrite32_copy)

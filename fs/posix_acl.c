@@ -601,13 +601,14 @@ posix_acl_create(struct inode *dir, umode_t *mode,
 	if (IS_ERR(p))
 		return PTR_ERR(p);
 
+	ret = -ENOMEM;
 	clone = posix_acl_clone(p, GFP_NOFS);
 	if (!clone)
-		goto no_mem;
+		goto err_release;
 
 	ret = posix_acl_create_masq(clone, mode);
 	if (ret < 0)
-		goto no_mem_clone;
+		goto err_release_clone;
 
 	if (ret == 0)
 		posix_acl_release(clone);
@@ -621,11 +622,11 @@ posix_acl_create(struct inode *dir, umode_t *mode,
 
 	return 0;
 
-no_mem_clone:
+err_release_clone:
 	posix_acl_release(clone);
-no_mem:
+err_release:
 	posix_acl_release(p);
-	return -ENOMEM;
+	return ret;
 }
 EXPORT_SYMBOL_GPL(posix_acl_create);
 
@@ -667,15 +668,15 @@ static void posix_acl_fix_xattr_userns(
 	struct user_namespace *to, struct user_namespace *from,
 	void *value, size_t size)
 {
-	posix_acl_xattr_header *header = (posix_acl_xattr_header *)value;
-	posix_acl_xattr_entry *entry = (posix_acl_xattr_entry *)(header+1), *end;
+	struct posix_acl_xattr_header *header = value;
+	struct posix_acl_xattr_entry *entry = (void *)(header + 1), *end;
 	int count;
 	kuid_t uid;
 	kgid_t gid;
 
 	if (!value)
 		return;
-	if (size < sizeof(posix_acl_xattr_header))
+	if (size < sizeof(struct posix_acl_xattr_header))
 		return;
 	if (header->a_version != cpu_to_le32(POSIX_ACL_XATTR_VERSION))
 		return;
@@ -725,8 +726,8 @@ struct posix_acl *
 posix_acl_from_xattr(struct user_namespace *user_ns,
 		     const void *value, size_t size)
 {
-	const posix_acl_xattr_header *header = (const posix_acl_xattr_header *)value;
-	const posix_acl_xattr_entry *entry = (const posix_acl_xattr_entry *)(header+1), *end;
+	const struct posix_acl_xattr_header *header = value;
+	const struct posix_acl_xattr_entry *entry = (const void *)(header + 1), *end;
 	int count;
 	struct posix_acl *acl;
 	struct posix_acl_entry *acl_e;
@@ -734,7 +735,7 @@ posix_acl_from_xattr(struct user_namespace *user_ns,
 
 	if (!value)
 		return NULL;
-	if (size < sizeof(posix_acl_xattr_header))
+	if (size < sizeof(struct posix_acl_xattr_header))
 		 return ERR_PTR(-EINVAL);
 	if (header->a_version != cpu_to_le32(POSIX_ACL_XATTR_VERSION))
 		return ERR_PTR(-EOPNOTSUPP);
@@ -802,8 +803,8 @@ int
 posix_acl_to_xattr(struct user_namespace *user_ns, const struct posix_acl *acl,
 		   void *buffer, size_t size)
 {
-	posix_acl_xattr_header *ext_acl = (posix_acl_xattr_header *)buffer;
-	posix_acl_xattr_entry *ext_entry;
+	struct posix_acl_xattr_header *ext_acl = buffer;
+	struct posix_acl_xattr_entry *ext_entry;
 	int real_size, n;
 
 	real_size = posix_acl_xattr_size(acl->a_count);
@@ -812,7 +813,7 @@ posix_acl_to_xattr(struct user_namespace *user_ns, const struct posix_acl *acl,
 	if (real_size > size)
 		return -ERANGE;
 
-	ext_entry = ext_acl->a_entries;
+	ext_entry = (void *)(ext_acl + 1);
 	ext_acl->a_version = cpu_to_le32(POSIX_ACL_XATTR_VERSION);
 
 	for (n=0; n < acl->a_count; n++, ext_entry++) {
@@ -932,14 +933,13 @@ int simple_set_acl(struct inode *inode, struct posix_acl *acl, int type)
 	int error;
 
 	if (type == ACL_TYPE_ACCESS) {
-		error = posix_acl_equiv_mode(acl, &inode->i_mode);
-		if (error < 0)
-			return 0;
-		if (error == 0)
-			acl = NULL;
+		error = posix_acl_update_mode(inode,
+				&inode->i_mode, &acl);
+		if (error)
+			return error;
 	}
 
-	inode->i_ctime = CURRENT_TIME;
+	inode->i_ctime = current_time(inode);
 	set_cached_acl(inode, type, acl);
 	return 0;
 }

@@ -95,7 +95,7 @@ static unsigned int colorize_rearm_execute(void)
 #define NO_GATE
 #include "gcc-generate-simple_ipa-pass.h"
 
-static void colorize_start_unit(void *gcc_data, void *user_data)
+static void colorize_start_unit(void *gcc_data __unused, void *user_data __unused)
 {
 	colorize_arm();
 }
@@ -122,7 +122,7 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 	PASS_INFO(colorize_rearm, "*free_lang_data", 1, PASS_POS_INSERT_AFTER);
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
-		error(G_("incompatible gcc/plugin versions"));
+		error_gcc_version(version);
 		return 1;
 	}
 

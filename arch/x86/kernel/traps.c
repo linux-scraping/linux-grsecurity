@@ -196,16 +196,23 @@ do_trap_no_signal(struct task_struct *tsk, int trapnr, const char *str,
 #endif
 
 #ifdef CONFIG_PAX_RAP
-			if (trapnr == X86_TRAP_UD)
-				str = "PAX: overwritten function pointer or return address detected";
+			if (trapnr == X86_RAP_CALL_VECTOR) {
+				str = "PAX: overwritten function pointer detected";
+				regs->ip -= 2; // sizeof int $xx
+			} else if (trapnr == X86_RAP_RET_VECTOR) {
+				str = "PAX: overwritten return address detected";
+				regs->ip -= 2; // sizeof int $xx
+			}
 #endif
 
 			die(str, regs, error_code);
 		}
 
 #ifdef CONFIG_PAX_REFCOUNT
-		if (trapnr == X86_REFCOUNT_VECTOR)
+		if (trapnr == X86_REFCOUNT_VECTOR) {
+			regs->ip -= 2; // sizeof int $xx
 			pax_report_refcount_error(regs, str);
+		}
 #endif
 
 		return 0;
@@ -309,6 +316,21 @@ DO_ERROR(X86_TRAP_NP,     SIGBUS,  "segment not present",	segment_not_present)
 DO_ERROR(X86_TRAP_SS,     SIGBUS,  "stack segment",		stack_segment)
 DO_ERROR(X86_TRAP_AC,     SIGBUS,  "alignment check",		alignment_check)
 
+#if defined(CONFIG_VMAP_STACK) || defined(CONFIG_GRKERNSEC_KSTACKOVERFLOW)
+__visible void __noreturn handle_stack_overflow(const char *message,
+						struct pt_regs *regs,
+						unsigned long fault_address)
+{
+	printk(KERN_EMERG "BUG: stack guard page was hit at %p (stack is %p..%p)\n",
+		 (void *)fault_address, current->stack,
+		 (char *)current->stack + THREAD_SIZE - 1);
+	die(message, regs, 0);
+
+	/* Be absolutely certain we don't return. */
+	panic(message);
+}
+#endif
+
 #ifdef CONFIG_PAX_REFCOUNT
 extern char __refcount_overflow_start[], __refcount_overflow_end[];
 extern char __refcount64_overflow_start[], __refcount64_overflow_end[];
@@ -340,12 +362,20 @@ dotraplinkage void do_refcount_error(struct pt_regs *regs, long error_code)
 }
 #endif
 
+#ifdef CONFIG_PAX_RAP
+DO_ERROR(X86_RAP_CALL_VECTOR, SIGILL, "RAP call violation",	rap_call_error)
+DO_ERROR(X86_RAP_RET_VECTOR,  SIGILL, "RAP return violation",	rap_ret_error)
+#endif
+
 #ifdef CONFIG_X86_64
 /* Runs on IST stack */
 dotraplinkage void do_double_fault(struct pt_regs *regs, long error_code)
 {
 	static const char str[] = "double fault";
 	struct task_struct *tsk = current;
+#if defined(CONFIG_VMAP_STACK) || defined(CONFIG_GRKERNSEC_KSTACKOVERFLOW)
+	unsigned long cr2;
+#endif
 
 #ifdef CONFIG_X86_ESPFIX64
 	extern unsigned char native_irq_return_iret[];
@@ -380,9 +410,51 @@ dotraplinkage void do_double_fault(struct pt_regs *regs, long error_code)
 	tsk->thread.error_code = error_code;
 	tsk->thread.trap_nr = X86_TRAP_DF;
 
+#if defined(CONFIG_VMAP_STACK) || defined(CONFIG_GRKERNSEC_KSTACKOVERFLOW)
+	/*
+	 * If we overflow the stack into a guard page, the CPU will fail
+	 * to deliver #PF and will send #DF instead.  Similarly, if we
+	 * take any non-IST exception while too close to the bottom of
+	 * the stack, the processor will get a page fault while
+	 * delivering the exception and will generate a double fault.
+	 *
+	 * According to the SDM (footnote in 6.15 under "Interrupt 14 -
+	 * Page-Fault Exception (#PF):
+	 *
+	 *   Processors update CR2 whenever a page fault is detected. If a
+	 *   second page fault occurs while an earlier page fault is being
+	 *   deliv- ered, the faulting linear address of the second fault will
+	 *   overwrite the contents of CR2 (replacing the previous
+	 *   address). These updates to CR2 occur even if the page fault
+	 *   results in a double fault or occurs during the delivery of a
+	 *   double fault.
+	 *
+	 * The logic below has a small possibility of incorrectly diagnosing
+	 * some errors as stack overflows.  For example, if the IDT or GDT
+	 * gets corrupted such that #GP delivery fails due to a bad descriptor
+	 * causing #GP and we hit this condition while CR2 coincidentally
+	 * points to the stack guard page, we'll think we overflowed the
+	 * stack.  Given that we're going to panic one way or another
+	 * if this happens, this isn't necessarily worth fixing.
+	 *
+	 * If necessary, we could improve the test by only diagnosing
+	 * a stack overflow if the saved RSP points within 47 bytes of
+	 * the bottom of the stack: if RSP == tsk_stack + 48 and we
+	 * take an exception, the stack is already aligned and there
+	 * will be enough room SS, RSP, RFLAGS, CS, RIP, and a
+	 * possible error code, so a stack overflow would *not* double
+	 * fault.  With any less space left, exception delivery could
+	 * fail, and, as a practical matter, we've overflowed the
+	 * stack even if the actual trigger for the double fault was
+	 * something else.
+	 */
+	cr2 = read_cr2();
+	if ((unsigned long)task_stack_page(tsk) - 1 - cr2 < PAGE_SIZE)
 #ifdef CONFIG_GRKERNSEC_KSTACKOVERFLOW
-	if ((unsigned long)tsk->stack - regs->sp <= PAGE_SIZE)
-		die("grsec: kernel stack overflow detected", regs, error_code);	
+		handle_stack_overflow("grsec: kernel stack overflow detected", regs, cr2);
+#else
+		handle_stack_overflow("kernel stack overflow (double-fault)", regs, cr2);
+#endif
 #endif
 
 #ifdef CONFIG_DOUBLEFAULT
@@ -997,6 +1069,14 @@ void __init trap_init(void)
 #ifdef CONFIG_PAX_REFCOUNT
 	set_intr_gate(X86_REFCOUNT_VECTOR, refcount_error);
 	set_bit(X86_REFCOUNT_VECTOR, used_vectors);
+#endif
+
+#ifdef CONFIG_PAX_RAP
+	set_intr_gate(X86_RAP_CALL_VECTOR, rap_call_error);
+	set_bit(X86_RAP_CALL_VECTOR, used_vectors);
+
+	set_intr_gate(X86_RAP_RET_VECTOR, rap_ret_error);
+	set_bit(X86_RAP_RET_VECTOR, used_vectors);
 #endif
 
 	/*

@@ -229,15 +229,13 @@ ENTRY(__camellia_enc_blk)
 	enc_outunpack(mov, RT1);
 
 	movq RRBP, %rbp;
-	pax_force_retaddr
-	ret;
+	pax_ret __camellia_enc_blk;
 
 .L__enc_xor:
 	enc_outunpack(xor, RT1);
 
 	movq RRBP, %rbp;
-	pax_force_retaddr
-	ret;
+	pax_ret __camellia_enc_blk;
 ENDPROC(__camellia_enc_blk)
 
 RAP_ENTRY(camellia_dec_blk)
@@ -275,8 +273,7 @@ RAP_ENTRY(camellia_dec_blk)
 	dec_outunpack();
 
 	movq RRBP, %rbp;
-	pax_force_retaddr
-	ret;
+	pax_ret camellia_dec_blk;
 ENDPROC(camellia_dec_blk)
 
 /**********************************************************************
@@ -467,16 +464,14 @@ ENTRY(__camellia_enc_blk_2way)
 
 	movq RRBP, %rbp;
 	popq %rbx;
-	pax_force_retaddr
-	ret;
+	pax_ret __camellia_enc_blk_2way;
 
 .L__enc2_xor:
 	enc_outunpack2(xor, RT2);
 
 	movq RRBP, %rbp;
 	popq %rbx;
-	pax_force_retaddr
-	ret;
+	pax_ret __camellia_enc_blk_2way;
 ENDPROC(__camellia_enc_blk_2way)
 
 RAP_ENTRY(camellia_dec_blk_2way)
@@ -516,6 +511,5 @@ RAP_ENTRY(camellia_dec_blk_2way)
 
 	movq RRBP, %rbp;
 	movq RXOR, %rbx;
-	pax_force_retaddr
-	ret;
+	pax_ret camellia_dec_blk_2way;
 ENDPROC(camellia_dec_blk_2way)

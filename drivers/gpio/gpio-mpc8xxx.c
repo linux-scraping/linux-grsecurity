@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/irq.h>
 #include <linux/gpio/driver.h>
+#include <asm/pgtable.h>
 
 #define MPC8XXX_GPIO_PINS	32
 

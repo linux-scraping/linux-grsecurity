@@ -159,6 +159,13 @@ static bool vring_use_dma_api(struct virtio_device *vdev)
 	if (xen_domain())
 		return true;
 
+	/*
+	 * On ARM-based machines, the DMA ops will do the right thing,
+	 * so always use them with legacy devices.
+	 */
+	if (IS_ENABLED(CONFIG_ARM) || IS_ENABLED(CONFIG_ARM64))
+		return !virtio_has_feature(vdev, VIRTIO_F_VERSION_1);
+
 	return false;
 }
 
@@ -167,7 +174,7 @@ static bool vring_use_dma_api(struct virtio_device *vdev)
  * making all of the arch DMA ops work on the vring device itself
  * is a mess.  For now, we use the parent device for DMA ops.
  */
-static struct device *vring_dma_dev(const struct vring_virtqueue *vq)
+static inline struct device *vring_dma_dev(const struct vring_virtqueue *vq)
 {
 	return vq->vq.vdev->dev.parent;
 }

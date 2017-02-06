@@ -30,32 +30,83 @@
 #define __SC_DELOUSE(t,v) ((t)(unsigned long)(v))
 #endif
 
-#define COMPAT_SYSCALL_DEFINE0(name) \
+#ifdef CONFIG_PAX_RAP
+#define RAP_SYS32_SYSCALL_DEFINE0(name) \
+	asmlinkage long rap_sys32_##name(unsigned long a, unsigned long b, unsigned long c, unsigned long d, unsigned long e, unsigned long f)\
+	{								\
+		return sys32_##name();					\
+	}
+#else
+#define RAP_SYS32_SYSCALL_DEFINE0(name)
+#endif
+
+#define SYS32_SYSCALL_DEFINE0(name) \
+	asmlinkage long sys32_##name(void);				\
+	RAP_SYS32_SYSCALL_DEFINE0(name)					\
+	asmlinkage long sys32_##name(void)
+
+#define SYS32_SYSCALL_DEFINE1(name, ...) \
+	COMPAT_SYSCALL_DEFINEx(1, sys32, , _##name, __VA_ARGS__)
+#define SYS32_SYSCALL_DEFINE2(name, ...) \
+	COMPAT_SYSCALL_DEFINEx(2, sys32, , _##name, __VA_ARGS__)
+#define SYS32_SYSCALL_DEFINE3(name, ...) \
+	COMPAT_SYSCALL_DEFINEx(3, sys32, , _##name, __VA_ARGS__)
+#define SYS32_SYSCALL_DEFINE4(name, ...) \
+	COMPAT_SYSCALL_DEFINEx(4, sys32, , _##name, __VA_ARGS__)
+#define SYS32_SYSCALL_DEFINE5(name, ...) \
+	COMPAT_SYSCALL_DEFINEx(5, sys32, , _##name, __VA_ARGS__)
+#define SYS32_SYSCALL_DEFINE6(name, ...) \
+	COMPAT_SYSCALL_DEFINEx(6, sys32, , _##name, __VA_ARGS__)
+
+#ifdef CONFIG_PAX_RAP
+#define RAP_COMPAT_SYSCALL_DEFINE0(name) \
+	asmlinkage long rap_compat_sys_##name(unsigned long a, unsigned long b, unsigned long c, unsigned long d, unsigned long e, unsigned long f)\
+	{								\
+		return compat_sys_##name();				\
+	}
+#else
+#define RAP_COMPAT_SYSCALL_DEFINE0(name)
+#endif
+
+#define COMPAT_SYSCALL_DEFINE0(name)					\
+	RAP_COMPAT_SYSCALL_DEFINE0(name)				\
 	asmlinkage long compat_sys_##name(void)
 
 #define COMPAT_SYSCALL_DEFINE1(name, ...) \
-        COMPAT_SYSCALL_DEFINEx(1, _##name, __VA_ARGS__)
+	COMPAT_SYSCALL_DEFINEx(1, compat, _sys, _##name, __VA_ARGS__)
 #define COMPAT_SYSCALL_DEFINE2(name, ...) \
-	COMPAT_SYSCALL_DEFINEx(2, _##name, __VA_ARGS__)
+	COMPAT_SYSCALL_DEFINEx(2, compat, _sys, _##name, __VA_ARGS__)
 #define COMPAT_SYSCALL_DEFINE3(name, ...) \
-	COMPAT_SYSCALL_DEFINEx(3, _##name, __VA_ARGS__)
+	COMPAT_SYSCALL_DEFINEx(3, compat, _sys, _##name, __VA_ARGS__)
 #define COMPAT_SYSCALL_DEFINE4(name, ...) \
-	COMPAT_SYSCALL_DEFINEx(4, _##name, __VA_ARGS__)
+	COMPAT_SYSCALL_DEFINEx(4, compat, _sys, _##name, __VA_ARGS__)
 #define COMPAT_SYSCALL_DEFINE5(name, ...) \
-	COMPAT_SYSCALL_DEFINEx(5, _##name, __VA_ARGS__)
+	COMPAT_SYSCALL_DEFINEx(5, compat, _sys, _##name, __VA_ARGS__)
 #define COMPAT_SYSCALL_DEFINE6(name, ...) \
-	COMPAT_SYSCALL_DEFINEx(6, _##name, __VA_ARGS__)
+	COMPAT_SYSCALL_DEFINEx(6, compat, _sys, _##name, __VA_ARGS__)
 
-#define COMPAT_SYSCALL_DEFINEx(x, name, ...)				\
+#ifdef CONFIG_PAX_RAP
+#define RAP_COMPAT_SYSCALL_DEFINEx(x, prefix, sys, name, ...)		\
+	asmlinkage __intentional_overflow(-1)				\
+	long rap_##prefix##sys##name(__RAP_MAP(x,__RAP_SC_LONG,__VA_ARGS__))\
+	{								\
+		return prefix##sys##name(__MAP(x,__SC_CAST,__VA_ARGS__));\
+	}
+#else
+#define RAP_COMPAT_SYSCALL_DEFINEx(x, prefix, sys, name, ...)
+#endif
+
+#define COMPAT_SYSCALL_DEFINEx(x, prefix, sys, name, ...)		\
 	static inline long C_SYSC##name(__MAP(x,__SC_DECL,__VA_ARGS__));\
-	static inline asmlinkage long compat_SyS##name(__MAP(x,__SC_LONG,__VA_ARGS__))\
+	static inline asmlinkage long prefix##_SyS##name(__MAP(x,__SC_LONG,__VA_ARGS__))\
 	{								\
 		return C_SYSC##name(__MAP(x,__SC_DELOUSE,__VA_ARGS__));	\
 	}								\
-	asmlinkage long compat_sys##name(__MAP(x,__SC_DECL,__VA_ARGS__))\
+	asmlinkage long prefix##sys##name(__MAP(x,__SC_DECL,__VA_ARGS__))\
 	{								\
-		return compat_SyS##name(__MAP(x,__SC_ARGS,__VA_ARGS__));\
+		return prefix##_SyS##name(__MAP(x,__SC_ARGS,__VA_ARGS__));\
 	}								\
+	RAP_COMPAT_SYSCALL_DEFINEx(x,prefix,sys,name,__VA_ARGS__)	\
 	static inline long C_SYSC##name(__MAP(x,__SC_DECL,__VA_ARGS__))
 
 #ifndef compat_user_stack_pointer
@@ -433,7 +484,6 @@ asmlinkage long compat_sys_settimeofday(struct compat_timeval __user *tv,
 
 asmlinkage long compat_sys_adjtimex(struct compat_timex __user *utp);
 
-extern __printf(1, 2) int compat_printk(const char *fmt, ...);
 extern void sigset_from_compat(sigset_t *set, const compat_sigset_t *compat);
 extern void sigset_to_compat(compat_sigset_t *compat, const sigset_t *set);
 

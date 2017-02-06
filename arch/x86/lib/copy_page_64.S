@@ -3,6 +3,7 @@
 #include <linux/linkage.h>
 #include <asm/cpufeatures.h>
 #include <asm/alternative-asm.h>
+#include <asm/export.h>
 
 /*
  * Some CPUs run faster using the string copy instructions (sane microcode).
@@ -15,9 +16,9 @@ ENTRY(copy_page)
 	ALTERNATIVE "jmp copy_page_regs", "", X86_FEATURE_REP_GOOD
 	movl	$4096/8, %ecx
 	rep	movsq
-	pax_force_retaddr
-	ret
+	pax_ret copy_page
 ENDPROC(copy_page)
+EXPORT_SYMBOL(copy_page)
 
 ENTRY(copy_page_regs)
 	subq	$2*8,	%rsp
@@ -83,6 +84,5 @@ ENTRY(copy_page_regs)
 	movq	(%rsp), %rbx
 	movq	1*8(%rsp), %r13
 	addq	$2*8, %rsp
-	pax_force_retaddr
-	ret
+	pax_ret copy_page
 ENDPROC(copy_page_regs)

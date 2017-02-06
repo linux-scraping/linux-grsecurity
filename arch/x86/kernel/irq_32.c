@@ -37,7 +37,7 @@ static int check_stack_overflow(void)
 	return sp < STACK_WARN;
 }
 
-static void print_stack_overflow(void)
+static asmlinkage void print_stack_overflow(void)
 {
 	printk(KERN_WARNING "low stack detected by irq handler\n");
 	dump_stack();
@@ -48,16 +48,16 @@ static void print_stack_overflow(void)
 
 #else
 static inline int check_stack_overflow(void) { return 0; }
-static inline void print_stack_overflow(void) { }
+static asmlinkage void print_stack_overflow(void) { }
 #endif
 
 DEFINE_PER_CPU(struct irq_stack *, hardirq_stack);
 DEFINE_PER_CPU(struct irq_stack *, softirq_stack);
 
-static void call_on_stack(void *func, void *stack)
+static void call_on_stack(void (asmlinkage *func)(void), void *stack)
 {
 	asm volatile("xchgl	%%ebx,%%esp	\n"
-		     "call	*%%edi		\n"
+		     PAX_INDIRECT_CALL("*%%edi", "__do_softirq") "\n"
 		     "movl	%%ebx,%%esp	\n"
 		     : "=b" (stack)
 		     : "0" (stack),
@@ -100,7 +100,7 @@ static inline int execute_on_irq_stack(int overflow, struct irq_desc *desc)
 		call_on_stack(print_stack_overflow, isp);
 
 	asm volatile("xchgl	%%ebx,%%esp	\n"
-		     "call	*%%edi		\n"
+		     PAX_INDIRECT_CALL("*%%edi", "handle_bad_irq") "\n"
 		     "movl	%%ebx,%%esp	\n"
 		     : "=a" (arg1), "=b" (isp)
 		     :  "0" (desc),   "1" (isp),
@@ -108,7 +108,7 @@ static inline int execute_on_irq_stack(int overflow, struct irq_desc *desc)
 		     : "memory", "cc", "ecx");
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	__set_fs(current_thread_info()->addr_limit);
+	__set_fs(current->thread.addr_limit);
 #endif
 
 	return 1;
@@ -147,7 +147,7 @@ void do_softirq_own_stack(void)
 	call_on_stack(__do_softirq, isp);
 
 #ifdef CONFIG_PAX_MEMORY_UDEREF
-	__set_fs(current_thread_info()->addr_limit);
+	__set_fs(current->thread.addr_limit);
 #endif
 
 }

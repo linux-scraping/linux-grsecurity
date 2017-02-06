@@ -1135,6 +1135,7 @@ bool snd_usb_get_sample_rate_quirk(struct snd_usb_audio *chip)
 	case USB_ID(0x045E, 0x076F): /* MS Lifecam HD-6000 */
 	case USB_ID(0x045E, 0x0772): /* MS Lifecam Studio */
 	case USB_ID(0x045E, 0x0779): /* MS Lifecam HD-3000 */
+	case USB_ID(0x047F, 0x02F7): /* Plantronics BT-600 */
 	case USB_ID(0x047F, 0x0415): /* Plantronics BT-300 */
 	case USB_ID(0x047F, 0xAA05): /* Plantronics DA45 */
 	case USB_ID(0x04D8, 0xFEEA): /* Benchmark DAC1 Pre */
@@ -1217,6 +1218,12 @@ void snd_usb_endpoint_start_quirk(struct snd_usb_endpoint *ep)
 	     ep->chip->usb_id == USB_ID(0x0763, 0x2031)) &&
 	    ep->type == SND_USB_ENDPOINT_TYPE_DATA)
 		ep->skip_packets = 16;
+
+	/* Work around devices that report unreasonable feedback data */
+	if ((ep->chip->usb_id == USB_ID(0x0644, 0x8038) ||  /* TEAC UD-H01 */
+	     ep->chip->usb_id == USB_ID(0x1852, 0x5034)) && /* T+A Dac8 */
+	    ep->syncmaxsize == 4)
+		ep->tenor_fb_quirk = 1;
 }
 
 void snd_usb_set_interface_quirk(struct usb_device *dev)

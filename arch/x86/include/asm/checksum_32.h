@@ -16,7 +16,7 @@
  *
  * it's best to have buff aligned on a 32-bit boundary
  */
-asmlinkage __wsum csum_partial(const void *buff, int len, __wsum sum);
+asmlinkage __wsum csum_partial(const void *buff, int len, __wsum sum) __rap_hash;
 
 /*
  * the same as csum_partial, but copies from src while it
@@ -32,7 +32,7 @@ asmlinkage __wsum csum_partial_copy_generic(const void *src, void *dst,
 
 asmlinkage __wsum csum_partial_copy_generic_to_user(const void *src, void *dst,
 						  int len, __wsum sum,
-						  int *src_err_ptr, int *dst_err_ptr);
+						  int *src_err_ptr, int *dst_err_ptr) __rap_hash;
 
 asmlinkage __wsum csum_partial_copy_generic_from_user(const void *src, void *dst,
 						  int len, __wsum sum,

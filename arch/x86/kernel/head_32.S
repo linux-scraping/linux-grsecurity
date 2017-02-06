@@ -23,6 +23,8 @@
 #include <asm/percpu.h>
 #include <asm/nops.h>
 #include <asm/bootparam.h>
+#include <asm/export.h>
+#include <asm/alternative-asm.h>
 
 /* Physical address */
 #define pa(X) ((X) - __PAGE_OFFSET)
@@ -109,7 +111,7 @@ __HEAD
 #endif
 
 ENTRY(startup_32)
-	movl pa(stack_start),%ecx
+	movl pa(initial_stack),%ecx
 	
 	/* test KEEP_SEGMENTS flag to see if the bootloader is asking
 		us to not reload segments */
@@ -229,7 +231,7 @@ ENTRY(startup_32)
 
 #ifdef CONFIG_MICROCODE
 	/* Early load ucode on BSP. */
-	call load_ucode_bsp
+	pax_direct_call load_ucode_bsp
 #endif
 
 /*
@@ -365,7 +367,7 @@ num_subarch_entries = (. - subarch_entries) / 4
  * start_secondary().
  */
 ENTRY(start_cpu0)
-	movl stack_start, %ecx
+	movl initial_stack, %ecx
 	movl %ecx, %esp
 	jmp  *(initial_code)
 ENDPROC(start_cpu0)
@@ -386,13 +388,13 @@ ENTRY(startup_32_smp)
 	movl %eax,%es
 	movl %eax,%fs
 	movl %eax,%gs
-	movl pa(stack_start),%ecx
+	movl pa(initial_stack),%ecx
 	movl %eax,%ss
 	leal -__PAGE_OFFSET(%ecx),%esp
 
 #ifdef CONFIG_MICROCODE
 	/* Early load ucode on AP. */
-	call load_ucode_ap
+	pax_direct_call load_ucode_ap
 #endif
 
 default_entry:
@@ -679,7 +681,7 @@ early_idt_handler_common:
 	movw	$0, PT_GS+2(%esp)
 
 	movl	%esp, %eax	/* args are pt_regs (EAX), trapnr (EDX) */
-	call	early_fixup_exception
+	pax_direct_call early_fixup_exception
 
 	popl	%ebx		/* pt_regs->bx */
 	popl	%ecx		/* pt_regs->cx */
@@ -718,9 +720,9 @@ ignore_int:
 	pushl 32(%esp)
 	pushl 40(%esp)
 	pushl $int_msg
-	call printk
+	pax_direct_call printk
 
-	call dump_stack
+	pax_direct_call dump_stack
 
 	addl $(5*4),%esp
 	popl %ds
@@ -753,19 +755,23 @@ __READ_ONLY
 initial_pg_pmd:
 	.fill 1024*KPMDS,4,0
 #else
-ENTRY(initial_page_table)
+.globl initial_page_table
+initial_page_table:
 	.fill 1024,4,0
 #endif
 initial_pg_fixmap:
 	.fill 1024,4,0
-ENTRY(empty_zero_page)
+.globl empty_zero_page
+empty_zero_page:
 	.fill 4096,1,0
-ENTRY(swapper_pg_dir)
+.globl swapper_pg_dir
+swapper_pg_dir:
 #ifdef CONFIG_X86_PAE
 	.fill PTRS_PER_PGD,8,0
 #else
 	.fill PTRS_PER_PGD,4,0
 #endif
+EXPORT_SYMBOL(empty_zero_page)
 
 /*
  * This starts the data section.
@@ -797,13 +803,14 @@ ENTRY(cpu_pgd)
 	.rept 2*NR_CPUS
 	.fill	PTRS_PER_PGD,8,0
 	.endr
+EXPORT_SYMBOL(cpu_pgd);
 # endif
 
 #endif
 
 .data
 .balign 4
-ENTRY(stack_start)
+ENTRY(initial_stack)
 	.long init_thread_union+THREAD_SIZE-8
 
 __INITRODATA
@@ -910,3 +917,5 @@ ENTRY(cpu_gdt_table)
 	/* Be sure this is zeroed to avoid false validations in Xen */
 	.fill PAGE_SIZE_asm - GDT_SIZE,1,0
 	.endr
+
+EXPORT_SYMBOL_GPL(cpu_gdt_table);

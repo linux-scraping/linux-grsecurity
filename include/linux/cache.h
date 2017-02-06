@@ -31,6 +31,7 @@
 #  error KERNEXEC requires __read_only
 # endif
 # define __read_only __attribute__((__section__(".data..read_only")))
+# define __ro_after_init __read_only
 #else
 # define __read_only __read_mostly
 #endif

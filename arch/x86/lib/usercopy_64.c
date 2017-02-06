@@ -68,15 +68,15 @@ EXPORT_SYMBOL(copy_in_user);
  * it is not necessary to optimize tail handling.
  */
 __visible unsigned long
-copy_user_handle_tail(char __user *to, char __user *from, unsigned long len)
+copy_user_handle_tail(void __user *to, const void __user *from, unsigned long len)
 {
 	user_access_end();
 	for (; len; --len, to++) {
 		char c;
 
-		if (__get_user_nocheck(c, from++, sizeof(char)))
+		if (__get_user_nocheck(c, (const char *)from++, sizeof(char)))
 			break;
-		if (__put_user_nocheck(c, to, sizeof(char)))
+		if (__put_user_nocheck(c, (char *)to, sizeof(char)))
 			break;
 	}
 

@@ -259,8 +259,7 @@ ENTRY(__twofish_enc_blk_3way)
 	popq %r13;
 	popq %r14;
 	popq %r15;
-	pax_force_retaddr
-	ret;
+	pax_ret __twofish_enc_blk_3way;
 
 .L__enc_xor3:
 	outunpack_enc3(xor);
@@ -271,8 +270,7 @@ ENTRY(__twofish_enc_blk_3way)
 	popq %r13;
 	popq %r14;
 	popq %r15;
-	pax_force_retaddr
-	ret;
+	pax_ret __twofish_enc_blk_3way;
 ENDPROC(__twofish_enc_blk_3way)
 
 RAP_ENTRY(twofish_dec_blk_3way)
@@ -311,6 +309,5 @@ RAP_ENTRY(twofish_dec_blk_3way)
 	popq %r13;
 	popq %r14;
 	popq %r15;
-	pax_force_retaddr
-	ret;
+	pax_ret twofish_dec_blk_3way;
 ENDPROC(twofish_dec_blk_3way)

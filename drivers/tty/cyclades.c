@@ -1566,7 +1566,7 @@ static int cy_open(struct tty_struct *tty, struct file *filp)
 
 #ifdef CY_DEBUG_OPEN
 	printk(KERN_DEBUG "cyc:cy_open ttyC%d, count = %d\n", info->line,
-			info->port.count);
+			atomic_read(&info->port.count));
 #endif
 	atomic_inc(&info->port.count);
 #ifdef CY_DEBUG_COUNT

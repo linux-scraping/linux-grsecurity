@@ -1179,6 +1179,8 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
 		bpf_flush_icache(header, image + proglen);
 		prog->bpf_func = (void *)image;
 		prog->jited = 1;
+	} else {
+		prog = orig_prog;
 	}
 
 out_addrs:

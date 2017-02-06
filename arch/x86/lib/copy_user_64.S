@@ -14,6 +14,7 @@
 #include <asm/alternative-asm.h>
 #include <asm/asm.h>
 #include <asm/smap.h>
+#include <asm/export.h>
 #include <asm/pgtable.h>
 #include <asm/frame.h>
 
@@ -32,6 +33,7 @@
 	decl %ecx
 	jnz 100b
 102:
+
 	.section .fixup,"ax"
 103:	addl %ecx,%edx			/* ecx is zerorest also */
 	FRAME_END
@@ -107,8 +109,7 @@ ENTRY(copy_user_generic_unrolled)
 23:	xor %eax,%eax
 	ASM_USER_ACCESS_END
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret copy_user_generic_unrolled
 
 	.section .fixup,"ax"
 30:	shll $6,%ecx
@@ -142,6 +143,7 @@ ENTRY(copy_user_generic_unrolled)
 	_ASM_EXTABLE(21b,50b)
 	_ASM_EXTABLE(22b,50b)
 ENDPROC(copy_user_generic_unrolled)
+EXPORT_SYMBOL(copy_user_generic_unrolled)
 
 /* Some CPUs run faster using the string copy instructions.
  * This is also a lot simpler. Use them when possible.
@@ -178,8 +180,7 @@ ENTRY(copy_user_generic_string)
 	xorl %eax,%eax
 	ASM_USER_ACCESS_END
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret copy_user_generic_string
 
 	.section .fixup,"ax"
 11:	leal (%rdx,%rcx,8),%ecx
@@ -191,6 +192,7 @@ ENTRY(copy_user_generic_string)
 	_ASM_EXTABLE(1b,11b)
 	_ASM_EXTABLE(3b,12b)
 ENDPROC(copy_user_generic_string)
+EXPORT_SYMBOL(copy_user_generic_string)
 
 /*
  * Some CPUs are adding enhanced REP MOVSB/STOSB instructions.
@@ -213,8 +215,7 @@ ENTRY(copy_user_enhanced_fast_string)
 	xorl %eax,%eax
 	ASM_USER_ACCESS_END
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret copy_user_enhanced_fast_string
 
 	.section .fixup,"ax"
 12:	movl %ecx,%edx		/* ecx is zerorest also */
@@ -224,6 +225,7 @@ ENTRY(copy_user_enhanced_fast_string)
 
 	_ASM_EXTABLE(1b,12b)
 ENDPROC(copy_user_enhanced_fast_string)
+EXPORT_SYMBOL(copy_user_enhanced_fast_string)
 
 /*
  * copy_user_nocache - Uncached memory copy with exception handling
@@ -342,8 +344,7 @@ ENTRY(__copy_user_nocache)
 	ASM_USER_ACCESS_END
 	sfence
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret __copy_user_nocache
 
 	.section .fixup,"ax"
 .L_fixup_4x8b_copy:
@@ -387,3 +388,4 @@ ENTRY(__copy_user_nocache)
 	_ASM_EXTABLE(40b,.L_fixup_1b_copy)
 	_ASM_EXTABLE(41b,.L_fixup_1b_copy)
 ENDPROC(__copy_user_nocache)
+EXPORT_SYMBOL(__copy_user_nocache)

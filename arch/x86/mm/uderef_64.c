@@ -1,4 +1,5 @@
 #include <linux/mm.h>
+#include <linux/sched.h>
 #include <asm/pgtable.h>
 #include <asm/uaccess.h>
 

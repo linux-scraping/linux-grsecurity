@@ -311,7 +311,7 @@ static void kgdboc_post_exp_handler(void)
 	kgdboc_restore_input();
 }
 
-static struct kgdb_io kgdboc_io_ops = {
+static struct kgdb_io kgdboc_io_ops __read_only = {
 	.name			= "kgdboc",
 	.read_char		= kgdboc_get_char,
 	.write_char		= kgdboc_put_char,
@@ -319,7 +319,7 @@ static struct kgdb_io kgdboc_io_ops = {
 	.post_exception		= kgdboc_post_exp_handler,
 };
 
-static struct kgdb_io kgdboc_io_ops_console = {
+static struct kgdb_io kgdboc_io_ops_console __read_only = {
 	.name			= "kgdboc",
 	.read_char		= kgdboc_get_char,
 	.write_char		= kgdboc_put_char,

@@ -589,7 +589,11 @@ static int rawv6_push_pending_frames(struct sock *sk, struct flowi6 *fl6,
 	}
 
 	offset += skb_transport_offset(skb);
-	BUG_ON(skb_copy_bits(skb, offset, &csum, 2));
+	err = skb_copy_bits(skb, offset, &csum, 2);
+	if (err < 0) {
+		ip6_flush_pending_frames(sk);
+		goto out;
+	}
 
 	/* in case cksum was not initialized */
 	if (unlikely(csum))
@@ -652,6 +656,13 @@ static int rawv6_send_hdrinc(struct sock *sk, struct msghdr *msg, unsigned int l
 	err = memcpy_from_msg(iph, msg, length);
 	if (err)
 		goto error_fault;
+
+	/* if egress device is enslaved to an L3 master device pass the
+	 * skb to its handler for processing
+	 */
+	skb = l3mdev_ip6_out(sk, skb);
+	if (unlikely(!skb))
+		return 0;
 
 	IP6_UPD_PO_STATS(net, rt->rt6i_idev, IPSTATS_MIB_OUT, skb->len);
 	err = NF_HOOK(NFPROTO_IPV6, NF_INET_LOCAL_OUT, net, sk, skb,
@@ -930,15 +941,12 @@ do_confirm:
 static int rawv6_seticmpfilter(struct sock *sk, int level, int optname,
 			       char __user *optval, int optlen)
 {
-	struct icmp6_filter filter;
-
 	switch (optname) {
 	case ICMPV6_FILTER:
 		if (optlen > sizeof(struct icmp6_filter))
 			optlen = sizeof(struct icmp6_filter);
-		if (copy_from_user(&filter, optval, optlen))
+		if (copy_from_user(&raw6_sk(sk)->filter, optval, optlen))
 			return -EFAULT;
-		raw6_sk(sk)->filter = filter;
 		return 0;
 	default:
 		return -ENOPROTOOPT;
@@ -951,7 +959,6 @@ static int rawv6_geticmpfilter(struct sock *sk, int level, int optname,
 			       char __user *optval, int __user *optlen)
 {
 	int len;
-	struct icmp6_filter filter;
 
 	switch (optname) {
 	case ICMPV6_FILTER:
@@ -963,8 +970,7 @@ static int rawv6_geticmpfilter(struct sock *sk, int level, int optname,
 			len = sizeof(struct icmp6_filter);
 		if (put_user(len, optlen))
 			return -EFAULT;
-		filter = raw6_sk(sk)->filter;
-		if (len > sizeof filter || copy_to_user(optval, &filter, len))
+		if (copy_to_user(optval, &raw6_sk(sk)->filter, len))
 			return -EFAULT;
 		return 0;
 	default:
@@ -1239,7 +1245,7 @@ struct proto rawv6_prot = {
 	.close		   = rawv6_close,
 	.destroy	   = raw6_destroy,
 	.connect	   = ip6_datagram_connect_v6_only,
-	.disconnect	   = udp_disconnect,
+	.disconnect	   = __udp_disconnect,
 	.ioctl		   = rawv6_ioctl,
 	.init		   = rawv6_init_sk,
 	.setsockopt	   = rawv6_setsockopt,
@@ -1251,6 +1257,8 @@ struct proto rawv6_prot = {
 	.hash		   = raw_hash_sk,
 	.unhash		   = raw_unhash_sk,
 	.obj_size	   = sizeof(struct raw6_sock),
+	.useroffset	   = offsetof(struct raw6_sock, filter),
+	.usersize	   = sizeof(((struct raw6_sock *)0)->filter),
 	.h.raw_hash	   = &raw_v6_hashinfo,
 #ifdef CONFIG_COMPAT
 	.compat_setsockopt = compat_rawv6_setsockopt,

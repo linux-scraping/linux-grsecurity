@@ -8,6 +8,7 @@
 
 #include <asm/boot.h>
 #include <asm/asm.h>
+#include <asm/alternative-asm.h>
 #include <asm/page_types.h>
 
 #include <xen/interface/elfnote.h>
@@ -97,7 +98,7 @@ ENTRY(xen_pvh_early_cpu_init)
 	cmp     $0, %r11b
 	jne     cpu_bringup_and_idle
 #endif
-	ret
+	pax_ret xen_pvh_early_cpu_init
 
 #endif /* CONFIG_XEN_PVH */
 

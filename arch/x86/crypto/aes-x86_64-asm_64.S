@@ -72,8 +72,6 @@
 	je	B192;			\
 	leaq	32(r9),r9;
 
-#define ret	pax_force_retaddr; ret
-
 #define epilogue(FUNC,r1,r2,r3,r4,r5,r6,r7,r8,r9) \
 	movq	r1,r2;			\
 	movq	r3,r4;			\
@@ -81,7 +79,7 @@
 	movl	r6 ## E,4(r9);		\
 	movl	r7 ## E,8(r9);		\
 	movl	r8 ## E,12(r9);		\
-	ret;				\
+	pax_ret FUNC;			\
 	ENDPROC(FUNC);
 
 #define round(TAB,OFFSET,r1,r2,r3,r4,r5,r6,r7,r8,ra,rb,rc,rd) \

@@ -585,7 +585,7 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 	PASS_INFO(latent_entropy, "optimized", 1, PASS_POS_INSERT_BEFORE);
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
-		error(G_("incompatible gcc/plugin versions"));
+		error_gcc_version(version);
 		return 1;
 	}
 

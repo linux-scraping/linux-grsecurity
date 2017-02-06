@@ -6,6 +6,7 @@
 #include <linux/linkage.h>
 #include <asm/asi.h>
 #include <asm/backoff.h>
+#include <asm/export.h>
 
 	.text
 
@@ -39,7 +40,8 @@ ENTRY(atomic_##op##suffix) /* %o0 = increment, %o1 = atomic_ptr */	\
 	retl;								\
 	 nop;								\
 2:	BACKOFF_SPIN(%o2, %o3, 1b);					\
-ENDPROC(atomic_##op##suffix);
+ENDPROC(atomic_##op##suffix);						\
+EXPORT_SYMBOL(atomic_##op##suffix);
 
 #define ATOMIC_OP(op) __ATOMIC_OP(op, , op, ) \
 		      __ATOMIC_OP(op, _unchecked, __REFCOUNT_OP(op), __OVERFLOW_IOP)
@@ -57,7 +59,8 @@ ENTRY(atomic_##op##_return##suffix) /* %o0 = increment, %o1 = atomic_ptr */\
 	retl;								\
 	 sra	%g1, 0, %o0;						\
 2:	BACKOFF_SPIN(%o2, %o3, 1b);					\
-ENDPROC(atomic_##op##_return##suffix);
+ENDPROC(atomic_##op##_return##suffix);					\
+EXPORT_SYMBOL(atomic_##op##_return)##suffix;
 
 #define ATOMIC_OP_RETURN(op) __ATOMIC_OP_RETURN(op, , op, ) \
 			     __ATOMIC_OP_RETURN(op, _unchecked, __REFCOUNT_OP(op), __OVERFLOW_IOP)
@@ -74,7 +77,8 @@ ENTRY(atomic_fetch_##op) /* %o0 = increment, %o1 = atomic_ptr */	\
 	retl;								\
 	 sra	%g1, 0, %o0;						\
 2:	BACKOFF_SPIN(%o2, %o3, 1b);					\
-ENDPROC(atomic_fetch_##op);
+ENDPROC(atomic_fetch_##op);						\
+EXPORT_SYMBOL(atomic_fetch_##op);
 
 #define ATOMIC_OPS(op) ATOMIC_OP(op) ATOMIC_OP_RETURN(op) ATOMIC_FETCH_OP(op)
 
@@ -108,7 +112,8 @@ ENTRY(atomic64_##op##suffix) /* %o0 = increment, %o1 = atomic_ptr */	\
 	retl;								\
 	 nop;								\
 2:	BACKOFF_SPIN(%o2, %o3, 1b);					\
-ENDPROC(atomic64_##op##suffix);
+ENDPROC(atomic64_##op##suffix);						\
+EXPORT_SYMBOL(atomic64_##op##suffix);
 
 #define ATOMIC64_OP(op) __ATOMIC64_OP(op, , op, ) \
 			__ATOMIC64_OP(op, _unchecked, __REFCOUNT_OP(op), __OVERFLOW_XOP)
@@ -126,7 +131,8 @@ ENTRY(atomic64_##op##_return##suffix) /* %o0 = increment, %o1 = atomic_ptr */\
 	retl;								\
 	 op	%g1, %o0, %o0;						\
 2:	BACKOFF_SPIN(%o2, %o3, 1b);					\
-ENDPROC(atomic64_##op##_return##suffix);
+ENDPROC(atomic64_##op##_return##suffix);				\
+EXPORT_SYMBOL(atomic64_##op##_return##suffix);
 
 #define ATOMIC64_OP_RETURN(op) __ATOMIC64_OP_RETURN(op, , op, ) \
 			       __ATOMIC64_OP_RETURN(op, _unchecked, __REFCOUNT_OP(op), __OVERFLOW_XOP)
@@ -143,7 +149,8 @@ ENTRY(atomic64_fetch_##op) /* %o0 = increment, %o1 = atomic_ptr */	\
 	retl;								\
 	 mov	%g1, %o0;						\
 2:	BACKOFF_SPIN(%o2, %o3, 1b);					\
-ENDPROC(atomic64_fetch_##op);
+ENDPROC(atomic64_fetch_##op);						\
+EXPORT_SYMBOL(atomic64_fetch_##op);
 
 #define ATOMIC64_OPS(op) ATOMIC64_OP(op) ATOMIC64_OP_RETURN(op) ATOMIC64_FETCH_OP(op)
 
@@ -180,3 +187,4 @@ ENTRY(atomic64_dec_if_positive) /* %o0 = atomic_ptr */
 	 sub	%g1, 1, %o0
 2:	BACKOFF_SPIN(%o2, %o3, 1b)
 ENDPROC(atomic64_dec_if_positive)
+EXPORT_SYMBOL(atomic64_dec_if_positive)

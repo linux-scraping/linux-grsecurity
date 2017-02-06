@@ -330,6 +330,8 @@ static int acl_permission_check(struct inode *inode, int mask)
 int generic_permission(struct inode *inode, int mask)
 {
 	int ret;
+	bool has_cap_dac_override = false;
+	bool has_cap_dac_read_search = false;
 
 	/*
 	 * Do the basic permission checks.
@@ -344,12 +346,18 @@ int generic_permission(struct inode *inode, int mask)
 		return -ECHILD;
 #endif
 
+	has_cap_dac_override = capable_wrt_inode_uidgid_nolog(inode, CAP_DAC_OVERRIDE);
+	has_cap_dac_read_search = capable_wrt_inode_uidgid_nolog(inode, CAP_DAC_READ_SEARCH);
+
 	if (S_ISDIR(inode->i_mode)) {
 		/* DACs are overridable for directories */
-		if (!(mask & MAY_WRITE))
-			if (capable_wrt_inode_uidgid_nolog(inode, CAP_DAC_OVERRIDE) ||
-			    capable_wrt_inode_uidgid(inode, CAP_DAC_READ_SEARCH))
-				return 0;
+		if (!(mask & MAY_WRITE)) {
+			if (!has_cap_dac_override || (has_cap_dac_override && has_cap_dac_read_search)) {
+				if (capable_wrt_inode_uidgid(inode, CAP_DAC_READ_SEARCH))
+					return 0;
+				return -EACCES;
+			}
+		}
 		if (capable_wrt_inode_uidgid(inode, CAP_DAC_OVERRIDE))
 			return 0;
 		return -EACCES;
@@ -358,10 +366,22 @@ int generic_permission(struct inode *inode, int mask)
 	 * Searching includes executable on directories, else just read.
 	 */
 	mask &= MAY_READ | MAY_WRITE | MAY_EXEC;
-	if (mask == MAY_READ)
-		if (capable_wrt_inode_uidgid_nolog(inode, CAP_DAC_OVERRIDE) ||
-		    capable_wrt_inode_uidgid(inode, CAP_DAC_READ_SEARCH))
-			return 0;
+	if (mask == MAY_READ) {
+		/* this part is a little different, as when we don't override here and return,
+		   we do want to have both caps logged/learned
+		 */
+		if (!has_cap_dac_override || (has_cap_dac_override && has_cap_dac_read_search)) {
+			if (capable_wrt_inode_uidgid(inode, CAP_DAC_READ_SEARCH))
+				return 0;
+		} else if (!has_cap_dac_read_search) {
+			/* for this case though, if they don't have CAP_DAC_OVERRIDE, there's no point
+			   in checking and logging it again
+			*/
+			if (capable_wrt_inode_uidgid(inode, CAP_DAC_OVERRIDE))
+				return 0;
+			return -EACCES;
+		}
+	}
 
 	/*
 	 * Read/write DACs are always overridable.
@@ -1082,7 +1102,7 @@ const char *get_link(struct nameidata *nd)
 	if (!(nd->flags & LOOKUP_RCU)) {
 		touch_atime(&last->link);
 		cond_resched();
-	} else if (atime_needs_update(&last->link, inode)) {
+	} else if (atime_needs_update_rcu(&last->link, inode)) {
 		if (unlikely(unlazy_walk(nd, NULL, 0)))
 			return ERR_PTR(-ECHILD);
 		touch_atime(&last->link);
@@ -4610,11 +4630,8 @@ int vfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	if (error)
 		return error;
 
-	if (!old_dir->i_op->rename && !old_dir->i_op->rename2)
+	if (!old_dir->i_op->rename)
 		return -EPERM;
-
-	if (flags && !old_dir->i_op->rename2)
-		return -EINVAL;
 
 	/*
 	 * If we are going to change the parent - check write permissions,
@@ -4669,14 +4686,8 @@ int vfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 		if (error)
 			goto out;
 	}
-	if (!old_dir->i_op->rename2) {
-		error = old_dir->i_op->rename(old_dir, old_dentry,
-					      new_dir, new_dentry);
-	} else {
-		WARN_ON(old_dir->i_op->rename != NULL);
-		error = old_dir->i_op->rename2(old_dir, old_dentry,
-					       new_dir, new_dentry, flags);
-	}
+	error = old_dir->i_op->rename(old_dir, old_dentry,
+				       new_dir, new_dentry, flags);
 	if (error)
 		goto out;
 
@@ -4934,6 +4945,31 @@ int generic_readlink(struct dentry *dentry, char __user *buffer, int buflen)
 	return res;
 }
 EXPORT_SYMBOL(generic_readlink);
+
+/**
+ * vfs_get_link - get symlink body
+ * @dentry: dentry on which to get symbolic link
+ * @done: caller needs to free returned data with this
+ *
+ * Calls security hook and i_op->get_link() on the supplied inode.
+ *
+ * It does not touch atime.  That's up to the caller if necessary.
+ *
+ * Does not work on "special" symlinks like /proc/$$/fd/N
+ */
+const char *vfs_get_link(struct dentry *dentry, struct delayed_call *done)
+{
+	const char *res = ERR_PTR(-EINVAL);
+	struct inode *inode = d_inode(dentry);
+
+	if (d_is_symlink(dentry)) {
+		res = ERR_PTR(security_inode_readlink(dentry));
+		if (!res)
+			res = inode->i_op->get_link(dentry, inode, done);
+	}
+	return res;
+}
+EXPORT_SYMBOL(vfs_get_link);
 
 /* get the link contents into pagecache */
 const char *page_get_link(struct dentry *dentry, struct inode *inode,

@@ -20,7 +20,6 @@
 #include <linux/usb/ehci_def.h>
 #include <linux/delay.h>
 #include <linux/serial_core.h>
-#include <linux/kconfig.h>
 #include <linux/kgdb.h>
 #include <linux/kthread.h>
 #include <asm/io.h>
@@ -1038,13 +1037,13 @@ static void kgdbdbgp_write_char(u8 chr)
 	early_dbgp_write(NULL, &chr, 1);
 }
 
-static struct kgdb_io kgdbdbgp_io_ops = {
+static struct kgdb_io kgdbdbgp_io_ops __read_only = {
 	.name = "kgdbdbgp",
 	.read_char = kgdbdbgp_read_char,
 	.write_char = kgdbdbgp_write_char,
 };
 
-static struct kgdb_io kgdbdbgp_io_ops_console = {
+static struct kgdb_io kgdbdbgp_io_ops_console __read_only = {
 	.name = "kgdbdbgp",
 	.read_char = kgdbdbgp_read_char,
 	.write_char = kgdbdbgp_write_char,

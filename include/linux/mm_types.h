@@ -518,9 +518,7 @@ struct mm_struct {
 #ifdef CONFIG_HUGETLB_PAGE
 	atomic_long_t hugetlb_usage;
 #endif
-#ifdef CONFIG_MMU
 	struct work_struct async_put_work;
-#endif
 
 #if defined(CONFIG_PAX_NOEXEC) || defined(CONFIG_PAX_ASLR)
 	unsigned long pax_flags;

@@ -1180,7 +1180,7 @@ static int __init lynxfb_setup(char *options)
 		else {
 			strcat(tmp, opt);
 			tmp += strlen(opt);
-			if (options != NULL)
+			if (options)
 				*tmp++ = ':';
 			else
 				*tmp++ = 0;

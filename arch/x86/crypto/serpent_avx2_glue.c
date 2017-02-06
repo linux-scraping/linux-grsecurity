@@ -32,6 +32,8 @@ asmlinkage void serpent_ecb_enc_16way(void *ctx, u8 *dst,
 asmlinkage void serpent_ecb_dec_16way(void *ctx, u8 *dst,
 				      const u8 *src);
 asmlinkage void serpent_cbc_dec_16way(void *ctx, u8 *dst, const u8 *src);
+void __serpent_enc_blk16(void *ctx, u8 *dst, const u8 *src) __rap_hash;
+void __serpent_dec_blk16(void *ctx, u8 *dst, const u8 *src) __rap_hash;
 
 asmlinkage void serpent_ctr_16way(void *ctx, u128 *dst, const u128 *src,
 				  le128 *iv);

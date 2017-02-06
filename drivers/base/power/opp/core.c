@@ -584,7 +584,7 @@ int dev_pm_opp_set_rate(struct device *dev, unsigned long target_freq)
 	struct clk *clk;
 	unsigned long freq, old_freq;
 	unsigned long u_volt, u_volt_min, u_volt_max;
-	unsigned long ou_volt, ou_volt_min, ou_volt_max;
+	unsigned long old_u_volt, old_u_volt_min, old_u_volt_max;
 	int ret;
 
 	if (unlikely(!target_freq)) {
@@ -620,11 +620,7 @@ int dev_pm_opp_set_rate(struct device *dev, unsigned long target_freq)
 	}
 
 	old_opp = _find_freq_ceil(opp_table, &old_freq);
-	if (!IS_ERR(old_opp)) {
-		ou_volt = old_opp->u_volt;
-		ou_volt_min = old_opp->u_volt_min;
-		ou_volt_max = old_opp->u_volt_max;
-	} else {
+	if (IS_ERR(old_opp)) {
 		dev_err(dev, "%s: failed to find current OPP for freq %lu (%ld)\n",
 			__func__, old_freq, PTR_ERR(old_opp));
 	}
@@ -636,6 +632,14 @@ int dev_pm_opp_set_rate(struct device *dev, unsigned long target_freq)
 			__func__, freq, ret);
 		rcu_read_unlock();
 		return ret;
+	}
+
+	if (IS_ERR(old_opp)) {
+		old_u_volt = 0;
+	} else {
+		old_u_volt = old_opp->u_volt;
+		old_u_volt_min = old_opp->u_volt_min;
+		old_u_volt_max = old_opp->u_volt_max;
 	}
 
 	u_volt = opp->u_volt;
@@ -682,8 +686,10 @@ restore_freq:
 			__func__, old_freq);
 restore_voltage:
 	/* This shouldn't harm even if the voltages weren't updated earlier */
-	if (!IS_ERR(old_opp))
-		_set_opp_voltage(dev, reg, ou_volt, ou_volt_min, ou_volt_max);
+	if (old_u_volt) {
+		_set_opp_voltage(dev, reg, old_u_volt, old_u_volt_min,
+				 old_u_volt_max);
+	}
 
 	return ret;
 }

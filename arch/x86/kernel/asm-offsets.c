@@ -29,13 +29,19 @@
 
 void common(void) {
 	BLANK();
-	OFFSET(TI_flags, thread_info, flags);
-	OFFSET(TI_status, thread_info, status);
-	OFFSET(TI_lowest_stack, thread_info, lowest_stack);
-	DEFINE(TI_task_thread_sp0, offsetof(struct task_struct, thread.sp0) - offsetof(struct task_struct, tinfo));
+	OFFSET(TASK_threadsp, task_struct, thread.sp);
+#ifdef CONFIG_PAX_RAP
+	OFFSET(TASK_stack, task_struct, stack);
+#endif
+#ifdef CONFIG_CC_STACKPROTECTOR
+	OFFSET(TASK_stack_canary, task_struct, stack_canary);
+#endif
 
 	BLANK();
-	OFFSET(TASK_addr_limit, task_struct, tinfo.addr_limit);
+	OFFSET(TASK_TI_flags, task_struct, thread_info.flags);
+	OFFSET(TASK_addr_limit, task_struct, thread.addr_limit);
+	OFFSET(TASK_lowest_stack, task_struct, thread.lowest_stack);
+	OFFSET(TASK_thread_sp0, task_struct, thread.sp0);
 
 	BLANK();
 	OFFSET(crypto_tfm_ctx_offset, crypto_tfm, __crt_ctx);

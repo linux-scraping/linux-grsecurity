@@ -773,7 +773,7 @@ EXPORT_SYMBOL(__set_fs);
 
 void set_fs(mm_segment_t x)
 {
-	current_thread_info()->addr_limit = x;
+	current->thread.addr_limit = x;
 	__set_fs(x);
 }
 EXPORT_SYMBOL(set_fs);

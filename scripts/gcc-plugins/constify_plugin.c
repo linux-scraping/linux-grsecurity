@@ -191,7 +191,7 @@ static void deconstify_tree(tree node)
 	TREE_TYPE(node) = new_type;
 }
 
-static tree handle_no_const_attribute(tree *node, tree name, tree args, int flags, bool *no_add_attrs)
+static tree handle_no_const_attribute(tree *node, tree name, tree args __unused, int flags __unused, bool *no_add_attrs)
 {
 	tree type;
 	constify_info cinfo = {
@@ -271,11 +271,9 @@ static void constify_type(tree type)
 	TYPE_READONLY(type) = 1;
 	C_TYPE_FIELDS_READONLY(type) = 1;
 	TYPE_CONSTIFY_VISITED(type) = 1;
-//	TYPE_ATTRIBUTES(type) = copy_list(TYPE_ATTRIBUTES(type));
-//	TYPE_ATTRIBUTES(type) = tree_cons(get_identifier("do_const"), NULL_TREE, TYPE_ATTRIBUTES(type));
 }
 
-static tree handle_do_const_attribute(tree *node, tree name, tree args, int flags, bool *no_add_attrs)
+static tree handle_do_const_attribute(tree *node, tree name, tree args __unused, int flags __unused, bool *no_add_attrs)
 {
 	*no_add_attrs = true;
 	if (!TYPE_P(*node)) {
@@ -334,7 +332,7 @@ static void register_attributes(void *event_data, void *data)
 	register_attribute(&do_const_attr);
 }
 
-static void finish_type(void *event_data, void *data)
+static void finish_type(void *event_data, void *data __unused)
 {
 	tree type = (tree)event_data;
 	constify_info cinfo = {
@@ -381,6 +379,8 @@ static void finish_type(void *event_data, void *data)
 			return;
 		}
 		constify_type(type);
+//		TYPE_ATTRIBUTES(type) = copy_list(TYPE_ATTRIBUTES(type));
+//		TYPE_ATTRIBUTES(type) = tree_cons(get_identifier("do_const"), NULL_TREE, TYPE_ATTRIBUTES(type));
 		return;
 	}
 
@@ -466,7 +466,7 @@ static void fix_initializer(varpool_node_ptr node)
 //	inform(DECL_SOURCE_LOCATION(var), "constified variable %qE moved into .rodata", var);
 }
 
-static void check_global_variables(void *event_data, void *data)
+static void check_global_variables(void *event_data __unused, void *data __unused)
 {
 	varpool_node_ptr node;
 
@@ -525,7 +525,7 @@ static unsigned int constify_section_type_flags(tree decl, const char *name, int
 	return old_section_type_flags(decl, name, reloc);
 }
 
-static void constify_start_unit(void *gcc_data, void *user_data)
+static void constify_start_unit(void *gcc_data __unused, void *user_data __unused)
 {
 //	size_t i;
 
@@ -547,7 +547,7 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 	PASS_INFO(check_local_variables, "ssa", 1, PASS_POS_INSERT_BEFORE);
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
-		error(G_("incompatible gcc/plugin versions"));
+		error_gcc_version(version);
 		return 1;
 	}
 

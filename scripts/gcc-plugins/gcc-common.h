@@ -162,8 +162,9 @@ void print_gimple_expr(FILE *, gimple, int, int);
 void dump_gimple_stmt(pretty_printer *, gimple, int, int);
 #endif
 
-#define __unused __attribute__((__unused__))
+#define __unused __attribute__((unused))
 #define __visible __attribute__((visibility("default")))
+#define __weak __attribute__((weak))
 
 #define DECL_NAME_POINTER(node) IDENTIFIER_POINTER(DECL_NAME(node))
 #define DECL_NAME_LENGTH(node) IDENTIFIER_LENGTH(DECL_NAME(node))
@@ -186,6 +187,13 @@ static inline tree build_const_char_string(int len, const char *str)
 	TREE_READONLY(cstr) = 1;
 	TREE_STATIC(cstr) = 1;
 	return cstr;
+}
+
+static inline void error_gcc_version(struct plugin_gcc_version *version)
+{
+	error(G_("incompatible gcc/plugin versions: need %s %s %s %s but have %s %s %s %s"),
+	      gcc_version.basever, gcc_version.datestamp, gcc_version.devphase, gcc_version.revision,
+	      version->basever, version->datestamp, version->devphase, version->revision);
 }
 
 #define PASS_INFO(NAME, REF, ID, POS)		\
@@ -396,6 +404,23 @@ static inline bool gimple_store_p(gimple gs)
 static inline void gimple_init_singleton(gimple g __unused)
 {
 }
+
+enum expand_modifier {
+	EXPAND_NORMAL = 0,
+	EXPAND_STACK_PARM,
+	EXPAND_SUM,
+	EXPAND_CONST_ADDRESS,
+	EXPAND_INITIALIZER,
+	EXPAND_WRITE,
+	EXPAND_MEMORY
+};
+
+rtx expand_expr_real(tree, rtx, enum machine_mode, enum expand_modifier, rtx *);
+
+static inline rtx expand_expr(tree exp, rtx target, enum machine_mode mode, enum expand_modifier modifier)
+{
+	return expand_expr_real(exp, target, mode, modifier, NULL);
+}
 #endif
 
 #if BUILDING_GCC_VERSION == 4007 || BUILDING_GCC_VERSION == 4008
@@ -569,6 +594,28 @@ static inline const greturn *as_a_const_greturn(const_gimple stmt)
 #define create_var_ann(var)
 #define TODO_dump_func 0
 #define TODO_dump_cgraph 0
+
+#define VEC(T, A) vec<T, va_##A>
+#define VEC_safe_push(T, A, V, O) vec_safe_push((V), (O));
+#endif
+
+#if BUILDING_GCC_VERSION == 4008 || BUILDING_GCC_VERSION == 4009
+enum expand_modifier {
+	EXPAND_NORMAL = 0,
+	EXPAND_STACK_PARM,
+	EXPAND_SUM,
+	EXPAND_CONST_ADDRESS,
+	EXPAND_INITIALIZER,
+	EXPAND_WRITE,
+	EXPAND_MEMORY
+};
+
+rtx expand_expr_real(tree, rtx, enum machine_mode, enum expand_modifier, rtx *, bool);
+
+static inline rtx expand_expr(tree exp, rtx target, enum machine_mode mode, enum expand_modifier modifier)
+{
+	return expand_expr_real(exp, target, mode, modifier, NULL, false);
+}
 #endif
 
 #if BUILDING_GCC_VERSION <= 4009

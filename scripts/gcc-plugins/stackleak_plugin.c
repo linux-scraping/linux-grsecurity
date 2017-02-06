@@ -230,7 +230,7 @@ static bool stackleak_track_stack_gate(void)
 	return track_frame_size >= 0;
 }
 
-static void stackleak_start_unit(void *gcc_data, void *user_data)
+static void stackleak_start_unit(void *gcc_data __unused, void *user_data __unused)
 {
 	tree fntype;
 
@@ -305,7 +305,7 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 	PASS_INFO(stackleak_final, "final", 1, PASS_POS_INSERT_BEFORE);
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
-		error(G_("incompatible gcc/plugin versions"));
+		error_gcc_version(version);
 		return 1;
 	}
 

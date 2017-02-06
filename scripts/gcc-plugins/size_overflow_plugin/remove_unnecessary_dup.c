@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2016 by Emese Revfy <re.emese@gmail.com>
+ * Copyright 2011-2017 by Emese Revfy <re.emese@gmail.com>
  * Licensed under the GPL v2
  *
  * Homepage:

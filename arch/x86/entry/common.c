@@ -31,11 +31,6 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/syscalls.h>
 
-static struct thread_info *pt_regs_to_thread_info(struct pt_regs *regs)
-{
-	return current_thread_info();
-}
-
 #ifdef CONFIG_CONTEXT_TRACKING
 /* Called on entry from user mode with IRQs off. */
 __visible inline void enter_from_user_mode(void)
@@ -47,8 +42,17 @@ __visible inline void enter_from_user_mode(void)
 static inline void enter_from_user_mode(void) {}
 #endif
 
+void pax_enter_kernel(void) __rap_hash;
+void pax_enter_kernel_user(void) __rap_hash;
+void pax_exit_kernel(void) __rap_hash;
+void pax_exit_kernel_user(void) __rap_hash;
+
+void paranoid_entry(void) __rap_hash;
+void paranoid_entry_nmi(void) __rap_hash;
+void error_entry(void) __rap_hash;
+
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
-asmlinkage void pax_erase_kstack(void);
+asmlinkage void pax_erase_kstack(void) __rap_hash;
 #else
 static void pax_erase_kstack(void) {}
 #endif
@@ -79,7 +83,7 @@ static long syscall_trace_enter(struct pt_regs *regs)
 {
 	u32 arch = in_ia32_syscall() ? AUDIT_ARCH_I386 : AUDIT_ARCH_X86_64;
 
-	struct thread_info *ti = pt_regs_to_thread_info(regs);
+	struct thread_info *ti = current_thread_info();
 	unsigned long ret = 0;
 	bool emulated = false;
 	u32 work;
@@ -135,7 +139,7 @@ static long syscall_trace_enter(struct pt_regs *regs)
 			sd.args[5] = regs->bp;
 		}
 
-		ret = __secure_computing(&sd);
+		ret = secure_computing(&sd);
 		if (ret == -1) {
 			pax_erase_kstack();
 			return ret;
@@ -191,18 +195,17 @@ static void exit_to_usermode_loop(struct pt_regs *regs, u32 cached_flags)
 		/* Disable IRQs and retry */
 		local_irq_disable();
 
-		cached_flags = READ_ONCE(pt_regs_to_thread_info(regs)->flags);
+		cached_flags = READ_ONCE(current_thread_info()->flags);
 
 		if (!(cached_flags & EXIT_TO_USERMODE_LOOP_FLAGS))
 			break;
-
 	}
 }
 
 /* Called with IRQs disabled. */
 __visible inline void prepare_exit_to_usermode(struct pt_regs *regs)
 {
-	struct thread_info *ti = pt_regs_to_thread_info(regs);
+	struct thread_info *ti = current_thread_info();
 	u32 cached_flags;
 
 	if (IS_ENABLED(CONFIG_PROVE_LOCKING) && WARN_ON(!irqs_disabled()))
@@ -227,7 +230,7 @@ __visible inline void prepare_exit_to_usermode(struct pt_regs *regs)
 	 * special case only applies after poking regs and before the
 	 * very next return to user mode.
 	 */
-	ti->status &= ~(TS_COMPAT|TS_I386_REGS_POKED);
+	current->thread.status &= ~(TS_COMPAT|TS_I386_REGS_POKED);
 #endif
 
 	user_enter_irqoff();
@@ -265,7 +268,7 @@ static void syscall_slow_exit_work(struct pt_regs *regs, u32 cached_flags)
  */
 __visible inline void syscall_return_slowpath(struct pt_regs *regs)
 {
-	struct thread_info *ti = pt_regs_to_thread_info(regs);
+	struct thread_info *ti = current_thread_info();
 	u32 cached_flags = READ_ONCE(ti->flags);
 
 	CT_WARN_ON(ct_state() != CONTEXT_KERNEL);
@@ -293,7 +296,7 @@ __visible inline void syscall_return_slowpath(struct pt_regs *regs)
 #ifdef CONFIG_X86_64
 __visible void do_syscall_64(struct pt_regs *regs)
 {
-	struct thread_info *ti = pt_regs_to_thread_info(regs);
+	struct thread_info *ti = current_thread_info();
 	unsigned long nr = regs->orig_ax;
 
 	enter_from_user_mode();
@@ -308,29 +311,9 @@ __visible void do_syscall_64(struct pt_regs *regs)
 	 * regs->orig_ax, which changes the behavior of some syscalls.
 	 */
 	if (likely((nr & __SYSCALL_MASK) < NR_syscalls)) {
-#ifdef CONFIG_PAX_RAP
-		asm volatile("movq %[param1],%%rdi\n\t"
-			     "movq %[param2],%%rsi\n\t"
-			     "movq %[param3],%%rdx\n\t"
-			     "movq %[param4],%%rcx\n\t"
-			     "movq %[param5],%%r8\n\t"
-			     "movq %[param6],%%r9\n\t"
-			     "call *%P[syscall]\n\t"
-			     "mov %%rax,%[result]\n\t"
-			: [result] "=m" (regs->ax)
-			: [syscall] "m" (sys_call_table[nr & __SYSCALL_MASK]),
-			  [param1] "m" (regs->di),
-			  [param2] "m" (regs->si),
-			  [param3] "m" (regs->dx),
-			  [param4] "m" (regs->r10),
-			  [param5] "m" (regs->r8),
-			  [param6] "m" (regs->r9)
-			: "ax", "di", "si", "dx", "cx", "r8", "r9", "r10", "r11", "memory");
-#else
 		regs->ax = sys_call_table[nr & __SYSCALL_MASK](
 			regs->di, regs->si, regs->dx,
 			regs->r10, regs->r8, regs->r9);
-#endif
 	}
 
 	syscall_return_slowpath(regs);
@@ -346,11 +329,11 @@ __visible void do_syscall_64(struct pt_regs *regs)
  */
 static __always_inline void do_syscall_32_irqs_on(struct pt_regs *regs)
 {
-	struct thread_info *ti = pt_regs_to_thread_info(regs);
+	struct thread_info *ti = current_thread_info();
 	unsigned int nr = (unsigned int)regs->orig_ax;
 
 #ifdef CONFIG_IA32_EMULATION
-	ti->status |= TS_COMPAT;
+	current->thread.status |= TS_COMPAT;
 #endif
 
 	if (READ_ONCE(ti->flags) & _TIF_WORK_SYSCALL_ENTRY) {
@@ -370,51 +353,10 @@ static __always_inline void do_syscall_32_irqs_on(struct pt_regs *regs)
 		 * the high bits are zero.  Make sure we zero-extend all
 		 * of the args.
 		 */
-#ifdef CONFIG_PAX_RAP
-#ifdef CONFIG_X86_64
-		asm volatile("movl %[param1],%%edi\n\t"
-			     "movl %[param2],%%esi\n\t"
-			     "movl %[param3],%%edx\n\t"
-			     "movl %[param4],%%ecx\n\t"
-			     "movl %[param5],%%r8d\n\t"
-			     "movl %[param6],%%r9d\n\t"
-			     "call *%P[syscall]\n\t"
-			     "mov %%rax,%[result]\n\t"
-			: [result] "=m" (regs->ax)
-			: [syscall] "m" (ia32_sys_call_table[nr]),
-			  [param1] "m" (regs->bx),
-			  [param2] "m" (regs->cx),
-			  [param3] "m" (regs->dx),
-			  [param4] "m" (regs->si),
-			  [param5] "m" (regs->di),
-			  [param6] "m" (regs->bp)
-			: "ax", "di", "si", "dx", "cx", "r8", "r9", "r10", "r11", "memory");
-#else
-		asm volatile("pushl %[param6]\n\t"
-			     "pushl %[param5]\n\t"
-			     "pushl %[param4]\n\t"
-			     "pushl %[param3]\n\t"
-			     "pushl %[param2]\n\t"
-			     "pushl %[param1]\n\t"
-			     "call *%P[syscall]\n\t"
-			     "addl $6*8,%%esp\n\t"
-			     "mov %%eax,%[result]\n\t"
-			: [result] "=m" (regs->ax)
-			: [syscall] "m" (ia32_sys_call_table[nr]),
-			  [param1] "m" (regs->bx),
-			  [param2] "m" (regs->cx),
-			  [param3] "m" (regs->dx),
-			  [param4] "m" (regs->si),
-			  [param5] "m" (regs->di),
-			  [param6] "m" (regs->bp)
-			: "ax", "dx", "cx", "memory");
-#endif
-#else
 		regs->ax = ia32_sys_call_table[nr](
 			(unsigned int)regs->bx, (unsigned int)regs->cx,
 			(unsigned int)regs->dx, (unsigned int)regs->si,
 			(unsigned int)regs->di, (unsigned int)regs->bp);
-#endif
 	}
 
 	syscall_return_slowpath(regs);

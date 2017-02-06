@@ -1028,6 +1028,8 @@ static int caif_create(struct net *net, struct socket *sock, int protocol,
 	static struct proto prot = {.name = "PF_CAIF",
 		.owner = THIS_MODULE,
 		.obj_size = sizeof(struct caifsock),
+		.useroffset = offsetof(struct caifsock, conn_req.param),
+		.usersize = sizeof(((struct caifsock *)0)->conn_req.param),
 	};
 
 	if (!capable(CAP_SYS_ADMIN) && !capable(CAP_NET_ADMIN))
@@ -1107,10 +1109,7 @@ static struct net_proto_family caif_family_ops = {
 
 static int __init caif_sktinit_module(void)
 {
-	int err = sock_register(&caif_family_ops);
-	if (!err)
-		return err;
-	return 0;
+	return sock_register(&caif_family_ops);
 }
 
 static void __exit caif_sktexit_module(void)

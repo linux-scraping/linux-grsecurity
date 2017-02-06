@@ -50,6 +50,8 @@ asmlinkage void twofish_ecb_enc_8way(void *ctx, u8 *dst,
 				     const u8 *src);
 asmlinkage void twofish_ecb_dec_8way(void *ctx, u8 *dst,
 				     const u8 *src);
+void __twofish_enc_blk8(void *ctx, u8 *dst, const u8 *src) __rap_hash;
+void __twofish_dec_blk8(void *ctx, u8 *dst, const u8 *src) __rap_hash;
 
 asmlinkage void twofish_cbc_dec_8way(void *ctx, u8 *dst,
 				     const u8 *src);

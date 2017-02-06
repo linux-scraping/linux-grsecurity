@@ -32,6 +32,7 @@
 #include <asm/thread_info.h>
 #include <asm/asm.h>
 #include <asm/smap.h>
+#include <asm/export.h>
 #include <asm/segment.h>
 #include <asm/pgtable.h>
 #include <asm/frame.h>
@@ -67,9 +68,9 @@ ENTRY(__get_user_1)
 	xor %eax,%eax
 	ASM_USER_ACCESS_END
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret __get_user_1
 ENDPROC(__get_user_1)
+EXPORT_SYMBOL(__get_user_1)
 
 ENTRY(__get_user_2)
 	FRAME_BEGIN
@@ -96,9 +97,9 @@ ENTRY(__get_user_2)
 	xor %eax,%eax
 	ASM_USER_ACCESS_END
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret __get_user_2
 ENDPROC(__get_user_2)
+EXPORT_SYMBOL(__get_user_2)
 
 ENTRY(__get_user_4)
 	FRAME_BEGIN
@@ -125,9 +126,9 @@ ENTRY(__get_user_4)
 	xor %eax,%eax
 	ASM_USER_ACCESS_END
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret __get_user_4
 ENDPROC(__get_user_4)
+EXPORT_SYMBOL(__get_user_4)
 
 ENTRY(__get_user_8)
 	FRAME_BEGIN
@@ -152,8 +153,7 @@ ENTRY(__get_user_8)
 	xor %eax,%eax
 	ASM_USER_ACCESS_END
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret __get_user_8
 #else
 	add $7,%_ASM_AX
 	jc bad_get_user_8
@@ -166,10 +166,10 @@ ENTRY(__get_user_8)
 	xor %eax,%eax
 	ASM_USER_ACCESS_END
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret __get_user_8
 #endif
 ENDPROC(__get_user_8)
+EXPORT_SYMBOL(__get_user_8)
 
 
 bad_get_user:
@@ -177,8 +177,7 @@ bad_get_user:
 	mov $(-EFAULT),%_ASM_AX
 	ASM_USER_ACCESS_END
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret __get_user_bad
 END(bad_get_user)
 
 #ifdef CONFIG_X86_32
@@ -188,8 +187,7 @@ bad_get_user_8:
 	mov $(-EFAULT),%_ASM_AX
 	ASM_USER_ACCESS_END
 	FRAME_END
-	pax_force_retaddr
-	ret
+	pax_ret __get_user_bad
 END(bad_get_user_8)
 #endif
 

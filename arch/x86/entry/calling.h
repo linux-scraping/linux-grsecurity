@@ -226,7 +226,7 @@ For 32-bit we have the following conventions - kernel is built with
 #ifdef HAVE_JUMP_LABEL
 	STATIC_JUMP_IF_FALSE .Lafter_call_\@, context_tracking_enabled, def=0
 #endif
-	call enter_from_user_mode
+	pax_direct_call enter_from_user_mode
 .Lafter_call_\@:
 #endif
 .endm

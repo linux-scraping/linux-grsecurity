@@ -54,6 +54,7 @@
  */
 
 #include <linux/linkage.h>
+#include <asm/alternative-asm.h>
 
 #define DIGEST_PTR	%rdi	/* 1st arg */
 #define DATA_PTR	%rsi	/* 2nd arg */
@@ -326,7 +327,7 @@ RAP_ENTRY(sha256_ni_transform)
 
 .Ldone_hash:
 
-	ret
+	pax_ret sha256_ni_transform
 ENDPROC(sha256_ni_transform)
 
 .data

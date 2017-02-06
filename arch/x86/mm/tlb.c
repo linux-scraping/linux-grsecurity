@@ -129,6 +129,22 @@ void switch_mm_irqs_off(struct mm_struct *prev, struct mm_struct *next,
 #endif
 
 	if (likely(prev != next)) {
+		if (IS_ENABLED(CONFIG_VMAP_STACK)) {
+			/*
+			 * If our current stack is in vmalloc space and isn't
+			 * mapped in the new pgd, we'll double-fault.  Forcibly
+			 * map it.
+			 */
+			unsigned int stack_pgd_index = pgd_index(current_stack_pointer());
+
+			pgd_t *pgd = next->pgd + stack_pgd_index;
+
+			if (unlikely(pgd_none(*pgd)))
+				set_pgd(pgd, init_mm.pgd[stack_pgd_index]);
+			else
+				BUG_ON(pgd->pgd != init_mm.pgd[stack_pgd_index].pgd);
+		}
+
 #ifdef CONFIG_SMP
 #if defined(CONFIG_X86_32) && (defined(CONFIG_PAX_PAGEEXEC) || defined(CONFIG_PAX_SEGMEXEC))
 		tlbstate = this_cpu_read(cpu_tlbstate.state);
@@ -136,6 +152,7 @@ void switch_mm_irqs_off(struct mm_struct *prev, struct mm_struct *next,
 		this_cpu_write(cpu_tlbstate.state, TLBSTATE_OK);
 		this_cpu_write(cpu_tlbstate.active_mm, next);
 #endif
+
 		cpumask_set_cpu(cpu, mm_cpumask(next));
 
 		/*

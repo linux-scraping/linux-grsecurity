@@ -23,6 +23,7 @@
 #include <asm/cpufeatures.h>
 #include <asm/alternative-asm.h>
 #include "../entry/calling.h"
+#include <asm/export.h>
 
 #ifdef CONFIG_PARAVIRT
 #include <asm/asm-offsets.h>
@@ -74,7 +75,7 @@ startup_64:
 	 */
 
 	/*
-	 * Setup stack for verify_cpu(). "-8" because stack_start is defined
+	 * Setup stack for verify_cpu(). "-8" because initial_stack is defined
 	 * this way, see below. Our best guess is a NULL ptr for stack
 	 * termination heuristics and we don't want to break anything which
 	 * might depend on it (kgdb, ...).
@@ -274,7 +275,7 @@ ENTRY(secondary_startup_64)
 	movq	%rax, %cr0
 
 	/* Setup a boot time stack */
-	movq stack_start(%rip), %rsp
+	movq initial_stack(%rip), %rsp
 
 	/* zero EFLAGS after setting rsp */
 	pushq $0
@@ -358,7 +359,7 @@ ENDPROC(secondary_startup_64)
  * start_secondary().
  */
 ENTRY(start_cpu0)
-	movq stack_start(%rip),%rsp
+	movq initial_stack(%rip),%rsp
 	pushq	$0		# fake return address to stop unwinder
 	pushq	$__KERNEL_CS	# set correct cs
 	pushq	initial_code(%rip) # target address in negative space
@@ -366,17 +367,15 @@ ENTRY(start_cpu0)
 ENDPROC(start_cpu0)
 #endif
 
-	/* SMP bootup changes these two */
+	/* Both SMP bootup and ACPI suspend change these variables */
 	__REFDATA
 	.balign	8
 	GLOBAL(initial_code)
 	.quad	x86_64_start_kernel
 	GLOBAL(initial_gs)
 	.quad	INIT_PER_CPU_VAR(irq_stack_union)
-
-	GLOBAL(stack_start)
+	GLOBAL(initial_stack)
 	.quad  init_thread_union+THREAD_SIZE-16
-	.word  0
 	__FINITDATA
 
 bad_address:
@@ -430,13 +429,13 @@ early_idt_handler_common:
 	cmpq $14,%rsi		/* Page fault? */
 	jnz 10f
 	GET_CR2_INTO(%rdi)	/* Can clobber any volatile register if pv */
-	call early_make_pgtable
+	pax_direct_call early_make_pgtable
 	andl %eax,%eax
 	jz 20f			/* All good */
 
 10:
 	movq %rsp,%rdi		/* RDI = pt_regs; RSI is already trapnr */
-	call early_fixup_exception
+	pax_direct_call early_fixup_exception
 
 20:
 	decl early_recursion_flag(%rip)
@@ -492,6 +491,7 @@ NEXT_PAGE(cpu_pgd)
 	.rept 2*NR_CPUS
 	.fill	512,8,0
 	.endr
+EXPORT_SYMBOL(cpu_pgd);
 #endif
 
 NEXT_PAGE(level3_ident_pgt)
@@ -603,6 +603,8 @@ ENTRY(cpu_gdt_table)
 	.fill PAGE_SIZE / 8 - GDT_ENTRIES,8,0
 	.endr
 
+EXPORT_SYMBOL_GPL(cpu_gdt_table);
+
 	.align 16
 	.globl early_gdt_descr
 early_gdt_descr:
@@ -613,10 +615,12 @@ early_gdt_descr_base:
 ENTRY(phys_base)
 	/* This must match the first entry in level2_kernel_pgt */
 	.quad   0x0000000000000000
+EXPORT_SYMBOL(phys_base)
 
 #include "../../x86/xen/xen-head.S"
 
 	.section .rodata,"a",@progbits
 NEXT_PAGE(empty_zero_page)
 	.skip PAGE_SIZE
+EXPORT_SYMBOL(empty_zero_page)
 

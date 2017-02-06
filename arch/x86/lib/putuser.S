@@ -15,6 +15,7 @@
 #include <asm/errno.h>
 #include <asm/asm.h>
 #include <asm/smap.h>
+#include <asm/export.h>
 #include <asm/segment.h>
 #include <asm/pgtable.h>
 #include <asm/frame.h>
@@ -35,8 +36,7 @@
 #define ENTER	FRAME_BEGIN
 #define EXIT	ASM_USER_ACCESS_END ;	\
 		FRAME_END ;		\
-		pax_force_retaddr ;	\
-		ret
+		pax_ret __put_user_1
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 #define _DEST %_ASM_CX,%_ASM_BX
@@ -74,6 +74,7 @@ ENTRY(__put_user_1)
 	xor %eax,%eax
 	EXIT
 ENDPROC(__put_user_1)
+EXPORT_SYMBOL(__put_user_1)
 
 ENTRY(__put_user_2)
 	ENTER
@@ -100,6 +101,7 @@ ENTRY(__put_user_2)
 	xor %eax,%eax
 	EXIT
 ENDPROC(__put_user_2)
+EXPORT_SYMBOL(__put_user_2)
 
 ENTRY(__put_user_4)
 	ENTER
@@ -126,6 +128,7 @@ ENTRY(__put_user_4)
 	xor %eax,%eax
 	EXIT
 ENDPROC(__put_user_4)
+EXPORT_SYMBOL(__put_user_4)
 
 ENTRY(__put_user_8)
 	ENTER
@@ -155,6 +158,7 @@ ENTRY(__put_user_8)
 	xor %eax,%eax
 	EXIT
 ENDPROC(__put_user_8)
+EXPORT_SYMBOL(__put_user_8)
 
 bad_put_user:
 	movl $-EFAULT,%eax

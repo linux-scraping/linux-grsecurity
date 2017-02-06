@@ -71,8 +71,8 @@ static struct ctl_table root_table[] = {
 };
 static struct ctl_table_root sysctl_table_root = {
 	.default_set.dir.header = {
-		{{.count = 1,
-		  .nreg = 1,
+		{{.count = ATOMIC_INIT(1),
+		  .nreg = ATOMIC_INIT(1),
 		  .ctl_table = root_table }},
 		.ctl_table_arg = root_table,
 		.root = &sysctl_table_root,
@@ -84,7 +84,7 @@ static DEFINE_SPINLOCK(sysctl_lock);
 
 static void drop_sysctl_table(struct ctl_table_header *header);
 static int sysctl_follow_link(struct ctl_table_header **phead,
-	struct ctl_table **pentry, struct nsproxy *namespaces);
+	struct ctl_table **pentry);
 static int insert_links(struct ctl_table_header *head);
 static void put_links(struct ctl_table_header *header);
 
@@ -194,9 +194,9 @@ static void init_header(struct ctl_table_header *head,
 {
 	head->ctl_table = table;
 	head->ctl_table_arg = table;
-	head->used = 0;
-	head->count = 1;
-	head->nreg = 1;
+	atomic_set(&head->used, 0);
+	atomic_set(&head->count, 1);
+	atomic_set(&head->nreg, 1);
 	head->unregistering = NULL;
 	head->root = root;
 	head->set = set;
@@ -232,7 +232,7 @@ static int insert_header(struct ctl_dir *dir, struct ctl_table_header *header)
 		set_empty_dir(dir);
 	}
 
-	dir->header.nreg++;
+	atomic_inc(&dir->header.nreg);
 	header->parent = dir;
 	err = insert_links(header);
 	if (err)
@@ -259,14 +259,14 @@ static int use_table(struct ctl_table_header *p)
 {
 	if (unlikely(p->unregistering))
 		return 0;
-	p->used++;
+	atomic_inc(&p->used);
 	return 1;
 }
 
 /* called under sysctl_lock */
 static void unuse_table(struct ctl_table_header *p)
 {
-	if (!--p->used)
+	if (atomic_dec_and_test(&p->used))
 		if (unlikely(p->unregistering))
 			complete(p->unregistering);
 }
@@ -278,7 +278,7 @@ static void start_unregistering(struct ctl_table_header *p)
 	 * if p->used is 0, nobody will ever touch that entry again;
 	 * we'll eliminate all paths to it before dropping sysctl_lock
 	 */
-	if (unlikely(p->used)) {
+	if (unlikely(atomic_read(&p->used))) {
 		struct completion wait;
 		init_completion(&wait);
 		p->unregistering = &wait;
@@ -299,14 +299,14 @@ static void start_unregistering(struct ctl_table_header *p)
 static void sysctl_head_get(struct ctl_table_header *head)
 {
 	spin_lock(&sysctl_lock);
-	head->count++;
+	atomic_inc(&head->count);
 	spin_unlock(&sysctl_lock);
 }
 
 void sysctl_head_put(struct ctl_table_header *head)
 {
 	spin_lock(&sysctl_lock);
-	if (!--head->count)
+	if (atomic_dec_and_test(&head->count))
 		kfree_rcu(head, rcu);
 	spin_unlock(&sysctl_lock);
 }
@@ -331,11 +331,11 @@ static void sysctl_head_finish(struct ctl_table_header *head)
 }
 
 static struct ctl_table_set *
-lookup_header_set(struct ctl_table_root *root, struct nsproxy *namespaces)
+lookup_header_set(struct ctl_table_root *root)
 {
 	struct ctl_table_set *set = &root->default_set;
 	if (root->lookup)
-		set = root->lookup(root, namespaces);
+		set = root->lookup(root);
 	return set;
 }
 
@@ -442,6 +442,7 @@ static int sysctl_perm(struct ctl_table_header *head, struct ctl_table *table, i
 static struct inode *proc_sys_make_inode(struct super_block *sb,
 		struct ctl_table_header *head, struct ctl_table *table)
 {
+	struct ctl_table_root *root = head->root;
 	struct inode *inode;
 	struct proc_inode *ei;
 
@@ -456,7 +457,7 @@ static struct inode *proc_sys_make_inode(struct super_block *sb,
 	ei->sysctl = head;
 	ei->sysctl_entry = table;
 
-	inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME;
+	inode->i_mtime = inode->i_atime = inode->i_ctime = current_time(inode);
 	inode->i_mode = table->mode;
 	if (!S_ISDIR(table->mode)) {
 		inode->i_mode |= S_IFREG;
@@ -469,6 +470,10 @@ static struct inode *proc_sys_make_inode(struct super_block *sb,
 		if (is_empty_dir(head))
 			make_empty_dir_inode(inode);
 	}
+
+	if (root->set_ownership)
+		root->set_ownership(head, table, &inode->i_uid, &inode->i_gid);
+
 out:
 	return inode;
 }
@@ -503,7 +508,7 @@ static struct dentry *proc_sys_lookup(struct inode *dir, struct dentry *dentry,
 		goto out;
 
 	if (S_ISLNK(p->mode)) {
-		ret = sysctl_follow_link(&h, &p, current->nsproxy);
+		ret = sysctl_follow_link(&h, &p);
 		err = ERR_PTR(ret);
 		if (ret)
 			goto out;
@@ -697,7 +702,7 @@ static bool proc_sys_link_fill_cache(struct file *file,
 
 	if (S_ISLNK(table->mode)) {
 		/* It is not an error if we can not follow the link ignore it */
-		int err = sysctl_follow_link(&head, &table, current->nsproxy);
+		int err = sysctl_follow_link(&head, &table);
 		if (err)
 			goto out;
 	}
@@ -745,7 +750,7 @@ static int proc_sys_readdir(struct file *file, struct dir_context *ctx)
 	ctl_dir = container_of(head, struct ctl_dir, header);
 
 	if (!dir_emit_dots(file, ctx))
-		return 0;
+		goto out;
 
 	pos = 2;
 
@@ -755,6 +760,7 @@ static int proc_sys_readdir(struct file *file, struct dir_context *ctx)
 			break;
 		}
 	}
+out:
 	sysctl_head_finish(head);
 	return 0;
 }
@@ -795,7 +801,7 @@ static int proc_sys_setattr(struct dentry *dentry, struct iattr *attr)
 	if (attr->ia_valid & (ATTR_MODE | ATTR_UID | ATTR_GID))
 		return -EPERM;
 
-	error = inode_change_ok(inode, attr);
+	error = setattr_prepare(dentry, attr);
 	if (error)
 		return error;
 
@@ -991,7 +997,7 @@ static struct ctl_dir *get_subdir(struct ctl_dir *dir,
 		goto failed;
 	subdir = new;
 found:
-	subdir->header.nreg++;
+	atomic_inc(&subdir->header.nreg);
 failed:
 	if (IS_ERR(subdir)) {
 		pr_err("sysctl could not get directory: ");
@@ -1020,7 +1026,7 @@ static struct ctl_dir *xlate_dir(struct ctl_table_set *set, struct ctl_dir *dir)
 }
 
 static int sysctl_follow_link(struct ctl_table_header **phead,
-	struct ctl_table **pentry, struct nsproxy *namespaces)
+	struct ctl_table **pentry)
 {
 	struct ctl_table_header *head;
 	struct ctl_table_root *root;
@@ -1032,7 +1038,7 @@ static int sysctl_follow_link(struct ctl_table_header **phead,
 	ret = 0;
 	spin_lock(&sysctl_lock);
 	root = (*pentry)->data;
-	set = lookup_header_set(root, namespaces);
+	set = lookup_header_set(root);
 	dir = xlate_dir(set, (*phead)->parent);
 	if (IS_ERR(dir))
 		ret = PTR_ERR(dir);
@@ -1138,7 +1144,7 @@ static struct ctl_table_header *new_links(struct ctl_dir *dir, struct ctl_table 
 		link_name += len;
 	}
 	init_header(links, dir->header.root, dir->header.set, node, link_table);
-	links->nreg = nr_entries;
+	atomic_set(&links->nreg, nr_entries);
 
 	return links;
 }
@@ -1166,7 +1172,7 @@ static bool get_links(struct ctl_dir *dir,
 	for (entry = table; entry->procname; entry++) {
 		const char *procname = entry->procname;
 		link = find_entry(&head, dir, procname, strlen(procname));
-		head->nreg++;
+		atomic_inc(&head->nreg);
 	}
 	return true;
 }
@@ -1188,7 +1194,7 @@ static int insert_links(struct ctl_table_header *head)
 	if (get_links(core_parent, head->ctl_table, head->root))
 		return 0;
 
-	core_parent->header.nreg++;
+	atomic_inc(&core_parent->header.nreg);
 	spin_unlock(&sysctl_lock);
 
 	links = new_links(core_parent, head->ctl_table, head->root);
@@ -1282,7 +1288,7 @@ struct ctl_table_header *__register_sysctl_table(
 	spin_lock(&sysctl_lock);
 	dir = &set->dir;
 	/* Reference moved down the diretory tree get_subdir */
-	dir->header.nreg++;
+	atomic_inc(&dir->header.nreg);
 	spin_unlock(&sysctl_lock);
 
 	/* Find the directory for the ctl_table */
@@ -1588,12 +1594,12 @@ static void drop_sysctl_table(struct ctl_table_header *header)
 {
 	struct ctl_dir *parent = header->parent;
 
-	if (--header->nreg)
+	if (atomic_dec_return(&header->nreg))
 		return;
 
 	put_links(header);
 	start_unregistering(header);
-	if (!--header->count)
+	if (atomic_dec_and_test(&header->count))
 		kfree_rcu(header, rcu);
 
 	if (parent)

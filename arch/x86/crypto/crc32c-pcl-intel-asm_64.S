@@ -310,8 +310,7 @@ do_return:
 	popq    %rsi
 	popq    %rdi
 	popq    %rbx
-	pax_force_retaddr
-        ret
+	pax_ret crc_pcl
 ENDPROC(crc_pcl)
 
 .section	.rodata, "a", %progbits

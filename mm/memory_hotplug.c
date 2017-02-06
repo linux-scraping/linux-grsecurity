@@ -268,26 +268,12 @@ void __init register_page_bootmem_info_node(struct pglist_data *pgdat)
 	unsigned long i, pfn, end_pfn, nr_pages;
 	int node = pgdat->node_id;
 	struct page *page;
-	struct zone *zone;
 
 	nr_pages = PAGE_ALIGN(sizeof(struct pglist_data)) >> PAGE_SHIFT;
 	page = virt_to_page(pgdat);
 
 	for (i = 0; i < nr_pages; i++, page++)
 		get_page_bootmem(node, page, NODE_INFO);
-
-	zone = &pgdat->node_zones[0];
-	for (; zone < pgdat->node_zones + MAX_NR_ZONES - 1; zone++) {
-		if (zone_is_initialized(zone)) {
-			nr_pages = zone->wait_table_hash_nr_entries
-				* sizeof(wait_queue_head_t);
-			nr_pages = PAGE_ALIGN(nr_pages) >> PAGE_SHIFT;
-			page = virt_to_page(zone->wait_table);
-
-			for (i = 0; i < nr_pages; i++, page++)
-				get_page_bootmem(node, page, NODE_INFO);
-		}
-	}
 
 	pfn = pgdat->node_start_pfn;
 	end_pfn = pgdat_end_pfn(pgdat);
@@ -1047,36 +1033,39 @@ static void node_states_set_node(int node, struct memory_notify *arg)
 	node_set_state(node, N_MEMORY);
 }
 
-int zone_can_shift(unsigned long pfn, unsigned long nr_pages,
-		   enum zone_type target)
+bool zone_can_shift(unsigned long pfn, unsigned long nr_pages,
+		   enum zone_type target, int *zone_shift)
 {
 	struct zone *zone = page_zone(pfn_to_page(pfn));
 	enum zone_type idx = zone_idx(zone);
 	int i;
 
+	*zone_shift = 0;
+
 	if (idx < target) {
 		/* pages must be at end of current zone */
 		if (pfn + nr_pages != zone_end_pfn(zone))
-			return 0;
+			return false;
 
 		/* no zones in use between current zone and target */
 		for (i = idx + 1; i < target; i++)
 			if (zone_is_initialized(zone - idx + i))
-				return 0;
+				return false;
 	}
 
 	if (target < idx) {
 		/* pages must be at beginning of current zone */
 		if (pfn != zone->zone_start_pfn)
-			return 0;
+			return false;
 
 		/* no zones in use between current zone and target */
 		for (i = target + 1; i < idx; i++)
 			if (zone_is_initialized(zone - idx + i))
-				return 0;
+				return false;
 	}
 
-	return target - idx;
+	*zone_shift = target - idx;
+	return true;
 }
 
 /* Must be protected by mem_hotplug_begin() */
@@ -1103,10 +1092,13 @@ int __ref online_pages(unsigned long pfn, unsigned long nr_pages, int online_typ
 	    !can_online_high_movable(zone))
 		return -EINVAL;
 
-	if (online_type == MMOP_ONLINE_KERNEL)
-		zone_shift = zone_can_shift(pfn, nr_pages, ZONE_NORMAL);
-	else if (online_type == MMOP_ONLINE_MOVABLE)
-		zone_shift = zone_can_shift(pfn, nr_pages, ZONE_MOVABLE);
+	if (online_type == MMOP_ONLINE_KERNEL) {
+		if (!zone_can_shift(pfn, nr_pages, ZONE_NORMAL, &zone_shift))
+			return -EINVAL;
+	} else if (online_type == MMOP_ONLINE_MOVABLE) {
+		if (!zone_can_shift(pfn, nr_pages, ZONE_MOVABLE, &zone_shift))
+			return -EINVAL;
+	}
 
 	zone = move_pfn_range(zone_shift, pfn, pfn + nr_pages);
 	if (!zone)
@@ -2131,7 +2123,6 @@ void try_offline_node(int nid)
 	unsigned long start_pfn = pgdat->node_start_pfn;
 	unsigned long end_pfn = start_pfn + pgdat->node_spanned_pages;
 	unsigned long pfn;
-	int i;
 
 	for (pfn = start_pfn; pfn < end_pfn; pfn += PAGES_PER_SECTION) {
 		unsigned long section_nr = pfn_to_section_nr(pfn);
@@ -2158,20 +2149,6 @@ void try_offline_node(int nid)
 	 */
 	node_set_offline(nid);
 	unregister_one_node(nid);
-
-	/* free waittable in each zone */
-	for (i = 0; i < MAX_NR_ZONES; i++) {
-		struct zone *zone = pgdat->node_zones + i;
-
-		/*
-		 * wait_table may be allocated from boot memory,
-		 * here only free if it's allocated by vmalloc.
-		 */
-		if (is_vmalloc_addr(zone->wait_table)) {
-			vfree(zone->wait_table);
-			zone->wait_table = NULL;
-		}
-	}
 }
 EXPORT_SYMBOL(try_offline_node);
 

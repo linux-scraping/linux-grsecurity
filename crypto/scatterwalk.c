@@ -74,12 +74,8 @@ void scatterwalk_map_and_copy(void *buf, struct scatterlist *sg,
 		realbuf = buf - current->stack + current->lowmem_stack;
 #endif
 
-	if (sg_page(sg) == virt_to_page(realbuf) &&
-	    sg->offset == offset_in_page(realbuf))
-		return;
-
 	scatterwalk_start(&walk, sg);
-	scatterwalk_copychunks(buf, &walk, nbytes, out);
+	scatterwalk_copychunks(realbuf, &walk, nbytes, out);
 	scatterwalk_done(&walk, out, 0);
 }
 EXPORT_SYMBOL_GPL(scatterwalk_map_and_copy);

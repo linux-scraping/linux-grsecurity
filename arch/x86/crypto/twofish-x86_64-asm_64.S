@@ -266,8 +266,7 @@ RAP_ENTRY(twofish_enc_blk)
 
 	popq	R1
 	movl	$1,%eax
-	pax_force_retaddr
-	ret
+	pax_ret twofish_enc_blk
 ENDPROC(twofish_enc_blk)
 
 RAP_ENTRY(twofish_dec_blk)
@@ -319,6 +318,5 @@ RAP_ENTRY(twofish_dec_blk)
 
 	popq	R1
 	movl	$1,%eax
-	pax_force_retaddr
-	ret
+	pax_ret twofish_dec_blk
 ENDPROC(twofish_dec_blk)

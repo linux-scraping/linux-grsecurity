@@ -35,6 +35,7 @@
 #include <linux/uaccess.h>
 #include <linux/io.h>
 #include <linux/ftrace.h>
+#include <linux/syscalls.h>
 
 #include <asm/pgtable.h>
 #include <asm/processor.h>
@@ -49,8 +50,7 @@
 #include <asm/debugreg.h>
 #include <asm/switch_to.h>
 #include <asm/xen/hypervisor.h>
-
-asmlinkage extern void ret_from_fork(void);
+#include <asm/vdso.h>
 
 __visible DEFINE_PER_CPU(unsigned long, rsp_scratch);
 
@@ -142,13 +142,18 @@ int copy_thread_tls(unsigned long clone_flags, unsigned long sp,
 {
 	int err;
 	struct pt_regs *childregs;
+	struct fork_frame *fork_frame;
+	struct inactive_task_frame *frame;
 	struct task_struct *me = current;
 
 	p->thread.sp0 = (unsigned long)task_stack_page(p) + THREAD_SIZE - 16;
 	childregs = task_pt_regs(p);
-	p->thread.sp = (unsigned long) childregs;
-	p->tinfo.lowest_stack = (unsigned long)task_stack_page(p) + 2 * sizeof(unsigned long);
-	set_tsk_thread_flag(p, TIF_FORK);
+	fork_frame = container_of(childregs, struct fork_frame, regs);
+	frame = &fork_frame->frame;
+	frame->bp = 0;
+	frame->ret_addr = (unsigned long) ret_from_fork;
+	p->thread.sp = (unsigned long) fork_frame;
+	p->thread.lowest_stack = (unsigned long)task_stack_page(p) + 2 * sizeof(unsigned long);
 	p->thread.io_bitmap_ptr = NULL;
 
 	savesegment(gs, p->thread.gsindex);
@@ -164,15 +169,11 @@ int copy_thread_tls(unsigned long clone_flags, unsigned long sp,
 	if (unlikely(p->flags & PF_KTHREAD)) {
 		/* kernel thread */
 		memset(childregs, 0, sizeof(struct pt_regs));
-		childregs->sp = (unsigned long)childregs;
-		childregs->ss = __KERNEL_DS;
-		childregs->bx = sp; /* function */
-		childregs->bp = arg;
-		childregs->orig_ax = -1;
-		childregs->cs = __KERNEL_CS | get_kernel_rpl();
-		childregs->flags = X86_EFLAGS_IF | X86_EFLAGS_FIXED;
+		frame->bx = sp;		/* function */
+		frame->r13 = arg;
 		return 0;
 	}
+	frame->bx = 0;
 	*childregs = *current_pt_regs();
 
 	childregs->ax = 0;
@@ -430,7 +431,6 @@ __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 	 * Switch the PDA and FPU contexts.
 	 */
 	this_cpu_write(current_task, next_p);
-	this_cpu_write(current_tinfo, &next_p->tinfo);
 
 	/* Reload esp0 and ss1.  This changes current_thread_info(). */
 	load_sp0(tss, next);
@@ -522,7 +522,7 @@ void set_personality_ia32(bool x32)
 		current->personality &= ~READ_IMPLIES_EXEC;
 		/* in_compat_syscall() uses the presence of the x32
 		   syscall bit flag to determine compat status */
-		current_thread_info()->status &= ~TS_COMPAT;
+		current->thread.status &= ~TS_COMPAT;
 	} else {
 		set_thread_flag(TIF_IA32);
 		clear_thread_flag(TIF_X32);
@@ -530,10 +530,23 @@ void set_personality_ia32(bool x32)
 			current->mm->context.ia32_compat = TIF_IA32;
 		current->personality |= force_personality32;
 		/* Prepare the first "return" to user space */
-		current_thread_info()->status |= TS_COMPAT;
+		current->thread.status |= TS_COMPAT;
 	}
 }
 EXPORT_SYMBOL_GPL(set_personality_ia32);
+
+#ifdef CONFIG_CHECKPOINT_RESTORE
+static long prctl_map_vdso(const struct vdso_image *image, unsigned long addr)
+{
+	int ret;
+
+	ret = map_vdso_once(image, addr);
+	if (ret)
+		return ret;
+
+	return (long)image->size;
+}
+#endif
 
 long do_arch_prctl(struct task_struct *task, int code, unsigned long addr)
 {
@@ -588,6 +601,19 @@ long do_arch_prctl(struct task_struct *task, int code, unsigned long addr)
 		break;
 	}
 
+#ifdef CONFIG_CHECKPOINT_RESTORE
+# ifdef CONFIG_X86_X32_ABI
+	case ARCH_MAP_VDSO_X32:
+		return prctl_map_vdso(&vdso_image_x32, addr);
+# endif
+# if defined CONFIG_X86_32 || defined CONFIG_IA32_EMULATION
+	case ARCH_MAP_VDSO_32:
+		return prctl_map_vdso(&vdso_image_32, addr);
+# endif
+	case ARCH_MAP_VDSO_64:
+		return prctl_map_vdso(&vdso_image_64, addr);
+#endif
+
 	default:
 		ret = -EINVAL;
 		break;
@@ -596,7 +622,7 @@ long do_arch_prctl(struct task_struct *task, int code, unsigned long addr)
 	return ret;
 }
 
-long sys_arch_prctl(int code, unsigned long addr)
+SYSCALL_DEFINE2(arch_prctl, int, code, unsigned long, addr)
 {
 	return do_arch_prctl(current, code, addr);
 }

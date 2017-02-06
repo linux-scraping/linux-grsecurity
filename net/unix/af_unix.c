@@ -1015,6 +1015,7 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 	unsigned int hash;
 	struct unix_address *addr;
 	struct hlist_head *list;
+	struct path path = { };
 
 	err = -EINVAL;
 	if (sunaddr->sun_family != AF_UNIX)
@@ -1030,9 +1031,20 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 		goto out;
 	addr_len = err;
 
+	if (sun_path[0]) {
+		umode_t mode = S_IFSOCK |
+		       (SOCK_INODE(sock)->i_mode & ~current_umask());
+		err = unix_mknod(sun_path, mode, &path);
+		if (err) {
+			if (err == -EEXIST)
+				err = -EADDRINUSE;
+			goto out;
+		}
+	}
+
 	err = mutex_lock_interruptible(&u->bindlock);
 	if (err)
-		goto out;
+		goto out_put;
 
 	err = -EINVAL;
 	if (u->addr)
@@ -1049,16 +1061,6 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 	atomic_set(&addr->refcnt, 1);
 
 	if (sun_path[0]) {
-		struct path path;
-		umode_t mode = S_IFSOCK |
-		       (SOCK_INODE(sock)->i_mode & ~current_umask());
-		err = unix_mknod(sun_path, mode, &path);
-		if (err) {
-			if (err == -EEXIST)
-				err = -EADDRINUSE;
-			unix_release_addr(addr);
-			goto out_up;
-		}
 		addr->hash = UNIX_HASH_SIZE;
 		hash = d_real_inode(path.dentry)->i_ino & (UNIX_HASH_SIZE - 1);
 		spin_lock(&unix_table_lock);
@@ -1085,6 +1087,9 @@ out_unlock:
 	spin_unlock(&unix_table_lock);
 out_up:
 	mutex_unlock(&u->bindlock);
+out_put:
+	if (err)
+		path_put(&path);
 out:
 	return err;
 }
@@ -2500,28 +2505,13 @@ static int unix_stream_recvmsg(struct socket *sock, struct msghdr *msg,
 	return unix_stream_read_generic(&state, true);
 }
 
-static ssize_t skb_unix_socket_splice(struct sock *sk,
-				      struct pipe_inode_info *pipe,
-				      struct splice_pipe_desc *spd)
-{
-	int ret;
-	struct unix_sock *u = unix_sk(sk);
-
-	mutex_unlock(&u->iolock);
-	ret = splice_to_pipe(pipe, spd);
-	mutex_lock(&u->iolock);
-
-	return ret;
-}
-
 static int unix_stream_splice_actor(struct sk_buff *skb,
 				    int skip, int chunk,
 				    struct unix_stream_read_state *state)
 {
 	return skb_splice_bits(skb, state->socket->sk,
 			       UNIXCB(skb).consumed + skip,
-			       state->pipe, chunk, state->splice_flags,
-			       skb_unix_socket_splice);
+			       state->pipe, chunk, state->splice_flags);
 }
 
 static ssize_t unix_stream_splice_read(struct socket *sock,  loff_t *ppos,
@@ -2869,6 +2859,9 @@ static int unix_seq_show(struct seq_file *seq, void *v)
 				case '\\':
 					seq_putc(seq, '\\');
 					seq_putc(seq, '\\');
+					break;
+				case 0:
+					seq_putc(seq, '@');
 					break;
 				default:
 					seq_putc(seq, c);

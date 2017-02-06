@@ -80,10 +80,6 @@ static inline unsigned long __read_cr4(void)
 {
 	return PVOP_CALL0(unsigned long, pv_cpu_ops.read_cr4);
 }
-static inline unsigned long __read_cr4_safe(void)
-{
-	return PVOP_CALL0(unsigned long, pv_cpu_ops.read_cr4_safe);
-}
 
 static inline void __write_cr4(unsigned long x)
 {
@@ -688,8 +684,6 @@ static inline unsigned long pax_close_kernel(void) { return 0; }
 
 #if defined(CONFIG_SMP) && defined(CONFIG_PARAVIRT_SPINLOCKS)
 
-#ifdef CONFIG_QUEUED_SPINLOCKS
-
 static __always_inline void pv_queued_spin_lock_slowpath(struct qspinlock *lock,
 							u32 val)
 {
@@ -710,22 +704,6 @@ static __always_inline void pv_kick(int cpu)
 {
 	PVOP_VCALL1(pv_lock_ops.kick, cpu);
 }
-
-#else /* !CONFIG_QUEUED_SPINLOCKS */
-
-static __always_inline void __ticket_lock_spinning(struct arch_spinlock *lock,
-							__ticket_t ticket)
-{
-	PVOP_VCALLEE2(pv_lock_ops.lock_spinning, lock, ticket);
-}
-
-static __always_inline void __ticket_unlock_kick(struct arch_spinlock *lock,
-							__ticket_t ticket)
-{
-	PVOP_VCALL2(pv_lock_ops.unlock_kick, lock, ticket);
-}
-
-#endif /* CONFIG_QUEUED_SPINLOCKS */
 
 #endif /* SMP && PARAVIRT_SPINLOCKS */
 
@@ -784,7 +762,7 @@ static __always_inline void __ticket_unlock_kick(struct arch_spinlock *lock,
  */
 #define PV_THUNK_NAME(func) "__raw_callee_save_" #func
 #define PV_CALLEE_SAVE_REGS_THUNK(func)					\
-	extern typeof(func) __raw_callee_save_##func;			\
+	extern typeof(func) __raw_callee_save_##func __rap_hash;	\
 									\
 	asm(".pushsection .text;"					\
 	    ".globl " PV_THUNK_NAME(func) ";"				\
@@ -792,19 +770,19 @@ static __always_inline void __ticket_unlock_kick(struct arch_spinlock *lock,
 	    PV_THUNK_NAME(func) ":"					\
 	    FRAME_BEGIN							\
 	    PV_SAVE_ALL_CALLER_REGS					\
-	    "call " #func ";"						\
+	    PAX_DIRECT_CALL(#func) ";"					\
 	    PV_RESTORE_ALL_CALLER_REGS					\
 	    FRAME_END							\
-	    "ret;"							\
+	    PAX_RET(PV_THUNK_NAME(func))";"				\
 	    ".popsection")
 
 /* Get a reference to a callee-save function */
 #define PV_CALLEE_SAVE(func)						\
-	((struct paravirt_callee_save) { __raw_callee_save_##func })
+	((struct paravirt_callee_save) { (paravirt_callee_save_t)__raw_callee_save_##func })
 
 /* Promise that "func" already uses the right calling convention */
 #define __PV_IS_CALLEE_SAVE(func)			\
-	((struct paravirt_callee_save) { func })
+	((struct paravirt_callee_save) { (paravirt_callee_save_t)func })
 
 static inline notrace unsigned long arch_local_save_flags(void)
 {

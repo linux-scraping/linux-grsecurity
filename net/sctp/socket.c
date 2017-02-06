@@ -1961,6 +1961,8 @@ static int sctp_sendmsg(struct sock *sk, struct msghdr *msg, size_t msg_len)
 
 	/* Now send the (possibly) fragmented message. */
 	list_for_each_entry(chunk, &datamsg->chunks, frag_list) {
+		sctp_chunk_hold(chunk);
+
 		/* Do accounting for the write space.  */
 		sctp_set_owner_w(chunk);
 
@@ -1973,13 +1975,15 @@ static int sctp_sendmsg(struct sock *sk, struct msghdr *msg, size_t msg_len)
 	 * breaks.
 	 */
 	err = sctp_primitive_SEND(net, asoc, datamsg);
-	sctp_datamsg_put(datamsg);
 	/* Did the lower layer accept the chunk? */
-	if (err)
+	if (err) {
+		sctp_datamsg_free(datamsg);
 		goto out_free;
+	}
 
 	pr_debug("%s: we sent primitively\n", __func__);
 
+	sctp_datamsg_put(datamsg);
 	err = msg_len;
 
 	if (unlikely(wait_connect)) {
@@ -2202,13 +2206,11 @@ static int sctp_setsockopt_events(struct sock *sk, char __user *optval,
 {
 	struct sctp_association *asoc;
 	struct sctp_ulpevent *event;
-	struct sctp_event_subscribe subscribe;
 
 	if (optlen > sizeof(struct sctp_event_subscribe))
 		return -EINVAL;
-	if (copy_from_user(&subscribe, optval, optlen))
+	if (copy_from_user(&sctp_sk(sk)->subscribe, optval, optlen))
 		return -EFAULT;
-	sctp_sk(sk)->subscribe = subscribe;
 
 	/* At the time when a user app subscribes to SCTP_SENDER_DRY_EVENT,
 	 * if there is no data to be sent or retransmit, the stack will
@@ -4477,15 +4479,13 @@ int sctp_transport_lookup_process(int (*cb)(struct sctp_transport *, void *),
 
 	rcu_read_lock();
 	transport = sctp_addrs_lookup_transport(net, laddr, paddr);
-	if (!transport || !sctp_transport_hold(transport))
+	if (!transport || !sctp_transport_hold(transport)) {
+		rcu_read_unlock();
 		goto out;
-
-	sctp_association_hold(transport->asoc);
-	sctp_transport_put(transport);
-
+	}
 	rcu_read_unlock();
 	err = cb(transport, p);
-	sctp_association_put(transport->asoc);
+	sctp_transport_put(transport);
 
 out:
 	return err;
@@ -4687,16 +4687,13 @@ static int sctp_getsockopt_disable_fragments(struct sock *sk, int len,
 static int sctp_getsockopt_events(struct sock *sk, int len, char __user *optval,
 				  int __user *optlen)
 {
-	struct sctp_event_subscribe subscribe;
-
 	if (len == 0)
 		return -EINVAL;
 	if (len > sizeof(struct sctp_event_subscribe))
 		len = sizeof(struct sctp_event_subscribe);
 	if (put_user(len, optlen))
 		return -EFAULT;
-	subscribe = sctp_sk(sk)->subscribe;
-	if (copy_to_user(optval, &subscribe, len))
+	if (copy_to_user(optval, &sctp_sk(sk)->subscribe, len))
 		return -EFAULT;
 	return 0;
 }
@@ -4714,8 +4711,6 @@ static int sctp_getsockopt_events(struct sock *sk, int len, char __user *optval,
  */
 static int sctp_getsockopt_autoclose(struct sock *sk, int len, char __user *optval, int __user *optlen)
 {
-	__u32 autoclose;
-
 	/* Applicable to UDP-style socket only */
 	if (sctp_style(sk, TCP))
 		return -EOPNOTSUPP;
@@ -4724,8 +4719,7 @@ static int sctp_getsockopt_autoclose(struct sock *sk, int len, char __user *optv
 	len = sizeof(int);
 	if (put_user(len, optlen))
 		return -EFAULT;
-	autoclose = sctp_sk(sk)->autoclose;
-	if (copy_to_user(optval, &autoclose, sizeof(int)))
+	if (put_user(sctp_sk(sk)->autoclose, (int __user *)optval))
 		return -EFAULT;
 	return 0;
 }
@@ -5099,15 +5093,12 @@ static int sctp_getsockopt_delayed_ack(struct sock *sk, int len,
  */
 static int sctp_getsockopt_initmsg(struct sock *sk, int len, char __user *optval, int __user *optlen)
 {
-	struct sctp_initmsg initmsg;
-
 	if (len < sizeof(struct sctp_initmsg))
 		return -EINVAL;
 	len = sizeof(struct sctp_initmsg);
 	if (put_user(len, optlen))
 		return -EFAULT;
-	initmsg = sctp_sk(sk)->initmsg;
-	if (copy_to_user(optval, &initmsg, len))
+	if (copy_to_user(optval, &sctp_sk(sk)->initmsg, len))
 		return -EFAULT;
 	return 0;
 }
@@ -7865,6 +7856,10 @@ struct proto sctp_prot = {
 	.unhash      =	sctp_unhash,
 	.get_port    =	sctp_get_port,
 	.obj_size    =  sizeof(struct sctp_sock),
+	.useroffset  =	offsetof(struct sctp_sock, subscribe),
+	.usersize    =	offsetof(struct sctp_sock, initmsg) -
+			  offsetof(struct sctp_sock, subscribe) +
+			  sizeof(((struct sctp_sock *)0)->initmsg),
 	.sysctl_mem  =  sysctl_sctp_mem,
 	.sysctl_rmem =  sysctl_sctp_rmem,
 	.sysctl_wmem =  sysctl_sctp_wmem,

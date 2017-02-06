@@ -8,6 +8,7 @@
 #include <linux/linkage.h>
 #include "calling.h"
 #include <asm/asm.h>
+#include <asm/export.h>
 #include <asm/alternative-asm.h>
 
 	/* rdi:	arg1 ... normal C conventions. rax is saved/restored. */
@@ -33,8 +34,19 @@
 	movq 8(%rbp), %rdi
 	.endif
 
-	call \func
-	jmp  .L_restore
+	pax_direct_call \func
+
+	popq %r11
+	popq %r10
+	popq %r9
+	popq %r8
+	popq %rax
+	popq %rcx
+	popq %rdx
+	popq %rsi
+	popq %rdi
+	popq %rbp
+	pax_ret \name
 	_ASM_NOKPROBE(\name)
 	.endm
 
@@ -50,23 +62,6 @@
 #ifdef CONFIG_PREEMPT
 	THUNK ___preempt_schedule, preempt_schedule
 	THUNK ___preempt_schedule_notrace, preempt_schedule_notrace
-#endif
-
-#if defined(CONFIG_TRACE_IRQFLAGS) \
- || defined(CONFIG_DEBUG_LOCK_ALLOC) \
- || defined(CONFIG_PREEMPT)
-.L_restore:
-	popq %r11
-	popq %r10
-	popq %r9
-	popq %r8
-	popq %rax
-	popq %rcx
-	popq %rdx
-	popq %rsi
-	popq %rdi
-	popq %rbp
-	pax_force_retaddr
-	ret
-	_ASM_NOKPROBE(.L_restore)
+	EXPORT_SYMBOL(___preempt_schedule)
+	EXPORT_SYMBOL(___preempt_schedule_notrace)
 #endif

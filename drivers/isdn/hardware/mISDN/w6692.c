@@ -849,7 +849,7 @@ dbusy_timer_handler(unsigned long _dch)
 	}
 }
 
-void initW6692(struct w6692_hw *card)
+static void initW6692(struct w6692_hw *card)
 {
 	u8	val;
 

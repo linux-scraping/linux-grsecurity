@@ -28,7 +28,7 @@ check_events:
 	push %eax
 	push %ecx
 	push %edx
-	call xen_force_evtchn_callback
+	pax_direct_call xen_force_evtchn_callback
 	pop %edx
 	pop %ecx
 	pop %eax

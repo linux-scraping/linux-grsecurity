@@ -18,6 +18,7 @@
 #include <linux/slab.h>
 #include <linux/ratelimit.h>
 #include <asm/sections.h>
+#include <asm/uaccess.h>
 
 /*
  * Checks if a given pointer and length is contained by the current

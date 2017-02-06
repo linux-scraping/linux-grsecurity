@@ -25,6 +25,8 @@
 #include <linux/slab.h>
 #include <linux/thermal.h>
 
+#include "cpufreq-dt.h"
+
 struct private_data {
 	struct opp_table *opp_table;
 	struct device *cpu_dev;
@@ -357,6 +359,7 @@ static struct cpufreq_driver dt_cpufreq_driver = {
 
 static int dt_cpufreq_probe(struct platform_device *pdev)
 {
+	struct cpufreq_dt_platform_data *data = dev_get_platdata(&pdev->dev);
 	int ret;
 
 	/*
@@ -370,9 +373,11 @@ static int dt_cpufreq_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	pax_open_kernel();
-	const_cast(dt_cpufreq_driver.driver_data) = dev_get_platdata(&pdev->dev);
-	pax_close_kernel();
+	if (data && data->have_governor_per_policy) {
+		pax_open_kernel();
+		const_cast(dt_cpufreq_driver.flags) |= CPUFREQ_HAVE_GOVERNOR_PER_POLICY;
+		pax_close_kernel();
+	}
 
 	ret = cpufreq_register_driver(&dt_cpufreq_driver);
 	if (ret)

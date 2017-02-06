@@ -89,10 +89,11 @@ struct technisat_usb2_state {
 static int technisat_usb2_i2c_access(struct usb_device *udev,
 		u8 device_addr, u8 *tx, u8 txlen, u8 *rx, u8 rxlen)
 {
-	u8 *b = kmalloc(64, GFP_KERNEL);
-	int ret, actual_length, error = 0;
+	u8 *b;
+	int ret, actual_length;
 
-	if (b == NULL)
+	b = kmalloc(64, GFP_KERNEL);
+	if (!b)
 		return -ENOMEM;
 
 	deb_i2c("i2c-access: %02x, tx: ", device_addr);
@@ -126,8 +127,7 @@ static int technisat_usb2_i2c_access(struct usb_device *udev,
 
 	if (ret < 0) {
 		err("i2c-error: out failed %02x = %d", device_addr, ret);
-		error = -ENODEV;
-		goto out;
+		goto err;
 	}
 
 	ret = usb_bulk_msg(udev,
@@ -135,8 +135,7 @@ static int technisat_usb2_i2c_access(struct usb_device *udev,
 			b, 64, &actual_length, 1000);
 	if (ret < 0) {
 		err("i2c-error: in failed %02x = %d", device_addr, ret);
-		error = -ENODEV;
-		goto out;
+		goto err;
 	}
 
 	if (b[0] != I2C_STATUS_OK) {
@@ -144,10 +143,8 @@ static int technisat_usb2_i2c_access(struct usb_device *udev,
 		/* handle tuner-i2c-nak */
 		if (!(b[0] == I2C_STATUS_NAK &&
 				device_addr == 0x60
-				/* && device_is_technisat_usb2 */)) {
-			error = -ENODEV;
-			goto out;
-		}
+				/* && device_is_technisat_usb2 */))
+			goto err;
 	}
 
 	deb_i2c("status: %d, ", b[0]);
@@ -161,9 +158,9 @@ static int technisat_usb2_i2c_access(struct usb_device *udev,
 
 	deb_i2c("\n");
 
-out:
+err:
 	kfree(b);
-	return error;
+	return ret;
 }
 
 static int technisat_usb2_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msg,

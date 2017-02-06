@@ -5,7 +5,8 @@
  * Subject to the GNU public license, v.2. No warranty of any kind.
  */
 	#include <linux/linkage.h>
-	#include <asm/asm.h>
+	#include <asm/alternative-asm.h>
+	#include <asm/export.h>
 
 	/* put return address in eax (arg1) */
 	.macro THUNK name, func, put_ret_addr_in_eax=0
@@ -20,11 +21,11 @@
 	movl 3*4(%esp), %eax
 	.endif
 
-	call \func
+	pax_direct_call \func
 	popl %edx
 	popl %ecx
 	popl %eax
-	ret
+	pax_ret \name
 	_ASM_NOKPROBE(\name)
 	.endm
 
@@ -36,5 +37,7 @@
 #ifdef CONFIG_PREEMPT
 	THUNK ___preempt_schedule, preempt_schedule
 	THUNK ___preempt_schedule_notrace, preempt_schedule_notrace
+	EXPORT_SYMBOL(___preempt_schedule)
+	EXPORT_SYMBOL(___preempt_schedule_notrace)
 #endif
 

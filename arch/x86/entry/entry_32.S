@@ -44,6 +44,8 @@
 #include <asm/alternative-asm.h>
 #include <asm/asm.h>
 #include <asm/smap.h>
+#include <asm/export.h>
+#include <asm/current.h>
 
 	.section .entry.text, "ax"
 
@@ -163,13 +165,13 @@
 
 .macro pax_enter_kernel
 #ifdef CONFIG_PAX_KERNEXEC
-	call pax_enter_kernel
+	pax_direct_call pax_enter_kernel
 #endif
 .endm
 
 .macro pax_exit_kernel
 #ifdef CONFIG_PAX_KERNEXEC
-	call pax_exit_kernel
+	pax_direct_call pax_exit_kernel
 #endif
 .endm
 
@@ -178,7 +180,7 @@ ENTRY(pax_enter_kernel)
 #ifdef CONFIG_PARAVIRT
 	pushl %eax
 	pushl %ecx
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0)
+	pax_indirect_call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0), read_cr0
 	mov %eax, %esi
 #else
 	mov %cr0, %esi
@@ -193,7 +195,7 @@ ENTRY(pax_enter_kernel)
 2:
 #ifdef CONFIG_PARAVIRT
 	mov %esi, %eax
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0)
+	pax_indirect_call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0), write_cr0
 #else
 	mov %esi, %cr0
 #endif
@@ -202,7 +204,7 @@ ENTRY(pax_enter_kernel)
 	popl %ecx
 	popl %eax
 #endif
-	ret
+	pax_ret pax_enter_kernel
 ENDPROC(pax_enter_kernel)
 
 ENTRY(pax_exit_kernel)
@@ -214,7 +216,7 @@ ENTRY(pax_exit_kernel)
 	cmp $__KERNEXEC_KERNEL_CS, %esi
 	jnz 2f
 #ifdef CONFIG_PARAVIRT
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0);
+	pax_indirect_call PARA_INDIRECT(pv_cpu_ops+PV_CPU_read_cr0), read_cr0
 	mov %eax, %esi
 #else
 	mov %cr0, %esi
@@ -224,7 +226,7 @@ ENTRY(pax_exit_kernel)
 1:
 #ifdef CONFIG_PARAVIRT
 	mov %esi, %eax
-	call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0);
+	pax_indirect_call PARA_INDIRECT(pv_cpu_ops+PV_CPU_write_cr0), write_cr0
 #else
 	mov %esi, %cr0
 #endif
@@ -233,13 +235,13 @@ ENTRY(pax_exit_kernel)
 	popl %ecx
 	popl %eax
 #endif
-	ret
+	pax_ret pax_exit_kernel
 ENDPROC(pax_exit_kernel)
 #endif
 
 	.macro pax_erase_kstack
 #ifdef CONFIG_PAX_MEMORY_STACKLEAK
-	call pax_erase_kstack
+	pax_direct_call pax_erase_kstack
 #endif
 	.endm
 
@@ -253,8 +255,8 @@ ENTRY(pax_erase_kstack)
 	pushl %eax
 	pushl %ebp
 
-	GET_THREAD_INFO(%ebp)
-	mov TI_lowest_stack(%ebp), %edi
+	GET_CURRENT(%ebp)
+	mov TASK_lowest_stack(%ebp), %edi
 	mov $-0xBEEF, %eax
 	std
 
@@ -285,15 +287,15 @@ ENTRY(pax_erase_kstack)
 	shr $2, %ecx
 	rep stosl
 
-	mov TI_task_thread_sp0(%ebp), %edi
+	mov TASK_thread_sp0(%ebp), %edi
 	sub $128, %edi
-	mov %edi, TI_lowest_stack(%ebp)
+	mov %edi, TASK_lowest_stack(%ebp)
 
 	popl %ebp
 	popl %eax
 	popl %ecx
 	popl %edi
-	ret
+	pax_ret pax_erase_kstack
 ENDPROC(pax_erase_kstack)
 #endif
 
@@ -357,34 +359,70 @@ ENDPROC(pax_erase_kstack)
 	POP_GS_EX
 .endm
 
+/*
+ * %eax: prev task
+ * %edx: next task
+ */
+ENTRY(__switch_to_asm)
+	/*
+	 * Save callee-saved registers
+	 * This must match the order in struct inactive_task_frame
+	 */
+	pushl	%ebp
+	pushl	%ebx
+	pushl	%edi
+	pushl	%esi
+
+	/* switch stack */
+	movl	%esp, TASK_threadsp(%eax)
+	movl	TASK_threadsp(%edx), %esp
+
+#ifdef CONFIG_CC_STACKPROTECTOR
+	movl	TASK_stack_canary(%edx), %ebx
+	movl	%ebx, PER_CPU_VAR(stack_canary)+stack_canary_offset
+#endif
+
+	/* restore callee-saved registers */
+	popl	%esi
+	popl	%edi
+	popl	%ebx
+	popl	%ebp
+
+	jmp	__switch_to
+END(__switch_to_asm)
+
+/*
+ * A newly forked process directly context switches into this address.
+ *
+ * eax: prev task we switched from
+ * ebx: kernel thread func (NULL for user thread)
+ * edi: kernel thread arg
+ */
 ENTRY(ret_from_fork)
 	pushl	%eax
-	call	schedule_tail
+	pax_direct_call schedule_tail
 	popl	%eax
 
+	testl	%ebx, %ebx
+	jnz	1f		/* kernel threads are uncommon */
+
+2:
 	/* When we fork, we trace the syscall return in the child, too. */
 	movl    %esp, %eax
-	call    syscall_return_slowpath
+	pax_direct_call syscall_return_slowpath
 	jmp     restore_all
-ENDPROC(ret_from_fork)
 
-ENTRY(ret_from_kernel_thread)
-	pushl	%eax
-	call	schedule_tail
-	popl	%eax
-	movl	PT_EBP(%esp), %eax
-	call	*PT_EBX(%esp)
-	movl	$0, PT_EAX(%esp)
-
+	/* kernel thread */
+1:	movl	%edi, %eax
+	pax_indirect_call "*%ebx", kthreadd
 	/*
-	 * Kernel threads return to userspace as if returning from a syscall.
-	 * We should check whether anything actually uses this path and, if so,
-	 * consider switching it over to ret_from_fork.
+	 * A kernel thread is allowed to return here after successfully
+	 * calling do_execve().  Exit to userspace to complete the execve()
+	 * syscall.
 	 */
-	movl    %esp, %eax
-	call    syscall_return_slowpath
-	jmp     restore_all
-ENDPROC(ret_from_kernel_thread)
+	movl	$0, PT_EAX(%esp)
+	jmp	2b
+ENDPROC(ret_from_fork)
 
 /*
  * Return to user mode is not as complex as all this looks,
@@ -424,7 +462,7 @@ ENTRY(resume_userspace)
 	DISABLE_INTERRUPTS(CLBR_ANY)
 	TRACE_IRQS_OFF
 	movl	%esp, %eax
-	call	prepare_exit_to_usermode
+	pax_direct_call prepare_exit_to_usermode
 	jmp	.Lsyscall_32_done
 ENDPROC(ret_from_exception)
 
@@ -436,7 +474,7 @@ need_resched:
 	jnz	restore_all
 	testl	$X86_EFLAGS_IF, PT_EFLAGS(%esp)	# interrupts off (exception path) ?
 	jz	restore_all
-	call	preempt_schedule_irq
+	pax_direct_call preempt_schedule_irq
 	jmp	need_resched
 ENDPROC(resume_kernel)
 #endif
@@ -539,14 +577,14 @@ sysenter_past_esp:
 	TRACE_IRQS_OFF
 
 	movl	%esp, %eax
-	call	do_fast_syscall_32
+	pax_direct_call do_fast_syscall_32
 	/* XEN PV guests always use IRET path */
 	ALTERNATIVE "testl %eax, %eax; jz .Lsyscall_32_done", \
 		    "jmp .Lsyscall_32_done", X86_FEATURE_XENPV
 
 #ifdef CONFIG_PAX_RANDKSTACK
 	movl	%esp, %eax
-	call	pax_randomize_kstack
+	pax_direct_call pax_randomize_kstack
 #endif
 
 	pax_erase_kstack
@@ -646,12 +684,12 @@ ENTRY(entry_INT80_32)
 	TRACE_IRQS_OFF
 
 	movl	%esp, %eax
-	call	do_int80_syscall_32
+	pax_direct_call do_int80_syscall_32
 .Lsyscall_32_done:
 
 #ifdef CONFIG_PAX_RANDKSTACK
 	movl	%esp, %eax
-	call	pax_randomize_kstack
+	pax_direct_call pax_randomize_kstack
 #endif
 
 	pax_erase_kstack
@@ -807,7 +845,7 @@ common_interrupt:
 	SAVE_ALL
 	TRACE_IRQS_OFF
 	movl	%esp, %eax
-	call	do_IRQ
+	pax_direct_call do_IRQ
 	jmp	ret_from_intr
 ENDPROC(common_interrupt)
 
@@ -818,7 +856,7 @@ ENTRY(name)				\
 	SAVE_ALL;			\
 	TRACE_IRQS_OFF			\
 	movl	%esp, %eax;		\
-	call	fn;			\
+	pax_direct_call fn;		\
 	jmp	ret_from_intr;		\
 ENDPROC(name)
 
@@ -955,6 +993,22 @@ ENTRY(refcount_error)
 ENDPROC(refcount_error)
 #endif
 
+#ifdef CONFIG_PAX_RAP
+ENTRY(rap_call_error)
+	ASM_CLAC
+	pushl	$0
+	pushl	$do_rap_call_error
+	jmp	error_code
+ENDPROC(rap_call_error)
+
+ENTRY(rap_ret_error)
+	ASM_CLAC
+	pushl	$0
+	pushl	$do_rap_ret_error
+	jmp	error_code
+ENDPROC(rap_ret_error)
+#endif
+
 #ifdef CONFIG_XEN
 ENTRY(xen_hypervisor_callback)
 	pushl	$-1				/* orig_ax = -1 => not a system call */
@@ -978,9 +1032,9 @@ ENTRY(xen_hypervisor_callback)
 
 ENTRY(xen_do_upcall)
 1:	mov	%esp, %eax
-	call	xen_evtchn_do_upcall
+	pax_direct_call xen_evtchn_do_upcall
 #ifndef CONFIG_PREEMPT
-	call	xen_maybe_preempt_hcall
+	pax_direct_call xen_maybe_preempt_hcall
 #endif
 	jmp	ret_from_intr
 ENDPROC(xen_hypervisor_callback)
@@ -1051,7 +1105,7 @@ BUILD_INTERRUPT3(hyperv_callback_vector, HYPERVISOR_CALLBACK_VECTOR,
 #ifdef CONFIG_DYNAMIC_FTRACE
 
 ENTRY(mcount)
-	ret
+	pax_ret mcount
 ENDPROC(mcount)
 
 ENTRY(ftrace_caller)
@@ -1066,7 +1120,7 @@ ENTRY(ftrace_caller)
 
 .globl ftrace_call
 ftrace_call:
-	call	ftrace_stub
+	pax_direct_call ftrace_stub
 
 	addl	$4, %esp			/* skip NULL pointer */
 	popl	%edx
@@ -1081,7 +1135,7 @@ ftrace_graph_call:
 
 /* This is weak to keep gas from relaxing the jumps */
 WEAK(ftrace_stub)
-	ret
+	pax_ret ftrace_caller
 ENDPROC(ftrace_caller)
 
 ENTRY(ftrace_regs_caller)
@@ -1121,7 +1175,7 @@ ENTRY(ftrace_regs_caller)
 	pushl	%esp				/* Save pt_regs as 4th parameter */
 
 GLOBAL(ftrace_regs_call)
-	call	ftrace_stub
+	pax_direct_call ftrace_stub
 
 	addl	$4, %esp			/* Skip pt_regs */
 	movl	14*4(%esp), %eax		/* Move flags back into cs */
@@ -1163,7 +1217,7 @@ ENTRY(mcount)
 #endif
 .globl ftrace_stub
 ftrace_stub:
-	ret
+	pax_ret ftrace_stub
 
 	/* taken from glibc */
 trace:
@@ -1174,14 +1228,15 @@ trace:
 	movl	0x4(%ebp), %edx
 	subl	$MCOUNT_INSN_SIZE, %eax
 
-	call	*ftrace_trace_function
+	pax_indirect_call "*ftrace_trace_function", ftrace_stub
 
 	popl	%edx
 	popl	%ecx
 	popl	%eax
 	jmp	ftrace_stub
-ENDPROC(mcount)
+END(mcount)
 #endif /* CONFIG_DYNAMIC_FTRACE */
+EXPORT_SYMBOL(mcount)
 #endif /* CONFIG_FUNCTION_TRACER */
 
 #ifdef CONFIG_FUNCTION_GRAPH_TRACER
@@ -1193,11 +1248,11 @@ ENTRY(ftrace_graph_caller)
 	lea	0x4(%ebp), %edx
 	movl	(%ebp), %ecx
 	subl	$MCOUNT_INSN_SIZE, %eax
-	call	prepare_ftrace_return
+	pax_direct_call prepare_ftrace_return
 	popl	%edx
 	popl	%ecx
 	popl	%eax
-	ret
+	pax_ret ftrace_graph_caller
 ENDPROC(ftrace_graph_caller)
 
 .globl return_to_handler
@@ -1205,7 +1260,7 @@ return_to_handler:
 	pushl	%eax
 	pushl	%edx
 	movl	%ebp, %eax
-	call	ftrace_return_to_handler
+	pax_direct_call ftrace_return_to_handler
 	movl	%eax, %ecx
 	popl	%edx
 	popl	%eax
@@ -1254,7 +1309,7 @@ error_code:
 
 	TRACE_IRQS_OFF
 	movl	%esp, %eax			# pt_regs pointer
-	call	*%edi
+	pax_indirect_call "*%edi", do_page_fault
 	jmp	ret_from_exception
 ENDPROC(page_fault)
 
@@ -1287,7 +1342,7 @@ ENTRY(int1)
 	jb	.Ldebug_from_sysenter_stack
 
 	TRACE_IRQS_OFF
-	call	do_debug
+	pax_direct_call do_debug
 	jmp	ret_from_exception
 
 .Ldebug_from_sysenter_stack:
@@ -1295,7 +1350,7 @@ ENTRY(int1)
 	movl	%esp, %ebp
 	movl	PER_CPU_VAR(cpu_current_top_of_stack), %esp
 	TRACE_IRQS_OFF
-	call	do_debug
+	pax_direct_call do_debug
 	movl	%ebp, %esp
 	jmp	ret_from_exception
 ENDPROC(int1)
@@ -1335,7 +1390,7 @@ ENTRY(nmi)
 	jb	.Lnmi_from_sysenter_stack
 
 	/* Not on SYSENTER stack. */
-	call	do_nmi
+	pax_direct_call do_nmi
 
 	pax_exit_kernel
 
@@ -1348,7 +1403,7 @@ ENTRY(nmi)
 	 */
 	movl	%esp, %ebp
 	movl	PER_CPU_VAR(cpu_current_top_of_stack), %esp
-	call	do_nmi
+	pax_direct_call do_nmi
 	movl	%ebp, %esp
 
 	pax_exit_kernel
@@ -1371,7 +1426,7 @@ nmi_espfix_stack:
 	SAVE_ALL
 	FIXUP_ESPFIX_STACK			# %eax == %esp
 	xorl	%edx, %edx			# zero error code
-	call	do_nmi
+	pax_direct_call do_nmi
 
 	pax_exit_kernel
 
@@ -1388,7 +1443,7 @@ ENTRY(int3)
 	TRACE_IRQS_OFF
 	xorl	%edx, %edx			# zero error code
 	movl	%esp, %eax			# pt_regs pointer
-	call	do_int3
+	pax_direct_call do_int3
 	jmp	ret_from_exception
 ENDPROC(int3)
 
@@ -1412,6 +1467,6 @@ ENTRY(rewind_stack_do_exit)
 	movl	PER_CPU_VAR(cpu_current_top_of_stack), %esi
 	leal	-TOP_OF_KERNEL_STACK_PADDING-PTREGS_SIZE(%esi), %esp
 
-	call	do_group_exit
+	pax_direct_call do_group_exit
 1:	jmp 1b
 ENDPROC(rewind_stack_do_exit)

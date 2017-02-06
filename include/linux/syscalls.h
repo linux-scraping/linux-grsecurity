@@ -98,6 +98,15 @@ union bpf_attr;
 #define __MAP6(m,t,a,...) m(t,a), __MAP5(m,__VA_ARGS__)
 #define __MAP(n,...) __MAP##n(__VA_ARGS__)
 
+#define __RAP_MAP0(m,...) __RAP_MAP1(m,__VA_ARGS__,void,a)
+#define __RAP_MAP1(m,...) __RAP_MAP2(m,__VA_ARGS__,void,b)
+#define __RAP_MAP2(m,...) __RAP_MAP3(m,__VA_ARGS__,void,c)
+#define __RAP_MAP3(m,...) __RAP_MAP4(m,__VA_ARGS__,void,d)
+#define __RAP_MAP4(m,...) __RAP_MAP5(m,__VA_ARGS__,void,e)
+#define __RAP_MAP5(m,...) __RAP_MAP6(m,__VA_ARGS__,void,f)
+#define __RAP_MAP6(m,...) __MAP6(m,__VA_ARGS__)
+#define __RAP_MAP(n,...) __RAP_MAP##n(__VA_ARGS__)
+
 #define __SC_DECL(t, a)	t a
 #define __TYPE_IS_L(t)	(__same_type((t)0, 0L))
 #define __TYPE_IS_UL(t)	(__same_type((t)0, 0UL))
@@ -109,6 +118,7 @@ union bpf_attr;
 		__builtin_choose_expr(__type_is_unsigned(t), 0UL, 0L)	\
 	))
 #define __SC_LONG(t, a)	__SC_TYPE(t) a
+#define __RAP_SC_LONG(t, a)	unsigned long a
 #define __SC_WRAP(t, a)	(__SC_TYPE(t)) a
 #define __SC_CAST(t, a)	(t) a
 #define __SC_ARGS(t, a)	a
@@ -182,8 +192,19 @@ extern struct trace_event_functions exit_syscall_print_funcs;
 #define SYSCALL_METADATA(sname, nb, ...)
 #endif
 
+#ifdef CONFIG_PAX_RAP
+#define RAP_SYSCALL_DEFINE0(sname)				\
+	asmlinkage long rap_sys_##sname(unsigned long a, unsigned long b, unsigned long c, unsigned long d, unsigned long e, unsigned long f)\
+	{							\
+		return sys_##sname();				\
+	}
+#else
+#define RAP_SYSCALL_DEFINE0(sname)
+#endif
+
 #define SYSCALL_DEFINE0(sname)					\
 	SYSCALL_METADATA(_##sname, 0);				\
+	RAP_SYSCALL_DEFINE0(sname)				\
 	asmlinkage long sys_##sname(void)
 
 #define SYSCALL_DEFINE1(name, ...) SYSCALL_DEFINEx(1, _##name, __VA_ARGS__)
@@ -198,6 +219,18 @@ extern struct trace_event_functions exit_syscall_print_funcs;
 	__SYSCALL_DEFINEx(x, sname, __VA_ARGS__)
 
 #define __PROTECT(...) asmlinkage_protect(__VA_ARGS__)
+
+#ifdef CONFIG_PAX_RAP
+#define __RAP_SYSCALL_DEFINEx(x, name, ...)				\
+	asmlinkage __intentional_overflow(-1)				\
+	long rap_sys##name(__RAP_MAP(x,__RAP_SC_LONG,__VA_ARGS__))	\
+	{								\
+		return sys##name(__MAP(x,__SC_CAST,__VA_ARGS__));	\
+	}
+#else
+#define __RAP_SYSCALL_DEFINEx(x, name, ...)
+#endif
+
 #define __SYSCALL_DEFINEx(x, name, ...)					\
 	static inline long SYSC##name(__MAP(x,__SC_DECL,__VA_ARGS__));	\
 	static inline asmlinkage long SyS##name(__MAP(x,__SC_LONG,__VA_ARGS__))	\
@@ -211,6 +244,7 @@ extern struct trace_event_functions exit_syscall_print_funcs;
 	{								\
 		return SyS##name(__MAP(x,__SC_WRAP,__VA_ARGS__));	\
 	}								\
+	__RAP_SYSCALL_DEFINEx(x,name,__VA_ARGS__)			\
 	static inline long SYSC##name(__MAP(x,__SC_DECL,__VA_ARGS__))
 
 asmlinkage long sys32_quotactl(unsigned int cmd, const char __user *special,
@@ -905,5 +939,10 @@ asmlinkage long sys_copy_file_range(int fd_in, loff_t __user *off_in,
 				    size_t len, unsigned int flags);
 
 asmlinkage long sys_mlock2(unsigned long start, size_t len, int flags);
+
+asmlinkage long sys_pkey_mprotect(unsigned long start, size_t len,
+				  unsigned long prot, int pkey);
+asmlinkage long sys_pkey_alloc(unsigned long flags, unsigned long init_val);
+asmlinkage long sys_pkey_free(int pkey);
 
 #endif

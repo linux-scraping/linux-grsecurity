@@ -32,7 +32,8 @@
 #include <asm/ptrace.h>
 #include <asm/branch.h>
 #include <asm/break.h>
-#include <asm/inst.h>
+
+#include "probes-common.h"
 
 static const union mips_instruction breakpoint_insn = {
 	.b_format = {
@@ -55,63 +56,7 @@ DEFINE_PER_CPU(struct kprobe_ctlblk, kprobe_ctlblk);
 
 static int __kprobes insn_has_delayslot(union mips_instruction insn)
 {
-	switch (insn.i_format.opcode) {
-
-		/*
-		 * This group contains:
-		 * jr and jalr are in r_format format.
-		 */
-	case spec_op:
-		switch (insn.r_format.func) {
-		case jr_op:
-		case jalr_op:
-			break;
-		default:
-			goto insn_ok;
-		}
-
-		/*
-		 * This group contains:
-		 * bltz_op, bgez_op, bltzl_op, bgezl_op,
-		 * bltzal_op, bgezal_op, bltzall_op, bgezall_op.
-		 */
-	case bcond_op:
-
-		/*
-		 * These are unconditional and in j_format.
-		 */
-	case jal_op:
-	case j_op:
-
-		/*
-		 * These are conditional and in i_format.
-		 */
-	case beq_op:
-	case beql_op:
-	case bne_op:
-	case bnel_op:
-	case blez_op:
-	case blezl_op:
-	case bgtz_op:
-	case bgtzl_op:
-
-		/*
-		 * These are the FPA/cp1 branch instructions.
-		 */
-	case cop1_op:
-
-#ifdef CONFIG_CPU_CAVIUM_OCTEON
-	case lwc2_op: /* This is bbit0 on Octeon */
-	case ldc2_op: /* This is bbit032 on Octeon */
-	case swc2_op: /* This is bbit1 on Octeon */
-	case sdc2_op: /* This is bbit132 on Octeon */
-#endif
-		return 1;
-	default:
-		break;
-	}
-insn_ok:
-	return 0;
+	return __insn_has_delay_slot(insn);
 }
 
 /*
@@ -157,6 +102,12 @@ int __kprobes arch_prepare_kprobe(struct kprobe *p)
 				sizeof(mips_instruction)) == 0) &&
 				insn_has_delayslot(prev_insn)) {
 		pr_notice("Kprobes for branch delayslot are not supported\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (__insn_is_compact_branch(insn)) {
+		pr_notice("Kprobes for compact branches are not supported\n");
 		ret = -EINVAL;
 		goto out;
 	}
@@ -584,6 +535,7 @@ static void __used kretprobe_trampoline_holder(void)
 
 void kretprobe_trampoline(void);
 
+#ifdef CONFIG_KRETPROBES
 void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
 				      struct pt_regs *regs)
 {
@@ -592,6 +544,7 @@ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
 	/* Replace the return addr with trampoline addr */
 	regs->regs[31] = (unsigned long)kretprobe_trampoline;
 }
+#endif
 
 /*
  * Called when the probe at kretprobe trampoline is hit
@@ -660,6 +613,7 @@ static int __kprobes trampoline_probe_handler(struct kprobe *p,
 	return 1;
 }
 
+#ifdef CONFIG_KRETPROBES
 int __kprobes arch_trampoline_kprobe(struct kprobe *p)
 {
 	if (p->addr == (kprobe_opcode_t *)kretprobe_trampoline)
@@ -667,6 +621,7 @@ int __kprobes arch_trampoline_kprobe(struct kprobe *p)
 
 	return 0;
 }
+#endif
 
 static struct kprobe trampoline_p = {
 	.addr = (kprobe_opcode_t *)kretprobe_trampoline,

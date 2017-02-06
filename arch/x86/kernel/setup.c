@@ -211,11 +211,11 @@ EXPORT_SYMBOL(boot_cpu_data);
 
 
 #ifdef CONFIG_X86_64
-__visible unsigned long mmu_cr4_features __read_only = X86_CR4_PSE | X86_CR4_PAE | X86_CR4_PGE;
+__visible unsigned long mmu_cr4_features __ro_after_init = X86_CR4_PSE | X86_CR4_PAE | X86_CR4_PGE;
 #elif defined(CONFIG_X86_PAE)
-__visible unsigned long mmu_cr4_features __read_only = X86_CR4_PAE;
+__visible unsigned long mmu_cr4_features __ro_after_init = X86_CR4_PAE;
 #else
-__visible unsigned long mmu_cr4_features __read_only;
+__visible unsigned long mmu_cr4_features __ro_after_init;
 #endif
 
 /* Boot loader ID and version as integers, for the benefit of proc_dointvec */
@@ -461,8 +461,8 @@ static void __init e820_reserve_setup_data(void)
 		early_memunmap(data, sizeof(*data));
 	}
 
-	sanitize_e820_map(e820.map, ARRAY_SIZE(e820.map), &e820.nr_map);
-	memcpy(&e820_saved, &e820, sizeof(struct e820map));
+	sanitize_e820_map(e820->map, ARRAY_SIZE(e820->map), &e820->nr_map);
+	memcpy(e820_saved, e820, sizeof(struct e820map));
 	printk(KERN_INFO "extended physical RAM map:\n");
 	e820_print_map("reserve setup_data");
 }
@@ -766,7 +766,7 @@ static void __init trim_bios_range(void)
 	 */
 	e820_remove_range(ISA_START_ADDRESS, ISA_END_ADDRESS - ISA_START_ADDRESS, E820_RAM, 1);
 
-	sanitize_e820_map(e820.map, ARRAY_SIZE(e820.map), &e820.nr_map);
+	sanitize_e820_map(e820->map, ARRAY_SIZE(e820->map), &e820->nr_map);
 }
 
 /* called before trim_bios_range() to spare extra sanitize */
@@ -1035,7 +1035,7 @@ void __init setup_arch(char **cmdline_p)
 	if (ppro_with_ram_bug()) {
 		e820_update_range(0x70000000ULL, 0x40000ULL, E820_RAM,
 				  E820_RESERVED);
-		sanitize_e820_map(e820.map, ARRAY_SIZE(e820.map), &e820.nr_map);
+		sanitize_e820_map(e820->map, ARRAY_SIZE(e820->map), &e820->nr_map);
 		printk(KERN_INFO "fixed physical RAM map:\n");
 		e820_print_map("bad_ppro");
 	}
@@ -1099,19 +1099,19 @@ void __init setup_arch(char **cmdline_p)
 	memblock_set_current_limit(ISA_END_ADDRESS);
 	memblock_x86_fill();
 
-	if (efi_enabled(EFI_BOOT)) {
-		efi_fake_memmap();
-		efi_find_mirror();
-	}
-
 	reserve_bios_regions();
 
-	/*
-	 * The EFI specification says that boot service code won't be called
-	 * after ExitBootServices(). This is, in fact, a lie.
-	 */
-	if (efi_enabled(EFI_MEMMAP))
+	if (efi_enabled(EFI_MEMMAP)) {
+		efi_fake_memmap();
+		efi_find_mirror();
+		efi_esrt_init();
+
+		/*
+		 * The EFI specification says that boot service code won't be
+		 * called after ExitBootServices(). This is, in fact, a lie.
+		 */
 		efi_reserve_boot_services();
+	}
 
 	/* preallocate 4k for mptable mpc */
 	early_reserve_e820_mpc_new();
@@ -1140,7 +1140,7 @@ void __init setup_arch(char **cmdline_p)
 	 * auditing all the early-boot CR4 manipulation would be needed to
 	 * rule it out.
 	 */
-	mmu_cr4_features = __read_cr4_safe();
+	mmu_cr4_features = __read_cr4();
 
 	memblock_set_current_limit(get_max_mapped());
 
@@ -1222,8 +1222,7 @@ void __init setup_arch(char **cmdline_p)
 	/*
 	 * get boot-time SMP configuration:
 	 */
-	if (smp_found_config)
-		get_smp_config();
+	get_smp_config();
 
 	/*
 	 * Systems w/o ACPI and mptables might not have it mapped the local

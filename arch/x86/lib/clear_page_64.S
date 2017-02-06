@@ -1,6 +1,7 @@
 #include <linux/linkage.h>
 #include <asm/cpufeatures.h>
 #include <asm/alternative-asm.h>
+#include <asm/export.h>
 
 /*
  * Most CPUs support enhanced REP MOVSB/STOSB instructions. It is
@@ -21,9 +22,9 @@ ENTRY(clear_page)
 	movl $4096/8,%ecx
 	xorl %eax,%eax
 	rep stosq
-	pax_force_retaddr
-	ret
+	pax_ret clear_page
 ENDPROC(clear_page)
+EXPORT_SYMBOL(clear_page)
 
 ENTRY(clear_page_orig)
 
@@ -44,14 +45,12 @@ ENTRY(clear_page_orig)
 	leaq	64(%rdi),%rdi
 	jnz	.Lloop
 	nop
-	pax_force_retaddr
-	ret
+	pax_ret clear_page
 ENDPROC(clear_page_orig)
 
 ENTRY(clear_page_c_e)
 	movl $4096,%ecx
 	xorl %eax,%eax
 	rep stosb
-	pax_force_retaddr
-	ret
+	pax_ret clear_page
 ENDPROC(clear_page_c_e)

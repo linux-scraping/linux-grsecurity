@@ -8,7 +8,6 @@
 #include <linux/mount.h>
 #include <linux/tty.h>
 #include <linux/proc_fs.h>
-#include <linux/lglock.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/types.h>
@@ -23,7 +22,6 @@
 #include <linux/stop_machine.h>
 #include <linux/fdtable.h>
 #include <linux/percpu.h>
-#include <linux/lglock.h>
 #include <linux/hugetlb.h>
 #include <linux/posix-timers.h>
 #include "../fs/mount.h"

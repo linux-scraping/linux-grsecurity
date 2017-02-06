@@ -9,9 +9,11 @@
 #include <linux/thread_info.h>
 #include <linux/string.h>
 #include <linux/spinlock.h>
+#include <linux/sched.h>
 #include <asm/asm.h>
 #include <asm/page.h>
 #include <asm/smap.h>
+#include <asm/extable.h>
 
 #define VERIFY_READ 0
 #define VERIFY_WRITE 1
@@ -30,17 +32,17 @@
 #define USER_DS 	MAKE_MM_SEG(TASK_SIZE_MAX)
 
 #define get_ds()	(KERNEL_DS)
-#define get_fs()	(current_thread_info()->addr_limit)
+#define get_fs()	(current->thread.addr_limit)
 #if defined(CONFIG_X86_32) && defined(CONFIG_PAX_MEMORY_UDEREF)
 void __set_fs(mm_segment_t x);
 void set_fs(mm_segment_t x);
 #else
-#define set_fs(x)	(current_thread_info()->addr_limit = (x))
+#define set_fs(x)	(current->thread.addr_limit = (x))
 #endif
 
 #define segment_eq(a, b)	((a).seg == (b).seg)
 
-#define user_addr_max() (current_thread_info()->addr_limit.seg)
+#define user_addr_max() (current->thread.addr_limit.seg)
 #define __addr_ok(addr) 	\
 	((unsigned long __force)(addr) < user_addr_max())
 
@@ -93,67 +95,10 @@ static inline bool __chk_range_not_ok(unsigned long addr, unsigned long size, un
  * checks that the pointer is in the user space range - after calling
  * this function, memory access functions may still return -EFAULT.
  */
-extern int _cond_resched(void);
-#define access_ok_noprefault(type, addr, size) (likely(!__range_not_ok(addr, size, user_addr_max())))
-#define access_ok(type, addr, size)					\
-({									\
-	unsigned long __size = size;					\
-	unsigned long __addr = (unsigned long)addr;			\
-	bool __ret_ao = __range_not_ok(__addr, __size, user_addr_max()) == 0;\
-	if (__ret_ao && __size < 256 * PAGE_SIZE) {			\
-		unsigned long __addr_ao = __addr & PAGE_MASK;		\
-		unsigned long __end_ao = __addr + __size - 1;		\
-		if (unlikely((__end_ao ^ __addr_ao) & PAGE_MASK)) {	\
-			while (__addr_ao <= __end_ao) {			\
-				char __c_ao;				\
-				__addr_ao += PAGE_SIZE;			\
-				if (__size > PAGE_SIZE)			\
-					_cond_resched();		\
-				if (__get_user(__c_ao, (char __user *)__addr))	\
-					break;				\
-				if ((type) != VERIFY_WRITE) {		\
-					__addr = __addr_ao;		\
-					continue;			\
-				}					\
-				if (__put_user(__c_ao, (char __user *)__addr))	\
-					break;				\
-				__addr = __addr_ao;			\
-			}						\
-		}							\
-	}								\
-	__ret_ao;							\
-})
-
-/*
- * The exception table consists of triples of addresses relative to the
- * exception table entry itself. The first address is of an instruction
- * that is allowed to fault, the second is the target at which the program
- * should continue. The third is a handler function to deal with the fault
- * caused by the instruction in the first field.
- *
- * All the routines below use bits of fixup code that are out of line
- * with the main instruction path.  This means when everything is well,
- * we don't even have to jump over them.  Further, they do not intrude
- * on our cache or tlb entries.
- */
-
-struct exception_table_entry {
-	int insn, fixup, handler;
-};
-
-#define ARCH_HAS_RELATIVE_EXTABLE
-
-#define swap_ex_entry_fixup(a, b, tmp, delta)			\
-	do {							\
-		(a)->fixup = (b)->fixup + (delta);		\
-		(b)->fixup = (tmp).fixup - (delta);		\
-		(a)->handler = (b)->handler + (delta);		\
-		(b)->handler = (tmp).handler - (delta);		\
-	} while (0)
-
-extern int fixup_exception(struct pt_regs *regs, int trapnr);
-extern bool ex_has_fault_handler(unsigned long ip);
-extern void early_fixup_exception(struct pt_regs *regs, int trapnr);
+#define access_ok_noprefault(type, addr, size) \
+	likely(!__range_not_ok((addr), (size), user_addr_max()))
+#define access_ok(type, addr, size) \
+	__access_ok(type, (unsigned long)(addr), (size_t)(size))
 
 /*
  * These are the main single-value transfer routines.  They automatically

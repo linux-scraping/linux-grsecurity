@@ -235,6 +235,10 @@
 #define __unverified_nocapture(...) __attribute__((unverified_nocapture(__VA_ARGS__)))
 #endif
 
+#ifdef RAP_PLUGIN
+#define __rap_hash __attribute__((rap_hash))
+#endif
+
 /*
  * Mark a position in code as unreachable.  This can be used to
  * suppress control flow warnings after asm blocks that transfer

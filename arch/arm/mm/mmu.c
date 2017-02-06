@@ -251,7 +251,7 @@ __setup("noalign", noalign_setup);
 #define PMD_SECT_KERNEXEC	PMD_SECT_AP_WRITE
 #endif
 
-static struct mem_type mem_types[] __read_only = {
+static struct mem_type mem_types[] __ro_after_init = {
 	[MT_DEVICE] = {		  /* Strongly ordered / ARMv6 shared device */
 		.prot_pte	= PROT_PTE_DEVICE | L_PTE_MT_DEV_SHARED |
 				  L_PTE_SHARED,

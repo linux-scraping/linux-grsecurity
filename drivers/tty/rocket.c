@@ -915,7 +915,7 @@ static int rp_open(struct tty_struct *tty, struct file *filp)
 #endif
 	}
 #ifdef ROCKET_DEBUG_OPEN
-	printk(KERN_INFO "rp_open ttyR%d, count=%d\n", info->line, atomic-read(&info->port.count));
+	printk(KERN_INFO "rp_open ttyR%d, count=%d\n", info->line, atomic_read(&info->port.count));
 #endif
 
 	/*
@@ -992,7 +992,7 @@ static void rp_close(struct tty_struct *tty, struct file *filp)
 		return;
 
 #ifdef ROCKET_DEBUG_OPEN
-	printk(KERN_INFO "rp_close ttyR%d, count = %d\n", info->line, info->port.count);
+	printk(KERN_INFO "rp_close ttyR%d, count = %d\n", info->line, atomic_read(&info->port.count));
 #endif
 
 	if (tty_port_close_start(port, tty, filp) == 0)

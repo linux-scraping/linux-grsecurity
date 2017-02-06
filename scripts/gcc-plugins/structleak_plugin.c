@@ -36,7 +36,7 @@ static struct plugin_info structleak_plugin_info = {
 	.help		= "disable\tdo not activate plugin\n",
 };
 
-static tree handle_user_attribute(tree *node, tree name, tree args, int flags, bool *no_add_attrs)
+static tree handle_user_attribute(tree *node, tree name __unused, tree args __unused, int flags __unused, bool *no_add_attrs)
 {
 	*no_add_attrs = true;
 
@@ -61,7 +61,7 @@ static struct attribute_spec user_attr = {
 #endif
 };
 
-static void register_attributes(void *event_data, void *data)
+static void register_attributes(void *event_data __unused, void *data __unused)
 {
 	register_attribute(&user_attr);
 //	register_attribute(&force_attr);
@@ -90,7 +90,7 @@ static bool is_userspace_type(tree type)
 	return false;
 }
 
-static void finish_type(void *event_data, void *data)
+static void finish_type(void *event_data, void *data __unused)
 {
 	tree type = (tree)event_data;
 
@@ -170,7 +170,7 @@ static unsigned int structleak_execute(void)
 		gcc_assert(single_succ_p(ENTRY_BLOCK_PTR_FOR_FN(cfun)));
 	}
 
-	// enumarate all local variables and forcibly initialize our targets
+	// enumerate all local variables and forcibly initialize our targets
 	FOR_EACH_LOCAL_DECL(cfun, i, var) {
 		tree type = TREE_TYPE(var);
 
@@ -207,7 +207,7 @@ __visible int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gc
 	PASS_INFO(structleak, "early_optimizations", 1, PASS_POS_INSERT_BEFORE);
 
 	if (!plugin_default_version_check(version, &gcc_version)) {
-		error(G_("incompatible gcc/plugin versions"));
+		error_gcc_version(version);
 		return 1;
 	}
 

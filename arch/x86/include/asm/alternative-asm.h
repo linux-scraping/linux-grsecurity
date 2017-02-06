@@ -3,6 +3,7 @@
 
 #ifdef __ASSEMBLY__
 
+#include <linux/linkage.h>
 #include <asm/asm.h>
 #include <asm/irq_vectors.h>
 
@@ -19,44 +20,113 @@
 	.endm
 #endif
 
+.macro pax_force_retaddr_bts rip=0
 #ifdef KERNEXEC_PLUGIN
-	.macro pax_force_retaddr_bts rip=0
 	btsq $63,\rip(%rsp)
-	.endm
+#endif
+.endm
+
+#if defined(CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_BTS) && defined(CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR)
+#error PAX: the KERNEXEC BTS and OR methods must not be enabled at once
+#endif
+
+.macro pax_force_retaddr rip=0
 #ifdef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_BTS
-	.macro pax_force_retaddr rip=0, reload=0
 	btsq $63,\rip(%rsp)
-	.endm
-	.macro pax_force_fptr ptr
-	btsq $63,\ptr
-	.endm
-	.macro pax_set_fptr_mask
-	.endm
 #endif
 #ifdef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
-	.macro pax_force_retaddr rip=0, reload=0
-	.if \reload
-	pax_set_fptr_mask
-	.endif
 	orq %r12,\rip(%rsp)
-	.endm
-	.macro pax_force_fptr ptr
+#endif
+.endm
+
+.macro pax_force_fptr ptr
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_BTS
+	btsq $63,\ptr
+#endif
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
 	orq %r12,\ptr
-	.endm
-	.macro pax_set_fptr_mask
+#endif
+.endm
+
+.macro pax_set_fptr_mask
+#ifdef CONFIG_PAX_KERNEXEC_PLUGIN_METHOD_OR
 	movabs $0x8000000000000000,%r12
-	.endm
 #endif
+.endm
+
+#ifdef CONFIG_PAX_RAP
+.macro rap_call target hash="" sym=""
+
+	jmp 2001f
+	.ifb \hash
+	__ASM_RAP_RET_HASH(__rap_hash_ret_\target)
+	.else
+	__ASM_RAP_RET_HASH(__rap_hash_ret_\hash)
+	.endif
+	.skip 8-(2002f-2001f),0xcc
+
+	.ifnb \sym
+	.globl \sym
+\sym :
+	.endif
+
+2001:	call \target
+2002:
+.endm
+
+.macro rap_retloc caller
+	__ASM_RAP_RET_HASH(__rap_hash_ret_\caller)
+	.skip 8-(2002f-2001f),0xcc
+2001:	call \caller
+2002:
+.endm
+
+.macro rap_ret func
+	ret
+.endm
+#endif
+
+.macro pax_direct_call_global target sym
+#ifdef CONFIG_PAX_RAP
+	rap_call \target, , \sym
 #else
-	.macro pax_force_retaddr rip=0, reload=0
-	.endm
-	.macro pax_force_fptr ptr
-	.endm
-	.macro pax_force_retaddr_bts rip=0
-	.endm
-	.macro pax_set_fptr_mask
-	.endm
+	.globl \sym
+\sym :
+	call \target
 #endif
+.endm
+
+.macro pax_indirect_call target extra
+#ifdef CONFIG_PAX_RAP
+	rap_call "\target", \extra
+#else
+	call \target
+#endif
+.endm
+
+.macro pax_direct_call target
+#ifdef CONFIG_PAX_RAP
+	rap_call \target
+#else
+	call \target
+#endif
+.endm
+
+.macro pax_retloc caller
+#ifdef CONFIG_PAX_RAP
+	rap_retloc \caller
+#else
+#endif
+.endm
+
+.macro pax_ret func
+	pax_force_retaddr
+#ifdef CONFIG_PAX_RAP
+	rap_ret \func
+#else
+	ret
+#endif
+.endm
 
 /*
  * Issue one struct alt_instr descriptor entry (need to put it into

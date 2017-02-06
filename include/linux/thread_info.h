@@ -13,6 +13,12 @@
 struct timespec;
 struct compat_timespec;
 
+#ifdef CONFIG_THREAD_INFO_IN_TASK
+#ifndef current_thread_info
+struct thread_info *current_thread_info(void);
+#endif
+#endif
+
 /*
  * System call restart block.
  */
@@ -74,6 +80,22 @@ enum {
  * - pass TIF_xxxx constants to these functions
  */
 
+#ifdef CONFIG_THREAD_INFO_IN_TASK_XXXX
+#define set_ti_thread_flag(ti, flag) \
+	set_bit(flag, (unsigned long *)&ti->flags)
+
+#define clear_ti_thread_flag(ti, flag) \
+	clear_bit(flag, (unsigned long *)&ti->flags)
+
+#define test_and_set_ti_thread_flag(ti, flag) \
+	test_and_set_bit(flag, (unsigned long *)&ti->flags)
+
+#define test_and_clear_ti_thread_flag(ti, flag) \
+	test_and_clear_bit(flag, (unsigned long *)&ti->flags)
+
+#define test_ti_thread_flag(ti, flag) \
+	test_bit(flag, (unsigned long *)&ti->flags)
+#else
 static inline void set_ti_thread_flag(struct thread_info *ti, int flag)
 {
 	set_bit(flag, (unsigned long *)&ti->flags);
@@ -98,6 +120,7 @@ static inline int test_ti_thread_flag(struct thread_info *ti, int flag)
 {
 	return test_bit(flag, (unsigned long *)&ti->flags);
 }
+#endif
 
 #define set_thread_flag(flag) \
 	set_ti_thread_flag(current_thread_info(), flag)
@@ -136,6 +159,8 @@ static inline void check_object_size(const void *ptr, unsigned long n,
 				     bool to_user)
 { }
 #endif /* CONFIG_HARDENED_USERCOPY */
+
+bool __access_ok(int type, unsigned long addr, size_t size);
 
 #endif	/* __KERNEL__ */
 

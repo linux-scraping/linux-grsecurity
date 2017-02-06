@@ -163,9 +163,12 @@ static unsigned long __init bios32_service(unsigned long service)
 static struct {
 	unsigned long address;
 	unsigned short segment;
-} pci_indirect __read_only = { 0, __PCIBIOS_CS };
+} pci_indirect __ro_after_init = {
+	.address = 0,
+	.segment = __PCIBIOS_CS,
+};
 
-static int pci_bios_present __read_only;
+static int pci_bios_present __ro_after_init;
 
 static int __init check_pcibios(void)
 {

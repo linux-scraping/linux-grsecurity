@@ -54,11 +54,12 @@ struct cpumask;
 
 /*
  * Wrapper type for pointers to code which uses the non-standard
- * calling convention.  See PV_CALL_SAVE_REGS_THUNK below.
+ * calling convention.  See PV_CALLEE_SAVE_REGS_THUNK below.
  */
+typedef void (*paravirt_callee_save_t)(void);
 struct paravirt_callee_save {
-	void *func;
-};
+	paravirt_callee_save_t func;
+} __no_const;
 
 /* general info */
 struct pv_info {
@@ -91,12 +92,12 @@ struct pv_lazy_ops {
 	void (*enter)(void);
 	void (*leave)(void);
 	void (*flush)(void);
-} __no_randomize_layout;
+} __no_const __no_randomize_layout;
 
 struct pv_time_ops {
 	unsigned long long (*sched_clock)(void);
 	unsigned long long (*steal_clock)(int cpu);
-} __no_const __no_randomize_layout;
+} __rap_hash __no_const __no_randomize_layout;
 
 struct pv_cpu_ops {
 	/* hooks for various privileged instructions */
@@ -108,7 +109,6 @@ struct pv_cpu_ops {
 	unsigned long (*read_cr0)(void);
 	void (*write_cr0)(unsigned long);
 
-	unsigned long (*read_cr4_safe)(void);
 	unsigned long (*read_cr4)(void);
 	void (*write_cr4)(unsigned long);
 
@@ -178,7 +178,7 @@ struct pv_cpu_ops {
 
 	void (*start_context_switch)(struct task_struct *prev);
 	void (*end_context_switch)(struct task_struct *next);
-} __no_const __no_randomize_layout;
+} __rap_hash __no_const __no_randomize_layout;
 
 struct pv_irq_ops {
 	/*
@@ -201,7 +201,7 @@ struct pv_irq_ops {
 #ifdef CONFIG_X86_64
 	void (*adjust_exception_frame)(void);
 #endif
-} __no_randomize_layout;
+} __rap_hash __no_randomize_layout;
 
 struct pv_mmu_ops {
 	unsigned long (*read_cr2)(void);
@@ -303,29 +303,22 @@ struct pv_mmu_ops {
 	unsigned long (*pax_close_kernel)(void);
 #endif
 
-} __no_randomize_layout;
+} __rap_hash __no_randomize_layout;
 
 struct arch_spinlock;
 #ifdef CONFIG_SMP
 #include <asm/spinlock_types.h>
-#else
-typedef u16 __ticket_t;
 #endif
 
 struct qspinlock;
 
 struct pv_lock_ops {
-#ifdef CONFIG_QUEUED_SPINLOCKS
 	void (*queued_spin_lock_slowpath)(struct qspinlock *lock, u32 val);
 	struct paravirt_callee_save queued_spin_unlock;
 
 	void (*wait)(u8 *ptr, u8 val);
 	void (*kick)(int cpu);
-#else /* !CONFIG_QUEUED_SPINLOCKS */
-	struct paravirt_callee_save lock_spinning;
-	void (*unlock_kick)(struct arch_spinlock *lock, __ticket_t ticket);
-#endif /* !CONFIG_QUEUED_SPINLOCKS */
-} __no_randomize_layout;
+} __rap_hash __no_randomize_layout;
 
 /* This contains all the paravirt structures: we get a convenient
  * number for each function using the offset which we use to indicate
@@ -409,7 +402,7 @@ int paravirt_disable_iospace(void);
  * offset into the paravirt_patch_template structure, and can therefore be
  * freely converted back into a structure offset.
  */
-#define PARAVIRT_CALL	"call *%c[paravirt_opptr];"
+#define PARAVIRT_CALL(op)	PAX_INDIRECT_CALL("*%c[paravirt_opptr]", #op) ";"
 
 /*
  * These macros are intended to wrap calls through one of the paravirt
@@ -536,7 +529,7 @@ int paravirt_disable_iospace(void);
 		/* since this condition will never hold */		\
 		if (sizeof(rettype) > sizeof(unsigned long)) {		\
 			asm volatile(pre				\
-				     paravirt_alt(PARAVIRT_CALL)	\
+				     paravirt_alt(PARAVIRT_CALL(op))	\
 				     post				\
 				     : call_clbr, "+r" (__sp)		\
 				     : paravirt_type(op),		\
@@ -546,7 +539,7 @@ int paravirt_disable_iospace(void);
 			__ret = (rettype)((((u64)__edx) << 32) | __eax); \
 		} else {						\
 			asm volatile(pre				\
-				     paravirt_alt(PARAVIRT_CALL)	\
+				     paravirt_alt(PARAVIRT_CALL(op))	\
 				     post				\
 				     : call_clbr, "+r" (__sp)		\
 				     : paravirt_type(op),		\
@@ -573,7 +566,7 @@ int paravirt_disable_iospace(void);
 		PVOP_VCALL_ARGS;					\
 		PVOP_TEST_NULL(op);					\
 		asm volatile(pre					\
-			     paravirt_alt(PARAVIRT_CALL)		\
+			     paravirt_alt(PARAVIRT_CALL(op))		\
 			     post					\
 			     : call_clbr, "+r" (__sp)			\
 			     : paravirt_type(op),			\
