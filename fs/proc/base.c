@@ -1113,7 +1113,7 @@ static ssize_t auxv_read(struct file *file, char __user *buf,
 		return 0;
 
 #ifdef CONFIG_GRKERNSEC_PROC_MEMMAP
-	{
+	if (PAX_RAND_FLAGS(mm)) {
 		struct task_struct *task = get_proc_task(file_inode(file));
 		bool is_by_ptracer = false;
 
