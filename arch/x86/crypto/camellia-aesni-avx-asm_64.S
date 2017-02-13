@@ -213,7 +213,7 @@ ENDPROC(roundsm16_x4_x5_x6_x7_x0_x1_x2_x3_y4_y5_y6_y7_y0_y1_y2_y3_ab)
 #define two_roundsm16(x0, x1, x2, x3, x4, x5, x6, x7, y0, y1, y2, y3, y4, y5, \
 		      y6, y7, mem_ab, mem_cd, i, dir, store_ab) \
 	leaq (key_table + (i) * 8)(CTX), %r9; \
-	pax_indirect_call roundsm16_x0_x1_x2_x3_x4_x5_x6_x7_y0_y1_y2_y3_y4_y5_y6_y7_cd; \
+	pax_direct_call roundsm16_x0_x1_x2_x3_x4_x5_x6_x7_y0_y1_y2_y3_y4_y5_y6_y7_cd; \
 	\
 	vmovdqu x4, 0 * 16(mem_cd); \
 	vmovdqu x5, 1 * 16(mem_cd); \
@@ -225,7 +225,7 @@ ENDPROC(roundsm16_x4_x5_x6_x7_x0_x1_x2_x3_y4_y5_y6_y7_y0_y1_y2_y3_ab)
 	vmovdqu x3, 7 * 16(mem_cd); \
 	\
 	leaq (key_table + ((i) + (dir)) * 8)(CTX), %r9; \
-	pax_indirect_call roundsm16_x4_x5_x6_x7_x0_x1_x2_x3_y4_y5_y6_y7_y0_y1_y2_y3_ab; \
+	pax_direct_call roundsm16_x4_x5_x6_x7_x0_x1_x2_x3_y4_y5_y6_y7_y0_y1_y2_y3_ab; \
 	\
 	store_ab(x0, x1, x2, x3, x4, x5, x6, x7, mem_ab);
 
@@ -1225,7 +1225,7 @@ camellia_xts_crypt_16way:
 	vpxor 14 * 16(%rax), %xmm15, %xmm14;
 	vpxor 15 * 16(%rax), %xmm15, %xmm15;
 
-	pax_indirect_call "*%r9", camellia_xts_enc_16way;
+	pax_indirect_call "%r9", camellia_xts_enc_16way;
 
 	addq $(16 * 16), %rsp;
 

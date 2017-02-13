@@ -491,7 +491,7 @@ NEXT_PAGE(cpu_pgd)
 	.rept 2*NR_CPUS
 	.fill	512,8,0
 	.endr
-EXPORT_SYMBOL(cpu_pgd);
+EXPORT_SYMBOL(cpu_pgd)
 #endif
 
 NEXT_PAGE(level3_ident_pgt)
@@ -603,7 +603,7 @@ ENTRY(cpu_gdt_table)
 	.fill PAGE_SIZE / 8 - GDT_ENTRIES,8,0
 	.endr
 
-EXPORT_SYMBOL_GPL(cpu_gdt_table);
+EXPORT_SYMBOL_GPL(cpu_gdt_table)
 
 	.align 16
 	.globl early_gdt_descr

@@ -87,10 +87,12 @@ static inline int alternatives_text_reserved(void *start, void *end)
 
 #ifdef CONFIG_PAX_RAP
 #define PAX_DIRECT_CALL(target) "rap_direct_call " target
+#define PAX_DIRECT_CALL_HASH(target, hash) "rap_direct_call " target " " hash
 #define PAX_INDIRECT_CALL(target, extra) "rap_indirect_call " target " " extra
 #define PAX_RET(extra) "rap_ret " extra
 #else
 #define PAX_DIRECT_CALL(target) "call " target
+#define PAX_DIRECT_CALL_HASH(target, hash) "call " target
 #define PAX_INDIRECT_CALL(target, extra) "call " target
 #define PAX_RET(extra) "ret"
 #endif

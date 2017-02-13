@@ -264,7 +264,7 @@ int drm_get_pci_dev(struct pci_dev *pdev, const struct pci_device_id *ent,
 	/* No locking needed since shadow-attach is single-threaded since it may
 	 * only be called from the per-driver module init hook. */
 	if (drm_core_check_feature(dev, DRIVER_LEGACY))
-		pax_list_add_tail(&dev->legacy_dev_list, &driver->legacy_dev_list);
+		pax_list_add_tail(&dev->legacy_dev_list, (struct list_head *)&driver->legacy_dev_list);
 
 	return 0;
 

@@ -803,7 +803,7 @@ ENTRY(cpu_pgd)
 	.rept 2*NR_CPUS
 	.fill	PTRS_PER_PGD,8,0
 	.endr
-EXPORT_SYMBOL(cpu_pgd);
+EXPORT_SYMBOL(cpu_pgd)
 # endif
 
 #endif
@@ -918,4 +918,4 @@ ENTRY(cpu_gdt_table)
 	.fill PAGE_SIZE_asm - GDT_SIZE,1,0
 	.endr
 
-EXPORT_SYMBOL_GPL(cpu_gdt_table);
+EXPORT_SYMBOL_GPL(cpu_gdt_table)

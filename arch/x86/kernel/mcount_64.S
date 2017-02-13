@@ -289,7 +289,7 @@ trace:
 	 * function tracing is enabled.
 	 */
 	pax_force_fptr ftrace_trace_function
-	pax_indirect_call "*ftrace_trace_function", ftrace_stub
+	pax_indirect_call "ftrace_trace_function", ftrace_stub
 
 	restore_mcount_regs
 

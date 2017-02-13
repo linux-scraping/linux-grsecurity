@@ -59,20 +59,11 @@ struct fork_frame {
 	struct pt_regs regs;
 };
 
-#ifdef CONFIG_X86_32
 #define switch_to(prev, next, last)					\
 do {									\
 	prepare_switch_to(prev, next);					\
 									\
 	((last) = __switch_to_asm((prev), (next)));			\
 } while (0)
-#else
-#define switch_to(prev, next, last)					\
-do {									\
-	prepare_switch_to(prev, next);					\
-									\
-	((last) = __switch_to_asm((prev), (next)));			\
-} while (0)
-#endif
 
 #endif /* _ASM_X86_SWITCH_TO_H */

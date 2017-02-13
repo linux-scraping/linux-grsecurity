@@ -838,7 +838,7 @@ static int __register_pernet_operations(struct list_head *list,
 					struct pernet_operations *ops)
 {
 	if (!init_net_initialized) {
-		list_add_tail(&ops->list, list);
+		pax_list_add_tail((struct list_head *)&ops->list, list);
 		return 0;
 	}
 
@@ -848,7 +848,7 @@ static int __register_pernet_operations(struct list_head *list,
 static void __unregister_pernet_operations(struct pernet_operations *ops)
 {
 	if (!init_net_initialized) {
-		list_del(&ops->list);
+		pax_list_del((struct list_head *)&ops->list);
 	} else {
 		LIST_HEAD(net_exit_list);
 		list_add(&init_net.exit_list, &net_exit_list);

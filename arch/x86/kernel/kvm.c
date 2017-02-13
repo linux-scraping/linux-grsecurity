@@ -606,7 +606,7 @@ void __init kvm_spinlock_init(void)
 	__pv_init_lock_hash();
 	pax_open_kernel();
 	pv_lock_ops.queued_spin_lock_slowpath = __pv_queued_spin_lock_slowpath;
-	pv_lock_ops.queued_spin_unlock = PV_CALLEE_SAVE(__pv_queued_spin_unlock);
+	pv_lock_ops.queued_spin_unlock = PV_CALLEE_SAVE(queued_spin_unlock, __pv_queued_spin_unlock);
 	pv_lock_ops.wait = kvm_wait;
 	pv_lock_ops.kick = kvm_kick_cpu;
 	pax_close_kernel();

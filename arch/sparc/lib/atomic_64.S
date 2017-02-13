@@ -60,7 +60,7 @@ ENTRY(atomic_##op##_return##suffix) /* %o0 = increment, %o1 = atomic_ptr */\
 	 sra	%g1, 0, %o0;						\
 2:	BACKOFF_SPIN(%o2, %o3, 1b);					\
 ENDPROC(atomic_##op##_return##suffix);					\
-EXPORT_SYMBOL(atomic_##op##_return)##suffix;
+EXPORT_SYMBOL(atomic_##op##_return##suffix)
 
 #define ATOMIC_OP_RETURN(op) __ATOMIC_OP_RETURN(op, , op, ) \
 			     __ATOMIC_OP_RETURN(op, _unchecked, __REFCOUNT_OP(op), __OVERFLOW_IOP)

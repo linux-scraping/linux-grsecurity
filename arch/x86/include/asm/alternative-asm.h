@@ -98,9 +98,9 @@
 
 .macro pax_indirect_call target extra
 #ifdef CONFIG_PAX_RAP
-	rap_call "\target", \extra
+	rap_call "*\target" hash=\extra
 #else
-	call \target
+	call *\target
 #endif
 .endm
 

@@ -245,7 +245,14 @@ static unsigned long vdso_addr(unsigned long start, unsigned len)
 
 static int map_vdso_randomized(const struct vdso_image *image)
 {
-	unsigned long addr = vdso_addr(current->mm->start_stack, image->size-image->sym_vvar_start);
+	unsigned long addr;
+
+#ifdef CONFIG_PAX_RANDMMAP
+	if (current->mm->pax_flags & MF_PAX_RANDMMAP)
+		addr = 0;
+	else
+#endif
+	addr = vdso_addr(current->mm->start_stack, image->size-image->sym_vvar_start);
 
 	return map_vdso(image, addr);
 }

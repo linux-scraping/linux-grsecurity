@@ -2420,7 +2420,7 @@ static void __init xen_post_allocator_init(void)
 	pv_mmu_ops.alloc_pud = xen_alloc_pud;
 	pv_mmu_ops.release_pud = xen_release_pud;
 #endif
-	pv_mmu_ops.make_pte = PV_CALLEE_SAVE(xen_make_pte);
+	pv_mmu_ops.make_pte = PV_CALLEE_SAVE(make_pte, xen_make_pte);
 
 #ifdef CONFIG_X86_64
 	pv_mmu_ops.write_cr3 = &xen_write_cr3;
@@ -2470,11 +2470,11 @@ static const struct pv_mmu_ops xen_mmu_ops __initconst = {
 	.ptep_modify_prot_start = __ptep_modify_prot_start,
 	.ptep_modify_prot_commit = __ptep_modify_prot_commit,
 
-	.pte_val = PV_CALLEE_SAVE(xen_pte_val),
-	.pgd_val = PV_CALLEE_SAVE(xen_pgd_val),
+	.pte_val = PV_CALLEE_SAVE(pte_val, xen_pte_val),
+	.pgd_val = PV_CALLEE_SAVE(pgd_val, xen_pgd_val),
 
-	.make_pte = PV_CALLEE_SAVE(xen_make_pte_init),
-	.make_pgd = PV_CALLEE_SAVE(xen_make_pgd),
+	.make_pte = PV_CALLEE_SAVE(make_pte, xen_make_pte_init),
+	.make_pgd = PV_CALLEE_SAVE(make_pgd, xen_make_pgd),
 
 #ifdef CONFIG_X86_PAE
 	.set_pte_atomic = xen_set_pte_atomic,
@@ -2483,12 +2483,12 @@ static const struct pv_mmu_ops xen_mmu_ops __initconst = {
 #endif	/* CONFIG_X86_PAE */
 	.set_pud = xen_set_pud_hyper,
 
-	.make_pmd = PV_CALLEE_SAVE(xen_make_pmd),
-	.pmd_val = PV_CALLEE_SAVE(xen_pmd_val),
+	.make_pmd = PV_CALLEE_SAVE(make_pmd, xen_make_pmd),
+	.pmd_val = PV_CALLEE_SAVE(pmd_val, xen_pmd_val),
 
 #if CONFIG_PGTABLE_LEVELS == 4
-	.pud_val = PV_CALLEE_SAVE(xen_pud_val),
-	.make_pud = PV_CALLEE_SAVE(xen_make_pud),
+	.pud_val = PV_CALLEE_SAVE(pud_val, xen_pud_val),
+	.make_pud = PV_CALLEE_SAVE(make_pud, xen_make_pud),
 	.set_pgd = xen_set_pgd_hyper,
 	.set_pgd_batched = xen_set_pgd_hyper,
 

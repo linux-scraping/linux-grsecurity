@@ -605,7 +605,7 @@ entry_SYSCALL_64_fastpath:
 	 * It might end up jumping to the slow path.  If it jumps, RAX
 	 * and all argument registers are clobbered.
 	 */
-	pax_indirect_call "*sys_call_table(, %rax, 8)", sys_ni_syscall
+	pax_indirect_call "sys_call_table(, %rax, 8)", sys_ni_syscall
 .Lentry_SYSCALL_64_after_fastpath_call:
 
 	movq	%rax, RAX(%rsp)
@@ -816,7 +816,7 @@ ENTRY(__switch_to_asm)
 	popq	%rbp
 
 	jmp	__switch_to
-END(__switch_to_asm)
+ENDPROC(__switch_to_asm)
 
 /*
  * A newly forked process directly context switches into this address.
@@ -851,7 +851,7 @@ ENTRY(ret_from_fork)
 1:
 	/* kernel thread */
 	movq	%r13, %rdi
-	pax_indirect_call *%rbx, kthreadd
+	pax_indirect_call %rbx, kthreadd
 	/*
 	 * A kernel thread is allowed to return here after successfully
 	 * calling do_execve().  Exit to userspace to complete the execve()
@@ -1491,7 +1491,7 @@ idtentry async_page_fault	do_async_page_fault	has_error_code=1
 #endif
 
 #ifdef CONFIG_X86_MCE
-idtentry machine_check					has_error_code=0	paranoid=1 do_sym="*machine_check_vector(%rip)" rap_hash=do_machine_check
+idtentry machine_check					has_error_code=0	paranoid=1 do_sym="machine_check_vector(%rip)" rap_hash=do_machine_check
 #endif
 
 /*

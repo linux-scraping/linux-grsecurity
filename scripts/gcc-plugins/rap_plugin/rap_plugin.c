@@ -461,8 +461,12 @@ static void rap_assembly_start(void)
 		);
 
 		fprintf(asm_out_file,
-			"\t.macro rap_direct_call target\n"
+			"\t.macro rap_direct_call target hash=""\n"
+			"\t\t.ifb \\hash\n"
 			"\t\trap_indirect_call \\target \\target\n"
+			"\t\t.else\n"
+			"\t\trap_indirect_call \\target \\hash\n"
+			"\t\t.endif\n"
 			"\t.endm\n"
 		);
 	}

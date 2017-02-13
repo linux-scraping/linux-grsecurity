@@ -541,5 +541,5 @@ ENDPROC(csum_partial_copy_generic_to_user)
 		
 #endif
 EXPORT_SYMBOL(csum_partial_copy_generic)
-EXPORT_SYMBOL(csum_partial_copy_generic_to_user);
-EXPORT_SYMBOL(csum_partial_copy_generic_from_user);
+EXPORT_SYMBOL(csum_partial_copy_generic_to_user)
+EXPORT_SYMBOL(csum_partial_copy_generic_from_user)

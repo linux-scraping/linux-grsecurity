@@ -202,7 +202,6 @@ void pax_list_del_rcu(struct list_head *entry)
 
 	pax_open_kernel();
 	__list_del(entry->prev, entry->next);
-	entry->next = LIST_POISON1;
 	entry->prev = LIST_POISON2;
 	pax_close_kernel();
 }

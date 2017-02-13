@@ -582,7 +582,7 @@ hns_mac_config_sds_loopback_acpi(struct hns_mac_cb *mac_cb, bool en)
 	return 0;
 }
 
-struct dsaf_misc_op *hns_misc_op_get(struct dsaf_device *dsaf_dev)
+const struct dsaf_misc_op *hns_misc_op_get(struct dsaf_device *dsaf_dev)
 {
 	static const struct dsaf_misc_op dsaf_misc_ops = {
 		.cpld_set_led = hns_cpld_set_led,

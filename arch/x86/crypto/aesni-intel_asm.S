@@ -2735,7 +2735,7 @@ ENTRY(aesni_xts_crypt8)
 	pxor INC, STATE4
 	movdqu IV, 0x30(OUTP)
 
-	pax_indirect_call "*%r11", _aesni_enc4
+	pax_indirect_call "%r11", _aesni_enc4
 
 	movdqu 0x00(OUTP), INC
 	pxor INC, STATE1
@@ -2780,7 +2780,7 @@ ENTRY(aesni_xts_crypt8)
 	_aesni_gf128mul_x_ble()
 	movups IV, (IVP)
 
-	pax_indirect_call "*%r11", _aesni_enc4
+	pax_indirect_call "%r11", _aesni_enc4
 
 	movdqu 0x40(OUTP), INC
 	pxor INC, STATE1

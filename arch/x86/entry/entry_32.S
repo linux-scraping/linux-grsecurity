@@ -389,7 +389,7 @@ ENTRY(__switch_to_asm)
 	popl	%ebp
 
 	jmp	__switch_to
-END(__switch_to_asm)
+ENDPROC(__switch_to_asm)
 
 /*
  * A newly forked process directly context switches into this address.
@@ -414,7 +414,7 @@ ENTRY(ret_from_fork)
 
 	/* kernel thread */
 1:	movl	%edi, %eax
-	pax_indirect_call "*%ebx", kthreadd
+	pax_indirect_call "%ebx", kthreadd
 	/*
 	 * A kernel thread is allowed to return here after successfully
 	 * calling do_execve().  Exit to userspace to complete the execve()
@@ -1228,13 +1228,13 @@ trace:
 	movl	0x4(%ebp), %edx
 	subl	$MCOUNT_INSN_SIZE, %eax
 
-	pax_indirect_call "*ftrace_trace_function", ftrace_stub
+	pax_indirect_call "ftrace_trace_function", ftrace_stub
 
 	popl	%edx
 	popl	%ecx
 	popl	%eax
 	jmp	ftrace_stub
-END(mcount)
+ENDPROC(mcount)
 #endif /* CONFIG_DYNAMIC_FTRACE */
 EXPORT_SYMBOL(mcount)
 #endif /* CONFIG_FUNCTION_TRACER */
@@ -1309,7 +1309,7 @@ error_code:
 
 	TRACE_IRQS_OFF
 	movl	%esp, %eax			# pt_regs pointer
-	pax_indirect_call "*%edi", do_page_fault
+	pax_indirect_call "%edi", do_page_fault
 	jmp	ret_from_exception
 ENDPROC(page_fault)
 

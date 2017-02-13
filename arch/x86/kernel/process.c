@@ -66,7 +66,7 @@ struct tss_struct cpu_tss[NR_CPUS] __visible ____cacheline_internodealigned_in_s
 #endif
 }
 };
-EXPORT_PER_CPU_SYMBOL(cpu_tss);
+EXPORT_SYMBOL(cpu_tss);
 
 #ifdef CONFIG_X86_64
 static DEFINE_PER_CPU(unsigned char, is_idle);

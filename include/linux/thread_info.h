@@ -80,7 +80,7 @@ enum {
  * - pass TIF_xxxx constants to these functions
  */
 
-#ifdef CONFIG_THREAD_INFO_IN_TASK_XXXX
+#ifdef CONFIG_THREAD_INFO_IN_TASK
 #define set_ti_thread_flag(ti, flag) \
 	set_bit(flag, (unsigned long *)&ti->flags)
 

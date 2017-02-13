@@ -1134,6 +1134,13 @@ void xen_setup_shared_info(void)
 	xen_setup_mfn_list_list();
 }
 
+#ifdef CONFIG_PAX_RAP
+PV_CALLEE_SAVE_REGS_THUNK(xen_save_fl_direct);
+PV_CALLEE_SAVE_REGS_THUNK(xen_restore_fl_direct);
+PV_CALLEE_SAVE_REGS_THUNK(xen_irq_disable_direct);
+PV_CALLEE_SAVE_REGS_THUNK(xen_irq_enable_direct);
+#endif
+
 /* This is called once we have the cpu_possible_mask */
 void xen_setup_vcpu_info_placement(void)
 {
@@ -1149,10 +1156,10 @@ void xen_setup_vcpu_info_placement(void)
 	 * percpu area for all cpus, so make use of it. Note that for
 	 * PVH we want to use native IRQ mechanism. */
 	if (have_vcpu_info_placement && !xen_pvh_domain()) {
-		pv_irq_ops.save_fl = __PV_IS_CALLEE_SAVE(xen_save_fl_direct);
-		pv_irq_ops.restore_fl = __PV_IS_CALLEE_SAVE(xen_restore_fl_direct);
-		pv_irq_ops.irq_disable = __PV_IS_CALLEE_SAVE(xen_irq_disable_direct);
-		pv_irq_ops.irq_enable = __PV_IS_CALLEE_SAVE(xen_irq_enable_direct);
+		pv_irq_ops.save_fl = __PV_IS_CALLEE_SAVE(save_fl, xen_save_fl_direct);
+		pv_irq_ops.restore_fl = __PV_IS_CALLEE_SAVE(restore_fl, xen_restore_fl_direct);
+		pv_irq_ops.irq_disable = __PV_IS_CALLEE_SAVE(irq_disable, xen_irq_disable_direct);
+		pv_irq_ops.irq_enable = __PV_IS_CALLEE_SAVE(irq_enable, xen_irq_enable_direct);
 		pv_mmu_ops.read_cr2 = xen_read_cr2_direct;
 	}
 }

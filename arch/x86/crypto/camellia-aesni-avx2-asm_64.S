@@ -1338,7 +1338,7 @@ camellia_xts_crypt_32way:
 	vpxor 14 * 32(%rax), %ymm15, %ymm14;
 	vpxor 15 * 32(%rax), %ymm15, %ymm15;
 
-	pax_indirect_call "*%r9", __camellia_enc_blk32;
+	pax_indirect_call "%r9", __camellia_enc_blk32;
 
 	addq $(16 * 32), %rsp;
 

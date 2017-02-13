@@ -12,7 +12,7 @@
  * Interrupt control:
  */
 
-static inline unsigned long native_save_fl(void)
+static inline asmlinkage unsigned long native_save_fl(void)
 {
 	unsigned long flags;
 
@@ -44,12 +44,12 @@ static inline void native_restore_fl(unsigned long flags)
 		     :"memory", "cc");
 }
 
-static inline void native_irq_disable(void)
+static inline asmlinkage void native_irq_disable(void)
 {
 	asm volatile("cli": : :"memory");
 }
 
-static inline void native_irq_enable(void)
+static inline asmlinkage void native_irq_enable(void)
 {
 	asm volatile("sti": : :"memory");
 }

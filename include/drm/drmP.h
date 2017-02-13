@@ -137,7 +137,7 @@ struct dma_buf_attachment;
 #define DRM_UT_ATOMIC		0x10
 #define DRM_UT_VBL		0x20
 
-extern __printf(6, 7)
+extern __printf(6, 7) __nocapture(4, 5)
 void drm_dev_printk(const struct device *dev, const char *level,
 		    unsigned int category, const char *function_name,
 		    const char *prefix, const char *format, ...);
