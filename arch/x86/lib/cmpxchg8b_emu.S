@@ -8,6 +8,7 @@
 
 #include <linux/linkage.h>
 #include <asm/export.h>
+#include <asm/alternative-asm.h>
 
 .text
 

@@ -47,7 +47,7 @@
 __visible int plugin_is_GPL_compatible;
 
 static struct plugin_info initify_plugin_info = {
-	.version	=	"20170112",
+	.version	=	"20170215",
 	.help		=	"disable\tturn off the initify plugin\n"
 				"verbose\tprint all initified strings and all"
 				" functions which should be __init/__exit\n"
@@ -116,11 +116,34 @@ static inline void pointer_set_destroy(tree_set *visited)
 {
 	delete visited;
 }
+
+typedef struct hash_set<struct cgraph_node *> cgraph_set;
+
+static inline bool pointer_set_insert(cgraph_set *visited, struct cgraph_node *node)
+{
+	return visited->add(node);
+}
+
+static inline cgraph_set* cgraph_pointer_set_create(void)
+{
+	return new hash_set<struct cgraph_node *>;
+}
+
+static inline void pointer_set_destroy(cgraph_set *visited)
+{
+	delete visited;
+}
 #else
 typedef struct pointer_set_t gimple_set;
 typedef struct pointer_set_t tree_set;
+typedef struct pointer_set_t cgraph_set;
 
 static inline tree_set *tree_pointer_set_create(void)
+{
+	return pointer_set_create();
+}
+
+static inline cgraph_set *cgraph_pointer_set_create(void)
 {
 	return pointer_set_create();
 }
@@ -789,7 +812,8 @@ static bool is_call_arg_nocapture(gimple_set *visited_defs, const gcall *call, i
 
 	if (fndecl == NULL_TREE)
 		fndecl = gimple_call_fn(call);
-	gcc_assert(fndecl != NULL_TREE);
+	if (fndecl == NULL_TREE)
+		return false;
 
 	if (is_negative_nocapture_arg(fndecl, -arg_num) && is_return_value_captured(visited_defs, call))
 		return false;
@@ -1152,7 +1176,7 @@ static void find_local_str(void)
 	tree var;
 
 	FOR_EACH_LOCAL_DECL(cfun, i, var) {
-		tree str, init_val;
+		tree str, init_val, asm_name;
 
 		if (TREE_CODE(TREE_TYPE(var)) != ARRAY_TYPE)
 			continue;
@@ -1161,6 +1185,10 @@ static void find_local_str(void)
 		if (init_val == NULL_TREE || init_val == error_mark_node)
 			continue;
 		if (TREE_CODE(init_val) != STRING_CST)
+			continue;
+
+		asm_name = DECL_ASSEMBLER_NAME(var);
+		if (asm_name != NULL_TREE && TREE_SYMBOL_REFERENCED(asm_name))
 			continue;
 
 		if (has_capture_use_local_var(var))
@@ -1538,18 +1566,21 @@ static bool has_non_init_caller(struct cgraph_node *callee)
 	return false;
 }
 
-static void has_non_init_clone(struct cgraph_node *node, bool *has_non_init)
+static bool has_non_init_clone(cgraph_set *visited, struct cgraph_node *node)
 {
-	if (*has_non_init)
-		return;
+	if (!node)
+		return false;
+
+	if (pointer_set_insert(visited, node))
+		return false;
 
 	if (has_non_init_caller(node))
-		*has_non_init = true;
+		return true;
 
-	if (node->clones)
-		has_non_init_clone(node->clones, has_non_init);
-	if (node->clone_of)
-		has_non_init_clone(node->clone_of, has_non_init);
+	if (has_non_init_clone(visited, node->clones))
+		return true;
+
+	return has_non_init_clone(visited, node->clone_of);
 }
 
 /*
@@ -1558,6 +1589,7 @@ static void has_non_init_clone(struct cgraph_node *node, bool *has_non_init)
  */
 static bool should_init_exit(struct cgraph_node *callee)
 {
+	cgraph_set *visited;
 	bool has_non_init;
 	const_tree callee_decl = NODE_DECL(callee);
 
@@ -1573,8 +1605,10 @@ static bool should_init_exit(struct cgraph_node *callee)
 	if (NODE_SYMBOL(callee)->address_taken)
 		return false;
 
-	has_non_init = false;
-	has_non_init_clone(callee, &has_non_init);
+	visited = cgraph_pointer_set_create();
+	has_non_init = has_non_init_clone(visited, callee);
+	pointer_set_destroy(visited);
+
 	return !has_non_init;
 }
 
