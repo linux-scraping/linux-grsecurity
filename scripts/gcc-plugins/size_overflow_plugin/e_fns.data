@@ -1150,6 +1150,7 @@ copy_oldmem_page_fndecl_15143_fns copy_oldmem_page fndecl 3 15143 NULL
 elem_size_snd_array_15155_fns elem_size snd_array 0 15155 NULL nohasharray
 chaoskey_read_fndecl_15155_fns chaoskey_read fndecl 3 15155 &elem_size_snd_array_15155_fns
 walk_hugetlb_range_fndecl_15190_fns walk_hugetlb_range fndecl 0 15190 NULL
+get_registers_fndecl_15192_fns get_registers fndecl 3 15192 NULL
 max_clk_sdhci_host_15206_fns max_clk sdhci_host 0 15206 NULL
 nlm_end_grace_read_fndecl_15209_fns nlm_end_grace_read fndecl 3 15209 NULL
 genwqe_ffdc_buff_size_fndecl_15236_fns genwqe_ffdc_buff_size fndecl 0 15236 NULL
