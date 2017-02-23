@@ -141,10 +141,7 @@ static inline void cr4_set_bits_and_update_boot(unsigned long mask)
 static inline void __native_flush_tlb(void)
 {
 	if (static_cpu_has(X86_FEATURE_INVPCID)) {
-		u64 descriptor[2];
-
-		descriptor[0] = PCID_KERNEL;
-		asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_ALL_NONGLOBAL) : "memory");
+		invpcid_flush_all_nonglobals();
 		return;
 	}
 
@@ -171,21 +168,14 @@ static inline void __native_flush_tlb(void)
 
 static inline void __native_flush_tlb_global_irq_disabled(void)
 {
-	if (static_cpu_has(X86_FEATURE_INVPCID)) {
-		u64 descriptor[2];
+	unsigned long cr4;
 
-		descriptor[0] = PCID_KERNEL;
-		asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_ALL_GLOBAL) : "memory");
-	} else {
-		unsigned long cr4;
-
-		cr4 = this_cpu_read(cpu_tlbstate.cr4);
-		BUG_ON(cr4 != __read_cr4());
-		/* clear PGE */
-		native_write_cr4(cr4 & ~X86_CR4_PGE);
-		/* write old PGE again and flush TLBs */
-		native_write_cr4(cr4);
-	}
+	cr4 = this_cpu_read(cpu_tlbstate.cr4);
+	BUG_ON(cr4 != __read_cr4());
+	/* clear PGE */
+	native_write_cr4(cr4 & ~X86_CR4_PGE);
+	/* write old PGE again and flush TLBs */
+	native_write_cr4(cr4);
 }
 
 static inline void __native_flush_tlb_global(void)
@@ -216,25 +206,22 @@ static inline void __native_flush_tlb_global(void)
 static inline void __native_flush_tlb_single(unsigned long addr)
 {
 	if (static_cpu_has(X86_FEATURE_INVPCID)) {
-		u64 descriptor[2];
-
-		descriptor[0] = PCID_KERNEL;
-		descriptor[1] = addr;
+		unsigned long pcid = PCID_KERNEL;
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 		if (static_cpu_has(X86_FEATURE_PCIDUDEREF)) {
 			if (!static_cpu_has(X86_FEATURE_STRONGUDEREF) || addr >= TASK_SIZE_MAX) {
 				if (addr < TASK_SIZE_MAX)
-					descriptor[1] += pax_user_shadow_base;
-				asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_ADDRESS) : "memory");
+					invpcid_flush_one(pcid, addr + pax_user_shadow_base);
+				else
+					invpcid_flush_one(pcid, addr);
 			}
 
-			descriptor[0] = PCID_USER;
-			descriptor[1] = addr;
+			pcid = PCID_USER;
 		}
 #endif
 
-		asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_ADDRESS) : "memory");
+		invpcid_flush_one(pcid, addr);
 		return;
 	}
 

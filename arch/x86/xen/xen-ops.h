@@ -131,9 +131,9 @@ static inline void __init xen_efi_init(void)
 	extern char name##_end[] __visible;	\
 	extern char name##_reloc[] __visible
 
-DECL_ASM(void, xen_irq_enable_direct, void);
-DECL_ASM(void, xen_irq_disable_direct, void);
-DECL_ASM(unsigned long, xen_save_fl_direct, void);
+DECL_ASM(asmlinkage void, xen_irq_enable_direct, void);
+DECL_ASM(asmlinkage void, xen_irq_disable_direct, void);
+DECL_ASM(asmlinkage unsigned long, xen_save_fl_direct, void);
 DECL_ASM(void, xen_restore_fl_direct, unsigned long);
 
 /* These are not functions, and cannot be called normally */

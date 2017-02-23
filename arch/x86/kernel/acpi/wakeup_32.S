@@ -15,8 +15,6 @@ wakeup_pmode_return:
 	movw	%ax, %ss
 	movw	%ax, %fs
 	movw	%ax, %gs
-
-	movw	$__USER_DS, %ax
 	movw	%ax, %ds
 	movw	%ax, %es
 

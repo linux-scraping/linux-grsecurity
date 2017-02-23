@@ -88,13 +88,9 @@ static void pax_switch_mm(struct mm_struct *next, unsigned int cpu)
 #if defined(CONFIG_X86_64) && defined(CONFIG_PAX_MEMORY_UDEREF)
 	if (static_cpu_has(X86_FEATURE_PCIDUDEREF)) {
 		if (static_cpu_has(X86_FEATURE_INVPCID)) {
-			u64 descriptor[2];
-			descriptor[0] = PCID_USER;
-			asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_CONTEXT) : "memory");
-			if (!static_cpu_has(X86_FEATURE_STRONGUDEREF)) {
-				descriptor[0] = PCID_KERNEL;
-				asm volatile(__ASM_INVPCID : : "d"(&descriptor), "a"(INVPCID_SINGLE_CONTEXT) : "memory");
-			}
+			invpcid_flush_single_context(PCID_USER);
+			if (!static_cpu_has(X86_FEATURE_STRONGUDEREF))
+				invpcid_flush_single_context(PCID_KERNEL);
 		} else {
 			write_cr3(__pa(get_cpu_pgd(cpu, user)) | PCID_USER);
 			if (static_cpu_has(X86_FEATURE_STRONGUDEREF))

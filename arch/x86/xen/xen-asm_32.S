@@ -15,6 +15,7 @@
 #include <asm/processor-flags.h>
 #include <asm/segment.h>
 #include <asm/asm.h>
+#include <asm/alternative-asm.h>
 
 #include <xen/interface/xen.h>
 

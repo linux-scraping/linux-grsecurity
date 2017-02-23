@@ -206,14 +206,6 @@ static inline void native_cpuid(unsigned int *eax, unsigned int *ebx,
 	    : "memory");
 }
 
-/* invpcid (%rdx),%rax */
-#define __ASM_INVPCID ".byte 0x66,0x0f,0x38,0x82,0x02"
-
-#define INVPCID_SINGLE_ADDRESS	0UL
-#define INVPCID_SINGLE_CONTEXT	1UL
-#define INVPCID_ALL_GLOBAL	2UL
-#define INVPCID_ALL_NONGLOBAL	3UL
-
 #define PCID_KERNEL		0UL
 #define PCID_USER		1UL
 #define PCID_NOFLUSH		(1UL << 63)
