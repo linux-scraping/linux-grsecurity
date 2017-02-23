@@ -4145,6 +4145,7 @@ gfs2_inode_ra_len_fndecl_54141_fns gfs2_inode_ra_len fndecl 0 54141 NULL
 __hwahc_op_set_ptk_fndecl_54157_fns __hwahc_op_set_ptk fndecl 5 54157 NULL
 b43_nphy_load_samples_fndecl_54162_fns b43_nphy_load_samples fndecl 3 54162 NULL
 cpu_type_read_fndecl_54191_fns cpu_type_read fndecl 3 54191 NULL
+smsusb_sendrequest_fndecl_54196_fns smsusb_sendrequest fndecl 3 54196 NULL
 p_filesz_elf32_phdr_54204_fns p_filesz elf32_phdr 0 54204 NULL
 numeraseregions_mtd_info_54223_fns numeraseregions mtd_info 0 54223 NULL
 __kfifo_to_user_fndecl_54232_fns __kfifo_to_user fndecl 3 54232 NULL
