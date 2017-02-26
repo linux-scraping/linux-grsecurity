@@ -577,6 +577,10 @@ static int kvm_create_vm_debugfs(struct kvm *kvm, int fd)
 	struct kvm_stat_data *stat_data;
 	struct kvm_stats_debugfs_item *p;
 
+#ifdef CONFIG_GRKERNSEC_SYSFS_RESTRICT
+	return 0;
+#endif
+
 	if (!debugfs_initialized())
 		return 0;
 
@@ -3194,13 +3198,11 @@ static int kvm_dev_ioctl_create_vm(unsigned long type)
 		return PTR_ERR(file);
 	}
 
-#ifndef CONFIG_GRKERNSEC_SYSFS_RESTRICT
 	if (kvm_create_vm_debugfs(kvm, r) < 0) {
 		put_unused_fd(r);
 		fput(file);
 		return -ENOMEM;
 	}
-#endif
 
 	fd_install(r, file);
 	return r;

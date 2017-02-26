@@ -872,6 +872,7 @@ chip_send_contexts_hfi1_devdata_3481_fields chip_send_contexts hfi1_devdata 0 34
 xfer_len_nvme_trans_io_cdb_3486_fields xfer_len nvme_trans_io_cdb 0 3486 NULL
 from_dio_submit_3494_fields from dio_submit 0 3494 NULL
 hs_bkt_bits_cfs_hash_3509_fields hs_bkt_bits cfs_hash 0 3509 NULL
+statesize_hash_alg_common_3517_fields statesize hash_alg_common 0 3517 NULL
 gru_vtop_fndecl_3522_fields gru_vtop fndecl 2 3522 NULL
 cipso_v4_gentag_rng_fndecl_3532_fields cipso_v4_gentag_rng fndecl 0 3532 NULL
 cl_out_max_entry_size_mvumi_hs_page1_3540_fields cl_out_max_entry_size mvumi_hs_page1 0 3540 NULL
@@ -1478,6 +1479,7 @@ scif_rb_space_fndecl_6052_fields scif_rb_space fndecl 0 6052 NULL
 dmi_len_vardecl_dmi_scan_c_6054_fields dmi_len vardecl_dmi_scan.c 0 6054 NULL nohasharray
 ext4_inode_table_fndecl_6054_fields ext4_inode_table fndecl 0 6054 &dmi_len_vardecl_dmi_scan_c_6054_fields
 map_base_tpm_inf_dev_6056_fields map_base tpm_inf_dev 0 6056 NULL
+reqsize_kpp_alg_6064_fields reqsize kpp_alg 0 6064 NULL
 length_hci_ev_le_advertising_info_6074_fields length hci_ev_le_advertising_info 0 6074 NULL
 elog_len_extlog_l1_head_6075_fields elog_len extlog_l1_head 0 6075 NULL
 ioctx_alloc_fndecl_6081_fields ioctx_alloc fndecl 1 6081 NULL
@@ -2029,7 +2031,8 @@ num_u3_ports_xhci_hcd_mtk_8272_fields num_u3_ports xhci_hcd_mtk 0 8272 NULL
 datablklen_capi_register_params_8275_fields datablklen capi_register_params 0 8275 NULL
 cdc_ncm_check_tx_max_fndecl_8278_fields cdc_ncm_check_tx_max fndecl 0-2 8278 NULL
 msg_len_rndis_message_8281_fields msg_len rndis_message 0 8281 NULL
-__sg_free_table_fndecl_8283_fields __sg_free_table fndecl 2 8283 NULL
+__sg_free_table_fndecl_8283_fields __sg_free_table fndecl 2 8283 NULL nohasharray
+expectedlen_drbg_testvec_8283_fields expectedlen drbg_testvec 0 8283 &__sg_free_table_fndecl_8283_fields
 rxrpc_kernel_recv_data_fndecl_8286_fields rxrpc_kernel_recv_data fndecl 4 8286 NULL
 tail_len_cfg80211_beacon_data_8293_fields tail_len cfg80211_beacon_data 0 8293 NULL
 ns_blocks_per_segment_the_nilfs_8295_fields ns_blocks_per_segment the_nilfs 0 8295 NULL nohasharray
@@ -11450,6 +11453,7 @@ tcfv_push_vid_tcf_vlan_45639_fields tcfv_push_vid tcf_vlan 0 45639 NULL
 ecc_strength_ds_nand_chip_45651_fields ecc_strength_ds nand_chip 0 45651 NULL
 inftl_writeblock_fndecl_45653_fields inftl_writeblock fndecl 2 45653 NULL
 size_core_name_45656_fields size core_name 0 45656 NULL
+b_public_size_kpp_testvec_45660_fields b_public_size kpp_testvec 0 45660 NULL
 blockmask_alauda_media_info_45662_fields blockmask alauda_media_info 0 45662 NULL
 dmi_base_vardecl_dmi_scan_c_45673_fields dmi_base vardecl_dmi_scan.c 0 45673 NULL
 _snd_pcm_hw_param_min_fndecl_45677_fields _snd_pcm_hw_param_min fndecl 3 45677 NULL
@@ -14911,6 +14915,7 @@ ocfs2_read_dx_leaves_fndecl_59744_fields ocfs2_read_dx_leaves fndecl 2 59744 NUL
 fq_resize_fndecl_59744_fields fq_resize fndecl 2 59744 &ocfs2_read_dx_leaves_fndecl_59744_fields
 nx_fw_cmd_set_phy_fndecl_59745_fields nx_fw_cmd_set_phy fndecl 3 59745 NULL
 mt_count_mtop_59746_fields mt_count mtop 0 59746 NULL
+seedsize_rng_alg_59748_fields seedsize rng_alg 0 59748 NULL
 xlog_write_calc_vec_length_fndecl_59749_fields xlog_write_calc_vec_length fndecl 0 59749 NULL
 request_size_afs_call_59750_fields request_size afs_call 0 59750 NULL
 addr_phys_netup_dma_59759_fields addr_phys netup_dma 0 59759 NULL
