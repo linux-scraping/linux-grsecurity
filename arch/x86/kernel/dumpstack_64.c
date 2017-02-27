@@ -260,7 +260,6 @@ void __used pax_check_alloca(unsigned long size)
 
 	case STACK_TYPE_IRQ:
 		stack_left = sp & (IRQ_STACK_SIZE - 1);
-		put_cpu();
 		break;
 
 	case STACK_TYPE_EXCEPTION ... STACK_TYPE_EXCEPTION_LAST:
