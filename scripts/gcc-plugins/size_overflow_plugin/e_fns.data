@@ -206,6 +206,7 @@ loopstart_soundfont_sample_info_3093_fns loopstart soundfont_sample_info 0 3093 
 rx_pkt_map_sz_tg3_3106_fns rx_pkt_map_sz tg3 0 3106 NULL
 mt76_init_sband_fndecl_3112_fns mt76_init_sband fndecl 6 3112 NULL
 compat_filldir64_fndecl_3119_fns compat_filldir64 fndecl 3 3119 NULL
+ds9490r_write_block_fndecl_3142_fns ds9490r_write_block fndecl 3 3142 NULL
 sys_sendto_fndecl_3162_fns sys_sendto fndecl 6 3162 NULL
 fill_elf_header_fndecl_3182_fns fill_elf_header fndecl 2 3182 NULL
 wl1271_format_buffer_fndecl_3185_fns wl1271_format_buffer fndecl 2 3185 NULL
@@ -2848,6 +2849,7 @@ mon_bin_get_event_fndecl_37740_fns mon_bin_get_event fndecl 4-6 37740 NULL
 pwr_rcvd_beacons_read_fndecl_37751_fns pwr_rcvd_beacons_read fndecl 3 37751 NULL
 cache_read_procfs_fndecl_37761_fns cache_read_procfs fndecl 3 37761 NULL
 kvm_kvzalloc_fndecl_37773_fns kvm_kvzalloc fndecl 1 37773 NULL
+ds9490r_read_block_fndecl_37799_fns ds9490r_read_block fndecl 3 37799 NULL
 ifc_len_ifconf_37839_fns ifc_len ifconf 0 37839 NULL
 __kfifo_skip_r_fndecl_37849_fns __kfifo_skip_r fndecl 2 37849 NULL
 sctp_init_cause_fixed_fndecl_37853_fns sctp_init_cause_fixed fndecl 3 37853 NULL
