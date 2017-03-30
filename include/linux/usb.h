@@ -1700,7 +1700,7 @@ extern int usb_string(struct usb_device *dev, int index,
 	char *buf, size_t size);
 
 /* wrappers that also update important state inside usbcore */
-extern int usb_clear_halt(struct usb_device *dev, int pipe);
+extern int usb_clear_halt(struct usb_device *dev, unsigned int pipe);
 extern int usb_reset_configuration(struct usb_device *dev);
 extern int usb_set_interface(struct usb_device *dev, int ifnum, int alternate);
 extern void usb_reset_endpoint(struct usb_device *dev, unsigned int epaddr);
@@ -1845,7 +1845,7 @@ usb_pipe_endpoint(struct usb_device *dev, unsigned int pipe)
 /*-------------------------------------------------------------------------*/
 
 static inline __u16
-usb_maxpacket(struct usb_device *udev, int pipe, int is_out)
+usb_maxpacket(struct usb_device *udev, unsigned int pipe, int is_out)
 {
 	struct usb_host_endpoint	*ep;
 	unsigned			epnum = usb_pipeendpoint(pipe);
