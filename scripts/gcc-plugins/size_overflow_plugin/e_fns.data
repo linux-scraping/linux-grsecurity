@@ -501,6 +501,7 @@ alloc_ring_fndecl_6773_fns alloc_ring fndecl 2-4 6773 NULL
 max_vals_input_dev_6777_fns max_vals input_dev 0 6777 NULL
 mmc_send_bus_test_fndecl_6782_fns mmc_send_bus_test fndecl 4 6782 NULL
 csio_mem_read_fndecl_6812_fns csio_mem_read fndecl 3 6812 NULL
+debugfs_write_file_bool_fndecl_6814_fns debugfs_write_file_bool fndecl 3 6814 NULL
 pwr_power_save_off_read_fndecl_6816_fns pwr_power_save_off_read fndecl 3 6816 NULL
 minor_miscdevice_6818_fns minor miscdevice 0 6818 NULL
 xlbd_reserve_minors_fndecl_6830_fns xlbd_reserve_minors fndecl 2-1 6830 NULL
@@ -1245,7 +1246,8 @@ ceph_fsync_fndecl_16625_fns ceph_fsync fndecl 2-3 16625 NULL
 of_dma_match_channel_fndecl_16675_fns of_dma_match_channel fndecl 3 16675 NULL
 cons_read_buffer_16688_fns cons read_buffer 0 16688 NULL
 rx_rate_rx_frames_per_rates_read_fndecl_16737_fns rx_rate_rx_frames_per_rates_read fndecl 3 16737 NULL
-devlink_alloc_fndecl_16742_fns devlink_alloc fndecl 2 16742 NULL
+devlink_alloc_fndecl_16742_fns devlink_alloc fndecl 2 16742 NULL nohasharray
+fault_disconnect_write_fndecl_16742_fns fault_disconnect_write fndecl 3 16742 &devlink_alloc_fndecl_16742_fns
 num_q_csio_wrm_16770_fns num_q csio_wrm 0 16770 NULL
 max_iu_len_srp_target_port_16784_fns max_iu_len srp_target_port 0 16784 NULL
 ishtp_host_dma_tx_buf_size_ishtp_device_16798_fns ishtp_host_dma_tx_buf_size ishtp_device 0 16798 NULL
@@ -3284,6 +3286,7 @@ wm_coeff_tlv_get_fndecl_42961_fns wm_coeff_tlv_get fndecl 3 42961 NULL
 pof_reclen_boot_data_42966_fns pof_reclen boot_data 0 42966 NULL
 ea_len_fndecl_42998_fns ea_len fndecl 0 42998 NULL
 obd_ioctl_popdata_fndecl_43014_fns obd_ioctl_popdata fndecl 3 43014 NULL
+quirk_simultaneous_discovery_write_fndecl_43076_fns quirk_simultaneous_discovery_write fndecl 3 43076 NULL
 rx_fcs_err_read_fndecl_43119_fns rx_fcs_err_read fndecl 3 43119 NULL
 ndev_init_isr_fndecl_43138_fns ndev_init_isr fndecl 3 43138 NULL
 kvm_vcpu_gfn_to_pfn_fndecl_43158_fns kvm_vcpu_gfn_to_pfn fndecl 2 43158 NULL
@@ -4523,6 +4526,7 @@ posix_acl_alloc_fndecl_59052_fns posix_acl_alloc fndecl 1 59052 NULL nohasharray
 nr_strip_zones_r0conf_59052_fns nr_strip_zones r0conf 0 59052 &posix_acl_alloc_fndecl_59052_fns
 axi_dmac_prep_slave_sg_fndecl_59073_fns axi_dmac_prep_slave_sg fndecl 3 59073 NULL
 buffer_mousedev_client_59098_fns buffer mousedev_client 0 59098 NULL
+wm_latency_write_fndecl_59118_fns wm_latency_write fndecl 3 59118 NULL
 mmc_alloc_host_fndecl_59122_fns mmc_alloc_host fndecl 1 59122 NULL
 tas571x_reg_write_multiword_fndecl_59156_fns tas571x_reg_write_multiword fndecl 4 59156 NULL
 copy_ucs2_from_user_len_fndecl_59162_fns copy_ucs2_from_user_len fndecl 3 59162 NULL
@@ -4620,6 +4624,7 @@ hest_ghes_dev_register_fndecl_60349_fns hest_ghes_dev_register fndecl 1 60349 NU
 string_escape_str_fndecl_60365_fns string_escape_str fndecl 0 60365 NULL
 num_counters_vardecl_sysfs_c_60371_fns num_counters vardecl_sysfs.c 0 60371 NULL
 shmem_pwrite_fast_fndecl_60393_fns shmem_pwrite_fast fndecl 3 60393 NULL
+quirk_strict_duplicate_filter_write_fndecl_60446_fns quirk_strict_duplicate_filter_write fndecl 3 60446 NULL
 sd_quota_slots_gfs2_sbd_60466_fns sd_quota_slots gfs2_sbd 0 60466 NULL
 ll_iocontrol_register_fndecl_60517_fns ll_iocontrol_register fndecl 2 60517 NULL
 iommu_dma_alloc_fndecl_60521_fns iommu_dma_alloc fndecl 2 60521 NULL
@@ -5032,4 +5037,5 @@ rx_rx_pre_complt_read_fndecl_65446_fns rx_rx_pre_complt_read fndecl 3 65446 NULL
 squashfs_cache_init_fndecl_65451_fns squashfs_cache_init fndecl 3-2 65451 NULL
 raw_notifier_call_chain_fndecl_65500_fns raw_notifier_call_chain fndecl 0 65500 NULL
 sys_pwritev_fndecl_65513_fns sys_pwritev fndecl 3 65513 NULL
-bcm2835_dma_prep_dma_memcpy_fndecl_65534_fns bcm2835_dma_prep_dma_memcpy fndecl 4 65534 NULL
+bcm2835_dma_prep_dma_memcpy_fndecl_65534_fns bcm2835_dma_prep_dma_memcpy fndecl 4 65534 NULL nohasharray
+connector_write_fndecl_65534_fns connector_write fndecl 3 65534 &bcm2835_dma_prep_dma_memcpy_fndecl_65534_fns
