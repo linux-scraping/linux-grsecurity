@@ -5663,6 +5663,7 @@ __blk_bios_map_sg_fndecl_22734_fields __blk_bios_map_sg fndecl 0 22734 NULL
 xprt_alloc_fndecl_22736_fields xprt_alloc fndecl 4-3 22736 NULL
 num_fcoe_qps_i40e_pf_22740_fields num_fcoe_qps i40e_pf 0 22740 NULL
 iwlagn_pass_packet_to_mac80211_fndecl_22746_fields iwlagn_pass_packet_to_mac80211 fndecl 3 22746 NULL
+iov_iter_revert_fndecl_22771_fields iov_iter_revert fndecl 2 22771 NULL
 rambase_brcmf_chip_22773_fields rambase brcmf_chip 0 22773 NULL
 efi_memmap_alloc_fndecl_22776_fields efi_memmap_alloc fndecl 1-0 22776 NULL
 ndr_mappings_nd_region_22782_fields ndr_mappings nd_region 0 22782 NULL
