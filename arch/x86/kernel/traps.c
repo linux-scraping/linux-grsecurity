@@ -210,7 +210,6 @@ do_trap_no_signal(struct task_struct *tsk, int trapnr, const char *str,
 
 #ifdef CONFIG_PAX_REFCOUNT
 		if (trapnr == X86_REFCOUNT_VECTOR) {
-			regs->ip -= 2; // sizeof int $xx
 			pax_report_refcount_error(regs, str);
 		}
 #endif

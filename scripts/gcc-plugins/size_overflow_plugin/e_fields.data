@@ -4355,7 +4355,6 @@ e_block_mb_cache_entry_17485_fields e_block mb_cache_entry 0 17485 NULL
 len_tmc_drvdata_17487_fields len tmc_drvdata 0 17487 NULL
 mlx4_ib_reg_user_mr_fndecl_17492_fields mlx4_ib_reg_user_mr fndecl 3-2 17492 NULL
 qp_memcpy_from_queue_fndecl_17500_fields qp_memcpy_from_queue fndecl 5-4 17500 NULL
-user_buffer_offset_binder_proc_17508_fields user_buffer_offset binder_proc 0 17508 NULL
 invalidate_fndecl_17509_fields invalidate fndecl 4-3 17509 NULL
 brcmf_fil_iovar_data_set_fndecl_17512_fields brcmf_fil_iovar_data_set fndecl 4 17512 NULL
 npages_free_dma_pool_17513_fields npages_free dma_pool 0 17513 NULL nohasharray
