@@ -12471,3 +12471,4 @@ btrfs_get_token_16_fndecl_46639_fns btrfs_get_token_16 fndecl 0 46639 NULL
 btrfs_get_token_64_fndecl_54223_fns btrfs_get_token_64 fndecl 0 54223 NULL
 qdisc_tree_reduce_backlog_fndecl_3865_fields qdisc_tree_reduce_backlog fndecl 2 3865 NULL
 user_buffer_offset_binder_proc_17508_fields user_buffer_offset binder_proc 0 17508 NULL
+min_priority_binder_node_54207_fields min_priority binder_node 0 54207 NULL

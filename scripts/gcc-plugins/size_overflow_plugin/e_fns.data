@@ -58,6 +58,7 @@ xfs_buf_get_map_fndecl_729_fns xfs_buf_get_map fndecl 3 729 NULL
 sdp1length__SpiCfgData_813_fns sdp1length _SpiCfgData 0 813 NULL
 request_key_auth_read_fndecl_830_fns request_key_auth_read fndecl 3 830 NULL
 pipeline_post_proc_swi_read_fndecl_831_fns pipeline_post_proc_swi_read fndecl 3 831 NULL
+_picolcd_flash_write_fndecl_853_fns _picolcd_flash_write fndecl 4 853 NULL
 irnet_ctrl_write_fndecl_856_fns irnet_ctrl_write fndecl 3 856 NULL
 dvb_register_media_device_fndecl_878_fns dvb_register_media_device fndecl 4 878 NULL
 field_count_audit_rule_data_886_fns field_count audit_rule_data 0 886 NULL
@@ -65,6 +66,7 @@ octeon_read_device_mem64_fndecl_892_fns octeon_read_device_mem64 fndecl 0 892 NU
 tcpprobe_sprint_fndecl_909_fns tcpprobe_sprint fndecl 0 909 NULL
 max_reply_bytes_mpt3_ioctl_command_918_fns max_reply_bytes mpt3_ioctl_command 0 918 NULL
 vmsplice_to_pipe_fndecl_937_fns vmsplice_to_pipe fndecl 3 937 NULL
+icmp_len_batadv_socket_packet_944_fns icmp_len batadv_socket_packet 0 944 NULL
 pcpu_embed_first_chunk_fndecl_947_fns pcpu_embed_first_chunk fndecl 1-2-3 947 NULL
 sel_read_bool_fndecl_959_fns sel_read_bool fndecl 3 959 NULL
 compat_sys_preadv64_fndecl_968_fns compat_sys_preadv64 fndecl 3 968 NULL
@@ -105,6 +107,7 @@ idma64_alloc_desc_fndecl_1433_fns idma64_alloc_desc fndecl 1 1433 NULL
 nr_cpusets_fndecl_1442_fns nr_cpusets fndecl 0 1442 NULL
 memcg_update_list_lru_node_fndecl_1454_fns memcg_update_list_lru_node fndecl 3 1454 NULL
 sys_ppoll_fndecl_1459_fns sys_ppoll fndecl 2 1459 NULL
+iio_debugfs_write_reg_fndecl_1477_fns iio_debugfs_write_reg fndecl 3 1477 NULL
 cx18_copy_buf_to_user_fndecl_1500_fns cx18_copy_buf_to_user fndecl 4 1500 NULL
 qlcnic_sriov_init_fndecl_1529_fns qlcnic_sriov_init fndecl 2 1529 NULL
 i2cdev_write_fndecl_1565_fns i2cdev_write fndecl 3 1565 NULL
@@ -147,8 +150,10 @@ response_length_mlx5_ib_create_rwq_ind_tbl_resp_1977_fns response_length mlx5_ib
 alauda_read_block_fndecl_2008_fns alauda_read_block fndecl 4 2008 NULL
 xlog_recovery_process_trans_fndecl_2013_fns xlog_recovery_process_trans fndecl 4 2013 NULL
 diva_get_trace_filter_fndecl_2021_fns diva_get_trace_filter fndecl 0 2021 NULL
+kmalloc_order_trace_fndecl_2063_fns kmalloc_order_trace fndecl 1 2063 NULL
 dvb_generic_ioctl_fndecl_2081_fns dvb_generic_ioctl fndecl 2 2081 NULL
 min_odd_fndecl_2105_fns min_odd fndecl 0-1-2 2105 NULL
+qsfp1_debugfs_read_fndecl_2107_fns qsfp1_debugfs_read fndecl 3 2107 NULL
 oom_adj_read_fndecl_2116_fns oom_adj_read fndecl 3 2116 NULL
 lmv_mds_md_stripe_count_get_fndecl_2118_fns lmv_mds_md_stripe_count_get fndecl 0 2118 NULL
 gen_unique_name_fndecl_2127_fns gen_unique_name fndecl 0 2127 NULL
@@ -262,6 +267,7 @@ pcpu_chunk_struct_size_vardecl_percpu_c_3673_fns pcpu_chunk_struct_size vardecl_
 alloc_orinocodev_fndecl_3688_fns alloc_orinocodev fndecl 1 3688 NULL
 read_file_bool_bmps_fndecl_3699_fns read_file_bool_bmps fndecl 3 3699 NULL
 srp_max_rsp_size_srpt_port_attrib_3700_fns srp_max_rsp_size srpt_port_attrib 0 3700 NULL
+allocate_cmdlines_buffer_fndecl_3704_fns allocate_cmdlines_buffer fndecl 1 3704 NULL
 ip_getsockopt_fndecl_3711_fns ip_getsockopt fndecl 0 3711 NULL
 diva_get_driver_dbg_mask_fndecl_3716_fns diva_get_driver_dbg_mask fndecl 0 3716 NULL
 SYSC_rt_sigpending_fndecl_3728_fns SYSC_rt_sigpending fndecl 2 3728 NULL
@@ -303,6 +309,7 @@ cx18_v4l2_read_fndecl_4063_fns cx18_v4l2_read fndecl 3 4063 NULL
 input_ff_create_fndecl_4075_fns input_ff_create fndecl 2 4075 NULL
 ring_overflow_per_user_data_4076_fns ring_overflow per_user_data 0 4076 NULL
 mlx4_en_get_num_flows_fndecl_4078_fns mlx4_en_get_num_flows fndecl 0 4078 NULL
+read_ftrace_buffer_info_4082_fns read ftrace_buffer_info 0 4082 NULL
 kvm_vcpu_read_guest_page_fndecl_4083_fns kvm_vcpu_read_guest_page fndecl 2-5 4083 NULL
 __rvt_alloc_mr_fndecl_4129_fns __rvt_alloc_mr fndecl 1 4129 NULL
 struct_size_rmi_register_descriptor_4163_fns struct_size rmi_register_descriptor 0 4163 NULL
@@ -372,6 +379,7 @@ SYSC_fgetxattr_fndecl_4904_fns SYSC_fgetxattr fndecl 4 4904 NULL
 build_verbs_ulp_payload_fndecl_4906_fns build_verbs_ulp_payload fndecl 3 4906 NULL
 diva_um_idi_read_fndecl_4912_fns diva_um_idi_read fndecl 0 4912 NULL
 tree_mod_log_eb_move_fndecl_4920_fns tree_mod_log_eb_move fndecl 5 4920 NULL
+aat2870_reg_write_file_fndecl_4965_fns aat2870_reg_write_file fndecl 3 4965 NULL
 fuse_conn_limit_read_fndecl_4967_fns fuse_conn_limit_read fndecl 3 4967 NULL
 team_options_register_fndecl_4968_fns team_options_register fndecl 3 4968 NULL
 reiserfs_dir_fsync_fndecl_4971_fns reiserfs_dir_fsync fndecl 2-3 4971 NULL
@@ -408,6 +416,7 @@ snd_hda_get_connections_fndecl_5398_fns snd_hda_get_connections fndecl 0 5398 NU
 rq_size_i40iw_puda_rsrc_info_5413_fns rq_size i40iw_puda_rsrc_info 0 5413 NULL
 value_xen_pci_op_5416_fns value xen_pci_op 0 5416 NULL
 wilc_add_wep_key_bss_sta_fndecl_5436_fns wilc_add_wep_key_bss_sta fndecl 3 5436 NULL
+wiidebug_eeprom_read_fndecl_5523_fns wiidebug_eeprom_read fndecl 3 5523 NULL
 smk_write_rules_list_fndecl_5526_fns smk_write_rules_list fndecl 3 5526 NULL
 debug_output_fndecl_5532_fns debug_output fndecl 3 5532 NULL nohasharray
 tool_dbfn_read_fndecl_5532_fns tool_dbfn_read fndecl 3 5532 &debug_output_fndecl_5532_fns
@@ -462,6 +471,7 @@ brcmf_usb_attach_fndecl_6261_fns brcmf_usb_attach fndecl 2-3 6261 NULL
 sb_nextnum_nilfs_segment_buffer_6275_fns sb_nextnum nilfs_segment_buffer 0 6275 NULL
 command_setsensorfps_fndecl_6277_fns command_setsensorfps fndecl 0 6277 NULL
 nrealwriters_stress_lock_torture_cxt_6279_fns nrealwriters_stress lock_torture_cxt 0 6279 NULL
+count_leafs_fndecl_6305_fns count_leafs fndecl 0 6305 NULL
 sn9c2028_command_fndecl_6307_fns sn9c2028_command fndecl 0 6307 NULL
 shadow_fetch_fndecl_6315_fns shadow_fetch fndecl 3 6315 NULL
 len_ethtool_gstrings_6325_fns len ethtool_gstrings 0 6325 NULL
@@ -471,6 +481,7 @@ i40e_align_l2obj_base_fndecl_6341_fns i40e_align_l2obj_base fndecl 1 6341 NULL
 init_per_cpu_fndecl_6347_fns init_per_cpu fndecl 1 6347 NULL
 dev_pm_opp_get_opp_count_fndecl_6372_fns dev_pm_opp_get_opp_count fndecl 0 6372 NULL
 partition_sched_domains_fndecl_6386_fns partition_sched_domains fndecl 1 6386 NULL
+lpfc_debugfs_dif_err_write_fndecl_6403_fns lpfc_debugfs_dif_err_write fndecl 3 6403 NULL
 x509_note_serial_fndecl_6424_fns x509_note_serial fndecl 5 6424 NULL
 parse_dcb20_entry_fndecl_6440_fns parse_dcb20_entry fndecl 3 6440 NULL
 i40iw_qp_roundup_fndecl_6447_fns i40iw_qp_roundup fndecl 1 6447 NULL
@@ -515,6 +526,7 @@ pwr_sleep_time_count_read_fndecl_6914_fns pwr_sleep_time_count_read fndecl 3 691
 multi_src_desc_6933_fns multi src_desc 0 6933 NULL
 nvram_pagesize_tg3_6938_fns nvram_pagesize tg3 0 6938 NULL
 tlv_put_u64_fndecl_6968_fns tlv_put_u64 fndecl 0 6968 NULL
+mwifiex_verext_write_fndecl_6972_fns mwifiex_verext_write fndecl 3 6972 NULL
 pvr2_v4l2_read_fndecl_6981_fns pvr2_v4l2_read fndecl 3 6981 NULL
 bits_from_user_fndecl_6996_fns bits_from_user fndecl 2-3 6996 NULL
 fpregs_get_fndecl_7041_fns fpregs_get fndecl 4 7041 NULL
@@ -758,6 +770,7 @@ outlen_write_fndecl_10093_fns outlen_write fndecl 3 10093 NULL
 msix_num_bnad_10096_fns msix_num bnad 0 10096 NULL
 em28xx_init_usb_xfer_fndecl_10106_fns em28xx_init_usb_xfer fndecl 4 10106 NULL
 _regmap_raw_multi_reg_write_fndecl_10107_fns _regmap_raw_multi_reg_write fndecl 3 10107 NULL
+trace_parser_get_init_fndecl_10112_fns trace_parser_get_init fndecl 2 10112 NULL
 tfms_count_crypt_config_10114_fns tfms_count crypt_config 0 10114 NULL
 sg_segs_osst_buffer_10144_fns sg_segs osst_buffer 0 10144 NULL
 nvme_rdma_alloc_qe_fndecl_10151_fns nvme_rdma_alloc_qe fndecl 3 10151 NULL
@@ -816,6 +829,7 @@ __btrfs_getxattr_fndecl_10728_fns __btrfs_getxattr fndecl 0 10728 NULL
 ntp_fltr_count_bnxt_10734_fns ntp_fltr_count bnxt 0 10734 NULL
 write_file_queue_fndecl_10737_fns write_file_queue fndecl 3 10737 NULL
 setexposure_fndecl_10781_fns setexposure fndecl 0 10781 NULL
+dwc3_testmode_write_fndecl_10791_fns dwc3_testmode_write fndecl 3 10791 NULL
 rndis_add_response_fndecl_10854_fns rndis_add_response fndecl 2 10854 NULL
 disk_expand_part_tbl_fndecl_10866_fns disk_expand_part_tbl fndecl 2 10866 NULL
 __vmalloc_fndecl_10880_fns __vmalloc fndecl 1 10880 NULL
@@ -887,6 +901,7 @@ __kmalloc_node_fndecl_11804_fns __kmalloc_node fndecl 1 11804 NULL
 size_mvpp2_tx_queue_11816_fns size mvpp2_tx_queue 0 11816 NULL
 pci_enable_msix_fndecl_11847_fns pci_enable_msix fndecl 3 11847 NULL
 num_crtc_mga_device_11851_fns num_crtc mga_device 0 11851 NULL
+btmrvl_pscmd_write_fndecl_11859_fns btmrvl_pscmd_write fndecl 3 11859 NULL
 frame_rate_sd_11862_fns frame_rate sd 0 11862 NULL
 wr_host_buf_pos_xilly_channel_11866_fns wr_host_buf_pos xilly_channel 0 11866 NULL
 alloc_empty_pages_fndecl_11885_fns alloc_empty_pages fndecl 2 11885 NULL
@@ -923,6 +938,7 @@ zs_size_classes_vardecl_zsmalloc_c_12260_fns zs_size_classes vardecl_zsmalloc.c 
 mempool_create_fndecl_12270_fns mempool_create fndecl 1 12270 NULL
 capacity_sddr09_card_info_12286_fns capacity sddr09_card_info 0 12286 NULL
 nb_blocks_NFTLrecord_12306_fns nb_blocks NFTLrecord 0 12306 NULL
+tracing_clock_write_fndecl_12330_fns tracing_clock_write fndecl 3 12330 NULL
 srpt_alloc_rw_ctxs_fndecl_12333_fns srpt_alloc_rw_ctxs fndecl 3 12333 NULL
 snd_hdac_bus_exec_verb_unlocked_fndecl_12335_fns snd_hdac_bus_exec_verb_unlocked fndecl 0 12335 NULL
 bank_size_stub_chip_12338_fns bank_size stub_chip 0 12338 NULL
@@ -931,6 +947,7 @@ mic_rx_pkts_read_fndecl_12375_fns mic_rx_pkts_read fndecl 3 12375 NULL
 pci_enable_device_flags_fndecl_12378_fns pci_enable_device_flags fndecl 0 12378 NULL
 powercap_register_zone_fndecl_12399_fns powercap_register_zone fndecl 6 12399 NULL
 ieee802154_alloc_hw_fndecl_12400_fns ieee802154_alloc_hw fndecl 1 12400 NULL
+edt_ft5x06_debugfs_raw_data_read_fndecl_12401_fns edt_ft5x06_debugfs_raw_data_read fndecl 3 12401 NULL
 snd_rawmidi_write_fndecl_12411_fns snd_rawmidi_write fndecl 3 12411 NULL
 cx231xx_init_vbi_isoc_fndecl_12422_fns cx231xx_init_vbi_isoc fndecl 3 12422 NULL
 init_rs_non_canonical_fndecl_12424_fns init_rs_non_canonical fndecl 1-5 12424 NULL
@@ -964,6 +981,7 @@ rdma_rw_init_mr_wrs_fndecl_12719_fns rdma_rw_init_mr_wrs fndecl 7-5 12719 NULL
 read_profile_fndecl_12736_fns read_profile fndecl 3 12736 NULL
 num_unit_element_struct_12767_fns num unit_element_struct 0 12767 NULL
 driver_add_groups_fndecl_12778_fns driver_add_groups fndecl 0 12778 NULL
+testmode_write_fndecl_12814_fns testmode_write fndecl 3 12814 NULL
 hint_events_per_packet_input_dev_12818_fns hint_events_per_packet input_dev 0 12818 NULL nohasharray
 subdev_ioctl_fndecl_12818_fns subdev_ioctl fndecl 2 12818 &hint_events_per_packet_input_dev_12818_fns
 ksocknal_alloc_tx_fndecl_12825_fns ksocknal_alloc_tx fndecl 2 12825 NULL
@@ -1023,6 +1041,7 @@ snd_ctl_new_fndecl_13472_fns snd_ctl_new fndecl 2 13472 NULL
 __videobuf_alloc_vb_fndecl_13477_fns __videobuf_alloc_vb fndecl 1 13477 NULL
 devfn_slot_13478_fns devfn slot 0 13478 NULL
 iwl_mvm_notify_rx_queue_fndecl_13499_fns iwl_mvm_notify_rx_queue fndecl 4 13499 NULL
+btmrvl_hscmd_write_fndecl_13506_fns btmrvl_hscmd_write fndecl 3 13506 NULL
 max_out_size_ims_pcu_13527_fns max_out_size ims_pcu 0 13527 NULL
 alloc_fdmem_fndecl_13528_fns alloc_fdmem fndecl 1 13528 NULL
 tool_mw_read_fndecl_13537_fns tool_mw_read fndecl 3 13537 NULL
@@ -1066,6 +1085,7 @@ e_phnum_elf32_hdr_13980_fns e_phnum elf32_hdr 0 13980 NULL
 syslog_partial_vardecl_printk_c_13985_fns syslog_partial vardecl_printk.c 0 13985 NULL
 rd_size_uhid_device_13986_fns rd_size uhid_device 0 13986 NULL
 libipw_alloc_txb_fndecl_13992_fns libipw_alloc_txb fndecl 1 13992 NULL
+batadv_socket_add_packet_fndecl_14011_fns batadv_socket_add_packet fndecl 3 14011 NULL
 sensor_framerate_go7007_14025_fns sensor_framerate go7007 0 14025 NULL
 descriptors_per_page__drm_via_sg_info_14046_fns descriptors_per_page _drm_via_sg_info 0 14046 NULL
 C_SYSC_mbind_fndecl_14055_fns C_SYSC_mbind fndecl 5 14055 NULL
@@ -1073,6 +1093,7 @@ read_flush_procfs_fndecl_14057_fns read_flush_procfs fndecl 3 14057 NULL
 regmap_ibt_gather_write_fndecl_14087_fns regmap_ibt_gather_write fndecl 5 14087 NULL
 _mv88e6xxx_port_vlan_add_fndecl_14091_fns _mv88e6xxx_port_vlan_add fndecl 3 14091 NULL
 snd_compr_calc_avail_fndecl_14094_fns snd_compr_calc_avail fndecl 0 14094 NULL
+btmrvl_hscfgcmd_write_fndecl_14100_fns btmrvl_hscfgcmd_write fndecl 3 14100 NULL
 wil_write_file_wmi_fndecl_14109_fns wil_write_file_wmi fndecl 3 14109 NULL
 dqi_entry_size_qtree_mem_dqinfo_14150_fns dqi_entry_size qtree_mem_dqinfo 0 14150 NULL
 write_kmem_fndecl_14154_fns write_kmem fndecl 3 14154 NULL nohasharray
@@ -1114,6 +1135,7 @@ befs_utf2nls_fndecl_14607_fns befs_utf2nls fndecl 3 14607 NULL
 interval_solo_enc_dev_14661_fns interval solo_enc_dev 0 14661 NULL
 tty_copy_to_user_fndecl_14668_fns tty_copy_to_user fndecl 3-4 14668 NULL
 image_size_ls_ucode_img_desc_14672_fns image_size ls_ucode_img_desc 0 14672 NULL
+lpfc_idiag_cmd_get_fndecl_14683_fns lpfc_idiag_cmd_get fndecl 2 14683 NULL
 rx_filter_mc_filter_read_fndecl_14691_fns rx_filter_mc_filter_read fndecl 3 14691 NULL
 smt_fill_path_fndecl_14692_fns smt_fill_path fndecl 0 14692 NULL
 num_sizes_vmw_surface_14695_fns num_sizes vmw_surface 0 14695 NULL
@@ -1245,6 +1267,7 @@ create_dir_fndecl_16557_fns create_dir fndecl 0 16557 &groups_alloc_fndecl_16557
 ceph_fsync_fndecl_16625_fns ceph_fsync fndecl 2-3 16625 NULL
 of_dma_match_channel_fndecl_16675_fns of_dma_match_channel fndecl 3 16675 NULL
 cons_read_buffer_16688_fns cons read_buffer 0 16688 NULL
+i2c1_debugfs_read_fndecl_16712_fns i2c1_debugfs_read fndecl 3 16712 NULL
 rx_rate_rx_frames_per_rates_read_fndecl_16737_fns rx_rate_rx_frames_per_rates_read fndecl 3 16737 NULL
 devlink_alloc_fndecl_16742_fns devlink_alloc fndecl 2 16742 NULL nohasharray
 fault_disconnect_write_fndecl_16742_fns fault_disconnect_write fndecl 3 16742 &devlink_alloc_fndecl_16742_fns
@@ -1372,6 +1395,7 @@ posix_acl_xattr_count_fndecl_18262_fns posix_acl_xattr_count fndecl 1-0 18262 NU
 video_proc_write_fndecl_18263_fns video_proc_write fndecl 3 18263 NULL
 rds_rdma_pages_fndecl_18268_fns rds_rdma_pages fndecl 0 18268 NULL
 add_pfn_range_mapped_fndecl_18307_fns add_pfn_range_mapped fndecl 1 18307 NULL
+i2c_read_fndecl_18308_fns i2c_read fndecl 0 18308 NULL
 rpipes_wahc_18323_fns rpipes wahc 0 18323 NULL
 tx_tx_done_data_read_fndecl_18332_fns tx_tx_done_data_read fndecl 3 18332 NULL
 blk_alloc_flush_queue_fndecl_18340_fns blk_alloc_flush_queue fndecl 3 18340 NULL
@@ -1488,6 +1512,7 @@ bch_alloc_fndecl_19682_fns bch_alloc fndecl 1 19682 NULL
 xfs_buf_get_maps_fndecl_19702_fns xfs_buf_get_maps fndecl 2 19702 NULL
 acpi_read_fast_fndecl_19709_fns acpi_read_fast fndecl 3-2 19709 NULL
 msc_win_to_user_fndecl_19728_fns msc_win_to_user fndecl 3 19728 NULL
+mps_trc_write_fndecl_19736_fns mps_trc_write fndecl 3 19736 NULL
 max_active_conns_bnx2i_hba_19740_fns max_active_conns bnx2i_hba 0 19740 NULL
 nftl_write_oob_fndecl_19745_fns nftl_write_oob fndecl 3 19745 NULL
 mpt_raid_phys_disk_get_num_paths_fndecl_19752_fns mpt_raid_phys_disk_get_num_paths fndecl 0 19752 NULL
@@ -1523,6 +1548,7 @@ num_counters_vardecl_oprofile_perf_c_20189_fns num_counters vardecl_oprofile_per
 qp_attach_mbox_size_fndecl_20191_fns qp_attach_mbox_size fndecl 0 20191 NULL
 max_frame_size__mgslpc_info_20204_fns max_frame_size _mgslpc_info 0 20204 NULL
 sbq_len_rx_ring_20205_fns sbq_len rx_ring 0 20205 NULL
+i40e_dbg_netdev_ops_write_fndecl_20206_fns i40e_dbg_netdev_ops_write fndecl 3 20206 NULL
 kfifo_copy_from_user_fndecl_20208_fns kfifo_copy_from_user fndecl 0-4-3 20208 NULL
 sound_write_fndecl_20221_fns sound_write fndecl 3 20221 NULL
 use_sg_osst_buffer_20225_fns use_sg osst_buffer 0 20225 NULL
@@ -1588,6 +1614,7 @@ shmem_pread_slow_fndecl_20845_fns shmem_pread_slow fndecl 2-3 20845 NULL nohasha
 udp_sendpage_fndecl_20845_fns udp_sendpage fndecl 3 20845 &shmem_pread_slow_fndecl_20845_fns
 acpi_copy_property_array_u64_fndecl_20846_fns acpi_copy_property_array_u64 fndecl 0 20846 NULL
 uinput_ioctl_handler_fndecl_20862_fns uinput_ioctl_handler fndecl 2 20862 NULL
+codec_reg_write_file_fndecl_20887_fns codec_reg_write_file fndecl 3 20887 NULL
 aggr_size_tx_agg_len_read_fndecl_20910_fns aggr_size_tx_agg_len_read fndecl 3 20910 NULL
 btrfs_next_leaf_fndecl_20915_fns btrfs_next_leaf fndecl 0 20915 NULL
 dbDiscardAG_fndecl_20969_fns dbDiscardAG fndecl 3 20969 NULL
@@ -1595,6 +1622,7 @@ count_cma_20973_fns count cma 0 20973 NULL nohasharray
 compat_sys_setsockopt_fndecl_20973_fns compat_sys_setsockopt fndecl 5 20973 &count_cma_20973_fns
 spidev_compat_ioc_message_fndecl_20986_fns spidev_compat_ioc_message fndecl 2 20986 NULL
 get_fd_set_fndecl_21001_fns get_fd_set fndecl 1 21001 NULL
+nouveau_debugfs_pstate_set_fndecl_21004_fns nouveau_debugfs_pstate_set fndecl 3 21004 NULL
 br_fdb_insert_fndecl_21006_fns br_fdb_insert fndecl 4 21006 NULL
 sst_hsw_module_set_param_fndecl_21007_fns sst_hsw_module_set_param fndecl 5 21007 NULL
 nvram_write_fndecl_21029_fns nvram_write fndecl 3 21029 NULL
@@ -1623,6 +1651,7 @@ fm10k_alloc_q_vector_fndecl_21285_fns fm10k_alloc_q_vector fndecl 6-4 21285 NULL
 tx_tx_starts_read_fndecl_21298_fns tx_tx_starts_read fndecl 3 21298 NULL
 nvdimm_major_vardecl_21302_fns nvdimm_major vardecl 0 21302 NULL
 aligned_kmalloc_fndecl_21311_fns aligned_kmalloc fndecl 1 21311 NULL
+apb_log_read_fndecl_21318_fns apb_log_read fndecl 3 21318 NULL
 i915_compat_ioctl_fndecl_21339_fns i915_compat_ioctl fndecl 2 21339 NULL
 temp_count_applesmc_registers_21387_fns temp_count applesmc_registers 0 21387 NULL
 ci_ll_write_fndecl_21391_fns ci_ll_write fndecl 4 21391 NULL
@@ -1631,6 +1660,7 @@ v4l2_fh_open_fndecl_21406_fns v4l2_fh_open fndecl 0 21406 NULL
 length_r3964_block_header_21407_fns length r3964_block_header 0 21407 NULL
 sctp_setsockopt_auth_key_fndecl_21442_fns sctp_setsockopt_auth_key fndecl 3 21442 NULL
 fwnode_property_read_u32_array_fndecl_21467_fns fwnode_property_read_u32_array fndecl 0 21467 NULL
+msm_otg_mode_write_fndecl_21471_fns msm_otg_mode_write fndecl 3 21471 NULL
 intel_sdvo_set_value_fndecl_21524_fns intel_sdvo_set_value fndecl 4 21524 NULL
 kvm_clear_guest_page_fndecl_21527_fns kvm_clear_guest_page fndecl 4-2 21527 NULL
 ooblen_mtd_oob_ops_21531_fns ooblen mtd_oob_ops 0 21531 NULL
@@ -1656,6 +1686,7 @@ smk_write_syslog_fndecl_21746_fns smk_write_syslog fndecl 3 21746 NULL
 id_gpio_device_21753_fns id gpio_device 0 21753 NULL
 regmap_get_val_bytes_fndecl_21774_fns regmap_get_val_bytes fndecl 0 21774 NULL
 ath6kl_fwlog_mask_read_fndecl_21777_fns ath6kl_fwlog_mask_read fndecl 3 21777 NULL
+__set_print_fmt_fndecl_21801_fns __set_print_fmt fndecl 0 21801 NULL
 __svc_create_fndecl_21804_fns __svc_create fndecl 3 21804 NULL
 nfs4_copy_file_range_fndecl_21835_fns nfs4_copy_file_range fndecl 2-5 21835 NULL
 check_load_and_stores_fndecl_21836_fns check_load_and_stores fndecl 2 21836 NULL
@@ -1664,6 +1695,7 @@ enable_read_fndecl_21846_fns enable_read fndecl 3 21846 NULL
 btrfs_file_extent_inline_len_fndecl_21847_fns btrfs_file_extent_inline_len fndecl 0 21847 NULL
 _ore_get_io_state_fndecl_21861_fns _ore_get_io_state fndecl 5-4-3 21861 NULL
 mlx4_init_icm_table_fndecl_21876_fns mlx4_init_icm_table fndecl 4-5 21876 NULL
+picolcd_debug_reset_write_fndecl_21888_fns picolcd_debug_reset_write fndecl 3 21888 NULL
 bio_integrity_alloc_fndecl_21889_fns bio_integrity_alloc fndecl 3 21889 NULL
 wilc_network_info_received_fndecl_21936_fns wilc_network_info_received fndecl 3 21936 NULL
 sel_write_avc_cache_threshold_fndecl_21955_fns sel_write_avc_cache_threshold fndecl 3 21955 NULL
@@ -1688,6 +1720,7 @@ acpi_aml_read_fndecl_22207_fns acpi_aml_read fndecl 3 22207 NULL
 xfrm_dst_alloc_copy_fndecl_22217_fns xfrm_dst_alloc_copy fndecl 3 22217 NULL nohasharray
 s_len_rvt_qp_22217_fns s_len rvt_qp 0 22217 &xfrm_dst_alloc_copy_fndecl_22217_fns
 get_max_acpi_id_fndecl_22220_fns get_max_acpi_id fndecl 0 22220 NULL
+lpfc_idiag_mbxacc_write_fndecl_22221_fns lpfc_idiag_mbxacc_write fndecl 3 22221 NULL
 thermal_adc_source_unexpected_read_fndecl_22235_fns thermal_adc_source_unexpected_read fndecl 3 22235 NULL
 depth_write_fndecl_22238_fns depth_write fndecl 3 22238 NULL
 dac960_user_command_proc_write_fndecl_22252_fns dac960_user_command_proc_write fndecl 3 22252 NULL
@@ -1814,6 +1847,7 @@ sel_read_policyvers_fndecl_23844_fns sel_read_policyvers fndecl 3 23844 &padzero
 subbufs_consumed_rchan_buf_23869_fns subbufs_consumed rchan_buf 0 23869 NULL
 load_msg_fndecl_23884_fns load_msg fndecl 2 23884 NULL
 snd_korg1212_copy_to_fndecl_23887_fns snd_korg1212_copy_to fndecl 6 23887 NULL
+tracing_trace_options_write_fndecl_23946_fns tracing_trace_options_write fndecl 3 23946 NULL
 init_q_fndecl_23959_fns init_q fndecl 4 23959 NULL
 memstick_alloc_host_fndecl_23965_fns memstick_alloc_host fndecl 1 23965 NULL
 xfs_buf_item_get_format_fndecl_23982_fns xfs_buf_item_get_format fndecl 2 23982 NULL
@@ -1930,6 +1964,7 @@ smk_write_unconfined_fndecl_25530_fns smk_write_unconfined fndecl 3 25530 NULL
 wsm_write_mib_fndecl_25575_fns wsm_write_mib fndecl 4 25575 NULL
 cifs_mapchar_fndecl_25586_fns cifs_mapchar fndecl 0 25586 NULL
 isr_tx_exch_complete_read_fndecl_25588_fns isr_tx_exch_complete_read fndecl 3 25588 NULL
+udelay_test_write_fndecl_25596_fns udelay_test_write fndecl 3 25596 NULL
 isr_hw_pm_mode_changes_read_fndecl_25597_fns isr_hw_pm_mode_changes_read fndecl 3 25597 NULL nohasharray
 dma_tx_requested_read_fndecl_25597_fns dma_tx_requested_read fndecl 3 25597 &isr_hw_pm_mode_changes_read_fndecl_25597_fns
 max_cmd_sg_entries_ctlr_info_25601_fns max_cmd_sg_entries ctlr_info 0 25601 NULL
@@ -1967,6 +2002,7 @@ smk_write_onlycap_fndecl_25939_fns smk_write_onlycap fndecl 3 25939 NULL
 kvm_hv_set_msr_common_fndecl_25940_fns kvm_hv_set_msr_common fndecl 3 25940 NULL
 __media_entity_enum_init_fndecl_25953_fns __media_entity_enum_init fndecl 2 25953 NULL
 tx_max_out_mpt_lan_priv_25974_fns tx_max_out mpt_lan_priv 0 25974 NULL
+picolcd_debug_eeprom_read_fndecl_26054_fns picolcd_debug_eeprom_read fndecl 3 26054 NULL
 _pcol_init_fndecl_26056_fns _pcol_init fndecl 2 26056 NULL
 ep0_write_fndecl_26075_fns ep0_write fndecl 3 26075 NULL
 alloc_bitmap_fndecl_26079_fns alloc_bitmap fndecl 1 26079 NULL
@@ -2093,6 +2129,7 @@ ioat_dca_count_dca_slots_fndecl_27732_fns ioat_dca_count_dca_slots fndecl 0 2773
 word_size_e1000_eeprom_info_27741_fns word_size e1000_eeprom_info 0 27741 NULL
 si_blocks_ocfs2_slot_info_27753_fns si_blocks ocfs2_slot_info 0 27753 NULL
 sel_read_class_fndecl_27758_fns sel_read_class fndecl 3 27758 NULL
+dwc3_link_state_write_fndecl_27762_fns dwc3_link_state_write fndecl 3 27762 NULL
 rtw_android_get_link_speed_fndecl_27772_fns rtw_android_get_link_speed fndecl 0 27772 NULL
 nr_ports_solos_card_27804_fns nr_ports solos_card 0 27804 NULL
 roundup_brcmf_sdio_27833_fns roundup brcmf_sdio 0 27833 NULL nohasharray
@@ -2164,6 +2201,7 @@ rvt_rkey_ok_fndecl_28649_fns rvt_rkey_ok fndecl 3-4 28649 NULL
 alloc_size_chunk_28657_fns alloc_size chunk 0 28657 NULL
 offset_cache_reader_28697_fns offset cache_reader 0 28697 NULL
 mlx4_init_cmpt_table_fndecl_28706_fns mlx4_init_cmpt_table fndecl 3 28706 NULL
+lpfc_idiag_ctlacc_write_fndecl_28715_fns lpfc_idiag_ctlacc_write fndecl 3 28715 NULL
 oprofilefs_ulong_to_user_fndecl_28717_fns oprofilefs_ulong_to_user fndecl 3 28717 NULL
 note_last_dentry_fndecl_28724_fns note_last_dentry fndecl 3 28724 NULL nohasharray
 d40_prep_memcpy_fndecl_28724_fns d40_prep_memcpy fndecl 4 28724 &note_last_dentry_fndecl_28724_fns
@@ -2194,6 +2232,7 @@ devm_mfd_add_devices_fndecl_29043_fns devm_mfd_add_devices fndecl 4 29043 NULL
 qib_get_base_info_fndecl_29050_fns qib_get_base_info fndecl 3 29050 NULL
 str_to_user_fndecl_29056_fns str_to_user fndecl 2 29056 NULL
 ___alloc_bootmem_fndecl_29057_fns ___alloc_bootmem fndecl 1 29057 NULL
+i40e_dbg_command_write_fndecl_29070_fns i40e_dbg_command_write fndecl 3 29070 NULL
 dev_irnet_write_fndecl_29077_fns dev_irnet_write fndecl 3 29077 NULL
 ablkcipher_edesc_alloc_fndecl_29119_fns ablkcipher_edesc_alloc fndecl 2 29119 NULL
 pci_set_power_state_fndecl_29124_fns pci_set_power_state fndecl 0 29124 NULL nohasharray
@@ -2271,6 +2310,7 @@ SetLineNumber_fndecl_30236_fns SetLineNumber fndecl 0 30236 NULL
 minor_count_vardecl_30272_fns minor_count vardecl 0 30272 NULL
 count_argc_fndecl_30296_fns count_argc fndecl 0 30296 NULL
 alloc_alien_cache_fndecl_30308_fns alloc_alien_cache fndecl 2 30308 NULL
+tracing_buffers_read_fndecl_30311_fns tracing_buffers_read fndecl 3 30311 NULL
 kvm_write_guest_cached_fndecl_30321_fns kvm_write_guest_cached fndecl 4 30321 NULL
 avc_stream_set_format_fndecl_30322_fns avc_stream_set_format fndecl 5 30322 NULL
 init_mr_info_fndecl_30331_fns init_mr_info fndecl 3 30331 NULL
@@ -2293,6 +2333,7 @@ nvme_submit_sync_cmd_fndecl_30530_fns nvme_submit_sync_cmd fndecl 4 30530 NULL
 wMaxCommand_wdm_device_30565_fns wMaxCommand wdm_device 0 30565 NULL
 wil_read_led_blink_time_fndecl_30567_fns wil_read_led_blink_time fndecl 3 30567 NULL
 snd_pcm_oss_write1_fndecl_30571_fns snd_pcm_oss_write1 fndecl 3 30571 NULL
+wiidebug_drm_write_fndecl_30572_fns wiidebug_drm_write fndecl 3 30572 NULL
 mbox_test_message_read_fndecl_30588_fns mbox_test_message_read fndecl 3 30588 NULL
 get_scq_fndecl_30594_fns get_scq fndecl 2 30594 NULL
 tifm_alloc_adapter_fndecl_30596_fns tifm_alloc_adapter fndecl 1 30596 NULL
@@ -2303,6 +2344,7 @@ xfrm_hash_alloc_fndecl_30694_fns xfrm_hash_alloc fndecl 1 30694 NULL
 rx_filter_accum_arp_pend_requests_read_fndecl_30696_fns rx_filter_accum_arp_pend_requests_read fndecl 3 30696 NULL
 bm_entry_read_fndecl_30707_fns bm_entry_read fndecl 3 30707 NULL
 sched_autogroup_write_fndecl_30715_fns sched_autogroup_write fndecl 3 30715 NULL
+__alloc_preds_fndecl_30727_fns __alloc_preds fndecl 2 30727 NULL
 lbs_threshold_write_fndecl_30733_fns lbs_threshold_write fndecl 5 30733 NULL
 mlx5_wq_cyc_get_size_fndecl_30741_fns mlx5_wq_cyc_get_size fndecl 0 30741 NULL
 copy_ucs2_to_user_len_fndecl_30743_fns copy_ucs2_to_user_len fndecl 3 30743 NULL
@@ -2412,6 +2454,7 @@ assoc_sta_del_all_sta_32069_fns assoc_sta del_all_sta 0 32069 NULL
 rproc_recovery_write_fndecl_32074_fns rproc_recovery_write fndecl 3 32074 NULL
 ahash_edesc_alloc_fndecl_32097_fns ahash_edesc_alloc fndecl 2 32097 NULL
 pci_scan_slot_fndecl_32102_fns pci_scan_slot fndecl 2 32102 NULL
+lpfc_debugfs_max_slow_ring_trc_vardecl_lpfc_debugfs_c_32130_fns lpfc_debugfs_max_slow_ring_trc vardecl_lpfc_debugfs.c 0 32130 NULL
 pwm_buf_sz_usbduxsigma_private_32156_fns pwm_buf_sz usbduxsigma_private 0 32156 NULL
 ioat_alloc_ring_fndecl_32201_fns ioat_alloc_ring fndecl 2 32201 NULL
 nr_spis_v2m_data_32203_fns nr_spis v2m_data 0 32203 NULL
@@ -2460,6 +2503,7 @@ wa_nep_queue_fndecl_32649_fns wa_nep_queue fndecl 2 32649 NULL
 dvb_ringbuffer_pkt_next_fndecl_32657_fns dvb_ringbuffer_pkt_next fndecl 0-2 32657 NULL
 nrof_flowrings_brcmf_msgbuf_32666_fns nrof_flowrings brcmf_msgbuf 0 32666 NULL
 compressed_bio_size_fndecl_32676_fns compressed_bio_size fndecl 0-2 32676 NULL
+ab3100_get_set_reg_fndecl_32681_fns ab3100_get_set_reg fndecl 3 32681 NULL
 radeon_drm_ioctl_fndecl_32696_fns radeon_drm_ioctl fndecl 2 32696 NULL
 write_file_ani_fndecl_32709_fns write_file_ani fndecl 3 32709 NULL
 sysfs_merge_group_fndecl_32710_fns sysfs_merge_group fndecl 0 32710 NULL
@@ -2516,6 +2560,7 @@ alloc_apertures_fndecl_33250_fns alloc_apertures fndecl 1 33250 NULL
 mem_size_ramoops_platform_data_33263_fns mem_size ramoops_platform_data 0 33263 NULL
 drv_file_st_partstat_33277_fns drv_file st_partstat 0 33277 NULL
 ecryptfs_encrypt_and_encode_filename_fndecl_33297_fns ecryptfs_encrypt_and_encode_filename fndecl 5 33297 NULL
+tracing_set_trace_write_fndecl_33307_fns tracing_set_trace_write fndecl 3 33307 NULL
 ima_show_htable_value_fndecl_33315_fns ima_show_htable_value fndecl 2 33315 NULL
 acpi_gsb_i2c_read_bytes_fndecl_33322_fns acpi_gsb_i2c_read_bytes fndecl 4 33322 NULL
 stk_prepare_sio_buffers_fndecl_33347_fns stk_prepare_sio_buffers fndecl 2 33347 NULL
@@ -2653,6 +2698,7 @@ error_elp_while_tx_read_fndecl_35002_fns error_elp_while_tx_read fndecl 3 35002 
 arpc_alloc_fndecl_35008_fns arpc_alloc fndecl 2 35008 NULL
 ocfs2_control_write_fndecl_35010_fns ocfs2_control_write fndecl 3 35010 NULL
 kzalloc_fndecl_35015_fns kzalloc fndecl 1 35015 NULL
+lpfc_idiag_pcicfg_write_fndecl_35022_fns lpfc_idiag_pcicfg_write fndecl 3 35022 NULL
 set_video_mode_Timon_fndecl_35074_fns set_video_mode_Timon fndecl 4 35074 NULL
 number_scales_vardecl_powernow_k7_c_35080_fns number_scales vardecl_powernow-k7.c 0 35080 NULL
 sys_kexec_file_load_fndecl_35083_fns sys_kexec_file_load fndecl 3 35083 NULL nohasharray
@@ -2742,6 +2788,7 @@ count_sgentry64_36033_fns count sgentry64 0 36033 NULL
 wdm_write_fndecl_36084_fns wdm_write fndecl 3 36084 NULL
 xfs_trans_read_buf_map_fndecl_36121_fns xfs_trans_read_buf_map fndecl 5 36121 NULL
 sock_setbindtodevice_fndecl_36202_fns sock_setbindtodevice fndecl 3 36202 NULL
+qsfp1_debugfs_write_fndecl_36216_fns qsfp1_debugfs_write fndecl 3 36216 NULL
 MaxDevHandle_mpt3sas_facts_36227_fns MaxDevHandle mpt3sas_facts 0 36227 NULL
 data_queues_rt2x00_dev_36241_fns data_queues rt2x00_dev 0 36241 NULL
 vhost_kvzalloc_fndecl_36242_fns vhost_kvzalloc fndecl 1 36242 NULL
@@ -2755,7 +2802,8 @@ paging64_prefetch_gpte_fndecl_36303_fns paging64_prefetch_gpte fndecl 4 36303 NU
 tegra_fb_alloc_fndecl_36306_fns tegra_fb_alloc fndecl 4 36306 NULL
 move_buffer_data_fndecl_36318_fns move_buffer_data fndecl 2 36318 NULL
 apei_exec_run_optional_fndecl_36319_fns apei_exec_run_optional fndecl 0 36319 NULL
-ima_write_template_field_data_fndecl_36336_fns ima_write_template_field_data fndecl 2 36336 NULL
+ima_write_template_field_data_fndecl_36336_fns ima_write_template_field_data fndecl 2 36336 NULL nohasharray
+create_trace_kprobe_fndecl_36336_fns create_trace_kprobe fndecl 1 36336 &ima_write_template_field_data_fndecl_36336_fns
 pset_prop_read_u32_array_fndecl_36338_fns pset_prop_read_u32_array fndecl 0 36338 NULL
 iowarrior_read_fndecl_36344_fns iowarrior_read fndecl 3 36344 NULL
 osd_req_write_kern_fndecl_36349_fns osd_req_write_kern fndecl 5 36349 NULL
@@ -2866,6 +2914,7 @@ spk_ye_vardecl_37920_fns spk_ye vardecl 0 37920 NULL
 num_escbs_asd_seq_data_37938_fns num_escbs asd_seq_data 0 37938 NULL
 kvm_fetch_guest_virt_fndecl_37942_fns kvm_fetch_guest_virt fndecl 2-4 37942 NULL
 seq_write_fndecl_37946_fns seq_write fndecl 3 37946 NULL
+mbox_write_fndecl_37967_fns mbox_write fndecl 3 37967 NULL
 vortex_core_init_fndecl_37980_fns vortex_core_init fndecl 0 37980 NULL
 key_search_fndecl_37982_fns key_search fndecl 0 37982 NULL
 nlmsvc_lookup_host_fndecl_37992_fns nlmsvc_lookup_host fndecl 3 37992 NULL
@@ -2885,6 +2934,7 @@ goto_high_power_fndecl_38198_fns goto_high_power fndecl 0 38198 NULL
 rx_offset_tg3_38201_fns rx_offset tg3 0 38201 NULL
 dvb_audio_write_fndecl_38232_fns dvb_audio_write fndecl 3 38232 NULL
 mwifiex_11n_delba_fndecl_38254_fns mwifiex_11n_delba fndecl 2 38254 NULL
+i2c2_debugfs_read_fndecl_38270_fns i2c2_debugfs_read fndecl 3 38270 NULL
 max_read_sge_ib_qp_38275_fns max_read_sge ib_qp 0 38275 NULL
 header_length_fw_iso_packet_38284_fns header_length fw_iso_packet 0 38284 NULL
 cacheless_memcpy_fndecl_38293_fns cacheless_memcpy fndecl 3 38293 NULL
@@ -2903,6 +2953,7 @@ chrdev_setup_rx_fndecl_38384_fns chrdev_setup_rx fndecl 2 38384 NULL
 blk_register_region_fndecl_38387_fns blk_register_region fndecl 1-2 38387 NULL
 size_vfio_info_cap_38398_fns size vfio_info_cap 0 38398 NULL
 ath6kl_sdio_alloc_prep_scat_req_fndecl_38401_fns ath6kl_sdio_alloc_prep_scat_req fndecl 2 38401 NULL
+dwc3_mode_write_fndecl_38414_fns dwc3_mode_write fndecl 3 38414 NULL
 read_page_fndecl_38423_fns read_page fndecl 2 38423 NULL
 dvb_ringbuffer_avail_fndecl_38474_fns dvb_ringbuffer_avail fndecl 0 38474 NULL
 __fuse_request_alloc_fndecl_38479_fns __fuse_request_alloc fndecl 1 38479 NULL
@@ -2963,12 +3014,14 @@ l2cap_sock_setsockopt_fndecl_39180_fns l2cap_sock_setsockopt fndecl 5 39180 NULL
 mthca_buddy_init_fndecl_39181_fns mthca_buddy_init fndecl 2 39181 NULL
 rvt_map_phys_fmr_fndecl_39197_fns rvt_map_phys_fmr fndecl 4 39197 NULL
 sg_kmalloc_fndecl_39251_fns sg_kmalloc fndecl 1 39251 NULL
+soc_codec_reg_show_fndecl_39277_fns soc_codec_reg_show fndecl 3-0 39277 NULL
 size_tomoyo_condition_39281_fns size tomoyo_condition 0 39281 NULL
 rxrpc_setsockopt_fndecl_39293_fns rxrpc_setsockopt fndecl 5 39293 NULL
 SYSC_flistxattr_fndecl_39312_fns SYSC_flistxattr fndecl 3 39312 NULL
 SYSC_sched_setaffinity_fndecl_39317_fns SYSC_sched_setaffinity fndecl 2 39317 NULL
 isdn_ppp_read_fndecl_39335_fns isdn_ppp_read fndecl 4 39335 NULL
-fscrypt_fname_alloc_buffer_fndecl_39339_fns fscrypt_fname_alloc_buffer fndecl 2 39339 NULL
+fscrypt_fname_alloc_buffer_fndecl_39339_fns fscrypt_fname_alloc_buffer fndecl 2 39339 NULL nohasharray
+musb_softconnect_write_fndecl_39339_fns musb_softconnect_write fndecl 3 39339 &fscrypt_fname_alloc_buffer_fndecl_39339_fns
 setbrightness_fndecl_39342_fns setbrightness fndecl 0 39342 NULL
 tpm_read_fndecl_39355_fns tpm_read fndecl 3 39355 NULL
 max_skl_algo_data_39368_fns max skl_algo_data 0 39368 NULL
@@ -2978,9 +3031,11 @@ sl_alloc_bufs_fndecl_39391_fns sl_alloc_bufs fndecl 2 39391 NULL
 iscsi_create_conn_fndecl_39402_fns iscsi_create_conn fndecl 2 39402 NULL
 show_device_status_fndecl_39440_fns show_device_status fndecl 0 39440 NULL
 virtio_cread16_fndecl_39444_fns virtio_cread16 fndecl 0 39444 NULL
+tp_la_write_fndecl_39445_fns tp_la_write fndecl 3 39445 NULL
 proc_write_fndecl_39464_fns proc_write fndecl 3 39464 NULL
 qib_verbs_send_pio_fndecl_39482_fns qib_verbs_send_pio fndecl 5 39482 NULL
-lbs_dev_info_fndecl_39516_fns lbs_dev_info fndecl 3 39516 NULL
+lbs_dev_info_fndecl_39516_fns lbs_dev_info fndecl 3 39516 NULL nohasharray
+mwifiex_timeshare_coex_write_fndecl_39516_fns mwifiex_timeshare_coex_write fndecl 3 39516 &lbs_dev_info_fndecl_39516_fns
 error_tx_resume_failure_read_fndecl_39521_fns error_tx_resume_failure_read fndecl 3 39521 NULL
 rsc_mgr_init_fndecl_39528_fns rsc_mgr_init fndecl 3 39528 NULL
 wusb_prf_64_fndecl_39530_fns wusb_prf_64 fndecl 7 39530 NULL
@@ -3043,6 +3098,7 @@ tool_link_event_write_fndecl_40366_fns tool_link_event_write fndecl 3 40366 NULL
 SYSC_mincore_fndecl_40372_fns SYSC_mincore fndecl 2-1 40372 NULL
 pages_per_wr_bio_scrub_wr_ctx_40374_fns pages_per_wr_bio scrub_wr_ctx 0 40374 NULL
 __vmalloc_node_fndecl_40382_fns __vmalloc_node fndecl 1 40382 NULL
+qsfp_read_fndecl_40391_fns qsfp_read fndecl 0 40391 NULL
 px_raw_event_fndecl_40392_fns px_raw_event fndecl 4 40392 NULL
 joydev_ioctl_common_fndecl_40412_fns joydev_ioctl_common fndecl 2 40412 NULL
 applesmc_create_nodes_fndecl_40419_fns applesmc_create_nodes fndecl 2 40419 NULL
@@ -3117,6 +3173,7 @@ hidp_process_report_fndecl_41140_fns hidp_process_report fndecl 4 41140 NULL
 usb_reset_and_verify_device_fndecl_41142_fns usb_reset_and_verify_device fndecl 0 41142 NULL
 calib_fail_count_read_fndecl_41171_fns calib_fail_count_read fndecl 3 41171 NULL
 suspend_dtim_interval_read_fndecl_41176_fns suspend_dtim_interval_read fndecl 3 41176 NULL
+traceprobe_probes_write_fndecl_41178_fns traceprobe_probes_write fndecl 3 41178 NULL
 nr_pages_page_collect_41197_fns nr_pages page_collect 0 41197 NULL
 sq905_command_fndecl_41201_fns sq905_command fndecl 0 41201 NULL
 nr_acpi_bits_vardecl_xen_acpi_processor_c_41210_fns nr_acpi_bits vardecl_xen-acpi-processor.c 0 41210 NULL
@@ -3181,6 +3238,7 @@ v4l2_ctrl_handler_init_class_fndecl_41742_fns v4l2_ctrl_handler_init_class fndec
 insert_dent_fndecl_41753_fns insert_dent fndecl 7 41753 NULL
 vop_virtio_copy_to_user_fndecl_41756_fns vop_virtio_copy_to_user fndecl 4-3 41756 NULL
 __alloc_bootmem_node_high_fndecl_41767_fns __alloc_bootmem_node_high fndecl 2 41767 NULL
+batadv_socket_write_fndecl_41768_fns batadv_socket_write fndecl 3 41768 NULL
 tc_action_net_init_fndecl_41775_fns tc_action_net_init fndecl 3 41775 NULL
 pcibios_enable_device_fndecl_41776_fns pcibios_enable_device fndecl 0 41776 NULL
 outlen_mlx5_cmd_debug_41806_fns outlen mlx5_cmd_debug 0 41806 NULL
@@ -3245,6 +3303,7 @@ max_allowed_qxl_monitors_config_42481_fns max_allowed qxl_monitors_config 0 4248
 hid_sensor_client_cnt_sensor_hub_data_42488_fns hid_sensor_client_cnt sensor_hub_data 0 42488 NULL
 bpf_check_classic_fndecl_42501_fns bpf_check_classic fndecl 2 42501 NULL
 __mic_dma_alloc_fndecl_42540_fns __mic_dma_alloc fndecl 2 42540 NULL
+info_debugfs_read_fndecl_42544_fns info_debugfs_read fndecl 3 42544 NULL
 qla8044_write_optrom_data_fndecl_42561_fns qla8044_write_optrom_data fndecl 4 42561 NULL
 ts_write_fndecl_42563_fns ts_write fndecl 3 42563 NULL
 usbtmc_write_fndecl_42567_fns usbtmc_write fndecl 3 42567 NULL
@@ -3406,6 +3465,7 @@ num_desc_pages__drm_via_sg_info_44666_fns num_desc_pages _drm_via_sg_info 0 4466
 flash_write_fndecl_44673_fns flash_write fndecl 3 44673 NULL
 xfpregs_set_fndecl_44680_fns xfpregs_set fndecl 4 44680 NULL
 length_ore_striping_info_44681_fns length ore_striping_info 0 44681 NULL
+asic_flags_write_fndecl_44717_fns asic_flags_write fndecl 3 44717 NULL
 altera_irscan_fndecl_44719_fns altera_irscan fndecl 2 44719 NULL
 register_netdevice_fndecl_44725_fns register_netdevice fndecl 0 44725 NULL
 kmalloc_order_fndecl_44727_fns kmalloc_order fndecl 1 44727 NULL
@@ -3501,6 +3561,7 @@ smbase_kvm_vcpu_arch_45895_fns smbase kvm_vcpu_arch 0 45895 NULL
 ath6kl_lrssi_roam_read_fndecl_45901_fns ath6kl_lrssi_roam_read fndecl 3 45901 NULL
 dfs_num_of_radar_detections_read_fndecl_45903_fns dfs_num_of_radar_detections_read fndecl 3 45903 NULL
 alloc_sglist_fndecl_45919_fns alloc_sglist fndecl 1 45919 NULL
+lpfc_idiag_queacc_write_fndecl_45920_fns lpfc_idiag_queacc_write fndecl 3 45920 NULL
 sdhci_pltfm_register_fndecl_45940_fns sdhci_pltfm_register fndecl 3 45940 NULL
 sigma_fw_load_samplerates_fndecl_45951_fns sigma_fw_load_samplerates fndecl 3 45951 NULL
 i40e_calculate_l2fpm_size_fndecl_45987_fns i40e_calculate_l2fpm_size fndecl 1-2-3-4 45987 NULL
@@ -3528,6 +3589,7 @@ __irq_alloc_domain_generic_chips_fndecl_46285_fns __irq_alloc_domain_generic_chi
 ffs_prepare_buffer_fndecl_46311_fns ffs_prepare_buffer fndecl 2 46311 NULL
 biovec_create_pool_fndecl_46325_fns biovec_create_pool fndecl 1 46325 NULL
 max_vnic_func_qlcnic_hardware_context_46334_fns max_vnic_func qlcnic_hardware_context 0 46334 NULL
+__qsfp_debugfs_write_fndecl_46356_fns __qsfp_debugfs_write fndecl 3 46356 NULL
 shadow_image_fndecl_46361_fns shadow_image fndecl 3 46361 NULL
 ring_cons_per_user_data_46365_fns ring_cons per_user_data 0 46365 NULL
 device_create_with_groups_fndecl_46371_fns device_create_with_groups fndecl 3 46371 NULL
@@ -3654,6 +3716,7 @@ setgain_fndecl_48010_fns setgain fndecl 0 48010 &init_pci_cap_msi_perm_fndecl_48
 size_netlbl_unlhsh_tbl_48011_fns size netlbl_unlhsh_tbl 0 48011 NULL
 selinux_transaction_write_fndecl_48013_fns selinux_transaction_write fndecl 3 48013 NULL
 drm_malloc_gfp_fndecl_48018_fns drm_malloc_gfp fndecl 1-2 48018 NULL
+lpfc_idiag_baracc_write_fndecl_48021_fns lpfc_idiag_baracc_write fndecl 3 48021 NULL
 _find_next_bit_le_fndecl_48027_fns _find_next_bit_le fndecl 0 48027 NULL
 __cvmx_bootmem_desc_get_fndecl_48105_fns __cvmx_bootmem_desc_get fndecl 0 48105 NULL
 namelen_xensyms_48117_fns namelen xensyms 0 48117 NULL
@@ -3688,6 +3751,7 @@ copy_to_user_fromio_fndecl_48459_fns copy_to_user_fromio fndecl 3 48459 NULL
 num_msix_irqs_octeon_device_48465_fns num_msix_irqs octeon_device 0 48465 NULL
 enclosure_register_fndecl_48471_fns enclosure_register fndecl 3 48471 NULL
 __origin_write_fndecl_48487_fns __origin_write fndecl 2 48487 NULL
+rss_key_write_fndecl_48498_fns rss_key_write fndecl 3 48498 NULL
 sys_pselect6_fndecl_48506_fns sys_pselect6 fndecl 1 48506 NULL
 octeon_read_device_mem32_fndecl_48520_fns octeon_read_device_mem32 fndecl 0 48520 NULL
 copy_in_user_fndecl_48525_fns copy_in_user fndecl 3 48525 NULL
@@ -3731,6 +3795,7 @@ vmalloc_to_sg_fndecl_48865_fns vmalloc_to_sg fndecl 2 48865 NULL
 mpls_count_nexthops_fndecl_48869_fns mpls_count_nexthops fndecl 0 48869 NULL
 __copy_from_user_swizzled_fndecl_48882_fns __copy_from_user_swizzled fndecl 2-4 48882 NULL
 bylength_atto_vda_ae_hdr_48890_fns bylength atto_vda_ae_hdr 0 48890 NULL
+radeon_ttm_gtt_read_fndecl_48900_fns radeon_ttm_gtt_read fndecl 3 48900 NULL
 xt_alloc_table_info_fndecl_48956_fns xt_alloc_table_info fndecl 1 48956 NULL
 user_dlm_lock_fndecl_48959_fns user_dlm_lock fndecl 6 48959 NULL
 xfs_mru_cache_create_fndecl_48964_fns xfs_mru_cache_create fndecl 3 48964 NULL
@@ -3750,6 +3815,7 @@ alloc_rbio_fndecl_49128_fns alloc_rbio fndecl 3 49128 NULL
 mad_seg_size_ib_mad_recv_wc_49134_fns mad_seg_size ib_mad_recv_wc 0 49134 NULL
 ufx_reg_clear_and_set_bits_fndecl_49150_fns ufx_reg_clear_and_set_bits fndecl 0 49150 NULL
 ipr_alloc_ucode_buffer_fndecl_49172_fns ipr_alloc_ucode_buffer fndecl 1 49172 NULL
+allocate_probes_fndecl_49183_fns allocate_probes fndecl 1 49183 NULL
 fsl_edma_prep_dma_cyclic_fndecl_49197_fns fsl_edma_prep_dma_cyclic fndecl 3 49197 NULL nohasharray
 of_get_child_count_fndecl_49197_fns of_get_child_count fndecl 0 49197 &fsl_edma_prep_dma_cyclic_fndecl_49197_fns
 ocrdma_dbgfs_ops_read_fndecl_49211_fns ocrdma_dbgfs_ops_read fndecl 3 49211 NULL
@@ -3845,6 +3911,7 @@ sbp_count_se_tpg_luns_fndecl_50444_fns sbp_count_se_tpg_luns fndecl 0 50444 NULL
 nfsd_drc_mem_used_vardecl_50456_fns nfsd_drc_mem_used vardecl 0 50456 NULL
 __ath6kl_wmi_send_mgmt_cmd_fndecl_50472_fns __ath6kl_wmi_send_mgmt_cmd fndecl 7 50472 NULL
 buf_size_dmatest_params_50477_fns buf_size dmatest_params 0 50477 NULL
+lpfc_idiag_extacc_write_fndecl_50501_fns lpfc_idiag_extacc_write fndecl 3 50501 NULL
 OSDSetBlock_fndecl_50521_fns OSDSetBlock fndecl 2-4 50521 NULL
 get_nodes_fndecl_50551_fns get_nodes fndecl 3 50551 NULL
 do_write_kmem_fndecl_50584_fns do_write_kmem fndecl 0-1-3 50584 NULL
@@ -3854,6 +3921,7 @@ buffer_depth_etb_drvdata_50624_fns buffer_depth etb_drvdata 0 50624 &__kfifo_to_
 keymap_size_dell_dmi_results_50640_fns keymap_size dell_dmi_results 0 50640 NULL
 tomoyo_truncate_fndecl_50642_fns tomoyo_truncate fndecl 0 50642 NULL
 xor_sources_dmatest_params_50653_fns xor_sources dmatest_params 0 50653 NULL
+qsfp2_debugfs_write_fndecl_50656_fns qsfp2_debugfs_write fndecl 3 50656 NULL
 proc_coredump_filter_read_fndecl_50658_fns proc_coredump_filter_read fndecl 3 50658 NULL
 da9150_i2c_write_device_fndecl_50670_fns da9150_i2c_write_device fndecl 3 50670 NULL
 nclips_bttv_overlay_50673_fns nclips bttv_overlay 0 50673 NULL
@@ -4000,6 +4068,7 @@ rd_allocate_sgl_table_fndecl_52188_fns rd_allocate_sgl_table fndecl 3 52188 NULL
 regmap_calc_reg_len_fndecl_52195_fns regmap_calc_reg_len fndecl 0 52195 NULL
 qp_broker_alloc_fndecl_52197_fns qp_broker_alloc fndecl 6-5 52197 NULL
 audit_init_entry_fndecl_52199_fns audit_init_entry fndecl 1 52199 NULL
+write_enabled_file_bool_fndecl_52213_fns write_enabled_file_bool fndecl 3 52213 NULL
 snd_hda_get_conn_list_fndecl_52255_fns snd_hda_get_conn_list fndecl 0 52255 NULL
 channels_count_gb_light_52264_fns channels_count gb_light 0 52264 NULL
 num_alt_cx231xx_audio_52283_fns num_alt cx231xx_audio 0 52283 NULL
@@ -4067,6 +4136,7 @@ brcmf_fw_nvram_strip_fndecl_53102_fns brcmf_fw_nvram_strip fndecl 2 53102 NULL
 logi_dj_recv_forward_hidpp_fndecl_53117_fns logi_dj_recv_forward_hidpp fndecl 3 53117 NULL
 xz_dec_test_write_fndecl_53124_fns xz_dec_test_write fndecl 3 53124 NULL
 private_data_len_ib_cm_sidr_req_param_53150_fns private_data_len ib_cm_sidr_req_param 0 53150 NULL
+lpfc_debugfs_max_disc_trc_vardecl_lpfc_debugfs_c_53169_fns lpfc_debugfs_max_disc_trc vardecl_lpfc_debugfs.c 0 53169 NULL
 num_tx_rings_nfp_net_53170_fns num_tx_rings nfp_net 0 53170 NULL
 xhci_alloc_streams_fndecl_53185_fns xhci_alloc_streams fndecl 5 53185 NULL
 SYSC_mbind_fndecl_53221_fns SYSC_mbind fndecl 5 53221 NULL
@@ -4093,6 +4163,7 @@ num_entries_s2io_nic_53404_fns num_entries s2io_nic 0 53404 NULL
 set_rcvarray_entry_fndecl_53410_fns set_rcvarray_entry fndecl 6 53410 NULL
 cfs_hash_buckets_realloc_fndecl_53415_fns cfs_hash_buckets_realloc fndecl 4 53415 NULL
 rxHeader3_edgeport_serial_53418_fns rxHeader3 edgeport_serial 0 53418 NULL
+codec_reg_read_file_fndecl_53419_fns codec_reg_read_file fndecl 3 53419 NULL
 compat_sys_mbind_fndecl_53427_fns compat_sys_mbind fndecl 5 53427 NULL
 ad7879_spi_xfer_fndecl_53444_fns ad7879_spi_xfer fndecl 3 53444 NULL
 nouveau_cli_create_fndecl_53462_fns nouveau_cli_create fndecl 3 53462 NULL
@@ -4180,6 +4251,7 @@ do_preadv_fndecl_54493_fns do_preadv fndecl 3 54493 NULL
 sys_setsockopt_fndecl_54507_fns sys_setsockopt fndecl 5 54507 NULL
 bio_segments_fndecl_54531_fns bio_segments fndecl 0 54531 NULL
 b43_debugfs_write_fndecl_54533_fns b43_debugfs_write fndecl 3 54533 NULL
+__i2c_debugfs_read_fndecl_54556_fns __i2c_debugfs_read fndecl 3 54556 NULL
 cp_nr_rings_bnxt_54565_fns cp_nr_rings bnxt 0 54565 NULL
 acpi_system_write_wakeup_device_fndecl_54582_fns acpi_system_write_wakeup_device fndecl 3 54582 NULL
 mipi_dsi_dcs_write_fndecl_54605_fns mipi_dsi_dcs_write fndecl 4 54605 NULL
@@ -4199,6 +4271,7 @@ buf_size__BIG_IOCTL_Command_struct_54806_fns buf_size _BIG_IOCTL_Command_struct 
 persistent_ram_update_user_fndecl_54807_fns persistent_ram_update_user fndecl 4 54807 NULL
 pci_request_regions_fndecl_54816_fns pci_request_regions fndecl 0 54816 NULL
 kernel_readv_fndecl_54834_fns kernel_readv fndecl 3 54834 NULL
+i2c1_debugfs_write_fndecl_54837_fns i2c1_debugfs_write fndecl 3 54837 NULL
 spi_register_board_info_fndecl_54864_fns spi_register_board_info fndecl 2 54864 NULL
 usb_dmac_desc_get_fndecl_54869_fns usb_dmac_desc_get fndecl 2 54869 NULL
 compress_sliced_buf_fndecl_54891_fns compress_sliced_buf fndecl 0 54891 NULL
@@ -4262,6 +4335,7 @@ kvm_vcpu_gfn_to_page_fndecl_55725_fns kvm_vcpu_gfn_to_page fndecl 2 55725 NULL
 mpi_from_key_fndecl_55729_fns mpi_from_key fndecl 0 55729 NULL
 cnt_mon_text_ptr_55741_fns cnt mon_text_ptr 0 55741 NULL
 vga_switcheroo_debugfs_write_fndecl_55763_fns vga_switcheroo_debugfs_write fndecl 3 55763 NULL
+cmd_read_size_wiimote_state_55772_fns cmd_read_size wiimote_state 0 55772 NULL
 rx_rx_xfr_read_fndecl_55779_fns rx_rx_xfr_read fndecl 3 55779 NULL
 qed_cxt_get_proto_tid_count_fndecl_55797_fns qed_cxt_get_proto_tid_count fndecl 0 55797 NULL
 lbs_lowrssi_write_fndecl_55802_fns lbs_lowrssi_write fndecl 3 55802 NULL
@@ -4315,6 +4389,7 @@ alloc_gid_table_fndecl_56444_fns alloc_gid_table fndecl 1 56444 NULL
 _pci_add_cap_save_buffer_fndecl_56466_fns _pci_add_cap_save_buffer fndecl 4 56466 NULL
 banks_mca_config_56472_fns banks mca_config 0 56472 NULL
 pp_read_fndecl_56489_fns pp_read fndecl 3 56489 NULL
+batadv_socket_receive_packet_fndecl_56509_fns batadv_socket_receive_packet fndecl 2 56509 NULL
 __vb2_wait_for_done_vb_fndecl_56525_fns __vb2_wait_for_done_vb fndecl 0 56525 NULL
 vp_modern_find_vqs_fndecl_56530_fns vp_modern_find_vqs fndecl 2 56530 NULL
 cachefiles_cook_key_fndecl_56553_fns cachefiles_cook_key fndecl 2 56553 NULL
@@ -4376,6 +4451,7 @@ ip_setsockopt_fndecl_57308_fns ip_setsockopt fndecl 0-5 57308 NULL
 aggr_size_rx_size_read_fndecl_57317_fns aggr_size_rx_size_read fndecl 3 57317 NULL
 fb_read_fndecl_57329_fns fb_read fndecl 3 57329 NULL
 page_bytes_remain_capsule_info_57335_fns page_bytes_remain capsule_info 0 57335 NULL
+musb_test_mode_write_fndecl_57341_fns musb_test_mode_write fndecl 3 57341 NULL
 setup_glists_fndecl_57343_fns setup_glists fndecl 3 57343 NULL
 lbs_debugfs_write_fndecl_57358_fns lbs_debugfs_write fndecl 3 57358 NULL
 asix_read_cmd_fndecl_57362_fns asix_read_cmd fndecl 5 57362 NULL
@@ -4406,6 +4482,7 @@ partition_sched_domains_fndecl_57727_fns partition_sched_domains fndecl 1 57727 
 hi6220_register_clkdiv_fndecl_57729_fns hi6220_register_clkdiv fndecl 7 57729 NULL
 max_devs_vardecl_aic94xx_hwi_c_57731_fns max_devs vardecl_aic94xx_hwi.c 0 57731 NULL
 compat_sys_io_getevents_fndecl_57736_fns compat_sys_io_getevents fndecl 3 57736 NULL
+batadv_socket_read_fndecl_57746_fns batadv_socket_read fndecl 3 57746 NULL
 raydium_i2c_send_message_fndecl_57747_fns raydium_i2c_send_message fndecl 4 57747 NULL
 acpi_ex_convert_to_ascii_fndecl_57750_fns acpi_ex_convert_to_ascii fndecl 0 57750 NULL
 cache_write_pipefs_fndecl_57757_fns cache_write_pipefs fndecl 3 57757 NULL
@@ -4445,11 +4522,13 @@ do_ip_vs_set_ctl_fndecl_58130_fns do_ip_vs_set_ctl fndecl 4 58130 NULL
 n_bitrates_ieee80211_supported_band_58136_fns n_bitrates ieee80211_supported_band 0 58136 NULL nohasharray
 ll_rw_extents_stats_pp_seq_write_fndecl_58136_fns ll_rw_extents_stats_pp_seq_write fndecl 3 58136 &n_bitrates_ieee80211_supported_band_58136_fns
 nvif_object_init_fndecl_58137_fns nvif_object_init fndecl 5 58137 NULL
+qsfp2_debugfs_read_fndecl_58142_fns qsfp2_debugfs_read fndecl 3 58142 NULL
 altera_drscan_fndecl_58153_fns altera_drscan fndecl 2 58153 NULL
 cui_nextents_xfs_cui_log_format_58174_fns cui_nextents xfs_cui_log_format 0 58174 NULL
 total_num_uuars_mlx5_ib_alloc_ucontext_req_v2_58191_fns total_num_uuars mlx5_ib_alloc_ucontext_req_v2 0 58191 NULL
 npages_ttm_page_pool_58200_fns npages ttm_page_pool 0 58200 NULL nohasharray
 nvmet_rdma_alloc_cmds_fndecl_58200_fns nvmet_rdma_alloc_cmds fndecl 2 58200 &npages_ttm_page_pool_58200_fns
+lpfc_idiag_drbacc_write_fndecl_58203_fns lpfc_idiag_drbacc_write fndecl 3 58203 NULL
 __pci_enable_msix_range_fndecl_58224_fns __pci_enable_msix_range fndecl 4 58224 NULL
 ubifs_jnl_write_data_fndecl_58229_fns ubifs_jnl_write_data fndecl 5 58229 NULL
 spi_replace_transfers_fndecl_58231_fns spi_replace_transfers fndecl 6-4 58231 NULL
@@ -4539,6 +4618,7 @@ mvumi_alloc_mem_resource_fndecl_59285_fns mvumi_alloc_mem_resource fndecl 3 5928
 alloc_sched_domains_fndecl_59295_fns alloc_sched_domains fndecl 1 59295 NULL
 posix_acl_fix_xattr_from_user_fndecl_59298_fns posix_acl_fix_xattr_from_user fndecl 2 59298 NULL
 qib_copy_sge_fndecl_59314_fns qib_copy_sge fndecl 3 59314 NULL
+pinconf_dbg_config_write_fndecl_59336_fns pinconf_dbg_config_write fndecl 3 59336 NULL
 tree_mod_log_insert_move_fndecl_59356_fns tree_mod_log_insert_move fndecl 5 59356 NULL
 base_tsn_sctp_tsnmap_59358_fns base_tsn sctp_tsnmap 0 59358 NULL
 buf_len_i40e_arq_event_info_59370_fns buf_len i40e_arq_event_info 0 59370 NULL
@@ -4690,7 +4770,8 @@ spk_ys_vardecl_61196_fns spk_ys vardecl 0 61196 NULL
 add_qgroup_rb_fndecl_61197_fns add_qgroup_rb fndecl 2 61197 NULL
 radar_debug_mode_read_fndecl_61223_fns radar_debug_mode_read fndecl 3 61223 NULL
 hidraw_get_report_fndecl_61242_fns hidraw_get_report fndecl 3 61242 NULL
-rcar_dmac_prep_dma_cyclic_fndecl_61249_fns rcar_dmac_prep_dma_cyclic fndecl 4-3 61249 NULL
+rcar_dmac_prep_dma_cyclic_fndecl_61249_fns rcar_dmac_prep_dma_cyclic fndecl 4-3 61249 NULL nohasharray
+i2c2_debugfs_write_fndecl_61249_fns i2c2_debugfs_write fndecl 3 61249 &rcar_dmac_prep_dma_cyclic_fndecl_61249_fns
 CombinedStatusBufferLength_DAC960_Controller_61253_fns CombinedStatusBufferLength DAC960_Controller 0 61253 NULL
 smk_write_ambient_fndecl_61288_fns smk_write_ambient fndecl 3 61288 NULL
 ufx_i2c_configure_fndecl_61311_fns ufx_i2c_configure fndecl 0 61311 NULL
@@ -4734,7 +4815,9 @@ smt_add_frame_len_fndecl_61748_fns smt_add_frame_len fndecl 2 61748 NULL
 nr_fingers_f11_2d_sensor_queries_61756_fns nr_fingers f11_2d_sensor_queries 0 61756 NULL nohasharray
 SYSC_add_key_fndecl_61756_fns SYSC_add_key fndecl 4 61756 &nr_fingers_f11_2d_sensor_queries_61756_fns
 len_s_skfp_ioctl_61764_fns len s_skfp_ioctl 0 61764 NULL
+__qsfp_debugfs_read_fndecl_61803_fns __qsfp_debugfs_read fndecl 3 61803 NULL
 ttm_get_pages_fndecl_61821_fns ttm_get_pages fndecl 2 61821 NULL
+tracing_resize_saved_cmdlines_fndecl_61823_fns tracing_resize_saved_cmdlines fndecl 1 61823 NULL
 SYSC_set_mempolicy_fndecl_61827_fns SYSC_set_mempolicy fndecl 3 61827 NULL
 num_virt_counters_op_x86_model_spec_61835_fns num_virt_counters op_x86_model_spec 0 61835 NULL
 size_rocker_dma_ring_info_61839_fns size rocker_dma_ring_info 0 61839 NULL
@@ -4757,7 +4840,8 @@ cfg80211_inform_bss_data_fndecl_62065_fns cfg80211_inform_bss_data fndecl 9 6206
 do_tty_write_fndecl_62067_fns do_tty_write fndecl 5 62067 NULL
 max_xid_bnx2fc_hba_62096_fns max_xid bnx2fc_hba 0 62096 NULL
 ofdpa_group_l2_flood_fndecl_62112_fns ofdpa_group_l2_flood fndecl 5 62112 NULL
-tx_queue_status_read_fndecl_62113_fns tx_queue_status_read fndecl 3 62113 NULL
+tx_queue_status_read_fndecl_62113_fns tx_queue_status_read fndecl 3 62113 NULL nohasharray
+__i2c_debugfs_write_fndecl_62113_fns __i2c_debugfs_write fndecl 3 62113 &tx_queue_status_read_fndecl_62113_fns
 bo_offset_vmw_surface_offset_62116_fns bo_offset vmw_surface_offset 0 62116 NULL
 sched_read_attr_fndecl_62123_fns sched_read_attr fndecl 3 62123 NULL
 ofdpa_port_vlan_to_vid_fndecl_62138_fns ofdpa_port_vlan_to_vid fndecl 0 62138 NULL
@@ -4890,6 +4974,7 @@ msix_count_skd_device_63760_fns msix_count skd_device 0 63760 NULL
 index_isi_board_63762_fns index isi_board 0 63762 NULL
 insn_size_kprobe_insn_cache_63777_fns insn_size kprobe_insn_cache 0 63777 NULL
 __hwahc_op_set_gtk_fndecl_63781_fns __hwahc_op_set_gtk fndecl 4 63781 NULL
+alloc_trace_kprobe_fndecl_63786_fns alloc_trace_kprobe fndecl 6 63786 NULL
 ioaccel_maxsg_ctlr_info_63798_fns ioaccel_maxsg ctlr_info 0 63798 NULL
 acpi_ut_create_buffer_object_fndecl_63805_fns acpi_ut_create_buffer_object fndecl 1 63805 NULL
 iwl_mvm_scan_size_fndecl_63834_fns iwl_mvm_scan_size fndecl 0 63834 NULL
@@ -4920,6 +5005,7 @@ set_arg_fndecl_64091_fns set_arg fndecl 3 64091 NULL
 cxgbi_hbas_add_fndecl_64102_fns cxgbi_hbas_add fndecl 3 64102 NULL
 rx_mini_pending_ethtool_ringparam_64104_fns rx_mini_pending ethtool_ringparam 0 64104 NULL
 nvme_trans_unit_serial_page_fndecl_64108_fns nvme_trans_unit_serial_page fndecl 4 64108 NULL
+btmrvl_fwdump_write_fndecl_64113_fns btmrvl_fwdump_write fndecl 3 64113 NULL
 of_property_count_strings_fndecl_64124_fns of_property_count_strings fndecl 0 64124 NULL
 xpc_kmalloc_cacheline_aligned_fndecl_64156_fns xpc_kmalloc_cacheline_aligned fndecl 1 64156 NULL
 sctp_getsockopt_maxburst_fndecl_64174_fns sctp_getsockopt_maxburst fndecl 2 64174 NULL

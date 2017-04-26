@@ -1851,8 +1851,10 @@ gr_set_proc_label(const struct dentry *dentry, const struct vfsmount *mnt,
 	     !(task->acl->mode & (GR_LEARN | GR_INHERITLEARN))) {
 		if (unsafe_flags & LSM_UNSAFE_SHARE)
 			gr_log_fs_generic(GR_DONT_AUDIT, GR_UNSAFESHARE_EXEC_ACL_MSG, dentry, mnt);
-		else
+		else if (unsafe_flags & (LSM_UNSAFE_PTRACE_CAP | LSM_UNSAFE_PTRACE))
 			gr_log_fs_generic(GR_DONT_AUDIT, GR_PTRACE_EXEC_ACL_MSG, dentry, mnt);
+		else
+			gr_log_fs_generic(GR_DONT_AUDIT, GR_NNP_EXEC_ACL_MSG, dentry, mnt);
 		return -EACCES;
 	}
 

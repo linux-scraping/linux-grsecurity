@@ -209,9 +209,8 @@ do_trap_no_signal(struct task_struct *tsk, int trapnr, const char *str,
 		}
 
 #ifdef CONFIG_PAX_REFCOUNT
-		if (trapnr == X86_REFCOUNT_VECTOR) {
+		if (trapnr == X86_REFCOUNT_VECTOR)
 			pax_report_refcount_error(regs, str);
-		}
 #endif
 
 		return 0;
